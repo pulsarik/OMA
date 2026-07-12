@@ -339,6 +339,18 @@ test('evaluates current player combo from open board cards', () => {
   expect(combo?.highCombo?.filter(card => card.source === 'board')).toHaveLength(3);
 });
 
+test('evaluates trips when exactly two hand cards and paired board cards are used', () => {
+  const combo = evaluatePlayerCombo(
+    ['9s', '4h', '3d', 'Ks'],
+    ['Jh', 'Td', '3h', '7h', '3c'],
+  );
+
+  expect(combo?.highRank).toBe('three of a kind');
+  expect(combo?.highCards).toEqual(['3d', 'Ks', 'Jh', '3h', '3c']);
+  expect(combo?.highCombo?.filter(card => card.source === 'hole')).toHaveLength(2);
+  expect(combo?.highCombo?.filter(card => card.source === 'board')).toHaveLength(3);
+});
+
 test('deal rejects more players than one deck can support', () => {
   expect(() => dealHand(12, 12345)).toThrow('too many players');
 });

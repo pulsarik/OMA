@@ -1565,6 +1565,20 @@ export default function App() {
     }));
   }
 
+  function replayLatestDeal() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setHomeNotice('Connecting to server. Try again in a moment.');
+      return;
+    }
+    if (!latestDeal?.data?.id) {
+      setHomeNotice('Create a deal first.');
+      return;
+    }
+
+    setHomeNotice('Creating replay deal.');
+    ws.send(JSON.stringify({ action: 'replay_deal', handId: latestDeal.data.id }));
+  }
+
   return (
     <div
       style={{
@@ -1667,6 +1681,13 @@ export default function App() {
                 {handLabel(latestDeal.data.handCode, latestDeal.data.handNumber, latestDeal.data.id)}
                 {latestDeal.data.dealCode ? ` / ${latestDeal.data.dealCode}` : ''}
               </span>
+              <button
+                onClick={replayLatestDeal}
+                disabled={!homeSocketReady}
+                style={{ padding: '5px 9px', fontWeight: 700 }}
+              >
+                Replay deal
+              </button>
             </div>
             <div style={{ display: 'grid', gap: 8 }}>
               {latestDeal.data.playerLinks.map((link) => (
