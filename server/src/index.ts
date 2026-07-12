@@ -9,6 +9,7 @@ import {
   MAX_RAISES_PER_STREET,
   POT_COINS,
   dealHand,
+  dealHandFromCode,
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
   nextPartyHand,
@@ -328,7 +329,7 @@ async function findHandByQuery(query: string) {
   if (!text) return null;
 
   const hands = await store.listAllHands();
-  return hands
+  const savedHand = hands
     .map((hand: any) => normalizeHand(hand))
     .sort((a: any, b: any) => (b.created ?? 0) - (a.created ?? 0))
     .find((hand: any) => (
@@ -336,7 +337,17 @@ async function findHandByQuery(query: string) {
       || hand.handCode?.toUpperCase() === text
       || hand.dealCode?.toUpperCase() === text
       || hand.handNumber === Number(text)
-    )) ?? null;
+    ));
+
+  if (savedHand) return savedHand;
+
+  try {
+    const restoredHand = dealHandFromCode(text);
+    await store.saveHand(restoredHand);
+    return restoredHand;
+  } catch {
+    return null;
+  }
 }
 
 app.get('/admin/hands', async (req, res) => {

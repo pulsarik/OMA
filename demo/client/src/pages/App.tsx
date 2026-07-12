@@ -1824,13 +1824,13 @@ export default function App() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <strong style={{ color: '#475569' }}>Replay</strong>
             <input
-              placeholder="HA0001"
+              placeholder="OMA1-P2-S..."
               value={homeReplayQuery}
               onChange={(event) => {
                 setHomeReplayQuery(event.target.value);
                 setHomeReplayError(null);
               }}
-              style={{ width: 110, padding: '7px 9px', border: '1px solid #cbd5e1', borderRadius: 6 }}
+              style={{ width: 150, padding: '7px 9px', border: '1px solid #cbd5e1', borderRadius: 6 }}
             />
             <button
               onClick={replayDealByQuery}
