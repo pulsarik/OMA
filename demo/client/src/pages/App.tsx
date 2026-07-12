@@ -854,6 +854,45 @@ function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: strin
   return [...(actions ?? [])].reverse().find((action) => action.playerId === playerId);
 }
 
+function RecentActions({ player }: { player: PlayerView }) {
+  const recent = [...(player.actions ?? [])].slice(-8).reverse();
+  if (!recent.length) return null;
+
+  return (
+    <section
+      style={{
+        marginTop: 8,
+        border: '1px solid #cbd5e1',
+        borderRadius: 8,
+        background: '#fff',
+        padding: 10,
+        display: 'grid',
+        gap: 8,
+      }}
+    >
+      <strong>Last actions</strong>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {recent.map((action) => (
+          <span
+            key={`${action.stage}-${action.playerId}-${action.at}`}
+            style={{
+              border: '1px solid #cbd5e1',
+              borderRadius: 999,
+              background: action.move === 'fold' ? '#fee2e2' : '#eef2ff',
+              color: action.move === 'fold' ? '#7f1d1d' : '#1e3a8a',
+              padding: '4px 9px',
+              fontSize: 13,
+              fontWeight: 800,
+            }}
+          >
+            {playerLabel(player.players, action.playerId)}: {action.move}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function playerResult(result: HiLoResult, id: string) {
   return result.players.find((player) => player.id === id);
 }
@@ -1389,6 +1428,8 @@ function PlayerPage() {
           />
         </div>
       </div>
+
+      <RecentActions player={player} />
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {canAct && callAmount === 0 ? (
