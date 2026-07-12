@@ -728,6 +728,7 @@ function PlayerSeat({
   cardCount,
   compact = false,
   score = 0,
+  action,
 }: {
   id: string;
   folded: boolean;
@@ -736,8 +737,10 @@ function PlayerSeat({
   cardCount: number;
   compact?: boolean;
   score?: number;
+  action?: ActionLog;
 }) {
   const shouldShowCards = Boolean(hole?.length);
+  const actionText = action ? `${action.stage}: ${action.move}` : undefined;
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
@@ -758,6 +761,27 @@ function PlayerSeat({
           <h3 style={{ margin: '0 0 8px' }}>
             {id}{isYou ? ' (you)' : ''}{folded ? ' - folded' : ''}
           </h3>
+        ) : null}
+        {actionText ? (
+          <span
+            title={`Last action: ${actionText}`}
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              border: '1px solid #cbd5e1',
+              borderRadius: 999,
+              background: action.move === 'fold' ? '#fee2e2' : '#eef2ff',
+              color: action.move === 'fold' ? '#7f1d1d' : '#1e3a8a',
+              padding: '2px 6px',
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1.1,
+              boxShadow: '0 1px 3px rgba(15,23,42,0.18)',
+            }}
+          >
+            {action.move}
+          </span>
         ) : null}
         {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
       </section>
@@ -800,6 +824,10 @@ function formatPoints(value: number) {
 
 function totalScore(score: PartyScore | undefined, playerId: string) {
   return score?.totals.find((item) => item.id === playerId)?.total ?? 0;
+}
+
+function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string) {
+  return [...(actions ?? [])].reverse().find((action) => action.playerId === playerId);
 }
 
 function playerResult(result: HiLoResult, id: string) {
@@ -1300,6 +1328,7 @@ function PlayerPage() {
               cardCount={seat.cardCount}
               compact
               score={totalScore(player.partyScore, seat.id)}
+              action={latestActionForPlayer(player.actions, seat.id)}
             />
           ))}
         </div>
@@ -1330,6 +1359,7 @@ function PlayerPage() {
             cardCount={player.hole.length}
             compact
             score={totalScore(player.partyScore, player.playerId)}
+            action={latestActionForPlayer(player.actions, player.playerId)}
           />
         </div>
       </div>
