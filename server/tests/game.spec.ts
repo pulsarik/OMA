@@ -272,6 +272,23 @@ test('checking through all streets reaches showdown', () => {
   expect(hand.community).toEqual(hand.fullCommunity);
 });
 
+test('players who reach final showdown reveal automatically', () => {
+  const hand = dealHand(2, 12345);
+
+  recordPlayerMove(hand, 'P1', 'call');
+  recordPlayerMove(hand, 'P2', 'check');
+  recordPlayerMove(hand, 'P1', 'check');
+  recordPlayerMove(hand, 'P2', 'check');
+  recordPlayerMove(hand, 'P1', 'check');
+  recordPlayerMove(hand, 'P2', 'check');
+  recordPlayerMove(hand, 'P1', 'check');
+  recordPlayerMove(hand, 'P2', 'check');
+
+  expect(hand.stage).toBe('showdown');
+  expect(hand.cardsRevealed).toBe(true);
+  expect(hand.revealVotes).toEqual(['P1', 'P2']);
+});
+
 test('folding everyone but one player moves hand to showdown', () => {
   const hand = dealHand(3, 12345);
 
@@ -284,17 +301,10 @@ test('folding everyone but one player moves hand to showdown', () => {
   expect(hand.players.find(p => p.id === 'P2')?.folded).toBe(false);
 });
 
-test('cards reveal only after every player agrees at showdown', () => {
+test('cards reveal by agreement after showdown caused by folds', () => {
   const hand = dealHand(2, 12345);
 
-  recordPlayerMove(hand, 'P1', 'call');
-  recordPlayerMove(hand, 'P2', 'check');
-  recordPlayerMove(hand, 'P1', 'check');
-  recordPlayerMove(hand, 'P2', 'check');
-  recordPlayerMove(hand, 'P1', 'check');
-  recordPlayerMove(hand, 'P2', 'check');
-  recordPlayerMove(hand, 'P1', 'check');
-  recordPlayerMove(hand, 'P2', 'check');
+  recordPlayerMove(hand, 'P1', 'fold');
 
   recordRevealVote(hand, 'P1');
   expect(hand.cardsRevealed).toBe(false);

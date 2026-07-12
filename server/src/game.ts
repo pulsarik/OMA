@@ -206,6 +206,10 @@ function finishHand(hand: DealtHand) {
   hand.currentPlayerId = undefined;
   resetBettingRound(hand);
   hand.community = visibleCommunity(hand);
+  if (activePlayers(hand).length > 1 && hand.fullCommunity.length >= COMMUNITY_CARDS) {
+    hand.cardsRevealed = true;
+    hand.revealVotes = hand.players.map(player => player.id);
+  }
 }
 
 function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
@@ -227,6 +231,10 @@ function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
     resetBettingRound(hand);
     hand.currentPlayerId = hand.stage === 'showdown' ? undefined : firstActivePlayer(hand)?.id;
     hand.community = visibleCommunity(hand);
+    if (hand.stage === 'showdown' && activePlayers(hand).length > 1) {
+      hand.cardsRevealed = true;
+      hand.revealVotes = hand.players.map(player => player.id);
+    }
     return;
   }
 
