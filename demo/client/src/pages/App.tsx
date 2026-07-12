@@ -769,41 +769,6 @@ function PlayerSeat({
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
-      {action ? (
-        <div
-          title={`Last action: ${actionText}`}
-          style={{
-            position: 'relative',
-            alignSelf: 'flex-start',
-            marginTop: compact ? 4 : 12,
-            border: '1px solid #cbd5e1',
-            borderRadius: 8,
-            background: action.move === 'fold' ? '#fee2e2' : '#fff',
-            color: action.move === 'fold' ? '#7f1d1d' : '#0f172a',
-            padding: '5px 9px',
-            fontSize: compact ? 13 : 14,
-            fontWeight: 900,
-            lineHeight: 1,
-            boxShadow: '0 2px 7px rgba(15,23,42,0.18)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {action.move}
-          <span
-            style={{
-              position: 'absolute',
-              right: -7,
-              top: 12,
-              width: 12,
-              height: 12,
-              borderTop: '1px solid #cbd5e1',
-              borderRight: '1px solid #cbd5e1',
-              background: action.move === 'fold' ? '#fee2e2' : '#fff',
-              transform: 'rotate(45deg)',
-            }}
-          />
-        </div>
-      ) : null}
       <section
         style={{
           border: isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
@@ -840,6 +805,42 @@ function PlayerSeat({
           >
             BOT
           </span>
+        ) : null}
+        {action ? (
+          <div
+            title={`Last action: ${actionText}`}
+            style={{
+              position: 'absolute',
+              top: -18,
+              right: 8,
+              zIndex: 2,
+              border: '1px solid #cbd5e1',
+              borderRadius: 8,
+              background: action.move === 'fold' ? '#fee2e2' : '#fff',
+              color: action.move === 'fold' ? '#7f1d1d' : '#0f172a',
+              padding: '5px 9px',
+              fontSize: compact ? 13 : 14,
+              fontWeight: 900,
+              lineHeight: 1,
+              boxShadow: '0 2px 7px rgba(15,23,42,0.2)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {action.move}
+            <span
+              style={{
+                position: 'absolute',
+                right: 10,
+                bottom: -6,
+                width: 10,
+                height: 10,
+                borderRight: '1px solid #cbd5e1',
+                borderBottom: '1px solid #cbd5e1',
+                background: action.move === 'fold' ? '#fee2e2' : '#fff',
+                transform: 'rotate(45deg)',
+              }}
+            />
+          </div>
         ) : null}
         {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
       </section>
