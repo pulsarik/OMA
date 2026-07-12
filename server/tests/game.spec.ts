@@ -85,6 +85,18 @@ test('next party hand preserves player names', () => {
   expect(next.players.map(player => player.name)).toEqual(['Alice', 'Bob']);
 });
 
+test('next party and replay hands preserve bot seats', () => {
+  const hand = dealHand(2, 12345, ['Alice', 'Bot'], [false, true]);
+  hand.stage = 'showdown';
+
+  const next = nextPartyHand(hand);
+  const replay = replayHandLayout(hand);
+
+  expect(hand.players.map(player => Boolean(player.isBot))).toEqual([false, true]);
+  expect(next.players.map(player => Boolean(player.isBot))).toEqual([false, true]);
+  expect(replay.players.map(player => Boolean(player.isBot))).toEqual([false, true]);
+});
+
 test('blind positions rotate by hand number', () => {
   const hand = dealHand(3, 12345);
 

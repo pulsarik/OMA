@@ -119,6 +119,7 @@ type PlayerView = {
   replayOfHandId?: string;
   playerId: string;
   playerName?: string;
+  isBot?: boolean;
   stack: number;
   potCoins: number;
   currentBet: number;
@@ -131,6 +132,7 @@ type PlayerView = {
   players: Array<{
     id: string;
     name?: string;
+    isBot?: boolean;
     stack?: number;
     folded: boolean;
     cardCount: number;
@@ -204,6 +206,7 @@ type DealMessage = {
     playerLinks?: Array<{
       id: string;
       name?: string;
+      isBot?: boolean;
       url: string;
     }>;
   };
@@ -724,6 +727,7 @@ function PlayerSeat({
   id,
   folded,
   isYou,
+  isBot,
   hole,
   cardCount,
   compact = false,
@@ -733,6 +737,7 @@ function PlayerSeat({
   id: string;
   folded: boolean;
   isYou: boolean;
+  isBot?: boolean;
   hole?: string[];
   cardCount: number;
   compact?: boolean;
@@ -759,8 +764,27 @@ function PlayerSeat({
       >
         {!compact ? (
           <h3 style={{ margin: '0 0 8px' }}>
-            {id}{isYou ? ' (you)' : ''}{folded ? ' - folded' : ''}
+            {id}{isYou ? ' (you)' : ''}{isBot ? ' [bot]' : ''}{folded ? ' - folded' : ''}
           </h3>
+        ) : null}
+        {isBot ? (
+          <span
+            style={{
+              position: 'absolute',
+              top: 4,
+              left: 4,
+              border: '1px solid #bbf7d0',
+              borderRadius: 999,
+              background: '#dcfce7',
+              color: '#166534',
+              padding: '2px 6px',
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1.1,
+            }}
+          >
+            BOT
+          </span>
         ) : null}
         {actionText ? (
           <span
@@ -1258,7 +1282,7 @@ function PlayerPage() {
   if (error) return <div style={{ padding: 12 }}>Error: {error}</div>;
   if (!player) return <div style={{ padding: 12 }}>Loading...</div>;
 
-  const canAct = socketReady && player.stage !== 'showdown' && !player.folded && player.currentPlayerId === player.playerId;
+  const canAct = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
@@ -1324,6 +1348,7 @@ function PlayerPage() {
               id={seat.id}
               folded={seat.folded}
               isYou={false}
+              isBot={seat.isBot}
               hole={seat.hole}
               cardCount={seat.cardCount}
               compact
@@ -1355,6 +1380,7 @@ function PlayerPage() {
             id={player.playerId}
             folded={player.folded}
             isYou
+            isBot={player.isBot}
             hole={player.hole}
             cardCount={player.hole.length}
             compact
@@ -1528,6 +1554,7 @@ export default function App() {
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
   const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
+  const [playerBots, setPlayerBots] = useState<boolean[]>([false, false]);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
 
@@ -1573,6 +1600,7 @@ export default function App() {
     setPlayerNames((current) => Array.from({ length: players }, (_, index) => (
       current[index] ?? `Player ${index + 1}`
     )));
+    setPlayerBots((current) => Array.from({ length: players }, (_, index) => Boolean(current[index])));
   }, [players]);
 
   useEffect(() => {
@@ -1607,6 +1635,7 @@ export default function App() {
       action: 'deal',
       players,
       playerNames: playerNames.map((name, index) => name.trim() || `Player ${index + 1}`),
+      playerBots,
     }));
   }
 
@@ -1695,7 +1724,7 @@ export default function App() {
                 key={index}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '42px minmax(160px, 1fr)',
+                  gridTemplateColumns: '42px minmax(140px, 1fr) 78px',
                   alignItems: 'center',
                   gap: 8,
                 }}
@@ -1709,6 +1738,22 @@ export default function App() {
                   placeholder={`Player ${index + 1}`}
                   style={{ padding: '7px 9px', border: '1px solid #cbd5e1', borderRadius: 6 }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setPlayerBots((current) => current.map((item, itemIndex) => (
+                    itemIndex === index ? !item : item
+                  )))}
+                  style={{
+                    padding: '7px 9px',
+                    border: `1px solid ${playerBots[index] ? '#16a34a' : '#cbd5e1'}`,
+                    borderRadius: 6,
+                    background: playerBots[index] ? '#dcfce7' : '#fff',
+                    color: playerBots[index] ? '#166534' : '#334155',
+                    fontWeight: 800,
+                  }}
+                >
+                  {playerBots[index] ? 'Bot' : 'Human'}
+                </button>
               </label>
             ))}
           </div>
@@ -1762,7 +1807,9 @@ export default function App() {
                   }}
                 >
                   <strong>{link.name ?? link.id}</strong>
-                  <span style={{ color: '#2563eb' }}>Open</span>
+                  <span style={{ color: link.isBot ? '#166534' : '#2563eb' }}>
+                    {link.isBot ? 'Bot' : 'Open'}
+                  </span>
                 </a>
               ))}
             </div>

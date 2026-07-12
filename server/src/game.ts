@@ -34,6 +34,7 @@ export type PlayerMove = 'check' | 'bet' | 'call' | 'raise' | 'fold';
 export type PlayerHand = {
   id: string;
   name?: string;
+  isBot?: boolean;
   token: string;
   hole: string[];
   folded: boolean;
@@ -144,6 +145,7 @@ export function normalizeHand(hand: DealtHand) {
   hand.players.forEach(player => {
     player.folded = Boolean(player.folded);
     player.name = player.name?.trim() || undefined;
+    player.isBot = Boolean(player.isBot);
     player.stack = Math.max(0, player.stack ?? STARTING_STACK);
   });
   if (hand.stage !== 'showdown' && !hand.currentPlayerId) {
@@ -603,7 +605,7 @@ export function stacksAfterPayout(hand: DealtHand) {
   return stacks;
 }
 
-export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = []): DealtHand {
+export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = [], playerBots: boolean[] = []): DealtHand {
   if (!Number.isInteger(players) || players < 1) {
     throw new Error('players must be a positive integer');
   }
@@ -626,6 +628,7 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
       token: uuidv4(),
       hole: deck.splice(0, CARDS_PER_PLAYER),
       folded: false,
+      isBot: Boolean(playerBots[p]),
       stack: STARTING_STACK,
     });
   }
@@ -663,7 +666,12 @@ export function dealHandFromCode(dealCode: string, playerNames: string[] = []) {
 
 export function nextPartyHand(previous: DealtHand): DealtHand {
   normalizeHand(previous);
-  const hand = dealHand(previous.players.length, undefined, previous.players.map(player => player.name ?? ''));
+  const hand = dealHand(
+    previous.players.length,
+    undefined,
+    previous.players.map(player => player.name ?? ''),
+    previous.players.map(player => Boolean(player.isBot)),
+  );
   hand.partyId = previous.partyId;
   hand.partyCode = previous.partyCode;
   hand.handNumber = previous.handNumber + 1;
@@ -672,6 +680,7 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   hand.players = hand.players.map((player, index) => ({
     ...player,
     id: previous.players[index]?.id ?? player.id,
+    isBot: Boolean(previous.players[index]?.isBot),
     stack: stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK,
     folded: (stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK) <= 0,
   }));
@@ -689,6 +698,7 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   hand.players = source.players.map((player) => ({
     id: player.id,
     name: player.name,
+    isBot: Boolean(player.isBot),
     token: uuidv4(),
     hole: [...player.hole],
     folded: false,
