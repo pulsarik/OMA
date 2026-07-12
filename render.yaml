@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: omaha-hi-lo-pov
+    runtime: node
+    plan: free
+    buildCommand: npm --prefix server ci && npm --prefix demo/client ci && npm --prefix server run build && npm --prefix demo/client run build
+    startCommand: node server/dist/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production

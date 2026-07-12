@@ -1,0 +1,471 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f3f4f6;
+      color: #111827;
+      font-family: system-ui, sans-serif;
+    }
+
+    h1, h2, h3, p {
+      margin-top: 0;
+    }
+
+    button {
+      border: 1px solid #9ca3af;
+      border-radius: 6px;
+      background: #fff;
+      padding: 6px 10px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(260px, 380px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .pager {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .deal-form {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .deal-form label {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    input {
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 6px 8px;
+      font: inherit;
+    }
+
+    .links {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .link-card {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #f9fafb;
+    }
+
+    .hand-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .hand-button {
+      width: 100%;
+      text-align: left;
+    }
+
+    .muted {
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      width: 72px;
+      height: 104px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 8px;
+      box-sizing: border-box;
+      font-weight: 700;
+    }
+
+    .rank {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .suit {
+      display: grid;
+      place-items: center;
+      font-size: 34px;
+    }
+
+    .bottom {
+      transform: rotate(180deg);
+    }
+
+    .red {
+      color: #c21f32;
+    }
+
+    .black {
+      color: #111827;
+    }
+
+    .players {
+      display: grid;
+      gap: 18px;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        padding: 16px;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Admin - Hands</h1>
+  <div class="layout">
+    <section class="panel">
+      <h2>New deal</h2>
+      <div class="deal-form">
+        <label>
+          Players
+          <input id="newPlayers" type="number" min="1" max="11" value="2" onchange="syncNameInputs()">
+        </label>
+        <div id="playerNames"></div>
+        <button onclick="createNewParty()">New deal</button>
+        <p id="dealStatus" class="muted"></p>
+        <div id="dealLinks" class="links"></div>
+      </div>
+      <hr>
+      <div class="toolbar">
+        <h2>History</h2>
+        <button onclick="loadPage(offset)">Refresh</button>
+      </div>
+      <p id="range" class="muted"></p>
+      <div id="hands" class="hand-list">Loading...</div>
+      <div class="pager">
+        <button id="newer" onclick="loadPage(offset - PAGE_SIZE)">Newer</button>
+        <button id="older" onclick="loadPage(offset + PAGE_SIZE)">Older</button>
+      </div>
+    </section>
+    <main id="details" class="panel">
+      Select a hand.
+    </main>
+  </div>
+
+  <script>
+    const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
+    const API_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
+    const WS_URL = isLocalVite
+      ? 'ws://localhost:4000'
+      : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
+    const PAGE_SIZE = 20;
+    const suitSymbols = { s: '&spades;', h: '&hearts;', d: '&diams;', c: '&clubs;' };
+    const rankLabels = { T: '10', J: 'J', Q: 'Q', K: 'K', A: 'A' };
+    let offset = 0;
+    let total = 0;
+    let ws;
+    let lastNames = ['Player 1', 'Player 2'];
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function cardHtml(code) {
+      const rank = code.slice(0, -1).toUpperCase();
+      const suit = code.slice(-1).toLowerCase();
+      const colorClass = suit === 'h' || suit === 'd' ? 'red' : 'black';
+      const rankText = rankLabels[rank] || rank;
+      const suitText = suitSymbols[suit] || escapeHtml(suit);
+
+      return `
+        <div class="card ${colorClass}" title="${escapeHtml(code)}">
+          <div class="rank">${escapeHtml(rankText)}</div>
+          <div class="suit">${suitText}</div>
+          <div class="rank bottom">${escapeHtml(rankText)}</div>
+        </div>
+      `;
+    }
+
+    function cardsHtml(cards) {
+      return `<div class="cards">${cards.map(cardHtml).join('')}</div>`;
+    }
+
+    function formatPoints(value) {
+      return Number.isInteger(value) ? String(value) : value.toFixed(2);
+    }
+
+    function handLabel(hand) {
+      return hand.handCode || (hand.handNumber ? `#${hand.handNumber}` : hand.id.slice(0, 8));
+    }
+
+    function partyLabel(hand) {
+      return hand.partyCode || hand.partyId?.slice(0, 8) || '-';
+    }
+
+    function syncNameInputs() {
+      const count = Math.min(Math.max(Number(document.getElementById('newPlayers').value) || 1, 1), 11);
+      document.getElementById('newPlayers').value = String(count);
+      const root = document.getElementById('playerNames');
+      lastNames = Array.from({ length: count }, (_, index) => lastNames[index] || `Player ${index + 1}`);
+      root.innerHTML = lastNames.map((name, index) => `
+        <label>
+          P${index + 1}
+          <input id="playerName${index}" value="${escapeHtml(name)}" placeholder="Player ${index + 1}" oninput="readNameInputs()">
+        </label>
+      `).join('');
+    }
+
+    function readNameInputs() {
+      const count = Number(document.getElementById('newPlayers').value) || 1;
+      lastNames = Array.from({ length: count }, (_, index) => (
+        document.getElementById(`playerName${index}`)?.value || `Player ${index + 1}`
+      ));
+      return lastNames;
+    }
+
+    function connectWs() {
+      ws = new WebSocket(WS_URL);
+      ws.onopen = () => {
+        document.getElementById('dealStatus').textContent = '';
+      };
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'hand_dealt' && message.data?.playerLinks) {
+          showDealLinks(message.data);
+          loadPage(0);
+        }
+        if (message.type === 'error') {
+          document.getElementById('dealStatus').textContent = message.message || 'Could not create deal.';
+        }
+      };
+      ws.onclose = () => {
+        document.getElementById('dealStatus').textContent = 'Disconnected. Reconnecting...';
+        setTimeout(connectWs, 1000);
+      };
+    }
+
+    function createNewParty() {
+      const names = readNameInputs().map((name, index) => name.trim() || `Player ${index + 1}`);
+      const players = names.length;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        document.getElementById('dealStatus').textContent = 'Connecting. Try again in a moment.';
+        return;
+      }
+
+      document.getElementById('dealStatus').textContent = 'Creating new party...';
+      ws.send(JSON.stringify({ action: 'deal', players, playerNames: names }));
+    }
+
+    function showDealLinks(hand) {
+      document.getElementById('dealStatus').textContent = `Created ${partyLabel(hand)} / ${handLabel(hand)}`;
+      document.getElementById('dealLinks').innerHTML = hand.playerLinks.map((link) => `
+        <div class="link-card">
+          <strong>${escapeHtml(link.name || link.id)}</strong>
+          <div>
+            <a href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer">open player page</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function resultHtml(result) {
+      if (!result) return '';
+      const highWinnerDetails = result.highWinners
+        .map((id) => result.players.find((player) => player.id === id))
+        .filter(Boolean);
+      const lowWinnerDetails = result.lowWinners
+        .map((id) => result.players.find((player) => player.id === id))
+        .filter(Boolean);
+
+      return `
+        <h3>Winners</h3>
+        <p>Pot: ${formatPoints(result.potCoins)} coins</p>
+        <section>
+          <h4>High winner${highWinnerDetails.length > 1 ? 's' : ''}: ${escapeHtml(result.highWinners.join(', '))}</h4>
+          ${highWinnerDetails.map((winner) => `
+            <p>${escapeHtml(winner.id)}: ${escapeHtml(winner.highRank || '-')}</p>
+            ${winner.highCards ? cardsHtml(winner.highCards) : ''}
+          `).join('')}
+        </section>
+        <section>
+          <h4>Low winner${lowWinnerDetails.length > 1 ? 's' : ''}: ${result.noLow ? 'No qualifying low' : escapeHtml(result.lowWinners.join(', '))}</h4>
+          ${lowWinnerDetails.map((winner) => `
+            <p>${escapeHtml(winner.id)}: ${escapeHtml(winner.lowRank || '-')}</p>
+            ${winner.lowCards ? cardsHtml(winner.lowCards) : ''}
+          `).join('')}
+        </section>
+        <h4>Points</h4>
+        <table border="1" cellpadding="6" cellspacing="0">
+          <thead>
+            <tr>
+              <th>Player</th>
+              <th>High</th>
+              <th>Low</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${result.points.map((score) => `
+              <tr>
+                <td>${escapeHtml(score.id)}</td>
+                <td>${formatPoints(score.high)}</td>
+                <td>${formatPoints(score.low)}</td>
+                <td>${formatPoints(score.total)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <h4>All hands</h4>
+        ${result.players.map((player) => `
+          <section>
+            <h4>${escapeHtml(player.id)}${player.folded ? ' - folded' : ''}</h4>
+            ${player.folded ? '' : `
+              <p>High: ${escapeHtml(player.highRank || '-')}</p>
+              ${player.highCards ? cardsHtml(player.highCards) : ''}
+              <p>Low: ${escapeHtml(player.lowRank || 'no low')}</p>
+              ${player.lowCards ? cardsHtml(player.lowCards) : ''}
+            `}
+          </section>
+        `).join('')}
+      `;
+    }
+
+    function formatDate(timestamp) {
+      return new Date(timestamp).toLocaleString();
+    }
+
+    function updatePager(count) {
+      const from = total === 0 ? 0 : offset + 1;
+      const to = Math.min(offset + count, total);
+
+      document.getElementById('range').textContent = total
+        ? `Showing ${from}-${to} of ${total}`
+        : 'No hands yet.';
+      document.getElementById('newer').disabled = offset <= 0;
+      document.getElementById('older').disabled = offset + PAGE_SIZE >= total;
+    }
+
+    async function loadPage(nextOffset) {
+      offset = Math.max(nextOffset, 0);
+      const root = document.getElementById('hands');
+      root.textContent = 'Loading...';
+
+      const res = await fetch(`${API_URL}/admin/hands?limit=${PAGE_SIZE}&offset=${offset}`);
+      const page = await res.json();
+      const list = page.hands || [];
+      total = page.total || 0;
+
+      updatePager(list.length);
+
+      if (!list.length) {
+        root.textContent = 'No hands on this page.';
+        return;
+      }
+
+      root.innerHTML = list.map((hand) => `
+        <button class="hand-button" onclick="view('${escapeHtml(hand.id)}')">
+          <strong>${escapeHtml(partyLabel(hand))} / ${escapeHtml(handLabel(hand))}</strong>
+          <div class="muted">${formatDate(hand.created)}</div>
+        </button>
+      `).join('');
+    }
+
+    async function view(id) {
+      const res = await fetch(`${API_URL}/admin/hands/${encodeURIComponent(id)}`);
+      const hand = await res.json();
+      const details = document.getElementById('details');
+
+      details.innerHTML = `
+        <h2>Hand</h2>
+        <p class="muted">${escapeHtml(partyLabel(hand))} / ${escapeHtml(handLabel(hand))} - ${formatDate(hand.created)}</p>
+        <p>Pot: ${formatPoints(hand.potCoins || 2)} coins</p>
+        <p>Stage: ${escapeHtml(hand.stage || 'showdown')}</p>
+        <p>Turn: ${escapeHtml(hand.currentPlayerId || '-')}</p>
+        <p>
+          Show cards votes: ${(hand.revealVotes || []).length}/${hand.players.length}
+          ${hand.cardsRevealed ? '- cards revealed' : ''}
+        </p>
+        <h3>Board</h3>
+        ${cardsHtml(hand.fullCommunity || hand.community)}
+        ${hand.cardsRevealed ? resultHtml(hand.result) : ''}
+        <h3>Players</h3>
+        <div class="players">
+          ${hand.players.map((player) => `
+            <section>
+              <h3>${escapeHtml(player.name || player.id)}</h3>
+              ${player.folded ? '<p>Folded</p>' : ''}
+              ${cardsHtml(player.hole)}
+            </section>
+          `).join('')}
+        </div>
+        <h3>Actions</h3>
+        ${hand.actions?.length ? `
+          <ul>
+            ${hand.actions.map((action) => `
+              <li>${escapeHtml(action.stage)}: ${escapeHtml(action.playerId)} ${escapeHtml(action.move)}</li>
+            `).join('')}
+          </ul>
+        ` : '<p>No actions yet.</p>'}
+      `;
+    }
+
+    syncNameInputs();
+    connectWs();
+    loadPage(0).catch((error) => {
+      document.getElementById('hands').textContent = error.message || 'Could not load hands.';
+    });
+  </script>
+</body>
+</html>
