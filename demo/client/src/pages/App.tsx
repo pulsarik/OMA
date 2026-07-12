@@ -723,6 +723,26 @@ function PotDisplay({ value, currentBet }: { value: number; currentBet: number }
   );
 }
 
+function StreetBadge({ stage }: { stage: string }) {
+  return (
+    <span
+      style={{
+        border: '1px solid rgba(255,255,255,0.6)',
+        borderRadius: 999,
+        background: 'rgba(15,23,42,0.62)',
+        color: '#fff',
+        padding: '4px 12px',
+        fontSize: 14,
+        fontWeight: 900,
+        letterSpacing: 0,
+        textTransform: 'uppercase',
+      }}
+    >
+      {stage}
+    </span>
+  );
+}
+
 function PlayerSeat({
   id,
   folded,
@@ -1387,6 +1407,7 @@ function PlayerPage() {
         >
           <ShowdownStatus player={player} />
           <RevealRequest player={player} canVoteReveal={canVoteReveal} onReveal={revealCards} />
+          <StreetBadge stage={player.stage} />
           <PotDisplay value={player.potCoins} currentBet={currentBet} />
           <BoardRow cards={player.community} compact />
         </section>
