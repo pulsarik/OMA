@@ -425,12 +425,7 @@ wss.on('connection', (ws, req) => {
           sendDeal(ws, replayHand);
           broadcastPublicDeal(ws, replayHand);
         } else {
-          await createAndSendDeal(
-            ws,
-            msg.players || 2,
-            Array.isArray(msg.playerNames) ? msg.playerNames : [],
-            Array.isArray(msg.playerBots) ? msg.playerBots : [],
-          );
+          throw new Error('hand not found');
         }
       } else if (msg.action === 'list') {
         ws.send(JSON.stringify({ type: 'hands_list', data: await store.listHands() }));

@@ -1597,6 +1597,7 @@ export default function App() {
   const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
   const [playerBots, setPlayerBots] = useState<boolean[]>([false, false]);
   const [homeReplayQuery, setHomeReplayQuery] = useState('');
+  const [homeReplayError, setHomeReplayError] = useState<string | null>(null);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
 
@@ -1617,9 +1618,14 @@ export default function App() {
         setMessages((current) => [...current, message]);
         if (message.type === 'hand_dealt' && message.data?.playerLinks) {
           setHomeNotice(null);
+          setHomeReplayError(null);
         }
         if (message.type === 'error') {
-          setHomeNotice(message.message);
+          if (message.message === 'hand not found') {
+            setHomeReplayError('Hand not found.');
+          } else {
+            setHomeNotice(message.message);
+          }
         }
       };
       socket.onclose = () => {
@@ -1705,10 +1711,11 @@ export default function App() {
       return;
     }
     if (!handQuery) {
-      setHomeNotice('Enter a hand number first.');
+      setHomeReplayError('Enter a hand number first.');
       return;
     }
 
+    setHomeReplayError(null);
     setHomeNotice('Looking up replay deal.');
     ws.send(JSON.stringify({ action: 'replay_deal', handQuery }));
   }
@@ -1822,7 +1829,10 @@ export default function App() {
             <input
               placeholder="HA0001"
               value={homeReplayQuery}
-              onChange={(event) => setHomeReplayQuery(event.target.value)}
+              onChange={(event) => {
+                setHomeReplayQuery(event.target.value);
+                setHomeReplayError(null);
+              }}
               style={{ width: 110, padding: '7px 9px', border: '1px solid #cbd5e1', borderRadius: 6 }}
             />
             <button
@@ -1832,6 +1842,7 @@ export default function App() {
             >
               Replay hand
             </button>
+            {homeReplayError ? <span style={{ color: '#b91c1c', fontWeight: 700 }}>{homeReplayError}</span> : null}
           </div>
         </section>
 
