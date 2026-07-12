@@ -1567,8 +1567,8 @@ export default function App() {
   const [homeSocketReady, setHomeSocketReady] = useState(false);
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
-  const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
-  const [playerBots, setPlayerBots] = useState<boolean[]>([false, false]);
+  const [playerNames, setPlayerNames] = useState<string[]>(['Dima', 'Bot']);
+  const [playerBots, setPlayerBots] = useState<boolean[]>([false, true]);
   const [homeReplayQuery, setHomeReplayQuery] = useState('');
   const [homeReplayError, setHomeReplayError] = useState<string | null>(null);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
