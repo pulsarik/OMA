@@ -864,8 +864,10 @@ function totalScore(score: PartyScore | undefined, playerId: string) {
   return score?.totals.find((item) => item.id === playerId)?.total ?? 0;
 }
 
-function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string) {
-  return [...(actions ?? [])].reverse().find((action) => action.playerId === playerId);
+function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string, stage?: string) {
+  return [...(actions ?? [])].reverse().find((action) => (
+    action.playerId === playerId && (!stage || action.stage === stage)
+  ));
 }
 
 function playerResult(result: HiLoResult, id: string) {
@@ -1367,7 +1369,7 @@ function PlayerPage() {
               cardCount={seat.cardCount}
               compact
               score={totalScore(player.partyScore, seat.id)}
-              action={latestActionForPlayer(player.actions, seat.id)}
+              action={latestActionForPlayer(player.actions, seat.id, player.stage)}
             />
           ))}
         </div>
@@ -1399,7 +1401,7 @@ function PlayerPage() {
             cardCount={player.hole.length}
             compact
             score={totalScore(player.partyScore, player.playerId)}
-            action={latestActionForPlayer(player.actions, player.playerId)}
+            action={latestActionForPlayer(player.actions, player.playerId, player.stage)}
           />
         </div>
       </div>
