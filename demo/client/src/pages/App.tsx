@@ -749,6 +749,41 @@ function PlayerSeat({
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+      {action ? (
+        <div
+          title={`Last action: ${actionText}`}
+          style={{
+            position: 'relative',
+            alignSelf: 'flex-start',
+            marginTop: compact ? 4 : 12,
+            border: '1px solid #cbd5e1',
+            borderRadius: 8,
+            background: action.move === 'fold' ? '#fee2e2' : '#fff',
+            color: action.move === 'fold' ? '#7f1d1d' : '#0f172a',
+            padding: '5px 9px',
+            fontSize: compact ? 13 : 14,
+            fontWeight: 900,
+            lineHeight: 1,
+            boxShadow: '0 2px 7px rgba(15,23,42,0.18)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {action.move}
+          <span
+            style={{
+              position: 'absolute',
+              right: -7,
+              top: 12,
+              width: 12,
+              height: 12,
+              borderTop: '1px solid #cbd5e1',
+              borderRight: '1px solid #cbd5e1',
+              background: action.move === 'fold' ? '#fee2e2' : '#fff',
+              transform: 'rotate(45deg)',
+            }}
+          />
+        </div>
+      ) : null}
       <section
         style={{
           border: isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
@@ -784,27 +819,6 @@ function PlayerSeat({
             }}
           >
             BOT
-          </span>
-        ) : null}
-        {actionText ? (
-          <span
-            title={`Last action: ${actionText}`}
-            style={{
-              position: 'absolute',
-              top: 4,
-              right: 4,
-              border: '1px solid #cbd5e1',
-              borderRadius: 999,
-              background: action.move === 'fold' ? '#fee2e2' : '#eef2ff',
-              color: action.move === 'fold' ? '#7f1d1d' : '#1e3a8a',
-              padding: '2px 6px',
-              fontSize: 11,
-              fontWeight: 800,
-              lineHeight: 1.1,
-              boxShadow: '0 1px 3px rgba(15,23,42,0.18)',
-            }}
-          >
-            {action.move}
           </span>
         ) : null}
         {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
@@ -852,45 +866,6 @@ function totalScore(score: PartyScore | undefined, playerId: string) {
 
 function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string) {
   return [...(actions ?? [])].reverse().find((action) => action.playerId === playerId);
-}
-
-function RecentActions({ player }: { player: PlayerView }) {
-  const recent = [...(player.actions ?? [])].slice(-8).reverse();
-  if (!recent.length) return null;
-
-  return (
-    <section
-      style={{
-        marginTop: 8,
-        border: '1px solid #cbd5e1',
-        borderRadius: 8,
-        background: '#fff',
-        padding: 10,
-        display: 'grid',
-        gap: 8,
-      }}
-    >
-      <strong>Last actions</strong>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {recent.map((action) => (
-          <span
-            key={`${action.stage}-${action.playerId}-${action.at}`}
-            style={{
-              border: '1px solid #cbd5e1',
-              borderRadius: 999,
-              background: action.move === 'fold' ? '#fee2e2' : '#eef2ff',
-              color: action.move === 'fold' ? '#7f1d1d' : '#1e3a8a',
-              padding: '4px 9px',
-              fontSize: 13,
-              fontWeight: 800,
-            }}
-          >
-            {playerLabel(player.players, action.playerId)}: {action.move}
-          </span>
-        ))}
-      </div>
-    </section>
-  );
 }
 
 function playerResult(result: HiLoResult, id: string) {
@@ -1428,8 +1403,6 @@ function PlayerPage() {
           />
         </div>
       </div>
-
-      <RecentActions player={player} />
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {canAct && callAmount === 0 ? (
