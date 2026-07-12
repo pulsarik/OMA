@@ -1555,6 +1555,7 @@ export default function App() {
   const [players, setPlayers] = useState(2);
   const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
   const [playerBots, setPlayerBots] = useState<boolean[]>([false, false]);
+  const [homeReplayQuery, setHomeReplayQuery] = useState('');
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
 
@@ -1575,6 +1576,9 @@ export default function App() {
         setMessages((current) => [...current, message]);
         if (message.type === 'hand_dealt' && message.data?.playerLinks) {
           setHomeNotice(null);
+        }
+        if (message.type === 'error') {
+          setHomeNotice(message.message);
         }
       };
       socket.onclose = () => {
@@ -1651,6 +1655,21 @@ export default function App() {
 
     setHomeNotice('Creating replay deal.');
     ws.send(JSON.stringify({ action: 'replay_deal', handId: latestDeal.data.id }));
+  }
+
+  function replayDealByQuery() {
+    const handQuery = homeReplayQuery.trim();
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setHomeNotice('Connecting to server. Try again in a moment.');
+      return;
+    }
+    if (!handQuery) {
+      setHomeNotice('Enter a hand number first.');
+      return;
+    }
+
+    setHomeNotice('Looking up replay deal.');
+    ws.send(JSON.stringify({ action: 'replay_deal', handQuery }));
   }
 
   return (
@@ -1756,6 +1775,22 @@ export default function App() {
                 </button>
               </label>
             ))}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <strong style={{ color: '#475569' }}>Replay</strong>
+            <input
+              placeholder="HA0001"
+              value={homeReplayQuery}
+              onChange={(event) => setHomeReplayQuery(event.target.value)}
+              style={{ width: 110, padding: '7px 9px', border: '1px solid #cbd5e1', borderRadius: 6 }}
+            />
+            <button
+              onClick={replayDealByQuery}
+              disabled={!homeSocketReady || !homeReplayQuery.trim()}
+              style={{ padding: '7px 12px', fontWeight: 800 }}
+            >
+              Replay hand
+            </button>
           </div>
         </section>
 

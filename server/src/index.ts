@@ -323,6 +323,22 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
   }
 }
 
+async function findHandByQuery(query: string) {
+  const text = query.trim().toUpperCase();
+  if (!text) return null;
+
+  const hands = await store.listAllHands();
+  return hands
+    .map((hand: any) => normalizeHand(hand))
+    .sort((a: any, b: any) => (b.created ?? 0) - (a.created ?? 0))
+    .find((hand: any) => (
+      hand.id.toUpperCase() === text
+      || hand.handCode?.toUpperCase() === text
+      || hand.dealCode?.toUpperCase() === text
+      || hand.handNumber === Number(text)
+    )) ?? null;
+}
+
 app.get('/admin/hands', async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
   const offset = Math.max(Number(req.query.offset) || 0, 0);
@@ -395,7 +411,11 @@ wss.on('connection', (ws, req) => {
           );
         }
       } else if (msg.action === 'replay_deal') {
-        const hand = msg.handId ? await store.getHand(msg.handId) : null;
+        const hand = msg.handId
+          ? await store.getHand(msg.handId)
+          : typeof msg.handQuery === 'string'
+            ? await findHandByQuery(msg.handQuery)
+            : null;
         if (hand) {
           const replayHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'replay');
           runBotTurns(replayHand);
