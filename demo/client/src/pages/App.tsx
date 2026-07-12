@@ -215,6 +215,7 @@ type DealMessage = {
 type VersionInfo = {
   commit: string;
   shortCommit: string;
+  buildTimeGmt?: string;
 };
 
 const suitSymbols: Record<string, string> = {
@@ -1742,7 +1743,7 @@ export default function App() {
             </span>
             {version ? (
               <small title={version.commit} style={{ color: '#64748b', fontSize: 11 }}>
-                commit {version.shortCommit}
+                commit {version.shortCommit}{version.buildTimeGmt ? ` · ${version.buildTimeGmt}` : ''}
               </small>
             ) : null}
           </div>

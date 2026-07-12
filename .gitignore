@@ -2,6 +2,7 @@ node_modules/
 dist/
 target/
 data/
+server/build-info.json
 *.sqlite
 *.sqlite-journal
 *.log
