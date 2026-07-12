@@ -31,6 +31,7 @@ const staticDir = [
   path.resolve(process.cwd(), 'demo/client/dist'),
   path.resolve(__dirname, '../../demo/client/dist'),
 ].find((candidate): candidate is string => Boolean(candidate && fs.existsSync(candidate)));
+const commitSha = process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || 'dev';
 
 app.use(express.json());
 app.use((req, res, next) => {
@@ -286,6 +287,9 @@ app.get('/admin/hands/:id', async (req, res) => {
   normalizeHand(h);
   if (h.cardsRevealed) h.result = evaluateOmahaHiLo(h);
   res.json(h);
+});
+app.get('/api/version', (req, res) => {
+  res.json({ commit: commitSha, shortCommit: commitSha === 'dev' ? 'dev' : commitSha.slice(0, 7) });
 });
 app.get('/api/player/:handId/:playerId/:token', async (req, res) => {
   const hand = await store.getHand(req.params.handId);

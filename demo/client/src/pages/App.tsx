@@ -209,6 +209,11 @@ type DealMessage = {
   };
 };
 
+type VersionInfo = {
+  commit: string;
+  shortCommit: string;
+};
+
 const suitSymbols: Record<string, string> = {
   s: '\u2660',
   h: '\u2665',
@@ -1494,6 +1499,7 @@ export default function App() {
   const [players, setPlayers] = useState(2);
   const [playerNames, setPlayerNames] = useState<string[]>(['Player 1', 'Player 2']);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
+  const [version, setVersion] = useState<VersionInfo | null>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -1538,6 +1544,15 @@ export default function App() {
       current[index] ?? `Player ${index + 1}`
     )));
   }, [players]);
+
+  useEffect(() => {
+    fetch(`${SERVER_URL}/api/version`)
+      .then((res) => res.ok ? res.json() : undefined)
+      .then((data) => {
+        if (data?.shortCommit) setVersion(data);
+      })
+      .catch(() => undefined);
+  }, []);
 
   if (window.location.pathname.startsWith('/player/')) {
     return <PlayerPage />;
@@ -1592,17 +1607,24 @@ export default function App() {
       <main style={{ maxWidth: 760, margin: '0 auto', display: 'grid', gap: 16 }}>
         <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <h1 style={{ margin: 0, fontSize: 28 }}>Omaha Hi-Lo</h1>
-          <span
-            style={{
-              border: '1px solid #cbd5e1',
-              borderRadius: 999,
-              padding: '4px 10px',
-              background: '#fff',
-              fontSize: 13,
-            }}
-          >
-            {homeSocketReady ? 'connected' : 'connecting...'}
-          </span>
+          <div style={{ display: 'grid', justifyItems: 'end', gap: 2 }}>
+            <span
+              style={{
+                border: '1px solid #cbd5e1',
+                borderRadius: 999,
+                padding: '4px 10px',
+                background: '#fff',
+                fontSize: 13,
+              }}
+            >
+              {homeSocketReady ? 'connected' : 'connecting...'}
+            </span>
+            {version ? (
+              <small title={version.commit} style={{ color: '#64748b', fontSize: 11 }}>
+                commit {version.shortCommit}
+              </small>
+            ) : null}
+          </div>
         </header>
 
         <section
