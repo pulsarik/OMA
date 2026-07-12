@@ -1147,20 +1147,24 @@ function ResultView({ result }: { result?: HiLoResult }) {
 
       <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
         <section style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
-          <h3 style={{ margin: '0 0 6px' }}>High winner{highWinnerResults.length > 1 ? 's' : ''}: {result.highWinners.join(', ')}</h3>
           {highWinnerResults.map((winner) => (
             <div key={winner.id}>
-              <p style={{ margin: '0 0 4px' }}>{winner.id}: {winner.highRank}</p>
+              <h3 style={{ margin: '0 0 6px' }}>
+                High winner{highWinnerResults.length > 1 ? 's' : ''}: {winner.id} - {winner.highRank}
+              </h3>
               {winner.highCombo ? <ComboCardRow combo={winner.highCombo} tone="high" /> : null}
             </div>
           ))}
         </section>
 
         <section style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
-          <h3 style={{ margin: '0 0 6px' }}>Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {result.noLow ? 'No qualifying low' : result.lowWinners.join(', ')}</h3>
-          {lowWinnerResults.map((winner) => (
+          {result.noLow ? (
+            <h3 style={{ margin: 0 }}>Low winner: No qualifying low</h3>
+          ) : lowWinnerResults.map((winner) => (
             <div key={winner.id}>
-              <p style={{ margin: '0 0 4px' }}>{winner.id}: {winner.lowRank}</p>
+              <h3 style={{ margin: '0 0 6px' }}>
+                Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {winner.id} - {winner.lowRank}
+              </h3>
               {winner.lowCombo ? <ComboCardRow combo={winner.lowCombo} tone="low" /> : null}
             </div>
           ))}
@@ -1246,7 +1250,7 @@ function PlayerPage() {
               : `Waiting for ${turnName}.`,
           );
         } else {
-          setNotice('Showdown.');
+          setNotice(null);
         }
       }
       if (message.type === 'hand_dealt' && message.data?.playerLinks) {
