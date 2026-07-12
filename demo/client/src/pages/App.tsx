@@ -522,11 +522,13 @@ function ComboCardRow({ combo, tone = 'neutral' }: { combo?: ComboCard[]; tone?:
         border: `2px solid ${borderColor}`,
         borderRadius: 8,
         background,
-        padding: '6px 8px',
-        margin: '4px 0 8px',
+        padding: '5px 7px',
+        margin: '3px 0 6px',
+        width: 'fit-content',
+        maxWidth: '100%',
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 13 }}>{label}</div>
+      <div style={{ fontWeight: 700, marginBottom: 3, fontSize: 13 }}>{label}</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'flex-end', paddingTop: 7 }}>
         {groups.map((group) => {
           const framed = tone === 'high' && group.length > 1;
@@ -1057,7 +1059,7 @@ function CurrentComboStrip({ combo }: { combo?: PlayerCombo }) {
           ) : null}
         </span>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         {combo.highCombo ? <ComboCardRow combo={combo.highCombo} tone="high" /> : null}
         {combo.lowCombo ? <ComboCardRow combo={combo.lowCombo} tone="low" /> : null}
       </div>
@@ -1137,34 +1139,36 @@ function ResultView({ result }: { result?: HiLoResult }) {
     .filter((player): player is NonNullable<typeof player> => Boolean(player));
 
   return (
-    <section style={{ marginTop: 18, border: '1px solid #d1d5db', borderRadius: 8, padding: 12 }}>
-      <h2>Winners</h2>
-      <p>Pot: {formatPoints(result.potCoins)} coins</p>
+    <section style={{ marginTop: 12, border: '1px solid #d1d5db', borderRadius: 8, padding: 10 }}>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 8 }}>
+        <h2 style={{ margin: 0 }}>Winners</h2>
+        <span>Pot: {formatPoints(result.potCoins)} coins</span>
+      </div>
 
-      <div style={{ display: 'grid', gap: 12, marginBottom: 12 }}>
-        <section style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: 10 }}>
-          <h3>High winner{highWinnerResults.length > 1 ? 's' : ''}: {result.highWinners.join(', ')}</h3>
+      <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
+        <section style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+          <h3 style={{ margin: '0 0 6px' }}>High winner{highWinnerResults.length > 1 ? 's' : ''}: {result.highWinners.join(', ')}</h3>
           {highWinnerResults.map((winner) => (
             <div key={winner.id}>
-              <p>{winner.id}: {winner.highRank}</p>
+              <p style={{ margin: '0 0 4px' }}>{winner.id}: {winner.highRank}</p>
               {winner.highCombo ? <ComboCardRow combo={winner.highCombo} tone="high" /> : null}
             </div>
           ))}
         </section>
 
-        <section style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: 10 }}>
-          <h3>Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {result.noLow ? 'No qualifying low' : result.lowWinners.join(', ')}</h3>
+        <section style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+          <h3 style={{ margin: '0 0 6px' }}>Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {result.noLow ? 'No qualifying low' : result.lowWinners.join(', ')}</h3>
           {lowWinnerResults.map((winner) => (
             <div key={winner.id}>
-              <p>{winner.id}: {winner.lowRank}</p>
+              <p style={{ margin: '0 0 4px' }}>{winner.id}: {winner.lowRank}</p>
               {winner.lowCombo ? <ComboCardRow combo={winner.lowCombo} tone="low" /> : null}
             </div>
           ))}
         </section>
       </div>
 
-      <h3>Points</h3>
-      <table style={{ borderCollapse: 'collapse', marginBottom: 12 }}>
+      <h3 style={{ margin: '8px 0 6px' }}>Points</h3>
+      <table style={{ borderCollapse: 'collapse', marginBottom: 10 }}>
         <thead>
           <tr>
             <th style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'left' }}>Player</th>
@@ -1184,16 +1188,16 @@ function ResultView({ result }: { result?: HiLoResult }) {
           ))}
         </tbody>
       </table>
-      <h3>All hands</h3>
-      <div style={{ display: 'grid', gap: 12 }}>
+      <h3 style={{ margin: '8px 0 6px' }}>All hands</h3>
+      <div style={{ display: 'grid', gap: 8 }}>
         {result.players.map((player) => (
           <section key={player.id}>
-            <h3>{player.id}{player.folded ? ' - folded' : ''}</h3>
+            <h3 style={{ margin: '0 0 5px' }}>{player.id}{player.folded ? ' - folded' : ''}</h3>
             {!player.folded && (
               <>
-                <p>High: {player.highRank}</p>
+                <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
                 {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
-                <p>Low: {player.lowRank ?? 'no low'}</p>
+                <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
                 {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
               </>
             )}
