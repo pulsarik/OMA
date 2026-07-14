@@ -247,6 +247,24 @@ test('bet and raise accept pot-limit target amounts', () => {
   expect(hand.currentPlayerId).toBe('P1');
 });
 
+test('player must call after opponent raises a custom amount', () => {
+  const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
+
+  recordPlayerMove(hand, 'P1', 'bet', 8);
+  recordPlayerMove(hand, 'P2', 'raise', 30);
+
+  expect(hand.stage).toBe('flop');
+  expect(hand.currentBet).toBe(30);
+  expect(hand.roundBets.P1).toBe(8);
+  expect(hand.roundBets.P2).toBe(30);
+  expect(hand.currentPlayerId).toBe('P1');
+  expect(() => recordPlayerMove(hand, 'P1', 'check')).toThrow('call or fold required');
+
+  recordPlayerMove(hand, 'P1', 'call');
+  expect(hand.stage).toBe('turn');
+});
+
 test('raise is capped at three raises per street', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);

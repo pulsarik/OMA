@@ -775,9 +775,13 @@ function PlayerSeat({
   compact?: boolean;
   score?: number;
   action?: ActionLog;
+  currentStage?: string;
 }) {
   const shouldShowCards = Boolean(hole?.length);
-  const actionLabel = action ? `${action.move}${action.amount ? ` ${formatPoints(action.amount)}` : ''}` : undefined;
+  const isPreviousStreetAction = Boolean(action && currentStage && action.stage !== currentStage);
+  const actionLabel = action
+    ? `${isPreviousStreetAction ? `prev ${action.stage}: ` : ''}${action.move}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
+    : undefined;
   const actionText = action ? `${action.stage}: ${actionLabel}` : undefined;
 
   return (
@@ -830,9 +834,9 @@ function PlayerSeat({
               border: '1px solid #cbd5e1',
               borderRadius: 8,
               background: action.move === 'fold' ? '#fee2e2' : '#fff',
-              color: action.move === 'fold' ? '#7f1d1d' : '#0f172a',
+              color: isPreviousStreetAction ? '#475569' : action.move === 'fold' ? '#7f1d1d' : '#0f172a',
               padding: '5px 9px',
-              fontSize: compact ? 13 : 14,
+              fontSize: isPreviousStreetAction ? 11 : compact ? 13 : 14,
               fontWeight: 900,
               lineHeight: 1,
               boxShadow: '0 2px 7px rgba(15,23,42,0.2)',
@@ -1440,6 +1444,7 @@ function PlayerPage() {
               compact
               score={totalScore(player.partyScore, seat.id)}
               action={latestActionForPlayer(player.actions, seat.id)}
+              currentStage={player.stage}
             />
           ))}
         </div>
@@ -1473,6 +1478,7 @@ function PlayerPage() {
             compact
             score={totalScore(player.partyScore, player.playerId)}
             action={latestActionForPlayer(player.actions, player.playerId)}
+            currentStage={player.stage}
           />
         </div>
       </div>
@@ -1498,6 +1504,9 @@ function PlayerPage() {
               </button>
             ))}
           </div>
+        ) : null}
+        {canAct && callAmount === 0 && currentBet === 0 ? (
+          <span style={{ color: '#64748b', fontSize: 13 }}>No bet to call</span>
         ) : null}
         {canAct && callAmount === 0 ? (
           <>
