@@ -9,6 +9,7 @@ const WS_URL = isLocalVite
 type ActionLog = {
   playerId: string;
   move: string;
+  amount?: number;
   stage: string;
   at: number;
 };
@@ -108,6 +109,14 @@ type PlayerCombo = {
 };
 
 type PlayerMove = 'check' | 'bet' | 'call' | 'raise' | 'fold';
+type BetSizeOption = 'blind' | 'quarter' | 'half' | 'pot';
+
+const BET_SIZE_OPTIONS: Array<{ value: BetSizeOption; label: string }> = [
+  { value: 'blind', label: 'Blind' },
+  { value: 'quarter', label: '1/4 pot' },
+  { value: 'half', label: '1/2 pot' },
+  { value: 'pot', label: 'Pot' },
+];
 
 type PlayerView = {
   handId: string;
@@ -768,7 +777,8 @@ function PlayerSeat({
   action?: ActionLog;
 }) {
   const shouldShowCards = Boolean(hole?.length);
-  const actionText = action ? `${action.stage}: ${action.move}` : undefined;
+  const actionLabel = action ? `${action.move}${action.amount ? ` ${formatPoints(action.amount)}` : ''}` : undefined;
+  const actionText = action ? `${action.stage}: ${actionLabel}` : undefined;
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
@@ -829,7 +839,7 @@ function PlayerSeat({
               whiteSpace: 'nowrap',
             }}
           >
-            {action.move}
+            {actionLabel}
             <span
               style={{
                 position: 'absolute',
@@ -882,6 +892,36 @@ function HandBanner({ player }: { player: PlayerView }) {
 
 function formatPoints(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function betSizeFactor(size: BetSizeOption) {
+  if (size === 'quarter') return 0.25;
+  if (size === 'half') return 0.5;
+  if (size === 'pot') return 1;
+  return 0;
+}
+
+function betTargetAmount(size: BetSizeOption, pot: number, bigBlind: number, stack: number) {
+  if (size === 'blind') return Math.min(bigBlind, stack);
+  const amount = Math.ceil(pot * betSizeFactor(size));
+  return Math.min(Math.max(amount, Math.min(bigBlind, stack)), stack);
+}
+
+function raiseTargetAmount(
+  size: BetSizeOption,
+  pot: number,
+  currentBet: number,
+  playerBet: number,
+  bigBlind: number,
+  stack: number,
+) {
+  const callAmount = Math.max(currentBet - playerBet, 0);
+  const maxRaiseTo = Math.min(playerBet + stack, currentBet + pot + callAmount);
+  const minRaiseTo = Math.min(currentBet + bigBlind, maxRaiseTo);
+  if (size === 'blind') return minRaiseTo;
+
+  const raiseSize = Math.ceil((pot + callAmount) * betSizeFactor(size));
+  return Math.min(Math.max(currentBet + raiseSize, minRaiseTo), maxRaiseTo);
 }
 
 function totalScore(score: PartyScore | undefined, playerId: string) {
@@ -1219,6 +1259,7 @@ function PlayerPage() {
   const [socketReady, setSocketReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
+  const [betSize, setBetSize] = useState<BetSizeOption>('blind');
   const [, , handId, playerId, token] = window.location.pathname.split('/');
 
   useEffect(() => {
@@ -1281,14 +1322,14 @@ function PlayerPage() {
     };
   }, [handId, playerId, token]);
 
-  function sendMove(move: PlayerMove) {
+  function sendMove(move: PlayerMove, amount?: number) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setNotice('Connecting to server. Try again in a moment.');
       return;
     }
 
     setNotice(`${move[0].toUpperCase()}${move.slice(1)} sent.`);
-    ws.send(JSON.stringify({ action: 'player_move', handId, playerId, token, move }));
+    ws.send(JSON.stringify({ action: 'player_move', handId, playerId, token, move, amount }));
   }
 
   function revealCards() {
@@ -1333,7 +1374,8 @@ function PlayerPage() {
   const raiseCount = player.raiseCount ?? 0;
   const maxRaises = player.maxRaises ?? 3;
   const callAmount = Math.max(currentBet - yourRoundBet, 0);
-  const raiseTo = currentBet + bigBlind;
+  const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
+  const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, bigBlind, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
   const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises;
   const canVoteReveal = socketReady && player.stage === 'showdown' && !player.cardsRevealed && !player.revealVotes.includes(player.playerId);
@@ -1436,14 +1478,28 @@ function PlayerPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
+          <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            Size
+            <select
+              value={betSize}
+              onChange={(event) => setBetSize(event.target.value as BetSizeOption)}
+              style={{ padding: '2px 5px' }}
+            >
+              {BET_SIZE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {canAct && callAmount === 0 ? (
           <>
             <button onClick={() => sendMove('check')}>Check</button>
             {currentBet === 0 ? (
-              <button onClick={() => sendMove('bet')}>Bet {formatPoints(bigBlind)}</button>
+              <button onClick={() => sendMove('bet', betAmount)}>Bet {formatPoints(betAmount)}</button>
             ) : null}
             {currentBet > 0 && raiseCount < maxRaises ? (
-              <button disabled={!canRaise} onClick={() => sendMove('raise')}>
+              <button disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
                 Raise to {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
@@ -1461,7 +1517,7 @@ function PlayerPage() {
               Call {formatPoints(callAmount)}
             </button>
             {raiseCount < maxRaises ? (
-              <button disabled={!canRaise} onClick={() => sendMove('raise')}>
+              <button disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
                 Raise to {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}

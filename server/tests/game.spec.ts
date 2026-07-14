@@ -233,6 +233,20 @@ test('raise keeps the betting round open until every active player matches', () 
   expect(hand.stage).toBe('turn');
 });
 
+test('bet and raise accept pot-limit target amounts', () => {
+  const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
+
+  recordPlayerMove(hand, 'P1', 'bet', 8);
+  expect(hand.potCoins).toBe(16);
+  expect(hand.currentBet).toBe(8);
+
+  recordPlayerMove(hand, 'P2', 'raise', 100);
+  expect(hand.potCoins).toBe(48);
+  expect(hand.currentBet).toBe(32);
+  expect(hand.currentPlayerId).toBe('P1');
+});
+
 test('raise is capped at three raises per street', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);

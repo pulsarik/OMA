@@ -478,7 +478,7 @@ wss.on('connection', (ws, req) => {
         normalizeHand(hand);
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
-        recordPlayerMove(hand, player.id, msg.move as PlayerMove);
+        recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount);
         runBotTurns(hand);
         await store.updateHand(hand);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));

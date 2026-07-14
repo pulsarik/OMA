@@ -69,6 +69,7 @@ export type DealtHand = {
   actions: Array<{
     playerId: string;
     move: PlayerMove;
+    amount?: number;
     stage: GameStage;
     at: number;
   }>;
@@ -245,7 +246,11 @@ function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
   hand.currentPlayerId = next?.id;
 }
 
-export function recordPlayerMove(hand: DealtHand, playerId: string, move: PlayerMove) {
+function normalizedBetAmount(amount: unknown) {
+  return typeof amount === 'number' && Number.isFinite(amount) ? Math.floor(amount) : undefined;
+}
+
+export function recordPlayerMove(hand: DealtHand, playerId: string, move: PlayerMove, amount?: number) {
   normalizeHand(hand);
 
   if (hand.stage === 'showdown') {
@@ -261,6 +266,7 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
   const actingPlayer = player;
   const playerBet = hand.roundBets[playerId] ?? 0;
   const betUnit = hand.blinds?.big ?? INITIAL_BIG_BLIND;
+  const requestedBet = normalizedBetAmount(amount);
 
   function addToPot(amount: number) {
     const paid = Math.min(amount, actingPlayer.stack);
@@ -274,7 +280,9 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
     if (playerBet < hand.currentBet) throw new Error('call or fold required');
   } else if (move === 'bet') {
     if (hand.currentBet !== 0) throw new Error('bet is only allowed before a bet is open');
-    const paid = addToPot(betUnit);
+    const maxBet = Math.min(actingPlayer.stack, Math.max(hand.potCoins, betUnit));
+    const targetBet = Math.min(Math.max(requestedBet ?? betUnit, Math.min(betUnit, actingPlayer.stack)), maxBet);
+    const paid = addToPot(targetBet);
     hand.currentBet = playerBet + paid;
   } else if (move === 'call') {
     if (playerBet >= hand.currentBet) throw new Error('nothing to call');
@@ -282,13 +290,22 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
   } else if (move === 'raise') {
     if (hand.currentBet === 0) throw new Error('raise requires an open bet');
     if (hand.raiseCount >= MAX_RAISES_PER_STREET) throw new Error('raise cap reached');
-    const nextBet = hand.currentBet + betUnit;
+    const callAmount = Math.max(hand.currentBet - playerBet, 0);
+    const maxRaiseTo = Math.min(playerBet + actingPlayer.stack, hand.currentBet + hand.potCoins + callAmount);
+    const minRaiseTo = Math.min(hand.currentBet + betUnit, maxRaiseTo);
+    const nextBet = Math.min(Math.max(requestedBet ?? minRaiseTo, minRaiseTo), maxRaiseTo);
     addToPot(nextBet - playerBet);
     hand.currentBet = nextBet;
     hand.raiseCount += 1;
   }
 
-  hand.actions.push({ playerId, move, stage: hand.stage, at: Date.now() });
+  hand.actions.push({
+    playerId,
+    move,
+    amount: ['bet', 'call', 'raise'].includes(move) ? hand.roundBets[playerId] : undefined,
+    stage: hand.stage,
+    at: Date.now(),
+  });
 
   if (move === 'fold') {
     player.folded = true;
