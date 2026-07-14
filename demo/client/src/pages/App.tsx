@@ -1479,18 +1479,25 @@ function PlayerPage() {
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
-          <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-            Size
-            <select
-              value={betSize}
-              onChange={(event) => setBetSize(event.target.value as BetSizeOption)}
-              style={{ padding: '2px 5px' }}
-            >
-              {BET_SIZE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-          </label>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ color: '#475569', fontSize: 13, fontWeight: 700 }}>Bet size</span>
+            {BET_SIZE_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setBetSize(option.value)}
+                style={{
+                  border: betSize === option.value ? '2px solid #166534' : '1px solid #cbd5e1',
+                  borderRadius: 6,
+                  background: betSize === option.value ? '#dcfce7' : '#fff',
+                  padding: '4px 7px',
+                  fontWeight: betSize === option.value ? 800 : 600,
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         ) : null}
         {canAct && callAmount === 0 ? (
           <>
