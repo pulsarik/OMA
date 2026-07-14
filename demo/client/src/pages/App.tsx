@@ -1598,6 +1598,7 @@ export default function App() {
   const [homeSocketReady, setHomeSocketReady] = useState(false);
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
+  const [playersText, setPlayersText] = useState('2');
   const [playerNames, setPlayerNames] = useState<string[]>(['Dima', 'Bot']);
   const [playerBots, setPlayerBots] = useState<boolean[]>([false, true]);
   const [homeReplayQuery, setHomeReplayQuery] = useState('');
@@ -1694,6 +1695,18 @@ export default function App() {
     }));
   }
 
+  function updatePlayersText(value: string) {
+    if (!/^\d*$/.test(value)) return;
+    setPlayersText(value);
+    if (!value) return;
+
+    setPlayers(Math.min(Math.max(Number(value), 1), 11));
+  }
+
+  function normalizePlayersText() {
+    setPlayersText(String(players));
+  }
+
   function replayLatestDeal() {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setHomeNotice('Connecting to server. Try again in a moment.');
@@ -1774,8 +1787,9 @@ export default function App() {
                 min={1}
                 max={11}
                 type="number"
-                value={players}
-                onChange={(event) => setPlayers(Math.min(Math.max(Number(event.target.value) || 1, 1), 11))}
+                value={playersText}
+                onChange={(event) => updatePlayersText(event.target.value)}
+                onBlur={normalizePlayersText}
                 style={{ width: 58, padding: '5px 7px' }}
               />
             </label>
