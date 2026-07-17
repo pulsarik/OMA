@@ -894,8 +894,10 @@ function HandBanner({ player }: { player: PlayerView }) {
   );
 }
 
-function formatPoints(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+function formatPoints(value: unknown) {
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return String(value ?? '-');
+  return Number.isInteger(numericValue) ? String(numericValue) : numericValue.toFixed(2);
 }
 
 function betSizeFactor(size: BetSizeOption) {
