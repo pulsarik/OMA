@@ -1394,6 +1394,7 @@ function PlayerPage() {
   if (!player) return <div style={{ padding: 12 }}>Loading...</div>;
 
   const canAct = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
+  const showActionControls = player.stage !== 'showdown' && !player.isBot && !player.folded;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
@@ -1508,13 +1509,14 @@ function PlayerPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+        {showActionControls && (currentBet === 0 || raiseCount < maxRaises) ? (
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', opacity: canAct ? 1 : 0.62 }}>
             <span style={{ color: '#475569', fontSize: 13, fontWeight: 700 }}>Bet size</span>
             {BET_SIZE_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
+                disabled={!canAct}
                 onClick={() => setBetSize(option.value)}
                 style={{
                   border: betSize === option.value ? '2px solid #166534' : '1px solid #cbd5e1',
@@ -1529,14 +1531,14 @@ function PlayerPage() {
             ))}
           </div>
         ) : null}
-        {canAct && callAmount === 0 && currentBet === 0 ? (
+        {showActionControls && callAmount === 0 && currentBet === 0 ? (
           <span style={{ color: '#64748b', fontSize: 13 }}>No bet to call</span>
         ) : null}
-        {canAct && callAmount === 0 ? (
+        {showActionControls && callAmount === 0 ? (
           <>
-            <button onClick={() => sendMove('check')}>Check</button>
+            <button disabled={!canAct} onClick={() => sendMove('check')}>Check</button>
             {currentBet === 0 ? (
-              <button onClick={() => sendMove('bet', betAmount)}>Bet {formatPoints(betAmount)}</button>
+              <button disabled={!canAct} onClick={() => sendMove('bet', betAmount)}>Bet {formatPoints(betAmount)}</button>
             ) : null}
             {currentBet > 0 && raiseCount < maxRaises ? (
               <button disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
@@ -1544,6 +1546,7 @@ function PlayerPage() {
               </button>
             ) : null}
             <button
+              disabled={!canAct}
               onClick={() => sendMove('fold')}
               style={{ marginLeft: 8, color: '#7f1d1d' }}
             >
@@ -1551,7 +1554,7 @@ function PlayerPage() {
             </button>
           </>
         ) : null}
-        {canAct && callAmount > 0 ? (
+        {showActionControls && callAmount > 0 ? (
           <>
             <button disabled={!canCall} onClick={() => sendMove('call')}>
               Call {formatPoints(callAmount)}
@@ -1562,6 +1565,7 @@ function PlayerPage() {
               </button>
             ) : null}
             <button
+              disabled={!canAct}
               onClick={() => sendMove('fold')}
               style={{ marginLeft: 8, color: '#7f1d1d' }}
             >
