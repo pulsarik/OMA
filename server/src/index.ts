@@ -27,6 +27,8 @@ const wss = new WebSocketServer({ server });
 
 const store = new HandStore(process.env.DATA_FILE || path.join(process.cwd(), 'data', 'hands.sqlite'));
 const continuationLocks = new Map<string, Promise<any>>();
+const botTurnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const BOT_THINK_MS = 1000;
 const staticDir = [
   process.env.STATIC_DIR,
   path.resolve(process.cwd(), 'demo/client/dist'),
@@ -202,6 +204,39 @@ function runBotTurns(hand: any) {
   recordBotRevealVotes(hand);
 }
 
+function scheduleBotTurns(handId: string) {
+  if (botTurnTimers.has(handId)) return;
+
+  const timer = setTimeout(async () => {
+    botTurnTimers.delete(handId);
+    try {
+      const hand = await store.getHand(handId);
+      if (!hand) return;
+      normalizeHand(hand);
+      if (hand.stage === 'showdown') {
+        recordBotRevealVotes(hand);
+        await store.updateHand(hand);
+        broadcastHandUpdated(hand);
+        return;
+      }
+
+      const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
+      if (!current?.isBot || current.folded || current.stack <= 0) return;
+
+      const decision = botMove(hand, current);
+      recordPlayerMove(hand, current.id, decision.move, decision.amount);
+      recordBotRevealVotes(hand);
+      await store.updateHand(hand);
+      broadcastHandUpdated(hand);
+      scheduleBotTurns(hand.id);
+    } catch (error) {
+      console.error('bot turn failed', error);
+    }
+  }, BOT_THINK_MS);
+
+  botTurnTimers.set(handId, timer);
+}
+
 function publicHandState(hand: any) {
   normalizeHand(hand);
   return {
@@ -364,10 +399,9 @@ function broadcastHandUpdated(hand: any) {
 async function createAndSendDeal(ws: WebSocket, players: number, playerNames: string[] = [], playerBots: boolean[] = []) {
   const hand = dealHand(players, undefined, playerNames, playerBots);
   await store.saveHand(hand);
-  runBotTurns(hand);
-  await store.updateHand(hand);
   sendDeal(ws, hand);
   broadcastPublicDeal(ws, hand);
+  scheduleBotTurns(hand.id);
 
   return hand;
 }
@@ -528,12 +562,11 @@ wss.on('connection', (ws, req) => {
         const hand = msg.handId ? await store.getHand(msg.handId) : null;
         if (hand) {
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
-          runBotTurns(nextHand);
-          await store.updateHand(nextHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
           sendDeal(ws, nextHand);
           broadcastPublicDeal(ws, nextHand);
+          scheduleBotTurns(nextHand.id);
         } else {
           await createAndSendDeal(
             ws,
@@ -550,12 +583,11 @@ wss.on('connection', (ws, req) => {
             : null;
         if (hand) {
           const replayHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'replay');
-          runBotTurns(replayHand);
-          await store.updateHand(replayHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
           sendDeal(ws, replayHand);
           broadcastPublicDeal(ws, replayHand);
+          scheduleBotTurns(replayHand.id);
         } else {
           throw new Error('hand not found');
         }
@@ -575,10 +607,11 @@ wss.on('connection', (ws, req) => {
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
         recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount);
-        runBotTurns(hand);
+        recordBotRevealVotes(hand);
         await store.updateHand(hand);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
         broadcastHandUpdated(hand);
+        scheduleBotTurns(hand.id);
       } else if (msg.action === 'reveal_cards') {
         const hand = await store.getHand(msg.handId);
         if (!hand) throw new Error('hand not found');

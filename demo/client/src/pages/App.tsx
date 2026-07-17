@@ -765,6 +765,8 @@ function PlayerSeat({
   compact = false,
   score = 0,
   action,
+  currentStage,
+  resultPlayer,
 }: {
   id: string;
   folded: boolean;
@@ -776,6 +778,7 @@ function PlayerSeat({
   score?: number;
   action?: ActionLog;
   currentStage?: string;
+  resultPlayer?: HiLoResult['players'][number];
 }) {
   const shouldShowCards = Boolean(hole?.length);
   const isPreviousStreetAction = Boolean(action && currentStage && action.stage !== currentStage);
@@ -860,6 +863,23 @@ function PlayerSeat({
           </div>
         ) : null}
         {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
+        {resultPlayer && !resultPlayer.folded ? (
+          <div
+            style={{
+              display: 'grid',
+              gap: 2,
+              marginTop: 5,
+              color: '#0f172a',
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1.15,
+              textAlign: 'center',
+            }}
+          >
+            <span>High: {resultPlayer.highRank ?? '-'}</span>
+            <span>Low: {resultPlayer.lowRank ?? 'none'}</span>
+          </div>
+        ) : null}
       </section>
       {compact ? <CoinStack value={score} /> : null}
     </div>
@@ -938,8 +958,8 @@ function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: strin
   return [...(actions ?? [])].reverse().find((action) => action.playerId === playerId);
 }
 
-function playerResult(result: HiLoResult, id: string) {
-  return result.players.find((player) => player.id === id);
+function playerResult(result: HiLoResult | undefined, id: string) {
+  return result?.players.find((player) => player.id === id);
 }
 
 function playerPoints(result: HiLoResult | undefined, id: string) {
@@ -1447,6 +1467,7 @@ function PlayerPage() {
               score={totalScore(player.partyScore, seat.id)}
               action={latestActionForPlayer(player.actions, seat.id)}
               currentStage={player.stage}
+              resultPlayer={player.cardsRevealed ? playerResult(player.result, seat.id) : undefined}
             />
           ))}
         </div>
@@ -1481,6 +1502,7 @@ function PlayerPage() {
             score={totalScore(player.partyScore, player.playerId)}
             action={latestActionForPlayer(player.actions, player.playerId)}
             currentStage={player.stage}
+            resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
           />
         </div>
       </div>
