@@ -39,6 +39,15 @@ test('opponent cards stay four in a row at a five-player table', async ({ page }
     ));
     expect(new Set(cardTops).size).toBe(1);
   }
+
+  const stageBox = await page.getByTestId('table-stage').boundingBox();
+  const boardBox = await page.getByTestId('table-board').boundingBox();
+  const potBox = await page.getByTestId('table-pot').boundingBox();
+  expect(stageBox).toBeTruthy();
+  expect(boardBox).toBeTruthy();
+  expect(potBox).toBeTruthy();
+  expect(stageBox!.x + stageBox!.width).toBeLessThan(boardBox!.x);
+  expect(boardBox!.x + boardBox!.width).toBeLessThan(potBox!.x);
 });
 
 test('a bot takes its turn after the human acts', async ({ page, request }) => {

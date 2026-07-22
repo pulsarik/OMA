@@ -305,7 +305,6 @@ const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     display: grid;
     gap: clamp(10px, 1.5vw, 20px);
-    min-height: clamp(500px, 68vh, 760px);
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
@@ -337,13 +336,25 @@ const PLAYER_PAGE_STYLES = `
   .player-meta.is-thinking { background: rgba(69, 43, 4, .62); }
   .player-name { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
   .table-center {
+    grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
+    grid-template-areas: "stage board pot";
+    align-items: center;
     align-self: center;
-    min-height: 190px;
+    min-height: 132px;
     border: 1px solid rgba(255,255,255,.14);
     border-radius: 28px;
     background: rgba(1, 46, 30, .26);
     padding: 12px;
   }
+  .table-center.has-showdown {
+    grid-template-areas:
+      "status status status"
+      "stage board pot";
+  }
+  .table-showdown { grid-area: status; }
+  .table-stage { grid-area: stage; justify-self: start; }
+  .table-board { grid-area: board; justify-self: center; }
+  .table-pot { grid-area: pot; justify-self: end; }
   .hero-seat { align-self: end; }
   .action-dock {
     position: sticky;
@@ -388,12 +399,28 @@ const PLAYER_PAGE_STYLES = `
   .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
-    .poker-table { min-height: 500px; border-width: 3px; border-radius: 28px; padding: 12px 8px; }
+    .poker-table { border-width: 3px; border-radius: 28px; padding: 12px 8px; }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { bottom: 4px; border-radius: 14px; }
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
+  }
+  @media (max-width: 560px) {
+    .table-center {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "stage pot"
+        "board board";
+      gap: 8px;
+    }
+    .table-center.has-showdown {
+      grid-template-areas:
+        "status status"
+        "stage pot"
+        "board board";
+    }
+    .table-board { grid-column: 1 / -1; }
   }
 `;
 
@@ -1637,18 +1664,19 @@ function PlayerPage() {
         </div>
 
         <section
-          className="table-center"
+          className={`table-center${player.stage === 'showdown' ? ' has-showdown' : ''}`}
           style={{
             textAlign: 'center',
             display: 'grid',
             gap: 4,
-            justifyItems: 'center',
           }}
         >
-          <ShowdownStatus player={player} />
-          <StreetBadge stage={player.stage} />
-          <PotDisplay value={player.potCoins} currentBet={currentBet} />
-          <BoardRow cards={player.community} compact />
+          {player.stage === 'showdown' ? (
+            <div className="table-showdown"><ShowdownStatus player={player} /></div>
+          ) : null}
+          <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
+          <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
+          <div className="table-pot" data-testid="table-pot"><PotDisplay value={player.potCoins} currentBet={currentBet} /></div>
         </section>
 
         <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
