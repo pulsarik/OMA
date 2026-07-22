@@ -16,7 +16,6 @@ import {
   nextPartyHand,
   normalizeHand,
   recordPlayerMove,
-  recordRevealVote,
   replayHandLayout,
   stacksAfterPayout,
   visibleCommunity,
@@ -69,29 +68,6 @@ if (staticDir) {
   app.use(express.static(staticDir));
 }
 
-function recordBotRevealVotes(hand: any) {
-  if (hand.stage !== 'showdown' || hand.cardsRevealed) return;
-  hand.players
-    .filter((player: any) => player.isBot)
-    .forEach((player: any) => recordRevealVote(hand, player.id));
-}
-
-function runBotTurns(hand: any) {
-  normalizeHand(hand);
-
-  for (let i = 0; i < 50; i++) {
-    if (hand.stage === 'showdown') break;
-
-    const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
-    if (!current?.isBot || current.folded || current.stack <= 0) break;
-
-    const decision = botMove(hand, current);
-    recordPlayerMove(hand, current.id, decision.move, decision.amount);
-  }
-
-  recordBotRevealVotes(hand);
-}
-
 function scheduleBotTurns(handId: string) {
   if (botTurnTimers.has(handId)) return;
 
@@ -102,7 +78,6 @@ function scheduleBotTurns(handId: string) {
       if (!hand) return;
       normalizeHand(hand);
       if (hand.stage === 'showdown') {
-        recordBotRevealVotes(hand);
         await store.updateHand(hand);
         broadcastHandUpdated(hand);
         return;
@@ -113,7 +88,6 @@ function scheduleBotTurns(handId: string) {
 
       const decision = botMove(hand, current);
       recordPlayerMove(hand, current.id, decision.move, decision.amount);
-      recordBotRevealVotes(hand);
       await store.updateHand(hand);
       broadcastHandUpdated(hand);
       scheduleBotTurns(hand.id);
@@ -501,22 +475,10 @@ wss.on('connection', (ws, req) => {
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
         recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount);
-        recordBotRevealVotes(hand);
         await store.updateHand(hand);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
         broadcastHandUpdated(hand);
         scheduleBotTurns(hand.id);
-      } else if (msg.action === 'reveal_cards') {
-        const hand = await store.getHand(msg.handId);
-        if (!hand) throw new Error('hand not found');
-        normalizeHand(hand);
-        const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
-        if (!player) throw new Error('player not found');
-        recordRevealVote(hand, player.id);
-        recordBotRevealVotes(hand);
-        await store.updateHand(hand);
-        ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
-        broadcastHandUpdated(hand);
       } else if (msg.action === 'replay' && msg.id) {
         const h = await store.getHand(msg.id);
         if (h) ws.send(JSON.stringify({ type: 'hand_full', data: h }));

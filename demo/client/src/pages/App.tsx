@@ -1056,7 +1056,7 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
       ? `${formatPoints(summaryScore.total)} of ${formatPoints(player.showdownSummary?.potCoins ?? player.potCoins)} coins`
     : knownFoldResult
       ? won ? `${formatPoints(player.potCoins)} coins` : 'Folded'
-      : `show cards: ${player.revealVotes.length}/${player.players.length}`;
+      : 'Cards revealed';
   const winners = player.showdownSummary
     ? `High: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')} | Low: ${
       player.showdownSummary.noLow
@@ -1092,46 +1092,6 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
         </span>
       ) : null}
     </div>
-  );
-}
-
-function RevealRequest({ player, canVoteReveal, onReveal }: {
-  player: PlayerView;
-  canVoteReveal: boolean;
-  onReveal: () => void;
-}) {
-  const hasRevealRequest = (
-    player.stage === 'showdown'
-    && !player.cardsRevealed
-    && !player.nextHandId
-    && player.revealVotes.length > 0
-  );
-  if (!hasRevealRequest) return null;
-
-  const voted = player.revealVotes.includes(player.playerId);
-  const voters = player.revealVotes.join(', ');
-
-  return (
-    <section
-      style={{
-        marginTop: 12,
-        border: '2px solid #f59e0b',
-        borderRadius: 8,
-        background: '#fffbeb',
-        color: '#78350f',
-        padding: 12,
-        display: 'flex',
-        gap: 12,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-      }}
-    >
-      <strong>
-        {voted ? 'Waiting for others to show cards' : `${voters} wants to show cards`}
-      </strong>
-      <button disabled={!canVoteReveal} onClick={onReveal}>Show cards</button>
-    </section>
   );
 }
 
@@ -1407,16 +1367,6 @@ function PlayerPage() {
     ws.send(JSON.stringify({ action: 'player_move', handId, playerId, token, move, amount }));
   }
 
-  function revealCards() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setNotice('Connecting to server. Try again in a moment.');
-      return;
-    }
-
-    setNotice('Show cards vote sent.');
-    ws.send(JSON.stringify({ action: 'reveal_cards', handId, playerId, token }));
-  }
-
   function startNewDeal() {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setNotice('Connecting to server. Try again in a moment.');
@@ -1454,7 +1404,6 @@ function PlayerPage() {
   const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, bigBlind, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
   const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises;
-  const canVoteReveal = socketReady && player.stage === 'showdown' && !player.cardsRevealed && !player.revealVotes.includes(player.playerId);
   const hasContinuation = Boolean(player.nextHandId || player.nextReplayHandId);
   const remainingPlayers = player.players.filter((seat) => {
     const settledStack = player.partyScore?.totals.find((total) => total.id === seat.id)?.total;
@@ -1534,7 +1483,6 @@ function PlayerPage() {
           }}
         >
           <ShowdownStatus player={player} />
-          <RevealRequest player={player} canVoteReveal={canVoteReveal} onReveal={revealCards} />
           <StreetBadge stage={player.stage} />
           <PotDisplay value={player.potCoins} currentBet={currentBet} />
           <BoardRow cards={player.community} compact />
@@ -1627,10 +1575,7 @@ function PlayerPage() {
           </span>
         ) : null}
         {player.stage === 'showdown' ? (
-          <>
-            {canVoteReveal ? <button onClick={revealCards}>Show cards</button> : null}
-            {canContinue ? <button onClick={startNewDeal}>New deal</button> : null}
-          </>
+          canContinue ? <button onClick={startNewDeal}>New deal</button> : null
         ) : null}
         {player.nextPlayerLink ? (
           <button onClick={() => { window.location.href = player.nextPlayerLink!.url; }}>
@@ -1704,11 +1649,6 @@ function DebugPage() {
       <p>Pot: {formatPoints(hand.potCoins ?? 2)} coins</p>
       <p>Stage: {hand.stage ?? 'showdown'}</p>
       <p>Turn: {hand.currentPlayerId ?? '-'}</p>
-      <p>
-        Show cards votes: {hand.revealVotes?.length ?? 0}/{hand.players.length}
-        {hand.cardsRevealed ? ' - cards revealed' : ''}
-      </p>
-
       <h2>Board</h2>
       <CardRow cards={hand.fullCommunity ?? hand.community} />
 

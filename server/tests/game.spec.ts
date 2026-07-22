@@ -7,7 +7,6 @@ import {
   evaluatePlayerCombo,
   nextPartyHand,
   recordPlayerMove,
-  recordRevealVote,
   replayHandLayout,
   stacksAfterPayout,
 } from '../src/game';
@@ -389,16 +388,14 @@ test('folding everyone but one player moves hand to showdown', () => {
   expect(hand.players.find(p => p.id === 'P2')?.folded).toBe(false);
 });
 
-test('cards reveal by agreement after showdown caused by folds', () => {
+test('all cards reveal automatically after showdown caused by a fold', () => {
   const hand = dealHand(2, 12345);
 
   recordPlayerMove(hand, 'P1', 'fold');
 
-  recordRevealVote(hand, 'P1');
-  expect(hand.cardsRevealed).toBe(false);
-
-  recordRevealVote(hand, 'P2');
   expect(hand.cardsRevealed).toBe(true);
+  expect(hand.revealVotes).toEqual(['P1', 'P2']);
+  expect(hand.players.every(player => player.hole.length === 4)).toBe(true);
 });
 
 test('evaluates Omaha Hi-Lo with high and qualifying low', () => {

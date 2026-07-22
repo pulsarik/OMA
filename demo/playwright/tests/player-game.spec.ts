@@ -47,7 +47,7 @@ test('folded hands show combinations and a new deal opens', async ({ page }) => 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Show cards' }).first().click();
+  await expect(page.getByRole('button', { name: 'Show cards' })).toHaveCount(0);
 
   const foldedHand = page.getByRole('heading', { name: 'Dima - folded' }).locator('..');
   await expect(foldedHand.getByText(/^High: /)).toBeVisible();

@@ -159,6 +159,10 @@ export function normalizeHand(hand: DealtHand) {
     player.name = normalizedPlayerName(player.name, index, player.isBot);
     player.stack = Math.max(0, player.stack ?? STARTING_STACK);
   });
+  if (hand.stage === 'showdown') {
+    hand.cardsRevealed = true;
+    hand.revealVotes = hand.players.map(player => player.id);
+  }
   if (hand.stage !== 'showdown' && !hand.currentPlayerId) {
     hand.currentPlayerId = firstActivePlayer(hand)?.id;
   }
@@ -217,10 +221,8 @@ function finishHand(hand: DealtHand) {
   hand.currentPlayerId = undefined;
   resetBettingRound(hand);
   hand.community = visibleCommunity(hand);
-  if (activePlayers(hand).length > 1 && hand.fullCommunity.length >= COMMUNITY_CARDS) {
-    hand.cardsRevealed = true;
-    hand.revealVotes = hand.players.map(player => player.id);
-  }
+  hand.cardsRevealed = true;
+  hand.revealVotes = hand.players.map(player => player.id);
 }
 
 function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
@@ -242,7 +244,7 @@ function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
     resetBettingRound(hand);
     hand.currentPlayerId = hand.stage === 'showdown' ? undefined : firstActivePlayer(hand)?.id;
     hand.community = visibleCommunity(hand);
-    if (hand.stage === 'showdown' && activePlayers(hand).length > 1) {
+    if (hand.stage === 'showdown') {
       hand.cardsRevealed = true;
       hand.revealVotes = hand.players.map(player => player.id);
     }
@@ -323,28 +325,6 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
 
   setNextTurnOrAdvance(hand, playerId);
   hand.revision = (hand.revision ?? 0) + 1;
-
-  return hand;
-}
-
-export function recordRevealVote(hand: DealtHand, playerId: string) {
-  normalizeHand(hand);
-
-  if (hand.stage !== 'showdown') {
-    throw new Error('cards can only be revealed at showdown');
-  }
-
-  const player = hand.players.find(p => p.id === playerId);
-  if (!player) throw new Error('player not found');
-
-  if (!hand.revealVotes.includes(playerId)) {
-    hand.revealVotes.push(playerId);
-    hand.revision = (hand.revision ?? 0) + 1;
-  }
-
-  if (hand.players.every(p => hand.revealVotes.includes(p.id))) {
-    hand.cardsRevealed = true;
-  }
 
   return hand;
 }
@@ -622,8 +602,7 @@ function applyBlinds(hand: DealtHand) {
     hand.currentPlayerId = nextActivePlayerAfter(hand, bigBlind.id)?.id ?? firstActivePlayer(hand)?.id;
   } else {
     hand.potCoins = 0;
-    hand.stage = 'showdown';
-    hand.currentPlayerId = undefined;
+    finishHand(hand);
   }
 }
 
