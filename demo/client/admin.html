@@ -320,8 +320,9 @@
       `).join('');
     }
 
-    function resultHtml(result) {
+    function resultHtml(result, players = []) {
       if (!result) return '';
+      const displayName = (id) => (players.find((player) => player.id === id)?.name || id).replace(/_bot$/i, '');
       const highWinnerDetails = result.highWinners
         .map((id) => result.players.find((player) => player.id === id))
         .filter(Boolean);
@@ -333,16 +334,16 @@
         <h3>Winners</h3>
         <p>Pot: ${formatPoints(result.potCoins)} coins</p>
         <section>
-          <h4>High winner${highWinnerDetails.length > 1 ? 's' : ''}: ${escapeHtml(result.highWinners.join(', '))}</h4>
+          <h4>High winner${highWinnerDetails.length > 1 ? 's' : ''}: ${escapeHtml(result.highWinners.map(displayName).join(', '))}</h4>
           ${highWinnerDetails.map((winner) => `
-            <p>${escapeHtml(winner.id)}: ${escapeHtml(winner.highRank || '-')}</p>
+            <p>${escapeHtml(displayName(winner.id))}: ${escapeHtml(winner.highRank || '-')}</p>
             ${winner.highCards ? cardsHtml(winner.highCards) : ''}
           `).join('')}
         </section>
         <section>
-          <h4>Low winner${lowWinnerDetails.length > 1 ? 's' : ''}: ${result.noLow ? 'No qualifying low' : escapeHtml(result.lowWinners.join(', '))}</h4>
+          <h4>Low winner${lowWinnerDetails.length > 1 ? 's' : ''}: ${result.noLow ? 'No qualifying low' : escapeHtml(result.lowWinners.map(displayName).join(', '))}</h4>
           ${lowWinnerDetails.map((winner) => `
-            <p>${escapeHtml(winner.id)}: ${escapeHtml(winner.lowRank || '-')}</p>
+            <p>${escapeHtml(displayName(winner.id))}: ${escapeHtml(winner.lowRank || '-')}</p>
             ${winner.lowCards ? cardsHtml(winner.lowCards) : ''}
           `).join('')}
         </section>
@@ -359,7 +360,7 @@
           <tbody>
             ${result.points.map((score) => `
               <tr>
-                <td>${escapeHtml(score.id)}</td>
+                <td>${escapeHtml(displayName(score.id))}</td>
                 <td>${formatPoints(score.high)}</td>
                 <td>${formatPoints(score.low)}</td>
                 <td>${formatPoints(score.total)}</td>
@@ -370,7 +371,7 @@
         <h4>All hands</h4>
         ${result.players.map((player) => `
           <section>
-            <h4>${escapeHtml(player.id)}${player.folded ? ' - folded' : ''}</h4>
+            <h4>${escapeHtml(displayName(player.id))}${player.folded ? ' - folded' : ''}</h4>
             ${player.folded ? '' : `
               <p>High: ${escapeHtml(player.highRank || '-')}</p>
               ${player.highCards ? cardsHtml(player.highCards) : ''}
@@ -439,7 +440,7 @@
         </p>
         <h3>Board</h3>
         ${cardsHtml(hand.fullCommunity || hand.community)}
-        ${hand.cardsRevealed ? resultHtml(hand.result) : ''}
+        ${hand.cardsRevealed ? resultHtml(hand.result, hand.players) : ''}
         <h3>Players</h3>
         <div class="players">
           ${hand.players.map((player) => `

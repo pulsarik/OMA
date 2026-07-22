@@ -193,6 +193,8 @@ type FullHandView = {
   blinds?: BlindInfo;
   players: Array<{
     id: string;
+    name?: string;
+    isBot?: boolean;
     hole: string[];
     stack?: number;
     folded?: boolean;
@@ -1056,8 +1058,10 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
       ? won ? `${formatPoints(player.potCoins)} coins` : 'Folded'
       : `show cards: ${player.revealVotes.length}/${player.players.length}`;
   const winners = player.showdownSummary
-    ? `High: ${player.showdownSummary.highWinners.join(', ')} | Low: ${
-      player.showdownSummary.noLow ? 'none' : player.showdownSummary.lowWinners.join(', ')
+    ? `High: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')} | Low: ${
+      player.showdownSummary.noLow
+        ? 'none'
+        : player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')
     }`
     : undefined;
 
@@ -1228,8 +1232,12 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
   );
 }
 
-function ResultView({ result }: { result?: HiLoResult }) {
+function ResultView({ result, players }: {
+  result?: HiLoResult;
+  players: Array<{ id: string; name?: string }>;
+}) {
   if (!result) return null;
+  const displayName = (id: string) => playerLabel(players, id);
   const highWinnerResults = result.highWinners
     .map((id) => playerResult(result, id))
     .filter((player): player is NonNullable<typeof player> => Boolean(player));
@@ -1249,7 +1257,7 @@ function ResultView({ result }: { result?: HiLoResult }) {
           {highWinnerResults.map((winner) => (
             <div key={winner.id}>
               <h3 style={{ margin: '0 0 6px' }}>
-                High winner{highWinnerResults.length > 1 ? 's' : ''}: {winner.id} - {winner.highRank}
+                High winner{highWinnerResults.length > 1 ? 's' : ''}: {displayName(winner.id)} - {winner.highRank}
               </h3>
               {winner.highCombo ? <ComboCardRow combo={winner.highCombo} tone="high" /> : null}
             </div>
@@ -1262,7 +1270,7 @@ function ResultView({ result }: { result?: HiLoResult }) {
           ) : lowWinnerResults.map((winner) => (
             <div key={winner.id}>
               <h3 style={{ margin: '0 0 6px' }}>
-                Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {winner.id} - {winner.lowRank}
+                Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {displayName(winner.id)} - {winner.lowRank}
               </h3>
               {winner.lowCombo ? <ComboCardRow combo={winner.lowCombo} tone="low" /> : null}
             </div>
@@ -1283,7 +1291,7 @@ function ResultView({ result }: { result?: HiLoResult }) {
         <tbody>
           {result.points.map((score) => (
             <tr key={score.id}>
-              <td style={{ border: '1px solid #d1d5db', padding: 6 }}>{score.id}</td>
+              <td style={{ border: '1px solid #d1d5db', padding: 6 }}>{displayName(score.id)}</td>
               <td style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'right' }}>{formatPoints(score.high)}</td>
               <td style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'right' }}>{formatPoints(score.low)}</td>
               <td style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'right' }}>{formatPoints(score.total)}</td>
@@ -1295,7 +1303,7 @@ function ResultView({ result }: { result?: HiLoResult }) {
       <div style={{ display: 'grid', gap: 8 }}>
         {result.players.map((player) => (
           <section key={player.id}>
-            <h3 style={{ margin: '0 0 5px' }}>{player.id}{player.folded ? ' - folded' : ''}</h3>
+            <h3 style={{ margin: '0 0 5px' }}>{displayName(player.id)}{player.folded ? ' - folded' : ''}</h3>
             <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
             {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
             <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
@@ -1641,7 +1649,7 @@ function PlayerPage() {
           {notice}
         </p>
       ) : null}
-      {player.cardsRevealed ? <ResultView result={player.result} /> : null}
+      {player.cardsRevealed ? <ResultView result={player.result} players={player.players} /> : null}
 
       {newDealLinks.length ? (
         <section style={{ marginTop: 18, border: '1px solid #d1d5db', borderRadius: 8, padding: 12 }}>
@@ -1715,7 +1723,7 @@ function DebugPage() {
         ))}
       </div>
 
-      {hand.cardsRevealed ? <ResultView result={hand.result} /> : null}
+      {hand.cardsRevealed ? <ResultView result={hand.result} players={hand.players} /> : null}
 
       <h2>Actions</h2>
       {hand.actions?.length ? (
