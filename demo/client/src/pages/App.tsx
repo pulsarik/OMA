@@ -761,6 +761,7 @@ function StreetBadge({ stage }: { stage: string }) {
 
 function PlayerSeat({
   id,
+  name,
   folded,
   isYou,
   isBot,
@@ -772,6 +773,7 @@ function PlayerSeat({
   resultPlayer,
 }: {
   id: string;
+  name?: string;
   folded: boolean;
   isYou: boolean;
   isBot?: boolean;
@@ -802,11 +804,6 @@ function PlayerSeat({
           position: 'relative',
         }}
       >
-        {!compact ? (
-          <h3 style={{ margin: '0 0 8px' }}>
-            {id}{isYou ? ' (you)' : ''}{isBot ? ' [bot]' : ''}{folded ? ' - folded' : ''}
-          </h3>
-        ) : null}
         {isBot ? (
           <span
             style={{
@@ -863,6 +860,19 @@ function PlayerSeat({
           </div>
         ) : null}
         {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
+        <div
+          data-testid={`player-name-${id}`}
+          style={{
+            marginTop: 5,
+            color: '#0f172a',
+            fontSize: compact ? 12 : 14,
+            fontWeight: 900,
+            lineHeight: 1.15,
+            textAlign: 'center',
+          }}
+        >
+          {name ?? id}{isYou ? ' (you)' : ''}
+        </div>
         {resultPlayer && !resultPlayer.folded ? (
           <div
             style={{
@@ -1481,6 +1491,7 @@ function PlayerPage() {
             <PlayerSeat
               key={seat.id}
               id={seat.id}
+              name={seat.name}
               folded={seat.folded}
               isYou={false}
               isBot={seat.isBot}
@@ -1515,6 +1526,7 @@ function PlayerPage() {
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <PlayerSeat
             id={player.playerId}
+            name={player.playerName}
             folded={player.folded}
             isYou
             isBot={player.isBot}

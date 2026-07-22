@@ -20,6 +20,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
+  await expect(page.getByTestId('player-name-P2')).toHaveText('Anna_bot');
 
   await page.getByRole('button', { name: /^Call / }).click();
   const apiUrl = apiUrlForPlayerLink(href);
