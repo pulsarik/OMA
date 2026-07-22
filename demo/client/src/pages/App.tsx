@@ -624,7 +624,7 @@ function CardRow({ cards }: { cards: string[] }) {
 
 function CompactCardRow({ cards, testId }: { cards: string[]; testId?: string }) {
   return (
-    <div data-testid={testId} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div data-testid={testId} style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', justifyContent: 'center' }}>
       {cards.map((card) => (
         <div key={card} style={{ width: COMPACT_CARD_WIDTH, height: COMPACT_CARD_HEIGHT }}>
           <Card code={card} scale={COMPACT_CARD_SCALE} />
@@ -746,7 +746,7 @@ function CardBackRow({ count, compact = false, testId }: { count: number; compac
   const scale = compact ? COMPACT_CARD_SCALE : CARD_SCALE;
 
   return (
-    <div data-testid={testId} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div data-testid={testId} style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', justifyContent: 'center' }}>
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} style={{ width, height }}>
           <CardBack scale={scale} />

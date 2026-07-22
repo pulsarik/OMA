@@ -16,10 +16,10 @@ function apiUrlForPlayerLink(href: string) {
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
 }
 
-test('opponent cards stay in horizontal rows at a crowded table', async ({ page }) => {
+test('opponent cards stay four in a row at a five-player table', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
-  await page.getByLabel('Players').fill('7');
+  await page.getByLabel('Players').fill('5');
   await page.getByLabel('Players').press('Tab');
   await page.getByRole('button', { name: 'New deal' }).click();
 
@@ -29,9 +29,11 @@ test('opponent cards stay in horizontal rows at a crowded table', async ({ page 
   expect(href).toBeTruthy();
   await page.goto(href!);
 
-  for (let playerNumber = 2; playerNumber <= 7; playerNumber += 1) {
+  for (let playerNumber = 2; playerNumber <= 5; playerNumber += 1) {
     const cardRow = page.getByTestId(`player-cards-P${playerNumber}`);
     await expect(cardRow).toBeVisible();
+    await expect(cardRow).toHaveCSS('flex-wrap', 'nowrap');
+    await expect(cardRow.locator(':scope > div')).toHaveCount(4);
     const cardTops = await cardRow.locator(':scope > div').evaluateAll((cards) => (
       cards.map((card) => (card as HTMLElement).offsetTop)
     ));
