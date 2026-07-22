@@ -315,16 +315,14 @@ const PLAYER_PAGE_STYLES = `
     padding: clamp(14px, 2vw, 28px);
     color: #fff;
   }
-  .opponents-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-    gap: 20px 12px;
-    align-items: start;
+  .opponents-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px 8px;
   }
-  .opponents-grid.is-crowded {
-    grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
-  }
-  .player-seat-wrap { min-width: 0; }
+  .player-seat-wrap { flex: 0 0 auto; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
   }
@@ -391,7 +389,6 @@ const PLAYER_PAGE_STYLES = `
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
     .poker-table { min-height: 500px; border-width: 3px; border-radius: 28px; padding: 12px 8px; }
-    .opponents-grid, .opponents-grid.is-crowded { grid-template-columns: 1fr; }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { bottom: 4px; border-radius: 14px; }
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
@@ -625,9 +622,9 @@ function CardRow({ cards }: { cards: string[] }) {
   );
 }
 
-function CompactCardRow({ cards }: { cards: string[] }) {
+function CompactCardRow({ cards, testId }: { cards: string[]; testId?: string }) {
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div data-testid={testId} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
       {cards.map((card) => (
         <div key={card} style={{ width: COMPACT_CARD_WIDTH, height: COMPACT_CARD_HEIGHT }}>
           <Card code={card} scale={COMPACT_CARD_SCALE} />
@@ -743,13 +740,13 @@ function ComboCardRow({ combo, tone = 'neutral' }: { combo?: ComboCard[]; tone?:
   );
 }
 
-function CardBackRow({ count, compact = false }: { count: number; compact?: boolean }) {
+function CardBackRow({ count, compact = false, testId }: { count: number; compact?: boolean; testId?: string }) {
   const width = compact ? COMPACT_CARD_WIDTH : CARD_WIDTH;
   const height = compact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
   const scale = compact ? COMPACT_CARD_SCALE : CARD_SCALE;
 
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div data-testid={testId} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
       {Array.from({ length: count }).map((_, index) => (
         <div key={index} style={{ width, height }}>
           <CardBack scale={scale} />
@@ -1016,7 +1013,11 @@ function PlayerSeat({
             />
           </div>
         ) : null}
-        {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
+        {shouldShowCards ? (
+          <CompactCardRow cards={hole ?? []} testId={`player-cards-${id}`} />
+        ) : (
+          <CardBackRow count={cardCount} compact={compact} testId={`player-cards-${id}`} />
+        )}
         {resultPlayer && !resultPlayer.folded ? (
           <div
             style={{
@@ -1615,7 +1616,7 @@ function PlayerPage() {
         className="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}
-        <div className={`opponents-grid${otherPlayers.length > 3 ? ' is-crowded' : ''}`}>
+        <div className="opponents-row">
           {otherPlayers.map((seat) => (
             <PlayerSeat
               key={seat.id}

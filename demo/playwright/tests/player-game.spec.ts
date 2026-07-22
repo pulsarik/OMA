@@ -16,6 +16,29 @@ function apiUrlForPlayerLink(href: string) {
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
 }
 
+test('opponent cards stay in horizontal rows at a crowded table', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await page.getByLabel('Players').fill('7');
+  await page.getByLabel('Players').press('Tab');
+  await page.getByRole('button', { name: 'New deal' }).click();
+
+  const playerLink = page.getByRole('link', { name: /Dima Open/ });
+  await expect(playerLink).toBeVisible();
+  const href = await playerLink.getAttribute('href');
+  expect(href).toBeTruthy();
+  await page.goto(href!);
+
+  for (let playerNumber = 2; playerNumber <= 7; playerNumber += 1) {
+    const cardRow = page.getByTestId(`player-cards-P${playerNumber}`);
+    await expect(cardRow).toBeVisible();
+    const cardTops = await cardRow.locator(':scope > div').evaluateAll((cards) => (
+      cards.map((card) => (card as HTMLElement).offsetTop)
+    ));
+    expect(new Set(cardTops).size).toBe(1);
+  }
+});
+
 test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
