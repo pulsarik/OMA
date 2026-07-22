@@ -355,7 +355,35 @@ const PLAYER_PAGE_STYLES = `
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
   .table-pot { grid-area: pot; justify-self: end; }
-  .hero-seat { align-self: end; }
+  .hero-zone {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "high hero low";
+    align-items: end;
+    gap: clamp(10px, 1.6vw, 24px);
+  }
+  .hero-seat { grid-area: hero; align-self: end; }
+  .combo-side {
+    align-self: center;
+    min-width: 0;
+    border: 1px solid rgba(255,255,255,.34);
+    border-radius: 14px;
+    background: rgba(2,44,30,.48);
+    padding: 8px;
+    color: #fff;
+    overflow: auto;
+  }
+  .combo-side.high { grid-area: high; justify-self: end; }
+  .combo-side.low { grid-area: low; justify-self: start; }
+  .combo-side-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 3px;
+    font-size: 13px;
+    font-weight: 900;
+  }
+  .combo-side-rank { color: #d1fae5; text-align: right; }
   .action-dock {
     position: sticky;
     z-index: 20;
@@ -384,7 +412,7 @@ const PLAYER_PAGE_STYLES = `
   .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
   .turn-status { text-align: center; color: #92400e; font-weight: 900; letter-spacing: .02em; }
   .game-notice { margin: 8px 4px; color: #526159; font-size: 13px; font-weight: 750; text-align: center; }
-  .combo-strip, .result-panel {
+  .result-panel {
     border: 1px solid #dce5df;
     border-radius: 16px;
     background: var(--surface);
@@ -405,6 +433,11 @@ const PLAYER_PAGE_STYLES = `
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
+    .hero-zone { gap: 6px; }
+    .combo-side { max-width: 112px; padding: 7px; }
+    .combo-side .combo-side-cards { display: none; }
+    .combo-side-title { display: grid; justify-content: initial; text-align: center; }
+    .combo-side-rank { text-align: center; }
   }
   @media (max-width: 560px) {
     .table-center {
@@ -421,6 +454,14 @@ const PLAYER_PAGE_STYLES = `
         "board board";
     }
     .table-board { grid-column: 1 / -1; }
+    .hero-zone {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "high low"
+        "hero hero";
+      align-items: center;
+    }
+    .combo-side.high, .combo-side.low { justify-self: stretch; max-width: none; }
   }
 `;
 
@@ -1278,36 +1319,24 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
   );
 }
 
-function CurrentComboStrip({ combo }: { combo?: PlayerCombo }) {
+function PlayerComboSide({ combo, kind }: { combo?: PlayerCombo; kind: 'high' | 'low' }) {
   if (!combo) return null;
+  const isHigh = kind === 'high';
+  const rank = isHigh ? combo.highRank : combo.lowRank;
+  const cards = isHigh ? combo.highCombo : combo.lowCombo;
 
   return (
-    <section
-      className="combo-strip"
-      style={{
-        marginTop: 12,
-        padding: 12,
-        display: 'grid',
-        gap: 6,
-      }}
-    >
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'baseline' }}>
-        <strong>Now</strong>
-        <span>High: {combo.highRank}</span>
-        <span>
-          Low: {combo.lowRank ?? 'none'}
-          {!combo.lowRank ? (
-            <small style={{ marginLeft: 6, color: '#64748b' }}>
-              needs 2 hand + 3 board, all different A-8
-            </small>
-          ) : null}
-        </span>
+    <aside className={`combo-side ${kind}`} data-testid={`${kind}-combo-side`}>
+      <div className="combo-side-title">
+        <span>{isHigh ? 'HIGH' : 'LOW'}</span>
+        <span className="combo-side-rank">{rank ?? 'none'}</span>
       </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        {combo.highCombo ? <ComboCardRow combo={combo.highCombo} tone="high" /> : null}
-        {combo.lowCombo ? <ComboCardRow combo={combo.lowCombo} tone="low" /> : null}
-      </div>
-    </section>
+      {cards ? (
+        <div className="combo-side-cards">
+          <ComboCardRow combo={cards} tone={kind} />
+        </div>
+      ) : null}
+    </aside>
   );
 }
 
@@ -1679,19 +1708,23 @@ function PlayerPage() {
           <div className="table-pot" data-testid="table-pot"><PotDisplay value={player.potCoins} currentBet={currentBet} /></div>
         </section>
 
-        <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
-          <PlayerSeat
-            id={player.playerId}
-            name={player.playerName}
-            folded={player.folded}
-            isYou
-            isBot={player.isBot}
-            hole={player.hole}
-            cardCount={player.hole.length}
-            compact
-            score={totalScore(player.partyScore, player.playerId)}
-            resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
-          />
+        <div className="hero-zone">
+          {player.stage !== 'showdown' ? <PlayerComboSide combo={player.currentCombo} kind="high" /> : null}
+          <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
+            <PlayerSeat
+              id={player.playerId}
+              name={player.playerName}
+              folded={player.folded}
+              isYou
+              isBot={player.isBot}
+              hole={player.hole}
+              cardCount={player.hole.length}
+              compact
+              score={totalScore(player.partyScore, player.playerId)}
+              resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
+            />
+          </div>
+          {player.stage !== 'showdown' ? <PlayerComboSide combo={player.currentCombo} kind="low" /> : null}
         </div>
       </div>
 
@@ -1764,7 +1797,6 @@ function PlayerPage() {
         ) : null}
         </div>
       </div>
-      {player.stage !== 'showdown' ? <CurrentComboStrip combo={player.currentCombo} /> : null}
       {tournamentWinner ? (
         <p style={{ fontWeight: 800 }}>
           Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
