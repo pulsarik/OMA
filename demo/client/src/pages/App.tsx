@@ -777,6 +777,7 @@ function PlayerSeat({
   score = 0,
   action,
   resultPlayer,
+  isCurrentTurn = false,
 }: {
   id: string;
   name?: string;
@@ -789,25 +790,33 @@ function PlayerSeat({
   score?: number;
   action?: ActionLog;
   resultPlayer?: HiLoResult['players'][number];
+  isCurrentTurn?: boolean;
 }) {
   const shouldShowCards = Boolean(hole?.length);
   const actionLabel = action
     ? `${action.move.toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
     : undefined;
+  const bubbleLabel = isCurrentTurn ? 'THINKING...' : actionLabel;
 
   return (
-    <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
+    <div
+      data-testid={isCurrentTurn ? `active-player-${id}` : undefined}
+      style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
+    >
       <section
         style={{
-          border: isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
+          border: isCurrentTurn ? '3px solid #facc15' : isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
           borderRadius: 8,
           padding: compact ? 6 : 10,
-          background: folded ? '#f3f4f6' : '#fff',
+          background: folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
           opacity: folded ? 0.62 : 1,
           width: compact ? 'fit-content' : undefined,
           minWidth: compact ? undefined : 180,
           margin: '0 auto',
           position: 'relative',
+          boxShadow: isCurrentTurn
+            ? '0 0 0 4px rgba(250,204,21,0.35), 0 0 22px rgba(250,204,21,0.95)'
+            : undefined,
         }}
       >
         {isBot ? (
@@ -829,27 +838,29 @@ function PlayerSeat({
             BOT
           </span>
         ) : null}
-        {action ? (
+        {bubbleLabel ? (
           <div
-            title={`Last action: ${actionLabel}`}
+            title={isCurrentTurn ? `${tablePlayerName(name, id)} is thinking` : `Last action: ${actionLabel}`}
             style={{
               position: 'absolute',
               top: -18,
               right: 8,
               zIndex: 2,
-              border: '1px solid #cbd5e1',
+              border: isCurrentTurn ? '2px solid #f59e0b' : '1px solid #cbd5e1',
               borderRadius: 8,
-              background: action.move === 'fold' ? '#fee2e2' : '#fff',
-              color: action.move === 'fold' ? '#7f1d1d' : '#0f172a',
+              background: isCurrentTurn ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
+              color: isCurrentTurn ? '#422006' : action?.move === 'fold' ? '#7f1d1d' : '#0f172a',
               padding: '5px 9px',
               fontSize: compact ? 13 : 14,
               fontWeight: 900,
               lineHeight: 1,
-              boxShadow: '0 2px 7px rgba(15,23,42,0.2)',
+              boxShadow: isCurrentTurn
+                ? '0 3px 12px rgba(250,204,21,0.55)'
+                : '0 2px 7px rgba(15,23,42,0.2)',
               whiteSpace: 'nowrap',
             }}
           >
-            {actionLabel}
+            {bubbleLabel}
             <span
               style={{
                 position: 'absolute',
@@ -857,9 +868,9 @@ function PlayerSeat({
                 bottom: -6,
                 width: 10,
                 height: 10,
-                borderRight: '1px solid #cbd5e1',
-                borderBottom: '1px solid #cbd5e1',
-                background: action.move === 'fold' ? '#fee2e2' : '#fff',
+                borderRight: isCurrentTurn ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                borderBottom: isCurrentTurn ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                background: isCurrentTurn ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
                 transform: 'rotate(45deg)',
               }}
             />
@@ -1323,7 +1334,7 @@ function PlayerPage() {
           setNotice(
             message.data.currentPlayerId === message.data.playerId
               ? 'Your turn.'
-              : `Waiting for ${turnName}.`,
+              : `${turnName} — THINKING...`,
           );
         } else {
           setNotice(null);
@@ -1467,6 +1478,7 @@ function PlayerPage() {
               score={totalScore(player.partyScore, seat.id)}
               action={latestActionForPlayer(player.actions, seat.id)}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, seat.id) : undefined}
+              isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
             />
           ))}
         </div>
@@ -1570,8 +1582,8 @@ function PlayerPage() {
           </>
         ) : null}
         {!canAct && player.stage !== 'showdown' ? (
-          <span style={{ color: '#475569' }}>
-            Waiting for {playerLabel(player.players, player.currentPlayerId)}.
+          <span style={{ color: '#92400e', fontWeight: 900 }}>
+            {playerLabel(player.players, player.currentPlayerId)} — THINKING...
           </span>
         ) : null}
         {player.stage === 'showdown' ? (

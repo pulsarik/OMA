@@ -28,6 +28,11 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await page.getByRole('button', { name: /^Call / }).click();
   const apiUrl = apiUrlForPlayerLink(href);
 
+  const thinkingSeat = page.getByTestId('active-player-P2');
+  await expect(thinkingSeat).toBeVisible();
+  await expect(thinkingSeat.getByText('THINKING...', { exact: true })).toBeVisible();
+  await expect(page.getByText('Anna — THINKING...', { exact: true }).first()).toBeVisible();
+
   await expect.poll(async () => {
     const response = await request.get(apiUrl);
     const state = await response.json();
