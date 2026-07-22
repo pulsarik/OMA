@@ -1455,23 +1455,20 @@ function PlayerPage() {
   return (
     <div style={{ padding: 10, fontFamily: 'system-ui, sans-serif' }}>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-        <strong style={{ fontSize: 18 }}>{player.playerName ?? player.playerId}</strong>
-        <span style={statusPillStyle}>party: {partyLabel(player.partyCode, player.partyId)}</span>
         {player.dealCode ? <span style={statusPillStyle}>deal: {player.dealCode}</span> : null}
-        <span style={statusPillStyle}>{player.stage}{player.folded ? ' - folded' : ''}</span>
-        <span style={statusPillStyle}>
-          blinds: {formatPoints(player.blinds?.small ?? 2)}/{formatPoints(player.blinds?.big ?? 4)}
-        </span>
-        <span style={statusPillStyle}>pot: {formatPoints(player.potCoins)} coins</span>
-        <span style={statusPillStyle}>{socketReady ? 'connected' : 'connecting...'}</span>
-        {player.stage !== 'showdown' ? (
-          <span style={statusPillStyle}>turn: {playerLabel(player.players, player.currentPlayerId)}{canAct ? ' (you)' : ''}</span>
-        ) : (
-          <span style={statusPillStyle}>
-            show cards: {player.revealVotes.length}/{player.players.length}
-            {player.cardsRevealed ? ' - revealed' : ''}
+        {!socketReady ? (
+          <span
+            style={{
+              ...statusPillStyle,
+              borderColor: '#dc2626',
+              background: '#fef2f2',
+              color: '#b91c1c',
+              fontWeight: 800,
+            }}
+          >
+            disconnected
           </span>
-        )}
+        ) : null}
       </div>
 
       <div

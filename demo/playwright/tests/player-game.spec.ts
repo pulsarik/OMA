@@ -19,7 +19,8 @@ function apiUrlForPlayerLink(href: string) {
 test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
-  await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^deal: OMA1-/)).toBeVisible();
+  await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna_bot');
 
@@ -40,7 +41,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
 test('folded hands show combinations and a new deal opens', async ({ page }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
-  await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await expect(page.getByText(/^deal: OMA1-/)).toBeVisible();
+  await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
@@ -53,6 +55,6 @@ test('folded hands show combinations and a new deal opens', async ({ page }) => 
   const oldUrl = page.url();
   await page.getByRole('button', { name: 'New deal' }).click();
   await expect(page).not.toHaveURL(oldUrl);
-  await expect(page.getByText(/party:/).first()).toBeVisible();
+  await expect(page.getByText(/^deal: OMA1-/)).toBeVisible();
   await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible();
 });
