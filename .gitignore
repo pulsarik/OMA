@@ -1,6 +1,7 @@
 node_modules/
 dist/
 target/
+test-results/
 data/
 server/build-info.json
 *.sqlite

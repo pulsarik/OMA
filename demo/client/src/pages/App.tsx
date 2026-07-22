@@ -118,6 +118,9 @@ const BET_SIZE_OPTIONS: Array<{ value: BetSizeOption; label: string }> = [
   { value: 'pot', label: 'Pot' },
 ];
 
+const MAX_PLAYERS = 10;
+const DEFAULT_PLAYER_NAMES = ['Dima', 'Anna', 'Ivan', 'Maria', 'Pavel', 'Elena', 'Alex', 'Sofia', 'Nikolai', 'Olga'];
+
 type PlayerView = {
   handId: string;
   partyId: string;
@@ -125,6 +128,7 @@ type PlayerView = {
   handCode?: string;
   dealCode?: string;
   handNumber: number;
+  revision: number;
   replayOfHandId?: string;
   playerId: string;
   playerName?: string;
@@ -765,7 +769,6 @@ function PlayerSeat({
   compact = false,
   score = 0,
   action,
-  currentStage,
   resultPlayer,
 }: {
   id: string;
@@ -777,15 +780,12 @@ function PlayerSeat({
   compact?: boolean;
   score?: number;
   action?: ActionLog;
-  currentStage?: string;
   resultPlayer?: HiLoResult['players'][number];
 }) {
   const shouldShowCards = Boolean(hole?.length);
-  const isPreviousStreetAction = Boolean(action && currentStage && action.stage !== currentStage);
   const actionLabel = action
-    ? `${isPreviousStreetAction ? `prev ${action.stage}: ` : ''}${action.move}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
+    ? `${action.move.toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
     : undefined;
-  const actionText = action ? `${action.stage}: ${actionLabel}` : undefined;
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}>
@@ -828,7 +828,7 @@ function PlayerSeat({
         ) : null}
         {action ? (
           <div
-            title={`Last action: ${actionText}`}
+            title={`Last action: ${actionLabel}`}
             style={{
               position: 'absolute',
               top: -18,
@@ -837,9 +837,9 @@ function PlayerSeat({
               border: '1px solid #cbd5e1',
               borderRadius: 8,
               background: action.move === 'fold' ? '#fee2e2' : '#fff',
-              color: isPreviousStreetAction ? '#475569' : action.move === 'fold' ? '#7f1d1d' : '#0f172a',
+              color: action.move === 'fold' ? '#7f1d1d' : '#0f172a',
               padding: '5px 9px',
-              fontSize: isPreviousStreetAction ? 11 : compact ? 13 : 14,
+              fontSize: compact ? 13 : 14,
               fontWeight: 900,
               lineHeight: 1,
               boxShadow: '0 2px 7px rgba(15,23,42,0.2)',
@@ -987,6 +987,15 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
   const hasSummary = player.stage === 'showdown' && summaryScore;
   const knownFoldResult = player.folded || Boolean(foldedWinnerId);
   const winParts = playerWinParts(player.showdownSummary, player.playerId);
+  const sharedWin = Boolean(
+    player.showdownSummary
+    && (
+      (player.showdownSummary.highWinners.includes(player.playerId)
+        && player.showdownSummary.highWinners.length > 1)
+      || (player.showdownSummary.lowWinners.includes(player.playerId)
+        && player.showdownSummary.lowWinners.length > 1)
+    )
+  );
   const isSplitPot = Boolean(
     player.showdownSummary
     && !player.showdownSummary.noLow
@@ -1010,7 +1019,9 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
     : 'rgba(15, 23, 42, 0.82)';
   const title = hasResult || hasSummary || knownFoldResult
     ? won
-      ? winParts.length
+      ? sharedWin
+        ? `You tied${winParts.length ? ` ${winParts.join(' + ')}` : ''}`
+        : winParts.length
         ? `${isSplitPot ? 'Split pot: ' : ''}You won ${winParts.join(' + ')}`
         : 'You won'
       : 'You lost'
@@ -1263,14 +1274,10 @@ function ResultView({ result }: { result?: HiLoResult }) {
         {result.players.map((player) => (
           <section key={player.id}>
             <h3 style={{ margin: '0 0 5px' }}>{player.id}{player.folded ? ' - folded' : ''}</h3>
-            {!player.folded && (
-              <>
-                <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
-                {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
-                <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
-                {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
-              </>
-            )}
+            <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
+            {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
+            <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
+            {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
           </section>
         ))}
       </div>
@@ -1294,7 +1301,13 @@ function PlayerPage() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then(setPlayer)
+      .then((nextPlayer) => setPlayer((currentPlayer) => (
+        currentPlayer
+        && currentPlayer.handId === nextPlayer.handId
+        && currentPlayer.revision > nextPlayer.revision
+          ? currentPlayer
+          : nextPlayer
+      )))
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load hand'));
 
     const socket = new WebSocket(WS_URL);
@@ -1308,7 +1321,13 @@ function PlayerPage() {
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.type === 'player_state') {
-        setPlayer(message.data);
+        setPlayer((currentPlayer) => (
+          currentPlayer
+          && currentPlayer.handId === message.data.handId
+          && currentPlayer.revision > message.data.revision
+            ? currentPlayer
+            : message.data
+        ));
         if (message.data.stage !== 'showdown') {
           const turnName = playerLabel(message.data.players, message.data.currentPlayerId);
           setNotice(
@@ -1407,7 +1426,10 @@ function PlayerPage() {
   const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises;
   const canVoteReveal = socketReady && player.stage === 'showdown' && !player.cardsRevealed && !player.revealVotes.includes(player.playerId);
   const hasContinuation = Boolean(player.nextHandId || player.nextReplayHandId);
-  const remainingPlayers = player.players.filter((seat) => (seat.stack ?? 0) > 0);
+  const remainingPlayers = player.players.filter((seat) => {
+    const settledStack = player.partyScore?.totals.find((total) => total.id === seat.id)?.total;
+    return (settledStack ?? seat.stack ?? 0) > 0;
+  });
   const tournamentWinner = remainingPlayers.length === 1 ? remainingPlayers[0] : undefined;
   const canContinue = socketReady && player.stage === 'showdown' && !hasContinuation && !tournamentWinner;
   const otherPlayers = player.players.filter((seat) => seat.id !== player.playerId);
@@ -1467,7 +1489,6 @@ function PlayerPage() {
               compact
               score={totalScore(player.partyScore, seat.id)}
               action={latestActionForPlayer(player.actions, seat.id)}
-              currentStage={player.stage}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, seat.id) : undefined}
             />
           ))}
@@ -1501,8 +1522,6 @@ function PlayerPage() {
             cardCount={player.hole.length}
             compact
             score={totalScore(player.partyScore, player.playerId)}
-            action={latestActionForPlayer(player.actions, player.playerId)}
-            currentStage={player.stage}
             resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
           />
         </div>
@@ -1699,7 +1718,7 @@ export default function App() {
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
   const [playersText, setPlayersText] = useState('2');
-  const [playerNames, setPlayerNames] = useState<string[]>(['Dima', 'Bot']);
+  const [playerNames, setPlayerNames] = useState<string[]>(['Dima', 'Anna_bot']);
   const [playerBots, setPlayerBots] = useState<boolean[]>([false, true]);
   const [homeReplayQuery, setHomeReplayQuery] = useState('');
   const [homeReplayError, setHomeReplayError] = useState<string | null>(null);
@@ -1754,7 +1773,7 @@ export default function App() {
 
   useEffect(() => {
     setPlayerNames((current) => Array.from({ length: players }, (_, index) => (
-      current[index] ?? `Player ${index + 1}`
+      current[index] ?? DEFAULT_PLAYER_NAMES[index] ?? `Player ${index + 1}`
     )));
     setPlayerBots((current) => Array.from({ length: players }, (_, index) => Boolean(current[index])));
   }, [players]);
@@ -1800,7 +1819,7 @@ export default function App() {
     setPlayersText(value);
     if (!value) return;
 
-    setPlayers(Math.min(Math.max(Number(value), 1), 11));
+    setPlayers(Math.min(Math.max(Number(value), 1), MAX_PLAYERS));
   }
 
   function normalizePlayersText() {
@@ -1885,7 +1904,7 @@ export default function App() {
               Players
               <input
                 min={1}
-                max={11}
+                max={MAX_PLAYERS}
                 type="number"
                 value={playersText}
                 onChange={(event) => updatePlayersText(event.target.value)}
@@ -1925,9 +1944,17 @@ export default function App() {
                 />
                 <button
                   type="button"
-                  onClick={() => setPlayerBots((current) => current.map((item, itemIndex) => (
-                    itemIndex === index ? !item : item
-                  )))}
+                  onClick={() => {
+                    const becomingBot = !playerBots[index];
+                    setPlayerBots((current) => current.map((item, itemIndex) => (
+                      itemIndex === index ? becomingBot : item
+                    )));
+                    setPlayerNames((current) => current.map((item, itemIndex) => {
+                      if (itemIndex !== index) return item;
+                      if (becomingBot) return item.toLowerCase().endsWith('_bot') ? item : `${item}_bot`;
+                      return item.replace(/_bot$/i, '');
+                    }));
+                  }}
                   style={{
                     padding: '7px 9px',
                     border: `1px solid ${playerBots[index] ? '#16a34a' : '#cbd5e1'}`,

@@ -4,6 +4,8 @@ const SUITS = ['s','h','d','c'];
 const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
 const CARDS_PER_PLAYER = 4;
 const COMMUNITY_CARDS = 5;
+const DEFAULT_BOT_NAMES = ['Alex', 'Maria', 'Ivan', 'Anna', 'Dmitry', 'Elena', 'Pavel', 'Sofia', 'Nikolai', 'Olga'];
+export const MAX_PLAYERS = 10;
 export const STARTING_STACK = 1000;
 export const BLIND_LEVEL_HANDS = 8;
 export const INITIAL_SMALL_BLIND = 2;
@@ -47,6 +49,7 @@ export type DealtHand = {
   partyCode?: string;
   handCode?: string;
   handNumber: number;
+  revision?: number;
   replayOfHandId?: string;
   nextReplayHandId?: string;
   players: PlayerHand[];
@@ -118,6 +121,12 @@ export type PlayerCombo = {
   lowRank?: string;
 };
 
+function normalizedPlayerName(name: string | undefined, index: number, isBot: boolean) {
+  const baseName = name?.trim() || (isBot ? DEFAULT_BOT_NAMES[index % DEFAULT_BOT_NAMES.length] : '');
+  if (!baseName) return undefined;
+  return isBot && !baseName.toLowerCase().endsWith('_bot') ? `${baseName}_bot` : baseName;
+}
+
 export function blindLevelForHand(handNumber: number) {
   const level = Math.floor((Math.max(handNumber, 1) - 1) / BLIND_LEVEL_HANDS);
   return {
@@ -130,6 +139,7 @@ export function blindLevelForHand(handNumber: number) {
 export function normalizeHand(hand: DealtHand) {
   hand.partyId = hand.partyId ?? hand.id;
   hand.handNumber = hand.handNumber ?? 1;
+  hand.revision = hand.revision ?? 0;
   hand.fullCommunity = hand.fullCommunity ?? hand.community ?? [];
   hand.stage = hand.stage ?? 'showdown';
   hand.community = visibleCommunity(hand);
@@ -143,10 +153,10 @@ export function normalizeHand(hand: DealtHand) {
   hand.blinds = hand.blinds ?? { ...blindLevelForHand(hand.handNumber) };
   hand.dealSeed = normalizeSeed(hand.dealSeed ?? hand.rngSeed);
   hand.dealCode = hand.dealCode ?? dealCodeFor(hand.players?.length ?? 0, hand.dealSeed);
-  hand.players.forEach(player => {
+  hand.players.forEach((player, index) => {
     player.folded = Boolean(player.folded);
-    player.name = player.name?.trim() || undefined;
     player.isBot = Boolean(player.isBot);
+    player.name = normalizedPlayerName(player.name, index, player.isBot);
     player.stack = Math.max(0, player.stack ?? STARTING_STACK);
   });
   if (hand.stage !== 'showdown' && !hand.currentPlayerId) {
@@ -312,6 +322,7 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
   }
 
   setNextTurnOrAdvance(hand, playerId);
+  hand.revision = (hand.revision ?? 0) + 1;
 
   return hand;
 }
@@ -328,6 +339,7 @@ export function recordRevealVote(hand: DealtHand, playerId: string) {
 
   if (!hand.revealVotes.includes(playerId)) {
     hand.revealVotes.push(playerId);
+    hand.revision = (hand.revision ?? 0) + 1;
   }
 
   if (hand.players.every(p => hand.revealVotes.includes(p.id))) {
@@ -487,12 +499,10 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
 
   const contenders = hand.players.filter(player => !player.folded);
   const playerResults = hand.players.map(player => {
-    if (player.folded) return { id: player.id, folded: true };
-
     const best = bestOmahaHands(player.hole, hand.fullCommunity);
     return {
       id: player.id,
-      folded: false,
+      folded: player.folded,
       highCards: best.high?.cards.map(card => card.code),
       highCombo: best.high?.cards,
       highRank: best.high?.rank,
@@ -634,6 +644,9 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
   if (!Number.isInteger(players) || players < 1) {
     throw new Error('players must be a positive integer');
   }
+  if (players > MAX_PLAYERS) {
+    throw new Error(`table supports at most ${MAX_PLAYERS} players`);
+  }
   if (players * CARDS_PER_PLAYER + COMMUNITY_CARDS > 52) {
     throw new Error('too many players for one deck');
   }
@@ -647,13 +660,14 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
   }
   const playersHands: PlayerHand[] = [];
   for (let p = 0; p < players; p++) {
+    const isBot = Boolean(playerBots[p]);
     playersHands.push({
       id: `P${p+1}`,
-      name: playerNames[p]?.trim() || undefined,
+      name: normalizedPlayerName(playerNames[p], p, isBot),
       token: uuidv4(),
       hole: deck.splice(0, CARDS_PER_PLAYER),
       folded: false,
-      isBot: Boolean(playerBots[p]),
+      isBot,
       stack: STARTING_STACK,
     });
   }
@@ -662,6 +676,7 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
     id: uuidv4(),
     partyId: uuidv4(),
     handNumber: 1,
+    revision: 0,
     players: playersHands,
     community: [],
     fullCommunity,

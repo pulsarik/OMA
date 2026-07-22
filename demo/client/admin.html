@@ -175,7 +175,7 @@
       <div class="deal-form">
         <label>
           Players
-          <input id="newPlayers" type="number" min="1" max="11" value="2" onchange="syncNameInputs()">
+          <input id="newPlayers" type="number" min="1" max="10" value="2" onchange="syncNameInputs()">
         </label>
         <div id="playerNames"></div>
         <button onclick="createNewParty()">New deal</button>
@@ -255,7 +255,7 @@
     }
 
     function syncNameInputs() {
-      const count = Math.min(Math.max(Number(document.getElementById('newPlayers').value) || 1, 1), 11);
+      const count = Math.min(Math.max(Number(document.getElementById('newPlayers').value) || 1, 1), 10);
       document.getElementById('newPlayers').value = String(count);
       const root = document.getElementById('playerNames');
       lastNames = Array.from({ length: count }, (_, index) => lastNames[index] || `Player ${index + 1}`);

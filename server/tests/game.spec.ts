@@ -11,11 +11,55 @@ import {
   replayHandLayout,
   stacksAfterPayout,
 } from '../src/game';
+import { aggressiveMoveForMatchedBet, botMove } from '../src/bot';
 
 function callBlindsToFlop(hand: ReturnType<typeof dealHand>) {
   recordPlayerMove(hand, 'P1', 'call');
   recordPlayerMove(hand, 'P2', 'check');
 }
+
+test('an aggressive bot raises instead of betting after everyone matched an open bet', () => {
+  expect(aggressiveMoveForMatchedBet(4, 0)).toBe('raise');
+  expect(aggressiveMoveForMatchedBet(4, 3)).toBe('check');
+  expect(aggressiveMoveForMatchedBet(0, 0)).toBe('bet');
+});
+
+test('screenshot deal OMA1-P7-S12OCLCL advances instead of freezing on the big blind bot', () => {
+  const hand = dealHandFromCode('OMA1-P7-S12OCLCL');
+  hand.handNumber = 17;
+  hand.blinds = {
+    level: 2,
+    small: 8,
+    big: 16,
+    smallBlindPlayerId: 'P1',
+    bigBlindPlayerId: 'P2',
+  };
+  hand.potCoins = 80;
+  hand.currentBet = 16;
+  hand.currentPlayerId = 'P2';
+  hand.roundBets = { P1: 16, P2: 16, P3: 16, P4: 16, P5: 16 };
+  hand.players.forEach((player, index) => {
+    player.isBot = index > 0;
+    player.stack = [844.5, 258, 1003.5, 3673, 1141, 0, 0][index];
+    player.folded = index >= 5;
+  });
+  hand.actions = ['P3', 'P4', 'P5', 'P1'].map((playerId, index) => ({
+    playerId,
+    move: 'call' as const,
+    amount: 16,
+    stage: 'preflop' as const,
+    at: index,
+  }));
+
+  expect(hand.players[0].hole).toEqual(['8h', '4h', '5d', '7d']);
+  expect(hand.players[1].hole).toEqual(['6c', '2h', 'Ac', '6d']);
+
+  const decision = botMove(hand, hand.players[1]);
+  expect(decision).toEqual({ move: 'raise', amount: 56 });
+  expect(() => recordPlayerMove(hand, 'P2', decision.move, decision.amount)).not.toThrow();
+  expect(hand.currentPlayerId).toBe('P3');
+  expect(hand.actions.at(-1)).toMatchObject({ playerId: 'P2', move: 'raise', amount: 56 });
+});
 
 test('deal deterministic with seed', () => {
   const a = dealHand(2, 12345);
@@ -93,8 +137,17 @@ test('next party and replay hands preserve bot seats', () => {
   const replay = replayHandLayout(hand);
 
   expect(hand.players.map(player => Boolean(player.isBot))).toEqual([false, true]);
+  expect(hand.players.map(player => player.name)).toEqual(['Alice', 'Bot_bot']);
   expect(next.players.map(player => Boolean(player.isBot))).toEqual([false, true]);
   expect(replay.players.map(player => Boolean(player.isBot))).toEqual([false, true]);
+  expect(next.players.map(player => player.name)).toEqual(['Alice', 'Bot_bot']);
+  expect(replay.players.map(player => player.name)).toEqual(['Alice', 'Bot_bot']);
+});
+
+test('unnamed bots receive human names with a bot suffix', () => {
+  const hand = dealHand(3, 12345, [], [true, true, true]);
+
+  expect(hand.players.map(player => player.name)).toEqual(['Alex_bot', 'Maria_bot', 'Ivan_bot']);
 });
 
 test('blind positions rotate by hand number', () => {
@@ -170,6 +223,7 @@ test('deal does not duplicate cards between players and board', () => {
 test('deal starts preflop with blinds and advances to flop after they are matched', () => {
   const hand = dealHand(2, 12345);
 
+  expect(hand.revision).toBe(0);
   expect(hand.stage).toBe('preflop');
   expect(hand.community).toEqual([]);
   expect(hand.currentPlayerId).toBe('P1');
@@ -179,11 +233,13 @@ test('deal starts preflop with blinds and advances to flop after they are matche
   expect(hand.players.map(player => player.stack)).toEqual([998, 996]);
 
   recordPlayerMove(hand, 'P1', 'call');
+  expect(hand.revision).toBe(1);
   expect(hand.stage).toBe('preflop');
   expect(hand.currentPlayerId).toBe('P2');
   expect(hand.potCoins).toBe(8);
 
   recordPlayerMove(hand, 'P2', 'check');
+  expect(hand.revision).toBe(2);
   expect(hand.stage).toBe('flop');
   expect(hand.community).toEqual(hand.fullCommunity.slice(0, 3));
   expect(hand.currentPlayerId).toBe('P1');
@@ -381,6 +437,30 @@ test('evaluates Omaha Hi-Lo with no qualifying low', () => {
   ]);
 });
 
+test('evaluates folded players combinations without making them eligible to win', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['2s', '3h', '4d', 'Kc', 'Kd'];
+  hand.players[0].hole = ['As', '5c', 'Qh', 'Qs'];
+  hand.players[0].folded = true;
+  hand.players[1].hole = ['Kh', '4c', 'Qd', 'Jd'];
+
+  const result = evaluateOmahaHiLo(hand);
+  const folded = result?.players.find(player => player.id === 'P1');
+
+  expect(folded).toMatchObject({
+    id: 'P1',
+    folded: true,
+    highRank: 'straight',
+    lowRank: '5-4-3-2-1',
+  });
+  expect(folded?.highCombo).toHaveLength(5);
+  expect(folded?.lowCombo).toHaveLength(5);
+  expect(result?.highWinners).toEqual(['P2']);
+  expect(result?.lowWinners).toEqual([]);
+  expect(result?.points.find(score => score.id === 'P1')?.total).toBe(0);
+});
+
 test('evaluates current player combo from open board cards', () => {
   const combo = evaluatePlayerCombo(
     ['As', '5c', 'Qh', 'Qs'],
@@ -405,6 +485,7 @@ test('evaluates trips when exactly two hand cards and paired board cards are use
   expect(combo?.highCombo?.filter(card => card.source === 'board')).toHaveLength(3);
 });
 
-test('deal rejects more players than one deck can support', () => {
-  expect(() => dealHand(12, 12345)).toThrow('too many players');
+test('table supports ten players and rejects an eleventh', () => {
+  expect(dealHand(10, 12345).players).toHaveLength(10);
+  expect(() => dealHand(11, 12345)).toThrow('table supports at most 10 players');
 });
