@@ -22,7 +22,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByText(/^deal: OMA1-/)).toBeVisible();
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
-  await expect(page.getByTestId('player-name-P2')).toHaveText('Anna_bot');
+  await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
+  await expect(page.getByText(/_bot$/)).toHaveCount(0);
 
   await page.getByRole('button', { name: /^Call / }).click();
   const apiUrl = apiUrlForPlayerLink(href);

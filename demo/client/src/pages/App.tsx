@@ -91,7 +91,11 @@ function handLabel(handCode: string | undefined, handNumber: number | undefined,
 
 function playerLabel(players: Array<{ id: string; name?: string }> | undefined, id: string | undefined) {
   if (!id) return '-';
-  return players?.find((player) => player.id === id)?.name ?? id;
+  return tablePlayerName(players?.find((player) => player.id === id)?.name, id);
+}
+
+function tablePlayerName(name: string | undefined, id: string) {
+  return (name ?? id).replace(/_bot$/i, '');
 }
 
 type ComboCard = {
@@ -860,19 +864,6 @@ function PlayerSeat({
           </div>
         ) : null}
         {shouldShowCards ? <CompactCardRow cards={hole ?? []} /> : <CardBackRow count={cardCount} compact={compact} />}
-        <div
-          data-testid={`player-name-${id}`}
-          style={{
-            marginTop: 5,
-            color: '#0f172a',
-            fontSize: compact ? 12 : 14,
-            fontWeight: 900,
-            lineHeight: 1.15,
-            textAlign: 'center',
-          }}
-        >
-          {name ?? id}{isYou ? ' (you)' : ''}
-        </div>
         {resultPlayer && !resultPlayer.folded ? (
           <div
             style={{
@@ -891,7 +882,28 @@ function PlayerSeat({
           </div>
         ) : null}
       </section>
-      {compact ? <CoinStack value={score} /> : null}
+      {compact ? (
+        <div style={{ display: 'grid', gap: 4, justifyItems: 'center', alignSelf: 'stretch', alignContent: 'end' }}>
+          <CoinStack value={score} />
+          <span
+            data-testid={`player-name-${id}`}
+            title={tablePlayerName(name, id)}
+            style={{
+              maxWidth: 90,
+              overflow: 'hidden',
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 900,
+              lineHeight: 1.15,
+              textAlign: 'center',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {tablePlayerName(name, id)}{isYou ? ' (you)' : ''}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1621,7 +1633,7 @@ function PlayerPage() {
       <CurrentComboStrip combo={player.currentCombo} />
       {tournamentWinner ? (
         <p style={{ fontWeight: 800 }}>
-          Tournament winner: {tournamentWinner.name ?? tournamentWinner.id}
+          Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
         </p>
       ) : null}
       {notice ? (
