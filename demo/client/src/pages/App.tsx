@@ -262,6 +262,144 @@ const COMBO_CARD_SCALE = 0.48;
 const COMBO_CARD_WIDTH = 92 * COMBO_CARD_SCALE;
 const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
 
+const PLAYER_PAGE_STYLES = `
+  :root {
+    color-scheme: light;
+    --ink: #17211b;
+    --muted: #65736a;
+    --felt-dark: #064e3b;
+    --felt: #087443;
+    --felt-light: #15915a;
+    --gold: #fbbf24;
+    --danger: #dc2626;
+    --surface: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #edf3ef; color: var(--ink); }
+  button { min-height: 42px; font: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  .poker-page {
+    width: min(100%, 1480px);
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: clamp(8px, 1.4vw, 20px);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+  .game-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 34px;
+    margin-bottom: 8px;
+  }
+  .deal-chip {
+    border: 1px solid #cbd5cf;
+    border-radius: 999px;
+    background: rgba(255,255,255,.78);
+    color: #526159;
+    padding: 4px 9px;
+    font: 700 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  .poker-table {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    gap: clamp(10px, 1.5vw, 20px);
+    min-height: clamp(500px, 68vh, 760px);
+    border: 5px solid #73552d;
+    border-radius: clamp(28px, 5vw, 72px);
+    background:
+      radial-gradient(ellipse at center, rgba(255,255,255,.1), transparent 58%),
+      linear-gradient(145deg, var(--felt-light), var(--felt) 45%, var(--felt-dark));
+    box-shadow: inset 0 0 0 3px rgba(255,255,255,.12), inset 0 0 42px rgba(0,0,0,.25), 0 12px 32px rgba(31,54,42,.22);
+    padding: clamp(14px, 2vw, 28px);
+    color: #fff;
+  }
+  .opponents-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+    gap: 20px 12px;
+    align-items: start;
+  }
+  .opponents-grid.is-crowded {
+    grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+  }
+  .player-seat-wrap { min-width: 0; }
+  .player-seat {
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
+  }
+  .player-seat.is-thinking {
+    transform: translateY(-3px);
+  }
+  .player-meta {
+    min-width: 70px;
+    border-radius: 12px;
+    padding: 4px 6px;
+  }
+  .player-meta.is-thinking { background: rgba(69, 43, 4, .62); }
+  .player-name { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  .table-center {
+    align-self: center;
+    min-height: 190px;
+    border: 1px solid rgba(255,255,255,.14);
+    border-radius: 28px;
+    background: rgba(1, 46, 30, .26);
+    padding: 12px;
+  }
+  .hero-seat { align-self: end; }
+  .action-dock {
+    position: sticky;
+    z-index: 20;
+    bottom: 8px;
+    display: grid;
+    gap: 8px;
+    margin: 10px auto 0;
+    border: 1px solid rgba(148,163,184,.55);
+    border-radius: 16px;
+    background: rgba(255,255,255,.94);
+    padding: 10px;
+    box-shadow: 0 10px 30px rgba(15,23,42,.18);
+    backdrop-filter: blur(12px);
+  }
+  .bet-sizes, .main-actions { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .bet-size-button, .action-button {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    padding: 8px 12px;
+    font-weight: 800;
+  }
+  .bet-size-button.is-selected { border: 2px solid #087443; background: #dcfce7; color: #065f46; }
+  .action-button.primary { border-color: #047857; background: #087443; color: #fff; min-width: 120px; }
+  .action-button.danger { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
+  .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
+  .turn-status { text-align: center; color: #92400e; font-weight: 900; letter-spacing: .02em; }
+  .game-notice { margin: 8px 4px; color: #526159; font-size: 13px; font-weight: 750; text-align: center; }
+  .combo-strip, .result-panel {
+    border: 1px solid #dce5df;
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: 0 6px 20px rgba(31,54,42,.08);
+  }
+  .result-panel { margin-top: 12px; padding: clamp(10px, 2vw, 18px); }
+  .winner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .winner-card { border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 10px; overflow: auto; }
+  .result-points { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; }
+  .result-points th, .result-points td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+  .all-hands { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
+  .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
+  @media (max-width: 760px) {
+    .poker-page { padding: 6px; padding-bottom: 8px; }
+    .poker-table { min-height: 500px; border-width: 3px; border-radius: 28px; padding: 12px 8px; }
+    .opponents-grid, .opponents-grid.is-crowded { grid-template-columns: 1fr; }
+    .winner-grid { grid-template-columns: 1fr; }
+    .action-dock { bottom: 4px; border-radius: 14px; }
+    .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
+    .bet-size-button { flex: 0 0 auto; }
+    .main-actions .action-button { flex: 1 1 90px; }
+  }
+`;
+
 const pipLayouts: Record<number, Array<{ x: number; y: number; rotate?: boolean }>> = {
   2: [
     { x: 50, y: 24 },
@@ -801,9 +939,11 @@ function PlayerSeat({
   return (
     <div
       data-testid={isCurrentTurn ? `active-player-${id}` : undefined}
+      className="player-seat-wrap"
       style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
     >
       <section
+        className={`player-seat${isCurrentTurn ? ' is-thinking' : ''}`}
         style={{
           border: isCurrentTurn ? '3px solid #facc15' : isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
           borderRadius: 8,
@@ -896,11 +1036,15 @@ function PlayerSeat({
         ) : null}
       </section>
       {compact ? (
-        <div style={{ display: 'grid', gap: 4, justifyItems: 'center', alignSelf: 'stretch', alignContent: 'end' }}>
+        <div
+          className={`player-meta${isCurrentTurn ? ' is-thinking' : ''}`}
+          style={{ display: 'grid', gap: 4, justifyItems: 'center', alignSelf: 'stretch', alignContent: 'end' }}
+        >
           <CoinStack value={score} />
           <span
             data-testid={`player-name-${id}`}
             title={tablePlayerName(name, id)}
+            className="player-name"
             style={{
               maxWidth: 90,
               overflow: 'hidden',
@@ -1111,12 +1255,10 @@ function CurrentComboStrip({ combo }: { combo?: PlayerCombo }) {
 
   return (
     <section
+      className="combo-strip"
       style={{
         marginTop: 12,
-        border: '1px solid #d1d5db',
-        borderRadius: 8,
-        background: '#fff',
-        padding: 8,
+        padding: 12,
         display: 'grid',
         gap: 6,
       }}
@@ -1207,6 +1349,7 @@ function ResultView({ result, players }: {
   result?: HiLoResult;
   players: Array<{ id: string; name?: string }>;
 }) {
+  const [showAllHands, setShowAllHands] = useState(false);
   if (!result) return null;
   const displayName = (id: string) => playerLabel(players, id);
   const highWinnerResults = result.highWinners
@@ -1217,17 +1360,24 @@ function ResultView({ result, players }: {
     .filter((player): player is NonNullable<typeof player> => Boolean(player));
 
   return (
-    <section style={{ marginTop: 12, border: '1px solid #d1d5db', borderRadius: 8, padding: 10 }}>
-      <div style={{ display: 'flex', gap: 14, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 8 }}>
-        <h2 style={{ margin: 0 }}>Winners</h2>
-        <span>Pot: {formatPoints(result.potCoins)} coins</span>
+    <section className="result-panel">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 10 }}>
+        <div>
+          <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            Hand complete
+          </span>
+          <h2 style={{ margin: '2px 0 0' }}>Results</h2>
+        </div>
+        <strong style={{ borderRadius: 999, background: '#ecfdf5', color: '#065f46', padding: '6px 10px' }}>
+          Pot {formatPoints(result.potCoins)} coins
+        </strong>
       </div>
 
-      <div style={{ display: 'grid', gap: 8, marginBottom: 10 }}>
-        <section style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+      <div className="winner-grid">
+        <section className="winner-card">
           {highWinnerResults.map((winner) => (
             <div key={winner.id}>
-              <h3 style={{ margin: '0 0 6px' }}>
+              <h3 style={{ margin: '0 0 6px', color: '#991b1b' }}>
                 High winner{highWinnerResults.length > 1 ? 's' : ''}: {displayName(winner.id)} - {winner.highRank}
               </h3>
               {winner.highCombo ? <ComboCardRow combo={winner.highCombo} tone="high" /> : null}
@@ -1235,12 +1385,12 @@ function ResultView({ result, players }: {
           ))}
         </section>
 
-        <section style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 8 }}>
+        <section className="winner-card">
           {result.noLow ? (
-            <h3 style={{ margin: 0 }}>Low winner: No qualifying low</h3>
+            <h3 style={{ margin: 0, color: '#047857' }}>Low winner: No qualifying low</h3>
           ) : lowWinnerResults.map((winner) => (
             <div key={winner.id}>
-              <h3 style={{ margin: '0 0 6px' }}>
+              <h3 style={{ margin: '0 0 6px', color: '#047857' }}>
                 Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {displayName(winner.id)} - {winner.lowRank}
               </h3>
               {winner.lowCombo ? <ComboCardRow combo={winner.lowCombo} tone="low" /> : null}
@@ -1249,39 +1399,49 @@ function ResultView({ result, players }: {
         </section>
       </div>
 
-      <h3 style={{ margin: '8px 0 6px' }}>Points</h3>
-      <table style={{ borderCollapse: 'collapse', marginBottom: 10 }}>
+      <h3 style={{ margin: '14px 0 6px' }}>Points</h3>
+      <table className="result-points">
         <thead>
           <tr>
-            <th style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'left' }}>Player</th>
-            <th style={{ border: '1px solid #d1d5db', padding: 6 }}>High</th>
-            <th style={{ border: '1px solid #d1d5db', padding: 6 }}>Low</th>
-            <th style={{ border: '1px solid #d1d5db', padding: 6 }}>Total</th>
+            <th style={{ textAlign: 'left' }}>Player</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Total</th>
           </tr>
         </thead>
         <tbody>
           {result.points.map((score) => (
             <tr key={score.id}>
-              <td style={{ border: '1px solid #d1d5db', padding: 6 }}>{displayName(score.id)}</td>
-              <td style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'right' }}>{formatPoints(score.high)}</td>
-              <td style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'right' }}>{formatPoints(score.low)}</td>
-              <td style={{ border: '1px solid #d1d5db', padding: 6, textAlign: 'right' }}>{formatPoints(score.total)}</td>
+              <td>{displayName(score.id)}</td>
+              <td style={{ textAlign: 'right' }}>{formatPoints(score.high)}</td>
+              <td style={{ textAlign: 'right' }}>{formatPoints(score.low)}</td>
+              <td style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(score.total)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <h3 style={{ margin: '8px 0 6px' }}>All hands</h3>
-      <div style={{ display: 'grid', gap: 8 }}>
-        {result.players.map((player) => (
-          <section key={player.id}>
-            <h3 style={{ margin: '0 0 5px' }}>{displayName(player.id)}{player.folded ? ' - folded' : ''}</h3>
-            <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
-            {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
-            <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
-            {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
-          </section>
-        ))}
-      </div>
+
+      <button
+        type="button"
+        aria-expanded={showAllHands}
+        onClick={() => setShowAllHands((shown) => !shown)}
+        style={{ marginTop: 12, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', padding: '7px 12px', fontWeight: 800 }}
+      >
+        {showAllHands ? 'Hide all hands' : 'Show all hands'}
+      </button>
+      {showAllHands ? (
+        <div className="all-hands">
+          {result.players.map((player) => (
+            <section className="hand-detail" key={player.id}>
+              <h3 style={{ margin: '0 0 5px' }}>{displayName(player.id)}{player.folded ? ' - folded' : ''}</h3>
+              <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
+              {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
+              <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
+              {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
+            </section>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1404,7 +1564,6 @@ function PlayerPage() {
   if (!player) return <div style={{ padding: 12 }}>Loading...</div>;
 
   const canAct = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
-  const showActionControls = player.stage !== 'showdown' && !player.isBot && !player.folded;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
@@ -1433,9 +1592,10 @@ function PlayerPage() {
   };
 
   return (
-    <div style={{ padding: 10, fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
-        {player.dealCode ? <span style={statusPillStyle}>deal: {player.dealCode}</span> : null}
+    <div className="poker-page">
+      <style>{PLAYER_PAGE_STYLES}</style>
+      <div className="game-toolbar">
+        {player.dealCode ? <span className="deal-chip">DEAL {player.dealCode}</span> : <span />}
         {!socketReady ? (
           <span
             style={{
@@ -1452,18 +1612,10 @@ function PlayerPage() {
       </div>
 
       <div
-        style={{
-          border: '2px solid #15803d',
-          borderRadius: 18,
-          background: '#166534',
-          padding: 10,
-          color: '#fff',
-          display: 'grid',
-          gap: 8,
-        }}
+        className="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div className={`opponents-grid${otherPlayers.length > 3 ? ' is-crowded' : ''}`}>
           {otherPlayers.map((seat) => (
             <PlayerSeat
               key={seat.id}
@@ -1484,10 +1636,8 @@ function PlayerPage() {
         </div>
 
         <section
+          className="table-center"
           style={{
-            borderRadius: 12,
-            background: 'rgba(255,255,255,0.12)',
-            padding: 8,
             textAlign: 'center',
             display: 'grid',
             gap: 4,
@@ -1500,7 +1650,7 @@ function PlayerPage() {
           <BoardRow cards={player.community} compact />
         </section>
 
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
           <PlayerSeat
             id={player.playerId}
             name={player.playerName}
@@ -1516,93 +1666,83 @@ function PlayerPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {showActionControls && (currentBet === 0 || raiseCount < maxRaises) ? (
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', opacity: canAct ? 1 : 0.62 }}>
-            <span style={{ color: '#475569', fontSize: 13, fontWeight: 700 }}>Bet size</span>
+      <div className="action-dock">
+        {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
+          <div className="bet-sizes">
+            <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Bet size</span>
             {BET_SIZE_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                disabled={!canAct}
                 onClick={() => setBetSize(option.value)}
-                style={{
-                  border: betSize === option.value ? '2px solid #166534' : '1px solid #cbd5e1',
-                  borderRadius: 6,
-                  background: betSize === option.value ? '#dcfce7' : '#fff',
-                  padding: '4px 7px',
-                  fontWeight: betSize === option.value ? 800 : 600,
-                }}
+                className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
               >
                 {option.label}
               </button>
             ))}
           </div>
         ) : null}
-        {showActionControls && callAmount === 0 && currentBet === 0 ? (
-          <span style={{ color: '#64748b', fontSize: 13 }}>No bet to call</span>
-        ) : null}
-        {showActionControls && callAmount === 0 ? (
+        <div className="main-actions">
+        {canAct && callAmount === 0 ? (
           <>
-            <button disabled={!canAct} onClick={() => sendMove('check')}>Check</button>
+            <button className="action-button primary" onClick={() => sendMove('check')}>Check</button>
             {currentBet === 0 ? (
-              <button disabled={!canAct} onClick={() => sendMove('bet', betAmount)}>Bet {formatPoints(betAmount)}</button>
+              <button className="action-button" onClick={() => sendMove('bet', betAmount)}>Bet {formatPoints(betAmount)}</button>
             ) : null}
             {currentBet > 0 && raiseCount < maxRaises ? (
-              <button disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
+              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
                 Raise to {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
             <button
-              disabled={!canAct}
+              className="action-button danger"
               onClick={() => sendMove('fold')}
-              style={{ marginLeft: 8, color: '#7f1d1d' }}
             >
               Fold
             </button>
           </>
         ) : null}
-        {showActionControls && callAmount > 0 ? (
+        {canAct && callAmount > 0 ? (
           <>
-            <button disabled={!canCall} onClick={() => sendMove('call')}>
+            <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
               Call {formatPoints(callAmount)}
             </button>
             {raiseCount < maxRaises ? (
-              <button disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
+              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
                 Raise to {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
             <button
-              disabled={!canAct}
+              className="action-button danger"
               onClick={() => sendMove('fold')}
-              style={{ marginLeft: 8, color: '#7f1d1d' }}
             >
               Fold
             </button>
           </>
         ) : null}
         {!canAct && player.stage !== 'showdown' ? (
-          <span style={{ color: '#92400e', fontWeight: 900 }}>
+          <span className="turn-status">
             {playerLabel(player.players, player.currentPlayerId)} — THINKING...
           </span>
         ) : null}
         {player.stage === 'showdown' ? (
-          canContinue ? <button onClick={startNewDeal}>New deal</button> : null
+          canContinue ? <button className="action-button primary" onClick={startNewDeal}>New deal</button> : null
         ) : null}
         {player.nextPlayerLink ? (
-          <button onClick={() => { window.location.href = player.nextPlayerLink!.url; }}>
+          <button className="action-button primary" onClick={() => { window.location.href = player.nextPlayerLink!.url; }}>
             New deal
           </button>
         ) : null}
+        </div>
       </div>
-      <CurrentComboStrip combo={player.currentCombo} />
+      {player.stage !== 'showdown' ? <CurrentComboStrip combo={player.currentCombo} /> : null}
       {tournamentWinner ? (
         <p style={{ fontWeight: 800 }}>
           Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
         </p>
       ) : null}
       {notice ? (
-        <p style={{ fontWeight: 700 }}>
+        <p className="game-notice">
           {notice}
         </p>
       ) : null}
@@ -1655,6 +1795,7 @@ function DebugPage() {
 
   return (
     <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
+      <style>{PLAYER_PAGE_STYLES}</style>
       <h1>Debug hand</h1>
       <p title={hand.id}>Hand: {handLabel(hand.handCode, hand.handNumber, hand.id)}</p>
       <p title={hand.partyId}>Party: {partyLabel(hand.partyCode, hand.partyId)}</p>
