@@ -261,6 +261,9 @@ const COMPACT_CARD_HEIGHT = 132 * COMPACT_CARD_SCALE;
 const COMBO_CARD_SCALE = 0.48;
 const COMBO_CARD_WIDTH = 92 * COMBO_CARD_SCALE;
 const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
+const SIDE_COMBO_CARD_SCALE = 0.3;
+const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
+const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
 
 const PLAYER_PAGE_STYLES = `
   :root {
@@ -357,21 +360,23 @@ const PLAYER_PAGE_STYLES = `
   .table-pot { grid-area: pot; justify-self: end; }
   .hero-zone {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: auto auto auto;
     grid-template-areas: "high hero low";
+    justify-content: center;
     align-items: end;
-    gap: clamp(10px, 1.6vw, 24px);
+    gap: clamp(6px, 1vw, 12px);
   }
   .hero-seat { grid-area: hero; align-self: end; }
   .combo-side {
     align-self: center;
+    width: 178px;
     min-width: 0;
-    border: 1px solid rgba(255,255,255,.34);
-    border-radius: 14px;
-    background: rgba(2,44,30,.48);
-    padding: 8px;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: 10px;
+    background: rgba(2,44,30,.26);
+    padding: 5px 6px;
     color: #fff;
-    overflow: auto;
+    opacity: .88;
   }
   .combo-side.high { grid-area: high; justify-self: end; }
   .combo-side.low { grid-area: low; justify-self: start; }
@@ -379,11 +384,15 @@ const PLAYER_PAGE_STYLES = `
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 3px;
-    font-size: 13px;
-    font-weight: 900;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .05em;
   }
-  .combo-side-rank { color: #d1fae5; text-align: right; }
+  .combo-side-rank { color: #d1fae5; font-size: 11px; letter-spacing: 0; text-align: right; }
+  .side-combo-cards { display: flex; justify-content: center; gap: 5px; }
+  .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
+  .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .action-dock {
     position: sticky;
     z-index: 20;
@@ -434,10 +443,7 @@ const PLAYER_PAGE_STYLES = `
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
     .hero-zone { gap: 6px; }
-    .combo-side { max-width: 112px; padding: 7px; }
-    .combo-side .combo-side-cards { display: none; }
-    .combo-side-title { display: grid; justify-content: initial; text-align: center; }
-    .combo-side-rank { text-align: center; }
+    .combo-side { width: 168px; padding: 4px 5px; }
   }
   @media (max-width: 560px) {
     .table-center {
@@ -461,7 +467,7 @@ const PLAYER_PAGE_STYLES = `
         "hero hero";
       align-items: center;
     }
-    .combo-side.high, .combo-side.low { justify-self: stretch; max-width: none; }
+    .combo-side.high, .combo-side.low { justify-self: center; }
   }
 `;
 
@@ -804,6 +810,23 @@ function ComboCardRow({ combo, tone = 'neutral' }: { combo?: ComboCard[]; tone?:
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SideComboCards({ combo }: { combo: ComboCard[] }) {
+  return (
+    <div className="side-combo-cards">
+      {combo.map((card, index) => (
+        <div
+          key={`${card.source}-${card.code}-${index}`}
+          className={`side-combo-card${card.source === 'hole' ? ' is-hand' : ''}`}
+          title={`${card.code} · ${card.source === 'hole' ? 'hand' : 'board'}`}
+          style={{ width: SIDE_COMBO_CARD_WIDTH, height: SIDE_COMBO_CARD_HEIGHT }}
+        >
+          <Card code={card.code} scale={SIDE_COMBO_CARD_SCALE} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -1328,12 +1351,12 @@ function PlayerComboSide({ combo, kind }: { combo?: PlayerCombo; kind: 'high' | 
   return (
     <aside className={`combo-side ${kind}`} data-testid={`${kind}-combo-side`}>
       <div className="combo-side-title">
-        <span>{isHigh ? 'HIGH' : 'LOW'}</span>
+        <span>{isHigh ? 'HI' : 'LO'}</span>
         <span className="combo-side-rank">{rank ?? 'none'}</span>
       </div>
       {cards ? (
         <div className="combo-side-cards">
-          <ComboCardRow combo={cards} tone={kind} />
+          <SideComboCards combo={cards} />
         </div>
       ) : null}
     </aside>
