@@ -40,6 +40,21 @@ test('opponent cards stay four in a row at a five-player table', async ({ page }
     expect(new Set(cardTops).size).toBe(1);
   }
 
+  const opponentPositions = await Promise.all(
+    [2, 3, 4, 5].map((playerNumber) => page.locator(`[data-player-seat="P${playerNumber}"]`).boundingBox()),
+  );
+  opponentPositions.slice(1).forEach((position, index) => {
+    const previous = opponentPositions[index];
+    expect(previous).toBeTruthy();
+    expect(position).toBeTruthy();
+    const sameRow = Math.abs(position!.y - previous!.y) < 2;
+    if (sameRow) {
+      expect(position!.x).toBeGreaterThan(previous!.x);
+    } else {
+      expect(position!.y).toBeGreaterThan(previous!.y);
+    }
+  });
+
   const stageBox = await page.getByTestId('table-stage').boundingBox();
   const boardBox = await page.getByTestId('table-board').boundingBox();
   const potBox = await page.getByTestId('table-pot').boundingBox();

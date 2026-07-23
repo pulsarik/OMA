@@ -1036,6 +1036,7 @@ function PlayerSeat({
   return (
     <div
       data-testid={isCurrentTurn ? `active-player-${id}` : undefined}
+      data-player-seat={id}
       className="player-seat-wrap"
       style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
     >

@@ -164,6 +164,48 @@ test('blind positions rotate by hand number', () => {
   expect(next.currentPlayerId).toBe('P1');
 });
 
+test('turns move through seats from left to right and top to bottom on every street', () => {
+  const hand = dealHand(6, 12345);
+  const expectedByStreet = {
+    preflop: ['P3', 'P4', 'P5', 'P6', 'P1', 'P2'],
+    flop: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+    turn: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+    river: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+  } as const;
+
+  Object.entries(expectedByStreet).forEach(([stage, expectedOrder]) => {
+    expect(hand.stage).toBe(stage);
+    expectedOrder.forEach((playerId) => {
+      expect(hand.currentPlayerId).toBe(playerId);
+      const playerBet = hand.roundBets[playerId] ?? 0;
+      recordPlayerMove(hand, playerId, playerBet < hand.currentBet ? 'call' : 'check');
+    });
+    expect(hand.actions.filter(action => action.stage === stage).map(action => action.playerId))
+      .toEqual(expectedOrder);
+  });
+
+  expect(hand.stage).toBe('showdown');
+  expect(hand.currentPlayerId).toBeUndefined();
+});
+
+test('turn order skips folded and all-in seats without changing direction', () => {
+  const hand = dealHand(6, 12345);
+  hand.players.find(player => player.id === 'P4')!.folded = true;
+  hand.players.find(player => player.id === 'P5')!.stack = 0;
+
+  const expectedOrder = ['P3', 'P6', 'P1', 'P2'];
+  expectedOrder.forEach((playerId) => {
+    expect(hand.currentPlayerId).toBe(playerId);
+    const playerBet = hand.roundBets[playerId] ?? 0;
+    recordPlayerMove(hand, playerId, playerBet < hand.currentBet ? 'call' : 'check');
+  });
+
+  expect(hand.actions.filter(action => action.stage === 'preflop').map(action => action.playerId))
+    .toEqual(expectedOrder);
+  expect(hand.stage).toBe('flop');
+  expect(hand.currentPlayerId).toBe('P1');
+});
+
 test('players with zero stack are skipped by blinds and turns', () => {
   const hand = dealHand(3, 12345);
   hand.stage = 'showdown';
