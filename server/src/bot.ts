@@ -132,8 +132,12 @@ export function botMove(hand: any, player: any): BotDecision {
   const cheapCall = callAmount <= bigBlind || potOdds <= 0.18;
   const fairCall = potOdds <= 0.32 && scoopScore >= 2.5;
 
-  if ((premiumPreflop || strongMadeHand || scoopScore >= 6) && hand.raiseCount < MAX_RAISES_PER_STREET) {
-    return { move: 'raise', amount: potRaiseTo(hand, player, scoopScore >= 7 ? 1 : 0.5) };
+  const mustContinue = premiumPreflop || strongMadeHand || scoopScore >= 6;
+  if (mustContinue) {
+    if (hand.raiseCount < MAX_RAISES_PER_STREET) {
+      return { move: 'raise', amount: potRaiseTo(hand, player, scoopScore >= 7 ? 1 : 0.5) };
+    }
+    return { move: 'call' };
   }
   if (cheapCall || fairCall) return { move: 'call' };
   return { move: 'fold' };

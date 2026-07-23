@@ -72,7 +72,7 @@ function scheduleBotTurns(handId: string) {
   if (botTurnTimers.has(handId)) return;
 
   const timer = setTimeout(async () => {
-    botTurnTimers.delete(handId);
+    let shouldScheduleNext = false;
     try {
       const hand = await store.getHand(handId);
       if (!hand) return;
@@ -90,9 +90,15 @@ function scheduleBotTurns(handId: string) {
       recordPlayerMove(hand, current.id, decision.move, decision.amount);
       await store.updateHand(hand);
       broadcastHandUpdated(hand);
-      scheduleBotTurns(hand.id);
+      shouldScheduleNext = hand.stage !== 'showdown';
     } catch (error) {
       console.error('bot turn failed', error);
+      shouldScheduleNext = true;
+    } finally {
+      if (botTurnTimers.get(handId) === timer) {
+        botTurnTimers.delete(handId);
+      }
+      if (shouldScheduleNext) scheduleBotTurns(handId);
     }
   }, BOT_THINK_MS);
 

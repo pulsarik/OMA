@@ -23,6 +23,51 @@ test('an aggressive bot raises instead of betting after everyone matched an open
   expect(aggressiveMoveForMatchedBet(0, 0)).toBe('bet');
 });
 
+test('a bot does not fold a made flush when the raise cap is reached', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'river';
+  hand.fullCommunity = ['Qh', 'Jh', '9h', '4s', '5c'];
+  hand.community = [...hand.fullCommunity];
+  hand.currentBet = 100;
+  hand.roundBets = { P1: 0, P2: 100 };
+  hand.raiseCount = 3;
+  hand.potCoins = 150;
+  hand.currentPlayerId = 'P1';
+  hand.players[0].hole = ['Ah', 'Kh', '2c', '3d'];
+
+  expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
+});
+
+test('a bot does not fold a strong made low when the raise cap is reached', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'river';
+  hand.fullCommunity = ['3s', '4h', '6d', 'Kc', 'Qc'];
+  hand.community = [...hand.fullCommunity];
+  hand.currentBet = 100;
+  hand.roundBets = { P1: 0, P2: 100 };
+  hand.raiseCount = 3;
+  hand.potCoins = 150;
+  hand.currentPlayerId = 'P1';
+  hand.players[0].hole = ['As', '2h', 'Jd', 'Td'];
+
+  expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
+});
+
+test('a bot still folds a weak hand against an expensive capped bet', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'river';
+  hand.fullCommunity = ['As', 'Kh', '9d', '7c', '4s'];
+  hand.community = [...hand.fullCommunity];
+  hand.currentBet = 100;
+  hand.roundBets = { P1: 0, P2: 100 };
+  hand.raiseCount = 3;
+  hand.potCoins = 50;
+  hand.currentPlayerId = 'P1';
+  hand.players[0].hole = ['2h', '3h', '6c', '8d'];
+
+  expect(botMove(hand, hand.players[0])).toEqual({ move: 'fold' });
+});
+
 test('screenshot deal OMA1-P7-S12OCLCL advances instead of freezing on the big blind bot', () => {
   const hand = dealHandFromCode('OMA1-P7-S12OCLCL');
   hand.handNumber = 17;
