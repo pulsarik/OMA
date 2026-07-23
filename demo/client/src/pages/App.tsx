@@ -1602,16 +1602,7 @@ function PlayerPage() {
             ? currentPlayer
             : message.data
         ));
-        if (message.data.stage !== 'showdown') {
-          const turnName = playerLabel(message.data.players, message.data.currentPlayerId);
-          setNotice(
-            message.data.currentPlayerId === message.data.playerId
-              ? 'Your turn.'
-              : `${turnName} — THINKING...`,
-          );
-        } else {
-          setNotice(null);
-        }
+        setNotice(null);
       }
       if (message.type === 'hand_dealt' && message.data?.playerLinks) {
         setNewDealLinks(message.data.playerLinks);
@@ -1694,6 +1685,9 @@ function PlayerPage() {
   });
   const tournamentWinner = remainingPlayers.length === 1 ? remainingPlayers[0] : undefined;
   const canContinue = socketReady && player.stage === 'showdown' && !hasContinuation && !tournamentWinner;
+  const showActionDock = canAct || (
+    player.stage === 'showdown' && (canContinue || Boolean(player.nextPlayerLink))
+  );
   const otherPlayers = player.players.filter((seat) => seat.id !== player.playerId);
   const statusPillStyle: React.CSSProperties = {
     border: '1px solid #d1d5db',
@@ -1787,7 +1781,7 @@ function PlayerPage() {
         </div>
       </div>
 
-      <div className="action-dock">
+      {showActionDock ? <div className="action-dock">
         {canAct ? <div className="turn-status">YOUR TURN</div> : null}
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
           <div className="bet-sizes">
@@ -1842,11 +1836,6 @@ function PlayerPage() {
             </button>
           </>
         ) : null}
-        {!canAct && player.stage !== 'showdown' ? (
-          <span className="turn-status">
-            {playerLabel(player.players, player.currentPlayerId)} — THINKING...
-          </span>
-        ) : null}
         {player.stage === 'showdown' ? (
           canContinue ? <button className="action-button primary" onClick={startNewDeal}>New deal</button> : null
         ) : null}
@@ -1856,7 +1845,7 @@ function PlayerPage() {
           </button>
         ) : null}
         </div>
-      </div>
+      </div> : null}
       {tournamentWinner ? (
         <p style={{ fontWeight: 800 }}>
           Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
