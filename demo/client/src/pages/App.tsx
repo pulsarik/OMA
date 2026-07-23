@@ -541,7 +541,7 @@ const pipLayouts: Record<number, Array<{ x: number; y: number; rotate?: boolean 
     { x: 68, y: 82, rotate: true },
   ],
   10: [
-    { x: 32, y: 16 },
+    { x: 40, y: 16 },
     { x: 68, y: 16 },
     { x: 50, y: 28 },
     { x: 32, y: 40 },
