@@ -73,9 +73,19 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
     return state.actions.filter((action: { playerId: string }) => action.playerId === 'P2').length;
   }, { timeout: 5_000 }).toBeGreaterThan(0);
 
+  const response = await request.get(apiUrl);
+  const state = await response.json();
+  await expect(page.getByText(state.stage, { exact: true }).first()).toBeVisible();
   const opponentAction = page.locator('[title^="Last action:"]');
-  await expect(opponentAction).toHaveCount(1);
-  await expect(opponentAction).toHaveText(/^(CHECK|CALL|RAISE|FOLD|BET)( .+)?$/);
+  const latestBotAction = [...state.actions]
+    .reverse()
+    .find((action: { playerId: string }) => action.playerId === 'P2');
+  if (latestBotAction?.stage === state.stage) {
+    await expect(opponentAction).toHaveCount(1);
+    await expect(opponentAction).toHaveText(/^(CHECK|CALL|RAISE|FOLD|BET)( .+)?$/);
+  } else {
+    await expect(opponentAction).toHaveCount(0);
+  }
 });
 
 test('folded hands show combinations and a new deal opens', async ({ page }) => {
