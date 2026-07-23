@@ -268,7 +268,7 @@ const COMPACT_CARD_HEIGHT = 132 * COMPACT_CARD_SCALE;
 const COMBO_CARD_SCALE = 0.48;
 const COMBO_CARD_WIDTH = 92 * COMBO_CARD_SCALE;
 const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
-const SIDE_COMBO_CARD_SCALE = 0.3;
+const SIDE_COMBO_CARD_SCALE = 0.35;
 const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
 
@@ -401,14 +401,14 @@ const PLAYER_PAGE_STYLES = `
   .hero-seat { grid-area: hero; align-self: end; }
   .combo-side {
     align-self: center;
-    width: 178px;
+    width: 190px;
     min-width: 0;
-    border: 1px solid rgba(255,255,255,.2);
-    border-radius: 10px;
-    background: rgba(2,44,30,.26);
-    padding: 5px 6px;
+    border: 1px solid rgba(255,255,255,.32);
+    border-radius: 12px;
+    background: rgba(2,44,30,.52);
+    padding: 7px;
     color: #fff;
-    opacity: .88;
+    opacity: .98;
   }
   .combo-side.high { grid-area: high; justify-self: end; }
   .combo-side.low { grid-area: low; justify-self: start; }
@@ -416,13 +416,13 @@ const PLAYER_PAGE_STYLES = `
     display: flex;
     justify-content: space-between;
     gap: 8px;
-    margin-bottom: 4px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .05em;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .07em;
   }
-  .combo-side-rank { color: #d1fae5; font-size: 11px; letter-spacing: 0; text-align: right; }
-  .side-combo-cards { display: flex; justify-content: center; gap: 5px; }
+  .combo-side-rank { color: #ecfdf5; font-size: 13px; letter-spacing: 0; text-align: right; }
+  .side-combo-cards { display: flex; justify-content: center; gap: 3px; }
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .action-dock {
@@ -477,7 +477,7 @@ const PLAYER_PAGE_STYLES = `
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
     .hero-zone { gap: 6px; }
-    .combo-side { width: 168px; padding: 4px 5px; }
+    .combo-side { width: 184px; padding: 6px 5px; }
   }
   @media (max-width: 560px) {
     .table-center {
