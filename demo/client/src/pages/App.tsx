@@ -94,6 +94,13 @@ function playerLabel(players: Array<{ id: string; name?: string }> | undefined, 
   return tablePlayerName(players?.find((player) => player.id === id)?.name, id);
 }
 
+function playerBlindLabel(blinds: BlindInfo | undefined, playerId: string, stage: string) {
+  if (!blinds || stage !== 'preflop') return undefined;
+  if (blinds.smallBlindPlayerId === playerId) return `1× BLIND · ${formatPoints(blinds.small)}`;
+  if (blinds.bigBlindPlayerId === playerId) return `2× BLIND · ${formatPoints(blinds.big)}`;
+  return undefined;
+}
+
 function tablePlayerName(name: string | undefined, id: string) {
   return (name ?? id).replace(/_bot$/i, '');
 }
@@ -1004,6 +1011,7 @@ function PlayerSeat({
   action,
   resultPlayer,
   isCurrentTurn = false,
+  blindLabel,
 }: {
   id: string;
   name?: string;
@@ -1017,6 +1025,7 @@ function PlayerSeat({
   action?: ActionLog;
   resultPlayer?: HiLoResult['players'][number];
   isCurrentTurn?: boolean;
+  blindLabel?: string;
 }) {
   const shouldShowCards = Boolean(hole?.length);
   const actionLabel = action
@@ -1151,6 +1160,24 @@ function PlayerSeat({
           >
             {tablePlayerName(name, id)}{isYou ? ' (you)' : ''}
           </span>
+          {blindLabel ? (
+            <span
+              data-testid={`player-blind-${id}`}
+              style={{
+                border: '1px solid rgba(253,230,138,.72)',
+                borderRadius: 999,
+                background: 'rgba(120,53,15,.72)',
+                color: '#fef3c7',
+                padding: '2px 6px',
+                fontSize: 10,
+                fontWeight: 900,
+                lineHeight: 1.15,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {blindLabel}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -1713,6 +1740,7 @@ function PlayerPage() {
               action={latestActionForPlayer(player.actions, seat.id, player.stage)}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, seat.id) : undefined}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
+              blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
             />
           ))}
         </div>
@@ -1747,6 +1775,7 @@ function PlayerPage() {
               compact
               score={totalScore(player.partyScore, player.playerId)}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
+              blindLabel={playerBlindLabel(player.blinds, player.playerId, player.stage)}
             />
           </div>
           {player.stage !== 'showdown' ? <PlayerComboSide combo={player.currentCombo} kind="low" /> : null}
