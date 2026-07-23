@@ -300,12 +300,41 @@ const PLAYER_PAGE_STYLES = `
     background: rgba(255,255,255,.9);
     box-shadow: 0 12px 32px rgba(31,54,42,.11);
   }
+  .view-tabs {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    margin: 0 14px -1px;
+  }
+  .view-tab {
+    min-height: 38px;
+    border: 1px solid #cbd5e1;
+    border-bottom-color: #d8e2dc;
+    border-radius: 12px 12px 0 0;
+    background: #dfe7e2;
+    color: #526159;
+    padding: 8px 18px;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .05em;
+  }
+  .view-tab.is-active {
+    border-color: #d8e2dc;
+    border-bottom-color: #fff;
+    background: #fff;
+    color: #065f46;
+  }
+  .view-tab:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+  }
   .game-tile {
     border-radius: clamp(24px, 3vw, 36px);
     padding: clamp(7px, 1vw, 12px);
   }
   .stats-tile {
-    margin-top: 16px;
     border-color: #cbd5e1;
     border-radius: 22px;
     background: linear-gradient(180deg, #ffffff, #f4f7fb);
@@ -468,8 +497,10 @@ const PLAYER_PAGE_STYLES = `
   .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
+    .view-tabs { margin-inline: 10px; }
+    .view-tab { min-height: 36px; padding: 7px 13px; }
     .game-tile { border-radius: 22px; padding: 5px; }
-    .stats-tile { margin-top: 10px; border-radius: 18px; padding: 10px; }
+    .stats-tile { border-radius: 18px; padding: 10px; }
     .poker-table { border-width: 3px; border-radius: 28px; padding: 12px 8px; }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { bottom: 4px; border-radius: 14px; }
@@ -1682,7 +1713,12 @@ function PlayerPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
+  const [activeView, setActiveView] = useState<'table' | 'stats'>('table');
   const [, , handId, playerId, token] = window.location.pathname.split('/');
+
+  useEffect(() => {
+    setActiveView('table');
+  }, [handId]);
 
   useEffect(() => {
     fetch(`${SERVER_URL}/api/player/${handId}/${playerId}/${token}`)
@@ -1806,6 +1842,7 @@ function PlayerPage() {
   const showStatsTile = Boolean(
     tournamentWinner || player.cardsRevealed || newDealLinks.length || (player.partyScore && canContinue)
   );
+  const isStatsView = activeView === 'stats' && showStatsTile;
   const otherPlayers = player.players.filter((seat) => seat.id !== player.playerId);
   const statusPillStyle: React.CSSProperties = {
     border: '1px solid #d1d5db',
@@ -1819,7 +1856,39 @@ function PlayerPage() {
   return (
     <div className="poker-page">
       <style>{PLAYER_PAGE_STYLES}</style>
-      <section className="game-tile" data-testid="game-tile">
+      <nav className="view-tabs" role="tablist" aria-label="Game views">
+        <button
+          id="table-tab"
+          type="button"
+          role="tab"
+          aria-controls="table-panel"
+          aria-selected={!isStatsView}
+          className={`view-tab${!isStatsView ? ' is-active' : ''}`}
+          onClick={() => setActiveView('table')}
+        >
+          TABLE
+        </button>
+        <button
+          id="stats-tab"
+          type="button"
+          role="tab"
+          aria-controls="stats-panel"
+          aria-selected={isStatsView}
+          className={`view-tab${isStatsView ? ' is-active' : ''}`}
+          disabled={!showStatsTile}
+          onClick={() => setActiveView('stats')}
+        >
+          STATISTICS
+        </button>
+      </nav>
+
+      {!isStatsView ? <section
+        id="table-panel"
+        role="tabpanel"
+        aria-labelledby="table-tab"
+        className="game-tile"
+        data-testid="game-tile"
+      >
       {!socketReady ? (
         <div className="game-toolbar">
           <span
@@ -1978,9 +2047,15 @@ function PlayerPage() {
           {notice}
         </p>
       ) : null}
-      </section>
+      </section> : null}
 
-      {showStatsTile ? <section className="stats-tile" data-testid="stats-tile">
+      {isStatsView ? <section
+        id="stats-panel"
+        role="tabpanel"
+        aria-labelledby="stats-tab"
+        className="stats-tile"
+        data-testid="stats-tile"
+      >
       {tournamentWinner ? (
         <p style={{ fontWeight: 800 }}>
           Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}

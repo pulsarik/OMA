@@ -72,6 +72,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('game-tile')).toBeVisible();
   await expect(page.getByTestId('stats-tile')).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeDisabled();
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
@@ -135,12 +137,6 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('stats-tile')).toBeVisible();
-  const gameTileBox = await page.getByTestId('game-tile').boundingBox();
-  const statsTileBox = await page.getByTestId('stats-tile').boundingBox();
-  expect(gameTileBox).toBeTruthy();
-  expect(statsTileBox).toBeTruthy();
-  expect(statsTileBox!.y).toBeGreaterThan(gameTileBox!.y + gameTileBox!.height);
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
   for (const winnerId of showdownState.showdownSummary.highWinners) {
@@ -153,6 +149,10 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const foldedTableResult = page.getByTestId('player-result-P1');
   await expect(foldedTableResult.getByText(/^High: /)).toBeVisible();
   await expect(foldedTableResult.getByText(/^Low: /)).toBeVisible();
+  await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await expect(page.getByTestId('stats-tile')).toBeVisible();
+  await expect(page.getByTestId('game-tile')).toHaveCount(0);
+  await expect(page.getByRole('tab', { name: 'STATISTICS' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('button', { name: 'Show all hands' }).click();
 
   const foldedHand = page.getByRole('heading', { name: 'Dima - folded' }).locator('..');
@@ -162,6 +162,9 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByRole('cell', { name: 'Anna', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^High winner: Anna -/ })).toBeVisible();
 
+  await page.getByRole('tab', { name: 'TABLE' }).click();
+  await expect(page.getByTestId('game-tile')).toBeVisible();
+  await expect(page.getByTestId('stats-tile')).toHaveCount(0);
   const oldUrl = page.url();
   await page.getByRole('button', { name: 'New deal' }).click();
   await expect(page).not.toHaveURL(oldUrl);
