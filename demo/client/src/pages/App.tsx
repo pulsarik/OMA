@@ -637,9 +637,22 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
         overflow: 'hidden',
       }}
     >
-      <div style={{ ...cornerStyle, top: 9, left: 7, fontSize: label === '10' ? 18 : 22 }}>
+      <div
+        style={{
+          ...cornerStyle,
+          top: isFace ? 4 : 9,
+          left: isFace ? 4 : 7,
+          minWidth: isFace ? 25 : undefined,
+          border: isFace ? '1px solid #d1d5db' : undefined,
+          borderRadius: isFace ? 6 : undefined,
+          background: isFace ? 'rgba(255,255,255,.96)' : undefined,
+          padding: isFace ? '3px 2px 4px' : undefined,
+          fontSize: isFace ? 20 : label === '10' ? 18 : 22,
+          boxShadow: isFace ? '0 1px 4px rgba(15,23,42,.2)' : undefined,
+        }}
+      >
         <span>{label}</span>
-        {isFace ? <span style={{ marginTop: 3, fontSize: 17 }}>{symbol}</span> : null}
+        {isFace ? <span style={{ marginTop: 2, fontSize: 18 }}>{symbol}</span> : null}
       </div>
       {isAce && (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 58 }}>
