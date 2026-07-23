@@ -129,6 +129,9 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Show cards' })).toHaveCount(0);
+  const foldedTableResult = page.getByTestId('player-result-P1');
+  await expect(foldedTableResult.getByText(/^High: /)).toBeVisible();
+  await expect(foldedTableResult.getByText(/^Low: /)).toBeVisible();
   await page.getByRole('button', { name: 'Show all hands' }).click();
 
   const foldedHand = page.getByRole('heading', { name: 'Dima - folded' }).locator('..');

@@ -1122,8 +1122,9 @@ function PlayerSeat({
         ) : (
           <CardBackRow count={cardCount} compact={compact} testId={`player-cards-${id}`} />
         )}
-        {resultPlayer && !resultPlayer.folded ? (
+        {resultPlayer ? (
           <div
+            data-testid={`player-result-${id}`}
             style={{
               display: 'grid',
               gap: 2,
