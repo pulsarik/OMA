@@ -604,19 +604,6 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
     >
       <div style={{ ...cornerStyle, top: 9, left: 7, fontSize: label === '10' ? 18 : 22 }}>
         <span>{label}</span>
-        <span style={{ fontSize: 18 }}>{symbol}</span>
-      </div>
-      <div
-        style={{
-          ...cornerStyle,
-          right: 7,
-          bottom: 9,
-          fontSize: label === '10' ? 18 : 22,
-          transform: 'rotate(180deg)',
-        }}
-      >
-        <span>{label}</span>
-        <span style={{ fontSize: 18 }}>{symbol}</span>
       </div>
       {isAce && (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 58 }}>
