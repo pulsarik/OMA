@@ -295,6 +295,30 @@ const PLAYER_PAGE_STYLES = `
     padding: clamp(8px, 1.4vw, 20px);
     font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   }
+  .game-tile, .stats-tile {
+    border: 1px solid #d8e2dc;
+    background: rgba(255,255,255,.9);
+    box-shadow: 0 12px 32px rgba(31,54,42,.11);
+  }
+  .game-tile {
+    border-radius: clamp(24px, 3vw, 36px);
+    padding: clamp(7px, 1vw, 12px);
+  }
+  .stats-tile {
+    margin-top: 16px;
+    border-color: #cbd5e1;
+    border-radius: 22px;
+    background: linear-gradient(180deg, #ffffff, #f4f7fb);
+    padding: clamp(12px, 2vw, 22px);
+  }
+  .stats-tile .result-panel {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+  }
   .game-toolbar {
     display: flex;
     justify-content: space-between;
@@ -444,6 +468,8 @@ const PLAYER_PAGE_STYLES = `
   .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
+    .game-tile { border-radius: 22px; padding: 5px; }
+    .stats-tile { margin-top: 10px; border-radius: 18px; padding: 10px; }
     .poker-table { border-width: 3px; border-radius: 28px; padding: 12px 8px; }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { bottom: 4px; border-radius: 14px; }
@@ -1764,6 +1790,9 @@ function PlayerPage() {
   const showActionDock = canAct || (
     player.stage === 'showdown' && (canContinue || Boolean(player.nextPlayerLink))
   );
+  const showStatsTile = Boolean(
+    tournamentWinner || player.cardsRevealed || newDealLinks.length || (player.partyScore && canContinue)
+  );
   const otherPlayers = player.players.filter((seat) => seat.id !== player.playerId);
   const statusPillStyle: React.CSSProperties = {
     border: '1px solid #d1d5db',
@@ -1777,6 +1806,7 @@ function PlayerPage() {
   return (
     <div className="poker-page">
       <style>{PLAYER_PAGE_STYLES}</style>
+      <section className="game-tile" data-testid="game-tile">
       {!socketReady ? (
         <div className="game-toolbar">
           <span
@@ -1930,14 +1960,17 @@ function PlayerPage() {
         ) : null}
         </div>
       </div> : null}
-      {tournamentWinner ? (
-        <p style={{ fontWeight: 800 }}>
-          Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
-        </p>
-      ) : null}
       {notice ? (
         <p className="game-notice">
           {notice}
+        </p>
+      ) : null}
+      </section>
+
+      {showStatsTile ? <section className="stats-tile" data-testid="stats-tile">
+      {tournamentWinner ? (
+        <p style={{ fontWeight: 800 }}>
+          Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
         </p>
       ) : null}
       {player.cardsRevealed ? <ResultView result={player.result} players={player.players} /> : null}
@@ -1963,6 +1996,7 @@ function PlayerPage() {
         canReplay={canContinue}
         onReplayHand={replayDeal}
       />
+      </section> : null}
 
       {player.dealCode ? (
         <footer className="deal-footer" data-testid="deal-footer">

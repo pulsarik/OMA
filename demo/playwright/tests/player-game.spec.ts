@@ -70,6 +70,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await page.goto(href);
   await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('game-tile')).toBeVisible();
+  await expect(page.getByTestId('stats-tile')).toHaveCount(0);
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
@@ -133,6 +135,12 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('stats-tile')).toBeVisible();
+  const gameTileBox = await page.getByTestId('game-tile').boundingBox();
+  const statsTileBox = await page.getByTestId('stats-tile').boundingBox();
+  expect(gameTileBox).toBeTruthy();
+  expect(statsTileBox).toBeTruthy();
+  expect(statsTileBox!.y).toBeGreaterThan(gameTileBox!.y + gameTileBox!.height);
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
   for (const winnerId of showdownState.showdownSummary.highWinners) {
