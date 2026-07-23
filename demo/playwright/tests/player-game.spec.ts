@@ -133,6 +133,14 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
+  const showdownResponse = await request.get(apiUrlForPlayerLink(href));
+  const showdownState = await showdownResponse.json();
+  for (const winnerId of showdownState.showdownSummary.highWinners) {
+    await expect(page.getByTestId(`winner-high-${winnerId}`)).toHaveText('★ HIGH');
+  }
+  for (const winnerId of showdownState.showdownSummary.lowWinners) {
+    await expect(page.getByTestId(`winner-low-${winnerId}`)).toHaveText('★ LOW');
+  }
   await expect(page.getByRole('button', { name: 'Show cards' })).toHaveCount(0);
   const foldedTableResult = page.getByTestId('player-result-P1');
   await expect(foldedTableResult.getByText(/^High: /)).toBeVisible();

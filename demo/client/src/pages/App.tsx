@@ -1007,6 +1007,8 @@ function PlayerSeat({
   score = 0,
   action,
   resultPlayer,
+  isHighWinner = false,
+  isLowWinner = false,
   isCurrentTurn = false,
   blindLabel,
 }: {
@@ -1021,6 +1023,8 @@ function PlayerSeat({
   score?: number;
   action?: ActionLog;
   resultPlayer?: HiLoResult['players'][number];
+  isHighWinner?: boolean;
+  isLowWinner?: boolean;
   isCurrentTurn?: boolean;
   blindLabel?: string;
 }) {
@@ -1030,6 +1034,12 @@ function PlayerSeat({
     : undefined;
   const isYourTurn = isCurrentTurn && isYou && !isBot;
   const bubbleLabel = isCurrentTurn ? isYourTurn ? 'YOUR TURN' : 'THINKING...' : actionLabel;
+  const hasWinningHand = isHighWinner || isLowWinner;
+  const winnerBorder = isHighWinner && isLowWinner
+    ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
+    : isHighWinner
+      ? 'linear-gradient(#dc2626, #dc2626)'
+      : 'linear-gradient(#2563eb, #2563eb)';
 
   return (
     <div
@@ -1114,18 +1124,84 @@ function PlayerSeat({
             />
           </div>
         ) : null}
-        {shouldShowCards ? (
-          <CompactCardRow cards={hole ?? []} testId={`player-cards-${id}`} />
-        ) : (
-          <CardBackRow count={cardCount} compact={compact} testId={`player-cards-${id}`} />
-        )}
+        <div
+          style={{
+            position: 'relative',
+            padding: hasWinningHand ? 4 : 0,
+            border: hasWinningHand ? '3px solid transparent' : undefined,
+            borderRadius: hasWinningHand ? 10 : undefined,
+            background: hasWinningHand
+              ? `linear-gradient(#fff, #fff) padding-box, ${winnerBorder} border-box`
+              : undefined,
+            boxShadow: isHighWinner && isLowWinner
+              ? '0 0 14px rgba(220,38,38,.48), 0 0 22px rgba(37,99,235,.42)'
+              : isHighWinner
+                ? '0 0 16px rgba(220,38,38,.58)'
+                : isLowWinner
+                  ? '0 0 16px rgba(37,99,235,.58)'
+                  : undefined,
+          }}
+        >
+          {shouldShowCards ? (
+            <CompactCardRow cards={hole ?? []} testId={`player-cards-${id}`} />
+          ) : (
+            <CardBackRow count={cardCount} compact={compact} testId={`player-cards-${id}`} />
+          )}
+          {hasWinningHand ? (
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: -14,
+                zIndex: 3,
+                display: 'flex',
+                gap: 4,
+                transform: 'translateX(-50%)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isHighWinner ? (
+                <span
+                  data-testid={`winner-high-${id}`}
+                  style={{
+                    borderRadius: 999,
+                    background: '#dc2626',
+                    color: '#fff',
+                    padding: '3px 7px',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                  }}
+                >
+                  ★ HIGH
+                </span>
+              ) : null}
+              {isLowWinner ? (
+                <span
+                  data-testid={`winner-low-${id}`}
+                  style={{
+                    borderRadius: 999,
+                    background: '#2563eb',
+                    color: '#fff',
+                    padding: '3px 7px',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    lineHeight: 1,
+                  }}
+                >
+                  ★ LOW
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         {resultPlayer ? (
           <div
             data-testid={`player-result-${id}`}
             style={{
               display: 'grid',
               gap: 2,
-              marginTop: 5,
+              marginTop: hasWinningHand ? 18 : 5,
               color: '#0f172a',
               fontSize: 11,
               fontWeight: 800,
@@ -1737,6 +1813,8 @@ function PlayerPage() {
               score={totalScore(player.partyScore, seat.id)}
               action={latestActionForPlayer(player.actions, seat.id, player.stage)}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, seat.id) : undefined}
+              isHighWinner={Boolean(player.cardsRevealed && player.showdownSummary?.highWinners.includes(seat.id))}
+              isLowWinner={Boolean(player.cardsRevealed && player.showdownSummary?.lowWinners.includes(seat.id))}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
               blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
             />
@@ -1773,6 +1851,12 @@ function PlayerPage() {
               compact
               score={totalScore(player.partyScore, player.playerId)}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
+              isHighWinner={Boolean(
+                player.cardsRevealed && player.showdownSummary?.highWinners.includes(player.playerId)
+              )}
+              isLowWinner={Boolean(
+                player.cardsRevealed && player.showdownSummary?.lowWinners.includes(player.playerId)
+              )}
               blindLabel={playerBlindLabel(player.blinds, player.playerId, player.stage)}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
             />
