@@ -563,6 +563,13 @@ function rankNumber(rank: string) {
   return Number(rank);
 }
 
+const courtSuitPrefixes: Record<string, string> = {
+  c: 'C',
+  d: 'D',
+  h: 'H',
+  s: 'S',
+};
+
 function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
   const rank = code.slice(0, -1).toUpperCase();
   const suit = code.slice(-1).toLowerCase();
@@ -582,6 +589,7 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
     fontWeight: 800,
     lineHeight: 0.86,
     letterSpacing: 0,
+    zIndex: 2,
   };
 
   return (
@@ -613,32 +621,32 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
       )}
       {isFace && (
         <div
+          data-testid={`court-art-${code}`}
           style={{
             position: 'absolute',
-            left: 22,
-            top: 18,
-            width: 48,
-            height: 96,
-            border: '2px solid #315f9f',
-            background: 'linear-gradient(135deg, #fef3c7 0%, #ffffff 38%, #dbeafe 39%, #ffffff 72%, #fee2e2 73%)',
-            display: 'grid',
-            gridTemplateRows: '1fr 1fr',
+            left: 16,
+            top: 14,
+            width: 70,
+            height: 104,
+            border: '1px solid #cbd5e1',
+            borderRadius: 5,
+            background: '#fff',
             overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'grid', placeItems: 'center', fontSize: 28, borderBottom: '1px solid #315f9f' }}>
-            {label}{symbol}
-          </div>
-          <div
+          <img
+            src={`/cards/court/${courtSuitPrefixes[suit]}-${rank}.svg`}
+            alt=""
+            aria-hidden="true"
             style={{
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: 28,
-              transform: 'rotate(180deg)',
+              position: 'absolute',
+              left: -20,
+              top: -25,
+              width: 110,
+              height: 154,
+              maxWidth: 'none',
             }}
-          >
-            {label}{symbol}
-          </div>
+          />
         </div>
       )}
       {!isAce && !isFace && pips.map((pip, index) => (
