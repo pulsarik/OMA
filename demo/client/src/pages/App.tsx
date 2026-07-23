@@ -613,6 +613,7 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
     >
       <div style={{ ...cornerStyle, top: 9, left: 7, fontSize: label === '10' ? 18 : 22 }}>
         <span>{label}</span>
+        {isFace ? <span style={{ marginTop: 3, fontSize: 17 }}>{symbol}</span> : null}
       </div>
       {isAce && (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 58 }}>
