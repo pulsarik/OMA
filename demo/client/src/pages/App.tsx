@@ -96,8 +96,8 @@ function playerLabel(players: Array<{ id: string; name?: string }> | undefined, 
 
 function playerBlindLabel(blinds: BlindInfo | undefined, playerId: string, stage: string) {
   if (!blinds || stage !== 'preflop') return undefined;
-  if (blinds.smallBlindPlayerId === playerId) return `1× BLIND · ${formatPoints(blinds.small)}`;
-  if (blinds.bigBlindPlayerId === playerId) return `2× BLIND · ${formatPoints(blinds.big)}`;
+  if (blinds.smallBlindPlayerId === playerId) return `1× BLIND ${formatPoints(blinds.small)}`;
+  if (blinds.bigBlindPlayerId === playerId) return `2× BLIND ${formatPoints(blinds.big)}`;
   return undefined;
 }
 
@@ -1165,14 +1165,16 @@ function PlayerSeat({
             <span
               data-testid={`player-blind-${id}`}
               style={{
-                border: '1px solid rgba(253,230,138,.72)',
+                border: `2px solid ${blindLabel.startsWith('2×') ? '#fca5a5' : '#fde68a'}`,
                 borderRadius: 999,
-                background: 'rgba(120,53,15,.72)',
-                color: '#fef3c7',
-                padding: '2px 6px',
-                fontSize: 10,
+                background: blindLabel.startsWith('2×') ? '#b91c1c' : '#f59e0b',
+                color: '#fff',
+                padding: '4px 8px',
+                fontSize: 12,
                 fontWeight: 900,
                 lineHeight: 1.15,
+                boxShadow: '0 2px 7px rgba(0,0,0,.28)',
+                textShadow: '0 1px 2px rgba(0,0,0,.45)',
                 whiteSpace: 'nowrap',
               }}
             >

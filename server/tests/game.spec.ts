@@ -164,6 +164,29 @@ test('blind positions rotate by hand number', () => {
   expect(next.currentPlayerId).toBe('P1');
 });
 
+test('blinds move clockwise through every seat and determine the first preflop turn', () => {
+  let hand = dealHand(5, 12345);
+  const expectedPositions = [
+    ['P1', 'P2', 'P3'],
+    ['P2', 'P3', 'P4'],
+    ['P3', 'P4', 'P5'],
+    ['P4', 'P5', 'P1'],
+    ['P5', 'P1', 'P2'],
+    ['P1', 'P2', 'P3'],
+  ];
+
+  expectedPositions.forEach(([smallBlindId, bigBlindId, firstTurnId], index) => {
+    expect(hand.handNumber).toBe(index + 1);
+    expect(hand.blinds.smallBlindPlayerId).toBe(smallBlindId);
+    expect(hand.blinds.bigBlindPlayerId).toBe(bigBlindId);
+    expect(hand.currentPlayerId).toBe(firstTurnId);
+    if (index < expectedPositions.length - 1) {
+      hand.stage = 'showdown';
+      hand = nextPartyHand(hand);
+    }
+  });
+});
+
 test('turns move through seats from left to right and top to bottom on every street', () => {
   const hand = dealHand(6, 12345);
   const expectedByStreet = {
@@ -249,6 +272,9 @@ test('replay hand keeps layout with fresh tokens and state', () => {
   expect(replay.players.map(player => player.token)).not.toEqual(hand.players.map(player => player.token));
   expect(replay.players.every(player => !player.folded)).toBe(true);
   expect(replay.stage).toBe('preflop');
+  expect(replay.blinds.smallBlindPlayerId).toBe('P2');
+  expect(replay.blinds.bigBlindPlayerId).toBe('P1');
+  expect(replay.currentPlayerId).toBe('P2');
 });
 
 test('deal does not duplicate cards between players and board', () => {

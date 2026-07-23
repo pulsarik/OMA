@@ -78,9 +78,9 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const initialResponse = await request.get(apiUrl);
   const initialState = await initialResponse.json();
   await expect(page.getByTestId(`player-blind-${initialState.blinds.smallBlindPlayerId}`))
-    .toHaveText(`1× BLIND · ${initialState.blinds.small}`);
+    .toHaveText(`1× BLIND ${initialState.blinds.small}`);
   await expect(page.getByTestId(`player-blind-${initialState.blinds.bigBlindPlayerId}`))
-    .toHaveText(`2× BLIND · ${initialState.blinds.big}`);
+    .toHaveText(`2× BLIND ${initialState.blinds.big}`);
 
   await page.getByRole('button', { name: /^Call / }).click();
 
@@ -113,12 +113,14 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   }
 });
 
-test('folded hands show combinations and a new deal opens', async ({ page }) => {
+test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
   await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
+  const firstStateResponse = await request.get(apiUrlForPlayerLink(href));
+  const firstState = await firstStateResponse.json();
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
@@ -137,5 +139,13 @@ test('folded hands show combinations and a new deal opens', async ({ page }) => 
   await expect(page).not.toHaveURL(oldUrl);
   await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
   await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible();
+  const nextStateResponse = await request.get(apiUrlForPlayerLink(page.url()));
+  const nextState = await nextStateResponse.json();
+  expect(nextState.blinds.smallBlindPlayerId).not.toBe(firstState.blinds.smallBlindPlayerId);
+  expect(nextState.blinds.bigBlindPlayerId).not.toBe(firstState.blinds.bigBlindPlayerId);
+  await expect(page.getByTestId(`player-blind-${nextState.blinds.smallBlindPlayerId}`))
+    .toHaveText(`1× BLIND ${nextState.blinds.small}`);
+  await expect(page.getByTestId(`player-blind-${nextState.blinds.bigBlindPlayerId}`))
+    .toHaveText(`2× BLIND ${nextState.blinds.big}`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 });
