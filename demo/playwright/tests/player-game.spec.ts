@@ -73,6 +73,11 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
+  const tableBox = await page.getByTestId('poker-table').boundingBox();
+  const dealFooterBox = await page.getByTestId('deal-footer').boundingBox();
+  expect(tableBox).toBeTruthy();
+  expect(dealFooterBox).toBeTruthy();
+  expect(dealFooterBox!.y).toBeGreaterThan(tableBox!.y + tableBox!.height);
   const yourSeat = page.locator('[data-player-seat="P1"]');
   await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toBeVisible();
   await expect(page.locator('.action-dock').getByText('YOUR TURN', { exact: true })).toBeVisible();

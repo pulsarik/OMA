@@ -310,6 +310,7 @@ const PLAYER_PAGE_STYLES = `
     padding: 4px 9px;
     font: 700 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
   }
+  .deal-footer { margin: 12px 4px 2px; text-align: center; }
   .poker-table {
     position: relative;
     overflow: hidden;
@@ -1697,9 +1698,8 @@ function PlayerPage() {
   return (
     <div className="poker-page">
       <style>{PLAYER_PAGE_STYLES}</style>
-      <div className="game-toolbar">
-        {player.dealCode ? <span className="deal-chip">DEAL {player.dealCode}</span> : <span />}
-        {!socketReady ? (
+      {!socketReady ? (
+        <div className="game-toolbar">
           <span
             style={{
               ...statusPillStyle,
@@ -1711,11 +1711,12 @@ function PlayerPage() {
           >
             disconnected
           </span>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <div
         className="poker-table"
+        data-testid="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}
         <div className="opponents-row">
@@ -1880,6 +1881,12 @@ function PlayerPage() {
         canReplay={canContinue}
         onReplayHand={replayDeal}
       />
+
+      {player.dealCode ? (
+        <footer className="deal-footer" data-testid="deal-footer">
+          <span className="deal-chip">DEAL {player.dealCode}</span>
+        </footer>
+      ) : null}
 
     </div>
   );
