@@ -229,6 +229,57 @@ test('turn order skips folded and all-in seats without changing direction', () =
   expect(hand.currentPlayerId).toBe('P1');
 });
 
+test('multiple raises reopen action clockwise and Alex acts before Dima', () => {
+  const hand = dealHand(7, 12345, ['Dima', 'Anna', 'Ivan', 'Maria', 'Pavel', 'Elena', 'Alex']);
+
+  expect(hand.currentPlayerId).toBe('P3');
+  recordPlayerMove(hand, 'P3', 'call');
+  expect(hand.currentPlayerId).toBe('P4');
+  recordPlayerMove(hand, 'P4', 'call');
+  expect(hand.currentPlayerId).toBe('P5');
+  recordPlayerMove(hand, 'P5', 'call');
+  expect(hand.currentPlayerId).toBe('P6');
+  recordPlayerMove(hand, 'P6', 'fold');
+  expect(hand.currentPlayerId).toBe('P7');
+  recordPlayerMove(hand, 'P7', 'call');
+  expect(hand.currentPlayerId).toBe('P1');
+
+  recordPlayerMove(hand, 'P1', 'raise', 8);
+  expect(hand.currentPlayerId).toBe('P2');
+  recordPlayerMove(hand, 'P2', 'raise', 12);
+  expect(hand.currentPlayerId).toBe('P3');
+  recordPlayerMove(hand, 'P3', 'call');
+  expect(hand.currentPlayerId).toBe('P4');
+  recordPlayerMove(hand, 'P4', 'call');
+  expect(hand.currentPlayerId).toBe('P5');
+  recordPlayerMove(hand, 'P5', 'raise', 16);
+
+  // Elena folded, but Alex still has to answer Pavel's raise before Dima.
+  expect(hand.currentPlayerId).toBe('P7');
+  recordPlayerMove(hand, 'P7', 'call');
+  expect(hand.currentPlayerId).toBe('P1');
+  recordPlayerMove(hand, 'P1', 'call');
+  expect(hand.currentPlayerId).toBe('P2');
+  recordPlayerMove(hand, 'P2', 'call');
+  expect(hand.currentPlayerId).toBe('P3');
+
+  expect(hand.actions.map(action => action.playerId)).toEqual([
+    'P3', 'P4', 'P5', 'P6', 'P7', 'P1', 'P2',
+    'P3', 'P4', 'P5', 'P7', 'P1', 'P2',
+  ]);
+});
+
+test('a player going all-in does not reset the next turn to the first seat', () => {
+  const hand = dealHand(6, 12345);
+  hand.players.find(player => player.id === 'P3')!.stack = 1;
+
+  expect(hand.currentPlayerId).toBe('P3');
+  recordPlayerMove(hand, 'P3', 'call');
+
+  expect(hand.players.find(player => player.id === 'P3')!.stack).toBe(0);
+  expect(hand.currentPlayerId).toBe('P4');
+});
+
 test('players with zero stack are skipped by blinds and turns', () => {
   const hand = dealHand(3, 12345);
   hand.stage = 'showdown';

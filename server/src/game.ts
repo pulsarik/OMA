@@ -195,12 +195,16 @@ function firstActivePlayer(hand: DealtHand) {
 }
 
 function nextActivePlayerAfter(hand: DealtHand, playerId: string) {
-  const active = actingPlayers(hand);
-  if (!active.length) return undefined;
+  if (!actingPlayers(hand).length) return undefined;
 
-  const currentIndex = active.findIndex(p => p.id === playerId);
-  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % active.length;
-  return active[nextIndex];
+  const currentIndex = hand.players.findIndex(player => player.id === playerId);
+  if (currentIndex === -1) return firstActivePlayer(hand);
+
+  for (let offset = 1; offset <= hand.players.length; offset += 1) {
+    const candidate = hand.players[(currentIndex + offset) % hand.players.length];
+    if (!candidate.folded && candidate.stack > 0) return candidate;
+  }
+  return undefined;
 }
 
 function playerNeedsAction(hand: DealtHand, playerId: string, actedPlayers: Set<string>) {
