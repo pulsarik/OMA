@@ -1031,7 +1031,8 @@ function PlayerSeat({
   const actionLabel = action
     ? `${action.move.toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
     : undefined;
-  const bubbleLabel = isCurrentTurn ? 'THINKING...' : actionLabel;
+  const isYourTurn = isCurrentTurn && isYou && !isBot;
+  const bubbleLabel = isCurrentTurn ? isYourTurn ? 'YOUR TURN' : 'THINKING...' : actionLabel;
 
   return (
     <div
@@ -1078,7 +1079,9 @@ function PlayerSeat({
         ) : null}
         {bubbleLabel ? (
           <div
-            title={isCurrentTurn ? `${tablePlayerName(name, id)} is thinking` : `Last action: ${actionLabel}`}
+            title={isCurrentTurn
+              ? isYourTurn ? 'Your turn' : `${tablePlayerName(name, id)} is thinking`
+              : `Last action: ${actionLabel}`}
             style={{
               position: 'absolute',
               top: -18,
@@ -1779,6 +1782,7 @@ function PlayerPage() {
               score={totalScore(player.partyScore, player.playerId)}
               resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
               blindLabel={playerBlindLabel(player.blinds, player.playerId, player.stage)}
+              isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
             />
           </div>
           {player.stage !== 'showdown' ? <PlayerComboSide combo={player.currentCombo} kind="low" /> : null}
@@ -1786,6 +1790,7 @@ function PlayerPage() {
       </div>
 
       <div className="action-dock">
+        {canAct ? <div className="turn-status">YOUR TURN</div> : null}
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
           <div className="bet-sizes">
             <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Bet size</span>

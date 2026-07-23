@@ -73,6 +73,9 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
+  const yourSeat = page.locator('[data-player-seat="P1"]');
+  await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toBeVisible();
+  await expect(page.locator('.action-dock').getByText('YOUR TURN', { exact: true })).toBeVisible();
 
   const apiUrl = apiUrlForPlayerLink(href);
   const initialResponse = await request.get(apiUrl);
@@ -83,6 +86,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
     .toHaveText(`2× BLIND ${initialState.blinds.big}`);
 
   await page.getByRole('button', { name: /^Call / }).click();
+  await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toHaveCount(0);
 
   const thinkingSeat = page.getByTestId('active-player-P2');
   await expect(thinkingSeat).toBeVisible();
