@@ -190,6 +190,26 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
+  const assertCumulativeStats = async (state: any) => {
+    const completedHands = state.partyScore.hands.filter((hand: any) => hand.stage === 'showdown');
+    await expect(page.getByTestId('completed-hand-count'))
+      .toHaveText(`${completedHands.length} ${completedHands.length === 1 ? 'hand' : 'hands'}`);
+    await expect(page.getByTestId('party-history').locator('tbody tr')).toHaveCount(completedHands.length);
+    for (const player of state.players) {
+      const points = completedHands.flatMap((hand: any) => hand.points)
+        .filter((point: any) => point.id === player.id)
+        .reduce((sum: any, point: any) => ({
+          high: sum.high + point.high,
+          low: sum.low + point.low,
+          total: sum.total + point.total,
+        }), { high: 0, low: 0, total: 0 });
+      const stack = state.partyScore.totals.find((total: any) => total.id === player.id)?.total ?? 0;
+      await expect(page.getByTestId(`party-high-${player.id}`)).toHaveText(String(points.high));
+      await expect(page.getByTestId(`party-low-${player.id}`)).toHaveText(String(points.low));
+      await expect(page.getByTestId(`party-won-${player.id}`)).toHaveText(String(points.total));
+      await expect(page.getByTestId(`party-stack-${player.id}`)).toHaveText(String(stack));
+    }
+  };
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
   await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
@@ -217,13 +237,14 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId('stats-tile')).toBeVisible();
   await expect(page.getByTestId('game-tile')).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toHaveAttribute('aria-selected', 'true');
+  await assertCumulativeStats(showdownState);
   await page.getByRole('button', { name: 'Show all hands' }).click();
 
   const foldedHand = page.getByRole('heading', { name: 'Dima - folded' }).locator('..');
   await expect(foldedHand.getByText(/^High: /)).toBeVisible();
   await expect(foldedHand.getByText(/^Low: /)).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Dima', exact: true })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'Anna', exact: true })).toBeVisible();
+  await expect(page.getByTestId('party-total-P1')).toContainText('Dima');
+  await expect(page.getByTestId('party-total-P2')).toContainText('Anna');
   await expect(page.getByRole('heading', { name: /^High winner: Anna -/ })).toBeVisible();
 
   await page.getByRole('tab', { name: 'TABLE' }).click();
@@ -243,4 +264,16 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId(`player-blind-${nextState.blinds.bigBlindPlayerId}`))
     .toHaveText(`2× BLIND ${nextState.blinds.big}`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
+  await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled();
+  await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await assertCumulativeStats(nextState);
+  await page.getByRole('tab', { name: 'TABLE' }).click();
+
+  await page.getByRole('button', { name: 'Fold' }).click();
+  await expect(page.getByRole('button', { name: 'New deal' })).toBeVisible();
+  const secondShowdownResponse = await request.get(apiUrlForPlayerLink(page.url()));
+  const secondShowdownState = await secondShowdownResponse.json();
+  await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await assertCumulativeStats(secondShowdownState);
 });

@@ -525,6 +525,25 @@ const PLAYER_PAGE_STYLES = `
     background: var(--surface);
     box-shadow: 0 6px 20px rgba(31,54,42,.08);
   }
+  .party-summary {
+    border: 1px solid #dce5df;
+    border-radius: 16px;
+    background: #fff;
+    padding: clamp(10px, 2vw, 18px);
+    box-shadow: 0 6px 20px rgba(31,54,42,.08);
+  }
+  .party-history { margin-top: 14px; overflow-x: auto; }
+  .party-history .result-points { min-width: 620px; }
+  .party-payouts { display: flex; gap: 5px; flex-wrap: wrap; }
+  .party-payout {
+    border-radius: 999px;
+    background: #eef5f1;
+    color: #33443a;
+    padding: 3px 7px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
   .result-panel { margin-top: 12px; padding: clamp(10px, 2vw, 18px); }
   .winner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .winner-card { border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 10px; overflow: auto; }
@@ -1645,6 +1664,112 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
   );
 }
 
+function PartyStatistics({ score, players }: {
+  score?: PartyScore;
+  players: Array<{ id: string; name?: string }>;
+}) {
+  if (!score) return null;
+  const completedHands = score.hands
+    .filter((hand) => hand.stage === 'showdown')
+    .sort((a, b) => b.handNumber - a.handNumber);
+  const totals = players.map((player) => {
+    const points = completedHands.flatMap((hand) => hand.points)
+      .filter((point) => point.id === player.id)
+      .reduce((sum, point) => ({
+        high: sum.high + point.high,
+        low: sum.low + point.low,
+        total: sum.total + point.total,
+      }), { high: 0, low: 0, total: 0 });
+    return {
+      ...player,
+      ...points,
+      stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
+    };
+  });
+  const payoutBadges = (hand: PartyScore['hands'][number], kind: 'high' | 'low' | 'total') => {
+    const payouts = hand.points.filter((point) => point[kind] > 0);
+    if (!payouts.length) return <span style={{ color: '#94a3b8' }}>—</span>;
+    return (
+      <div className="party-payouts">
+        {payouts.map((point) => (
+          <span className="party-payout" key={`${kind}-${point.id}`}>
+            {playerLabel(players, point.id)} {formatPoints(point[kind])}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <section className="party-summary" data-testid="party-statistics">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        <div>
+          <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            Party
+          </span>
+          <h2 style={{ margin: '2px 0 0' }}>Cumulative statistics</h2>
+        </div>
+        <strong
+          data-testid="completed-hand-count"
+          style={{ borderRadius: 999, background: '#ecfdf5', color: '#065f46', padding: '6px 10px' }}
+        >
+          {completedHands.length} {completedHands.length === 1 ? 'hand' : 'hands'}
+        </strong>
+      </div>
+
+      <h3 style={{ margin: '14px 0 6px' }}>Players</h3>
+      <table className="result-points" data-testid="party-totals">
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left' }}>Player</th>
+            <th>High won</th>
+            <th>Low won</th>
+            <th>Total won</th>
+            <th>Stack</th>
+          </tr>
+        </thead>
+        <tbody>
+          {totals.map((player) => (
+            <tr key={player.id} data-testid={`party-total-${player.id}`}>
+              <td>{playerLabel(players, player.id)}</td>
+              <td data-testid={`party-high-${player.id}`} style={{ textAlign: 'right' }}>{formatPoints(player.high)}</td>
+              <td data-testid={`party-low-${player.id}`} style={{ textAlign: 'right' }}>{formatPoints(player.low)}</td>
+              <td data-testid={`party-won-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.total)}</td>
+              <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <div className="party-history">
+        <h3 style={{ margin: '0 0 6px' }}>Hands</h3>
+        <table className="result-points" data-testid="party-history">
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'left' }}>Deal</th>
+              <th style={{ textAlign: 'left' }}>High</th>
+              <th style={{ textAlign: 'left' }}>Low</th>
+              <th style={{ textAlign: 'left' }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {completedHands.map((hand) => (
+              <tr key={hand.id} data-testid={`party-hand-${hand.handNumber}`}>
+                <td style={{ fontWeight: 900, whiteSpace: 'nowrap' }}>
+                  {handLabel(hand.handCode, hand.handNumber, hand.id)}
+                </td>
+                <td>{payoutBadges(hand, 'high')}</td>
+                <td>{payoutBadges(hand, 'low')}</td>
+                <td>{payoutBadges(hand, 'total')}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 function ResultView({ result, players }: {
   result?: HiLoResult;
   players: Array<{ id: string; name?: string }>;
@@ -1878,8 +2003,9 @@ function PlayerPage() {
   const tournamentWinner = remainingPlayers.length === 1 ? remainingPlayers[0] : undefined;
   const canContinue = socketReady && player.stage === 'showdown' && !hasContinuation && !tournamentWinner;
   const showActionDock = canAct;
+  const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
-    tournamentWinner || player.cardsRevealed || newDealLinks.length || (player.partyScore && canContinue)
+    tournamentWinner || completedPartyHands.length || newDealLinks.length
   );
   const isStatsView = activeView === 'stats' && showStatsTile;
   const otherPlayers = player.players.filter((seat) => seat.id !== player.playerId);
@@ -2108,6 +2234,7 @@ function PlayerPage() {
           Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
         </p>
       ) : null}
+      <PartyStatistics score={player.partyScore} players={player.players} />
       {player.cardsRevealed ? <ResultView result={player.result} players={player.players} /> : null}
 
       {newDealLinks.length ? (
