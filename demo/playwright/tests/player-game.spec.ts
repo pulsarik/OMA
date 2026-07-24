@@ -16,44 +16,51 @@ function apiUrlForPlayerLink(href: string) {
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
 }
 
-test('opponent cards stay four in a row at a five-player table', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.getByText('connected', { exact: true })).toBeVisible();
-  await page.getByLabel('Players').fill('5');
-  await page.getByLabel('Players').press('Tab');
-  await page.getByRole('button', { name: 'New deal' }).click();
+test('opponent rows stay stable as seat content changes at every table size', async ({ page }) => {
+  test.setTimeout(60_000);
+  const rowSizes = async () => {
+    const positions = await page.getByTestId('opponents-grid').locator('[data-player-seat]')
+      .evaluateAll((seats) => seats.map((seat) => ({
+        top: (seat as HTMLElement).offsetTop,
+        left: (seat as HTMLElement).offsetLeft,
+      })));
+    return positions.reduce((rows, position) => {
+      const row = rows.find((item) => Math.abs(item.top - position.top) < 2);
+      if (row) row.positions.push(position.left);
+      else rows.push({ top: position.top, positions: [position.left] });
+      return rows;
+    }, [] as Array<{ top: number; positions: number[] }>)
+      .map((row) => row.positions.length);
+  };
 
-  const playerLink = page.getByRole('link', { name: /Dima Open/ });
-  await expect(playerLink).toBeVisible();
-  const href = await playerLink.getAttribute('href');
-  expect(href).toBeTruthy();
-  await page.goto(href!);
+  for (let playerCount = 2; playerCount <= 10; playerCount += 1) {
+    await page.goto('/');
+    await expect(page.getByText('connected', { exact: true })).toBeVisible();
+    await page.getByLabel('Players').fill(String(playerCount));
+    await page.getByLabel('Players').press('Tab');
+    await page.getByRole('button', { name: 'New deal' }).click();
 
-  for (let playerNumber = 2; playerNumber <= 5; playerNumber += 1) {
-    const cardRow = page.getByTestId(`player-cards-P${playerNumber}`);
-    await expect(cardRow).toBeVisible();
-    await expect(cardRow).toHaveCSS('flex-wrap', 'nowrap');
-    await expect(cardRow.locator(':scope > div')).toHaveCount(4);
-    const cardTops = await cardRow.locator(':scope > div').evaluateAll((cards) => (
-      cards.map((card) => (card as HTMLElement).offsetTop)
-    ));
-    expect(new Set(cardTops).size).toBe(1);
+    const playerLink = page.getByRole('link', { name: /Dima Open/ });
+    await expect(playerLink).toBeVisible();
+    const href = await playerLink.getAttribute('href');
+    expect(href).toBeTruthy();
+    await page.goto(href!);
+
+    const opponentsGrid = page.getByTestId('opponents-grid');
+    await expect(opponentsGrid).toHaveCSS('display', 'grid');
+    await expect(opponentsGrid.locator('[data-player-seat]')).toHaveCount(playerCount - 1);
+    const rowsBeforeContentChange = await rowSizes();
+
+    await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {
+      (seat as HTMLElement).style.width = `${(seat as HTMLElement).offsetWidth + 140}px`;
+    });
+    const rowsAfterContentChange = await rowSizes();
+    expect(rowsAfterContentChange, `${playerCount}-player table reflowed`).toEqual(rowsBeforeContentChange);
   }
 
-  const opponentPositions = await Promise.all(
-    [2, 3, 4, 5].map((playerNumber) => page.locator(`[data-player-seat="P${playerNumber}"]`).boundingBox()),
-  );
-  opponentPositions.slice(1).forEach((position, index) => {
-    const previous = opponentPositions[index];
-    expect(previous).toBeTruthy();
-    expect(position).toBeTruthy();
-    const sameRow = Math.abs(position!.y - previous!.y) < 2;
-    if (sameRow) {
-      expect(position!.x).toBeGreaterThan(previous!.x);
-    } else {
-      expect(position!.y).toBeGreaterThan(previous!.y);
-    }
-  });
+  const firstOpponentCards = page.getByTestId('player-cards-P2');
+  await expect(firstOpponentCards).toHaveCSS('flex-wrap', 'nowrap');
+  await expect(firstOpponentCards.locator(':scope > div')).toHaveCount(4);
 
   const stageBox = await page.getByTestId('table-stage').boundingBox();
   const boardBox = await page.getByTestId('table-board').boundingBox();

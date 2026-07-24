@@ -379,13 +379,14 @@ const PLAYER_PAGE_STYLES = `
     color: #fff;
   }
   .opponents-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
     justify-content: center;
+    justify-items: center;
     align-items: flex-start;
     gap: 20px 8px;
   }
-  .player-seat-wrap { flex: 0 0 auto; }
+  .player-seat-wrap { min-width: 0; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
   }
@@ -728,7 +729,7 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
             left: `${pip.x}%`,
             top: `${pip.y}%`,
             transform: `translate(-50%, -50%)${pip.rotate ? ' rotate(180deg)' : ''}`,
-            fontSize: 28,
+            fontSize: value === 10 ? 24 : 28,
             lineHeight: 1,
           }}
         >
@@ -1910,7 +1911,11 @@ function PlayerPage() {
         data-testid="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}
-        <div className="opponents-row">
+        <div
+          className="opponents-row"
+          data-testid="opponents-grid"
+          data-opponent-count={otherPlayers.length}
+        >
           {otherPlayers.map((seat) => (
             <PlayerSeat
               key={seat.id}
