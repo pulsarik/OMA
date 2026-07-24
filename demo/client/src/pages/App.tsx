@@ -687,6 +687,13 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
   const suit = code.slice(-1).toLowerCase();
   const isRed = suit === 'h' || suit === 'd';
   const color = isRed ? '#c21f32' : '#111827';
+  const suitAccent = suit === 'c'
+    ? '#047857'
+    : suit === 's'
+      ? '#1e3a5f'
+      : suit === 'd'
+        ? '#d04a16'
+        : '#c21f32';
   const label = rankLabels[rank] ?? rank;
   const symbol = suitSymbols[suit] ?? suit;
   const value = rankNumber(rank);
@@ -712,10 +719,10 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
         height: 132,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
-        border: '1px solid #c7c7c7',
+        border: isFace ? `2px solid ${suitAccent}` : '1px solid #c7c7c7',
         borderRadius: 12,
         background: '#fdfdfd',
-        color,
+        color: isFace ? suitAccent : color,
         boxShadow: '0 2px 4px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.9)',
         boxSizing: 'border-box',
         fontFamily: 'Georgia, Times New Roman, serif',
@@ -729,16 +736,16 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
           top: isFace ? 4 : 9,
           left: isFace ? 4 : 7,
           minWidth: isFace ? 25 : undefined,
-          border: isFace ? '1px solid #d1d5db' : undefined,
+          border: isFace ? `2px solid ${suitAccent}` : undefined,
           borderRadius: isFace ? 6 : undefined,
           background: isFace ? 'rgba(255,255,255,.96)' : undefined,
           padding: isFace ? '3px 2px 4px' : undefined,
-          fontSize: isFace ? 20 : label === '10' ? 18 : 22,
+          fontSize: isFace ? 21 : label === '10' ? 18 : 22,
           boxShadow: isFace ? '0 1px 4px rgba(15,23,42,.2)' : undefined,
         }}
       >
         <span>{label}</span>
-        {isFace ? <span style={{ marginTop: 2, fontSize: 18 }}>{symbol}</span> : null}
+        {isFace ? <span style={{ marginTop: 2, fontSize: 23 }}>{symbol}</span> : null}
       </div>
       {isAce && (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 58 }}>
@@ -754,7 +761,7 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
             top: 14,
             width: 70,
             height: 104,
-            border: '1px solid #cbd5e1',
+            border: `1px solid ${suitAccent}`,
             borderRadius: 5,
             background: '#fff',
             overflow: 'hidden',
@@ -1194,6 +1201,33 @@ function PlayerSeat({
             : undefined,
         }}
       >
+        {compact && !isYou ? (
+          <span
+            title={`${tablePlayerName(name, id)}: ${formatPoints(score)} coins`}
+            style={{
+              position: 'absolute',
+              top: -18,
+              left: 8,
+              zIndex: 3,
+              border: '1px solid #fbbf24',
+              borderRadius: 999,
+              background: '#172033',
+              color: '#fff',
+              padding: '4px 8px',
+              fontSize: 12,
+              fontWeight: 900,
+              lineHeight: 1,
+              boxShadow: '0 2px 7px rgba(15,23,42,.28)',
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
+            <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(score)}</strong>
+          </span>
+        ) : null}
         {isBot ? (
           <span
             style={{
@@ -1252,6 +1286,30 @@ function PlayerSeat({
               }}
             />
           </div>
+        ) : null}
+        {blindLabel && !isYou ? (
+          <span
+            data-testid={`player-blind-${id}`}
+            style={{
+              position: 'absolute',
+              top: bubbleLabel ? 18 : -18,
+              right: 8,
+              zIndex: 3,
+              border: `2px solid ${blindLabel.startsWith('2Ã—') ? '#fca5a5' : '#fde68a'}`,
+              borderRadius: 999,
+              background: blindLabel.startsWith('2Ã—') ? '#b91c1c' : '#f59e0b',
+              color: '#fff',
+              padding: '4px 8px',
+              fontSize: 11,
+              fontWeight: 900,
+              lineHeight: 1,
+              boxShadow: '0 2px 7px rgba(0,0,0,.28)',
+              textShadow: '0 1px 2px rgba(0,0,0,.45)',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {blindLabel}
+          </span>
         ) : null}
         <div
           style={{
@@ -1343,7 +1401,7 @@ function PlayerSeat({
           </div>
         ) : null}
       </section>
-      {compact ? (
+      {compact && isYou ? (
         <div
           className={`player-meta${isCurrentTurn ? ' is-thinking' : ''}`}
           style={{ display: 'grid', gap: 4, justifyItems: 'center', alignSelf: 'stretch', alignContent: 'end' }}

@@ -84,6 +84,9 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
+  await expect(page.getByTestId('player-score-P2')).toBeVisible();
+  await expect(page.locator('[data-player-seat="P2"]').getByTestId('coin-stack')).toHaveCount(0);
+  await expect(page.locator('[data-player-seat="P1"]').getByTestId('coin-stack')).toBeVisible();
   const chipPositions = await page.locator('[data-player-seat="P1"] [data-chip-index]')
     .evaluateAll((chips) => chips.slice(0, 3).map((chip) => chip.getBoundingClientRect().x));
   expect(chipPositions).toHaveLength(3);
@@ -106,10 +109,21 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const apiUrl = apiUrlForPlayerLink(href);
   const initialResponse = await request.get(apiUrl);
   const initialState = await initialResponse.json();
+  await expect(page.getByTestId('player-score-P2'))
+    .toHaveText(String(initialState.partyScore.totals.find((total: any) => total.id === 'P2').total));
+  const opponentCardsBox = await page.getByTestId('player-cards-P2').boundingBox();
+  const opponentScoreBox = await page.getByTestId('player-score-P2').boundingBox();
+  expect(opponentCardsBox).toBeTruthy();
+  expect(opponentScoreBox).toBeTruthy();
+  expect(opponentScoreBox!.x).toBeLessThan(opponentCardsBox!.x + opponentCardsBox!.width / 2);
   await expect(page.getByTestId(`player-blind-${initialState.blinds.smallBlindPlayerId}`))
     .toHaveText(`1× BLIND ${initialState.blinds.small}`);
   await expect(page.getByTestId(`player-blind-${initialState.blinds.bigBlindPlayerId}`))
     .toHaveText(`2× BLIND ${initialState.blinds.big}`);
+
+  const opponentBlindBox = await page.getByTestId('player-blind-P2').boundingBox();
+  expect(opponentBlindBox).toBeTruthy();
+  expect(opponentBlindBox!.x).toBeGreaterThan(opponentCardsBox!.x + opponentCardsBox!.width / 2);
 
   await page.getByRole('button', { name: /^Call / }).click();
   await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toHaveCount(0);
