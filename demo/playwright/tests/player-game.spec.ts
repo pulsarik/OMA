@@ -96,7 +96,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   expect(dealFooterBox!.y).toBeGreaterThan(tableBox!.y + tableBox!.height);
   const yourSeat = page.locator('[data-player-seat="P1"]');
   await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toBeVisible();
-  await expect(page.locator('.action-dock').getByText('YOUR TURN', { exact: true })).toBeVisible();
+  await expect(page.locator('.action-dock').getByText('YOUR TURN', { exact: true })).toHaveCount(0);
 
   const apiUrl = apiUrlForPlayerLink(href);
   const initialResponse = await request.get(apiUrl);
@@ -136,6 +136,42 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   } else {
     await expect(opponentAction).toHaveCount(0);
   }
+});
+
+test('all action buttons fit in the viewport at a seven-player table', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.goto('/');
+  await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await page.getByLabel('Players').fill('7');
+  await page.getByLabel('Players').press('Tab');
+  for (let playerNumber = 3; playerNumber <= 7; playerNumber += 1) {
+    await page.getByText(`P${playerNumber}`, { exact: true })
+      .locator('..')
+      .getByRole('button', { name: 'Human' })
+      .click();
+  }
+  await page.getByRole('button', { name: 'New deal' }).click();
+
+  const playerLink = page.getByRole('link', { name: /Dima Open/ });
+  await expect(playerLink).toBeVisible();
+  const href = await playerLink.getAttribute('href');
+  expect(href).toBeTruthy();
+  await page.goto(href!);
+
+  const actionDock = page.locator('.action-dock');
+  await expect(actionDock).toBeVisible({ timeout: 10_000 });
+  const buttonBoxes = await actionDock.locator('button').evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect();
+    return { top: box.top, right: box.right, bottom: box.bottom, left: box.left };
+  }));
+  expect(buttonBoxes.length).toBeGreaterThanOrEqual(7);
+  const viewport = page.viewportSize()!;
+  buttonBoxes.forEach((box) => {
+    expect(box.left).toBeGreaterThanOrEqual(0);
+    expect(box.top).toBeGreaterThanOrEqual(0);
+    expect(box.right).toBeLessThanOrEqual(viewport.width);
+    expect(box.bottom).toBeLessThanOrEqual(viewport.height);
+  });
 });
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {

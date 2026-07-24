@@ -378,6 +378,15 @@ const PLAYER_PAGE_STYLES = `
     padding: clamp(14px, 2vw, 28px);
     color: #fff;
   }
+  .poker-table.is-crowded {
+    gap: 10px;
+    padding: 14px 18px;
+  }
+  .poker-table.is-crowded .opponents-row { gap-block: 10px; }
+  .poker-table.is-crowded .table-center {
+    min-height: 110px;
+    padding: 8px;
+  }
   .opponents-row {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
@@ -456,8 +465,11 @@ const PLAYER_PAGE_STYLES = `
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .action-dock {
-    display: grid;
-    gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
     margin: 10px auto 0;
     border: 1px solid rgba(148,163,184,.55);
     border-radius: 16px;
@@ -1904,7 +1916,7 @@ function PlayerPage() {
       ) : null}
 
       <div
-        className="poker-table"
+        className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}`}
         data-testid="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}
@@ -1980,7 +1992,6 @@ function PlayerPage() {
       </div>
 
       {showActionDock ? <div className="action-dock">
-        {canAct ? <div className="turn-status">YOUR TURN</div> : null}
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
           <div className="bet-sizes">
             <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Bet size</span>
