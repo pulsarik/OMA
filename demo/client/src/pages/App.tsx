@@ -1955,7 +1955,7 @@ function PlayerPage() {
         </section>
 
         <div className="hero-zone">
-          {player.stage !== 'showdown' ? <PlayerComboSide combo={player.currentCombo} kind="high" /> : null}
+          <PlayerComboSide combo={player.currentCombo} kind="high" />
           <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
             <PlayerSeat
               id={player.playerId}
@@ -1978,7 +1978,7 @@ function PlayerPage() {
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
             />
           </div>
-          {player.stage !== 'showdown' ? <PlayerComboSide combo={player.currentCombo} kind="low" /> : null}
+          <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
 

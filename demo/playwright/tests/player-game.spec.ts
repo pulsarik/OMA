@@ -144,6 +144,8 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('high-combo-side')).toBeVisible();
+  await expect(page.getByTestId('low-combo-side')).toBeVisible();
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
   for (const winnerId of showdownState.showdownSummary.highWinners) {
