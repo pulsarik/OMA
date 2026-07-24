@@ -446,7 +446,13 @@ const PLAYER_PAGE_STYLES = `
       "status status status"
       "stage board pot";
   }
-  .table-showdown { grid-area: status; }
+  .table-showdown {
+    grid-area: status;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
   .table-pot { grid-area: pot; justify-self: end; }
@@ -1867,9 +1873,7 @@ function PlayerPage() {
   });
   const tournamentWinner = remainingPlayers.length === 1 ? remainingPlayers[0] : undefined;
   const canContinue = socketReady && player.stage === 'showdown' && !hasContinuation && !tournamentWinner;
-  const showActionDock = canAct || (
-    player.stage === 'showdown' && (canContinue || Boolean(player.nextPlayerLink))
-  );
+  const showActionDock = canAct;
   const showStatsTile = Boolean(
     tournamentWinner || player.cardsRevealed || newDealLinks.length || (player.partyScore && canContinue)
   );
@@ -1977,7 +1981,20 @@ function PlayerPage() {
           }}
         >
           {player.stage === 'showdown' ? (
-            <div className="table-showdown"><ShowdownStatus player={player} /></div>
+            <div className="table-showdown">
+              <ShowdownStatus player={player} />
+              {canContinue ? (
+                <button className="action-button primary" onClick={startNewDeal}>New deal</button>
+              ) : null}
+              {player.nextPlayerLink ? (
+                <button
+                  className="action-button primary"
+                  onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
+                >
+                  New deal
+                </button>
+              ) : null}
+            </div>
           ) : null}
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
@@ -2065,14 +2082,6 @@ function PlayerPage() {
               Fold
             </button>
           </>
-        ) : null}
-        {player.stage === 'showdown' ? (
-          canContinue ? <button className="action-button primary" onClick={startNewDeal}>New deal</button> : null
-        ) : null}
-        {player.nextPlayerLink ? (
-          <button className="action-button primary" onClick={() => { window.location.href = player.nextPlayerLink!.url; }}>
-            New deal
-          </button>
         ) : null}
         </div>
       </div> : null}

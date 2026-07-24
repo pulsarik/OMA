@@ -139,6 +139,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
 });
 
 test('all action buttons fit in the viewport at a seven-player table', async ({ page }) => {
+  test.setTimeout(60_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
@@ -172,6 +173,14 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
     expect(box.right).toBeLessThanOrEqual(viewport.width);
     expect(box.bottom).toBeLessThanOrEqual(viewport.height);
   });
+
+  await page.getByRole('button', { name: 'Fold' }).click();
+  const newDealButton = page.getByRole('button', { name: 'New deal' });
+  await expect(newDealButton).toBeVisible({ timeout: 30_000 });
+  const newDealBox = await newDealButton.boundingBox();
+  expect(newDealBox).toBeTruthy();
+  expect(newDealBox!.y).toBeGreaterThanOrEqual(0);
+  expect(newDealBox!.y + newDealBox!.height).toBeLessThanOrEqual(viewport.height);
 });
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
