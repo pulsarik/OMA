@@ -109,6 +109,10 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const apiUrl = apiUrlForPlayerLink(href);
   const initialResponse = await request.get(apiUrl);
   const initialState = await initialResponse.json();
+  await expect(page.getByTestId(`card-face-${initialState.hole[0]}`))
+    .toHaveAttribute('src', /\/cards\/revk\/[2-9TJQKA][CDHS]\.svg$/);
+  await expect(page.getByTestId('card-back').first().locator('img'))
+    .toHaveAttribute('src', '/cards/revk/BACK.svg');
   await expect(page.getByTestId('player-score-P2'))
     .toHaveText(String(initialState.partyScore.totals.find((total: any) => total.id === 'P2').total));
   const opponentCardsBox = await page.getByTestId('player-cards-P2').boundingBox();

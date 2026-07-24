@@ -253,13 +253,6 @@ type VersionInfo = {
   buildTimeGmt?: string;
 };
 
-const suitSymbols: Record<string, string> = {
-  s: '\u2660',
-  h: '\u2665',
-  d: '\u2666',
-  c: '\u2663',
-};
-
 const rankLabels: Record<string, string> = {
   T: '10',
   J: 'J',
@@ -591,81 +584,6 @@ const PLAYER_PAGE_STYLES = `
   }
 `;
 
-const pipLayouts: Record<number, Array<{ x: number; y: number; rotate?: boolean }>> = {
-  2: [
-    { x: 50, y: 24 },
-    { x: 50, y: 76, rotate: true },
-  ],
-  3: [
-    { x: 50, y: 22 },
-    { x: 50, y: 50 },
-    { x: 50, y: 78, rotate: true },
-  ],
-  4: [
-    { x: 32, y: 24 },
-    { x: 68, y: 24 },
-    { x: 32, y: 76, rotate: true },
-    { x: 68, y: 76, rotate: true },
-  ],
-  5: [
-    { x: 32, y: 23 },
-    { x: 68, y: 23 },
-    { x: 50, y: 50 },
-    { x: 32, y: 77, rotate: true },
-    { x: 68, y: 77, rotate: true },
-  ],
-  6: [
-    { x: 32, y: 22 },
-    { x: 68, y: 22 },
-    { x: 32, y: 50 },
-    { x: 68, y: 50 },
-    { x: 32, y: 78, rotate: true },
-    { x: 68, y: 78, rotate: true },
-  ],
-  7: [
-    { x: 32, y: 20 },
-    { x: 68, y: 20 },
-    { x: 50, y: 35 },
-    { x: 32, y: 50 },
-    { x: 68, y: 50 },
-    { x: 32, y: 80, rotate: true },
-    { x: 68, y: 80, rotate: true },
-  ],
-  8: [
-    { x: 32, y: 20 },
-    { x: 68, y: 20 },
-    { x: 50, y: 35 },
-    { x: 32, y: 50 },
-    { x: 68, y: 50 },
-    { x: 50, y: 65, rotate: true },
-    { x: 32, y: 80, rotate: true },
-    { x: 68, y: 80, rotate: true },
-  ],
-  9: [
-    { x: 32, y: 18 },
-    { x: 68, y: 18 },
-    { x: 32, y: 38 },
-    { x: 68, y: 38 },
-    { x: 50, y: 50 },
-    { x: 32, y: 62, rotate: true },
-    { x: 68, y: 62, rotate: true },
-    { x: 32, y: 82, rotate: true },
-    { x: 68, y: 82, rotate: true },
-  ],
-  10: [
-    { x: 40, y: 16 },
-    { x: 68, y: 16 },
-    { x: 50, y: 28 },
-    { x: 32, y: 40 },
-    { x: 68, y: 40 },
-    { x: 32, y: 60, rotate: true },
-    { x: 68, y: 60, rotate: true },
-    { x: 50, y: 72, rotate: true },
-    { x: 32, y: 84, rotate: true },
-    { x: 68, y: 84, rotate: true },
-  ],
-};
-
 function rankNumber(rank: string) {
   if (rank === 'T') return 10;
   if (rank === 'J') return 11;
@@ -675,41 +593,10 @@ function rankNumber(rank: string) {
   return Number(rank);
 }
 
-const courtSuitPrefixes: Record<string, string> = {
-  c: 'C',
-  d: 'D',
-  h: 'H',
-  s: 'S',
-};
-
 function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
   const rank = code.slice(0, -1).toUpperCase();
   const suit = code.slice(-1).toLowerCase();
-  const isRed = suit === 'h' || suit === 'd';
-  const color = isRed ? '#c21f32' : '#111827';
-  const suitAccent = suit === 'c'
-    ? '#047857'
-    : suit === 's'
-      ? '#1e3a5f'
-      : suit === 'd'
-        ? '#d04a16'
-        : '#c21f32';
-  const label = rankLabels[rank] ?? rank;
-  const symbol = suitSymbols[suit] ?? suit;
-  const value = rankNumber(rank);
-  const isFace = value >= 11 && value <= 13;
-  const isAce = value === 14;
-  const pips = pipLayouts[value] ?? [];
-  const cornerStyle: React.CSSProperties = {
-    position: 'absolute',
-    display: 'grid',
-    justifyItems: 'center',
-    gap: 0,
-    fontWeight: 800,
-    lineHeight: 0.86,
-    letterSpacing: 0,
-    zIndex: 2,
-  };
+  const assetCode = `${rank}${suit.toUpperCase()}`;
 
   return (
     <div
@@ -719,84 +606,22 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
         height: 132,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
-        border: isFace ? `2px solid ${suitAccent}` : '1px solid #c7c7c7',
         borderRadius: 12,
-        background: '#fdfdfd',
-        color: isFace ? suitAccent : color,
-        boxShadow: '0 2px 4px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(255,255,255,0.9)',
-        boxSizing: 'border-box',
-        fontFamily: 'Georgia, Times New Roman, serif',
-        position: 'relative',
+        background: '#fff',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.28)',
         overflow: 'hidden',
       }}
     >
-      <div
+      <img
+        src={`/cards/revk/${assetCode}.svg`}
+        alt={code}
+        data-testid={`card-face-${code}`}
         style={{
-          ...cornerStyle,
-          top: isFace ? 4 : 9,
-          left: isFace ? 4 : 7,
-          minWidth: isFace ? 25 : undefined,
-          border: isFace ? `2px solid ${suitAccent}` : undefined,
-          borderRadius: isFace ? 6 : undefined,
-          background: isFace ? 'rgba(255,255,255,.96)' : undefined,
-          padding: isFace ? '3px 2px 4px' : undefined,
-          fontSize: isFace ? 21 : label === '10' ? 18 : 22,
-          boxShadow: isFace ? '0 1px 4px rgba(15,23,42,.2)' : undefined,
+          display: 'block',
+          width: '100%',
+          height: '100%',
         }}
-      >
-        <span>{label}</span>
-        {isFace ? <span style={{ marginTop: 2, fontSize: 23 }}>{symbol}</span> : null}
-      </div>
-      {isAce && (
-        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 58 }}>
-          {symbol}
-        </div>
-      )}
-      {isFace && (
-        <div
-          data-testid={`court-art-${code}`}
-          style={{
-            position: 'absolute',
-            left: 16,
-            top: 14,
-            width: 70,
-            height: 104,
-            border: `1px solid ${suitAccent}`,
-            borderRadius: 5,
-            background: '#fff',
-            overflow: 'hidden',
-          }}
-        >
-          <img
-            src={`/cards/court/${courtSuitPrefixes[suit]}-${rank}.svg`}
-            alt=""
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: -20,
-              top: -25,
-              width: 110,
-              height: 154,
-              maxWidth: 'none',
-            }}
-          />
-        </div>
-      )}
-      {!isAce && !isFace && pips.map((pip, index) => (
-        <span
-          key={index}
-          style={{
-            position: 'absolute',
-            left: `${pip.x}%`,
-            top: `${pip.y}%`,
-            transform: `translate(-50%, -50%)${pip.rotate ? ' rotate(180deg)' : ''}`,
-            fontSize: value === 10 ? 24 : 28,
-            lineHeight: 1,
-          }}
-        >
-          {symbol}
-        </span>
-      ))}
+      />
     </div>
   );
 }
@@ -804,19 +629,24 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
 function CardBack({ scale = CARD_SCALE }: { scale?: number }) {
   return (
     <div
+      data-testid="card-back"
       style={{
         width: 92,
         height: 132,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
-        border: '1px solid #1f2937',
         borderRadius: 12,
-        background:
-          'radial-gradient(circle at center, rgba(255,255,255,0.22) 0 2px, transparent 3px), repeating-linear-gradient(45deg, #1e3a8a, #1e3a8a 8px, #2563eb 8px, #2563eb 16px)',
-        backgroundSize: '16px 16px, auto',
         boxShadow: '0 3px 9px rgba(0,0,0,0.22)',
+        overflow: 'hidden',
       }}
-    />
+    >
+      <img
+        src="/cards/revk/BACK.svg"
+        alt=""
+        aria-hidden="true"
+        style={{ display: 'block', width: '100%', height: '100%' }}
+      />
+    </div>
   );
 }
 

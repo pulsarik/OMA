@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 336" role="img" aria-label="Q Bz card back">
+  <defs>
+    <linearGradient id="back-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081b45"/>
+      <stop offset=".48" stop-color="#123d78"/>
+      <stop offset="1" stop-color="#07172f"/>
+    </linearGradient>
+    <radialGradient id="back-glow" cx=".5" cy=".4" r=".7">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="back-clip">
+      <rect x="5" y="5" width="230" height="326" rx="15"/>
+    </clipPath>
+    <filter id="back-shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#020617" flood-opacity=".55"/>
+    </filter>
+  </defs>
+
+  <rect x="2" y="2" width="236" height="332" rx="17" fill="#f8fafc" stroke="#0f172a" stroke-width="4"/>
+  <g clip-path="url(#back-clip)">
+    <rect x="5" y="5" width="230" height="326" fill="url(#back-bg)"/>
+    <rect x="5" y="5" width="230" height="326" fill="url(#back-glow)"/>
+
+    <g fill="#ef3340" opacity=".94">
+      <circle cx="26" cy="43" r="11"/><circle cx="78" cy="90" r="8"/>
+      <circle cx="172" cy="55" r="14"/><circle cx="213" cy="103" r="7"/>
+      <circle cx="42" cy="155" r="16"/><circle cx="137" cy="130" r="10"/>
+      <circle cx="195" cy="181" r="13"/><circle cx="92" cy="212" r="7"/>
+      <circle cx="29" cy="269" r="9"/><circle cx="152" cy="282" r="16"/>
+      <circle cx="215" cy="307" r="8"/>
+    </g>
+    <g fill="#3b82f6" opacity=".94">
+      <circle cx="54" cy="66" r="7"/><circle cx="126" cy="45" r="12"/>
+      <circle cx="203" cy="70" r="10"/><circle cx="24" cy="116" r="6"/>
+      <circle cx="106" cy="148" r="15"/><circle cx="221" cy="145" r="9"/>
+      <circle cx="66" cy="188" r="11"/><circle cx="155" cy="200" r="7"/>
+      <circle cx="207" cy="240" r="15"/><circle cx="61" cy="295" r="14"/>
+      <circle cx="118" cy="263" r="8"/>
+    </g>
+    <g fill="none" stroke="#ffffff" stroke-opacity=".2" stroke-width="2">
+      <circle cx="17" cy="208" r="12"/><circle cx="182" cy="111" r="9"/>
+      <circle cx="116" cy="313" r="12"/><circle cx="224" cy="32" r="14"/>
+    </g>
+
+    <path d="M18 82C74 105 166 91 222 118M18 224C77 244 163 231 222 255" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="3"/>
+  </g>
+
+  <rect x="11" y="11" width="218" height="314" rx="11" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="2"/>
+  <rect x="17" y="17" width="206" height="302" rx="8" fill="none" stroke="#60a5fa" stroke-opacity=".75"/>
+
+  <g fill="#fff" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="800" filter="url(#back-shadow)">
+    <text x="120" y="73" font-size="48">Q</text>
+    <text x="120" y="300" font-size="40">Bz</text>
+  </g>
+  <circle cx="120" cy="168" r="36" fill="#07172f" fill-opacity=".7" stroke="#fff" stroke-opacity=".82" stroke-width="2"/>
+  <circle cx="120" cy="168" r="26" fill="none" stroke="#ef3340" stroke-width="7" stroke-dasharray="9 7"/>
+  <circle cx="120" cy="168" r="16" fill="#3b82f6"/>
+  <circle cx="120" cy="168" r="7" fill="#fff"/>
+</svg>
