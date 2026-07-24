@@ -39,6 +39,23 @@ test('a bot does not fold a made flush when the raise cap is reached', () => {
   expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
 });
 
+test('a bot does not fold a full house made on the turn', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'turn';
+  hand.fullCommunity = ['As', 'Kh', 'Kd', '2c', '3d'];
+  hand.community = hand.fullCommunity.slice(0, 4);
+  hand.players[0].hole = ['Ah', 'Ad', '7c', '8c'];
+  hand.players[1].hole = ['Qs', 'Jh', 'Tc', '9d'];
+  hand.currentPlayerId = 'P1';
+  hand.currentBet = 100;
+  hand.roundBets = { P1: 0, P2: 100 };
+  hand.raiseCount = 3;
+  hand.potCoins = 200;
+
+  expect(evaluatePlayerCombo(hand.players[0].hole, hand.community)?.highRank).toBe('full house');
+  expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
+});
+
 test('a bot does not fold a strong made low when the raise cap is reached', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'river';

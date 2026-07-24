@@ -15,11 +15,11 @@ const HIGH_RANK_STRENGTH: Record<string, number> = {
   'high card': 0,
   pair: 1,
   'two pair': 2,
-  three: 3,
+  'three of a kind': 3,
   straight: 4,
   flush: 5,
-  full: 6,
-  four: 7,
+  'full house': 6,
+  'four of a kind': 7,
   'straight flush': 8,
 };
 
