@@ -192,22 +192,36 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await page.setViewportSize({ width: 768, height: 1024 });
   const assertCumulativeStats = async (state: any) => {
     const completedHands = state.partyScore.hands.filter((hand: any) => hand.stage === 'showdown');
+    const formatPoints = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
+    const percentage = (count: number, hands: number) => hands ? `${Math.round((count / hands) * 100)}%` : '0%';
     await expect(page.getByTestId('completed-hand-count'))
       .toHaveText(`${completedHands.length} ${completedHands.length === 1 ? 'hand' : 'hands'}`);
-    await expect(page.getByTestId('party-history').locator('tbody tr')).toHaveCount(completedHands.length);
     for (const player of state.players) {
-      const points = completedHands.flatMap((hand: any) => hand.points)
-        .filter((point: any) => point.id === player.id)
-        .reduce((sum: any, point: any) => ({
-          high: sum.high + point.high,
-          low: sum.low + point.low,
-          total: sum.total + point.total,
-        }), { high: 0, low: 0, total: 0 });
+      const hands = completedHands.filter((hand: any) => (
+        hand.players.some((seat: any) => seat.id === player.id && seat.participated)
+      ));
+      const netResults = hands.map((hand: any) => (
+        hand.net.find((result: any) => result.id === player.id)?.total ?? 0
+      ));
+      const folds = hands.filter((hand: any) => (
+        hand.players.find((seat: any) => seat.id === player.id)?.folded
+      )).length;
+      const wins = netResults.filter((net: number) => net > 0).length;
+      const losses = netResults.filter((net: number) => net < 0).length;
+      const net = netResults.reduce((total: number, result: number) => total + result, 0);
       const stack = state.partyScore.totals.find((total: any) => total.id === player.id)?.total ?? 0;
-      await expect(page.getByTestId(`party-high-${player.id}`)).toHaveText(String(points.high));
-      await expect(page.getByTestId(`party-low-${player.id}`)).toHaveText(String(points.low));
-      await expect(page.getByTestId(`party-won-${player.id}`)).toHaveText(String(points.total));
-      await expect(page.getByTestId(`party-stack-${player.id}`)).toHaveText(String(stack));
+      await expect(page.getByTestId(`party-hands-${player.id}`)).toHaveText(String(hands.length));
+      await expect(page.getByTestId(`party-fold-${player.id}`)).toHaveText(percentage(folds, hands.length));
+      await expect(page.getByTestId(`party-win-${player.id}`)).toHaveText(percentage(wins, hands.length));
+      await expect(page.getByTestId(`party-loss-${player.id}`)).toHaveText(percentage(losses, hands.length));
+      await expect(page.getByTestId(`party-net-${player.id}`)).toHaveText(formatPoints(net));
+      await expect(page.getByTestId(`party-average-${player.id}`))
+        .toHaveText(formatPoints(hands.length ? net / hands.length : 0));
+      await expect(page.getByTestId(`party-max-win-${player.id}`))
+        .toHaveText(formatPoints(Math.max(0, ...netResults)));
+      await expect(page.getByTestId(`party-max-loss-${player.id}`))
+        .toHaveText(formatPoints(Math.min(0, ...netResults)));
+      await expect(page.getByTestId(`party-stack-${player.id}`)).toHaveText(formatPoints(stack));
     }
   };
   const href = await createDefaultHumanVsBotDeal(page);

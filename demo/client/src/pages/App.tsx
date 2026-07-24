@@ -52,10 +52,19 @@ type PartyScore = {
     handNumber: number;
     stage: string;
     replayOfHandId?: string;
+    players: Array<{
+      id: string;
+      folded: boolean;
+      participated: boolean;
+    }>;
     points: Array<{
       id: string;
       high: number;
       low: number;
+      total: number;
+    }>;
+    net: Array<{
+      id: string;
       total: number;
     }>;
   }>;
@@ -532,18 +541,8 @@ const PLAYER_PAGE_STYLES = `
     padding: clamp(10px, 2vw, 18px);
     box-shadow: 0 6px 20px rgba(31,54,42,.08);
   }
-  .party-history { margin-top: 14px; overflow-x: auto; }
-  .party-history .result-points { min-width: 620px; }
-  .party-payouts { display: flex; gap: 5px; flex-wrap: wrap; }
-  .party-payout {
-    border-radius: 999px;
-    background: #eef5f1;
-    color: #33443a;
-    padding: 3px 7px;
-    font-size: 12px;
-    font-weight: 800;
-    white-space: nowrap;
-  }
+  .party-metrics { margin-top: 12px; overflow-x: auto; }
+  .party-metrics .result-points { min-width: 920px; }
   .result-panel { margin-top: 12px; padding: clamp(10px, 2vw, 18px); }
   .winner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .winner-card { border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 10px; overflow: auto; }
@@ -1672,43 +1671,36 @@ function PartyStatistics({ score, players }: {
   const completedHands = score.hands
     .filter((hand) => hand.stage === 'showdown')
     .sort((a, b) => b.handNumber - a.handNumber);
-  const totals = players.map((player) => {
-    const points = completedHands.flatMap((hand) => hand.points)
-      .filter((point) => point.id === player.id)
-      .reduce((sum, point) => ({
-        high: sum.high + point.high,
-        low: sum.low + point.low,
-        total: sum.total + point.total,
-      }), { high: 0, low: 0, total: 0 });
+  const percentage = (count: number, hands: number) => (
+    hands ? `${Math.round((count / hands) * 100)}%` : '0%'
+  );
+  const metrics = players.map((player) => {
+    const hands = completedHands.filter((hand) => (
+      hand.players.some((seat) => seat.id === player.id && seat.participated)
+    ));
+    const netResults = hands.map((hand) => hand.net.find((result) => result.id === player.id)?.total ?? 0);
+    const folds = hands.filter((hand) => hand.players.find((seat) => seat.id === player.id)?.folded).length;
+    const wins = netResults.filter((net) => net > 0).length;
+    const losses = netResults.filter((net) => net < 0).length;
+    const net = netResults.reduce((total, result) => total + result, 0);
     return {
       ...player,
-      ...points,
+      hands: hands.length,
+      foldPercent: percentage(folds, hands.length),
+      winPercent: percentage(wins, hands.length),
+      lossPercent: percentage(losses, hands.length),
+      net,
+      average: hands.length ? net / hands.length : 0,
+      maxWin: Math.max(0, ...netResults),
+      maxLoss: Math.min(0, ...netResults),
       stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
     };
   });
-  const payoutBadges = (hand: PartyScore['hands'][number], kind: 'high' | 'low' | 'total') => {
-    const payouts = hand.points.filter((point) => point[kind] > 0);
-    if (!payouts.length) return <span style={{ color: '#94a3b8' }}>—</span>;
-    return (
-      <div className="party-payouts">
-        {payouts.map((point) => (
-          <span className="party-payout" key={`${kind}-${point.id}`}>
-            {playerLabel(players, point.id)} {formatPoints(point[kind])}
-          </span>
-        ))}
-      </div>
-    );
-  };
 
   return (
     <section className="party-summary" data-testid="party-statistics">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <div>
-          <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>
-            Party
-          </span>
-          <h2 style={{ margin: '2px 0 0' }}>Cumulative statistics</h2>
-        </div>
+        <h2 style={{ margin: 0 }}>Cumulative statistics</h2>
         <strong
           data-testid="completed-hand-count"
           style={{ borderRadius: 999, background: '#ecfdf5', color: '#065f46', padding: '6px 10px' }}
@@ -1717,50 +1709,35 @@ function PartyStatistics({ score, players }: {
         </strong>
       </div>
 
-      <h3 style={{ margin: '14px 0 6px' }}>Players</h3>
-      <table className="result-points" data-testid="party-totals">
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>Player</th>
-            <th>High won</th>
-            <th>Low won</th>
-            <th>Total won</th>
-            <th>Stack</th>
-          </tr>
-        </thead>
-        <tbody>
-          {totals.map((player) => (
-            <tr key={player.id} data-testid={`party-total-${player.id}`}>
-              <td>{playerLabel(players, player.id)}</td>
-              <td data-testid={`party-high-${player.id}`} style={{ textAlign: 'right' }}>{formatPoints(player.high)}</td>
-              <td data-testid={`party-low-${player.id}`} style={{ textAlign: 'right' }}>{formatPoints(player.low)}</td>
-              <td data-testid={`party-won-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.total)}</td>
-              <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="party-history">
-        <h3 style={{ margin: '0 0 6px' }}>Hands</h3>
-        <table className="result-points" data-testid="party-history">
+      <div className="party-metrics">
+        <table className="result-points" data-testid="party-totals">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left' }}>Deal</th>
-              <th style={{ textAlign: 'left' }}>High</th>
-              <th style={{ textAlign: 'left' }}>Low</th>
-              <th style={{ textAlign: 'left' }}>Total</th>
+              <th style={{ textAlign: 'left' }}>Player</th>
+              <th>Hands</th>
+              <th>Fold</th>
+              <th>Win</th>
+              <th>Loss</th>
+              <th>Net</th>
+              <th>Avg/hand</th>
+              <th>Max win</th>
+              <th>Max loss</th>
+              <th>Stack</th>
             </tr>
           </thead>
           <tbody>
-            {completedHands.map((hand) => (
-              <tr key={hand.id} data-testid={`party-hand-${hand.handNumber}`}>
-                <td style={{ fontWeight: 900, whiteSpace: 'nowrap' }}>
-                  {handLabel(hand.handCode, hand.handNumber, hand.id)}
-                </td>
-                <td>{payoutBadges(hand, 'high')}</td>
-                <td>{payoutBadges(hand, 'low')}</td>
-                <td>{payoutBadges(hand, 'total')}</td>
+            {metrics.map((player) => (
+              <tr key={player.id} data-testid={`party-total-${player.id}`}>
+                <td style={{ fontWeight: 800 }}>{playerLabel(players, player.id)}</td>
+                <td data-testid={`party-hands-${player.id}`} style={{ textAlign: 'right' }}>{player.hands}</td>
+                <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
+                <td data-testid={`party-win-${player.id}`} style={{ textAlign: 'right', color: '#047857', fontWeight: 800 }}>{player.winPercent}</td>
+                <td data-testid={`party-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c', fontWeight: 800 }}>{player.lossPercent}</td>
+                <td data-testid={`party-net-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.net)}</td>
+                <td data-testid={`party-average-${player.id}`} style={{ textAlign: 'right' }}>{formatPoints(player.average)}</td>
+                <td data-testid={`party-max-win-${player.id}`} style={{ textAlign: 'right', color: '#047857' }}>{formatPoints(player.maxWin)}</td>
+                <td data-testid={`party-max-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c' }}>{formatPoints(player.maxLoss)}</td>
+                <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
               </tr>
             ))}
           </tbody>

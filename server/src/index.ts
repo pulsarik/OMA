@@ -9,11 +9,13 @@ import {
   PlayerMove,
   MAX_RAISES_PER_STREET,
   POT_COINS,
+  STARTING_STACK,
   dealHand,
   dealHandFromCode,
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
   nextPartyHand,
+  netResultsAfterPayout,
   normalizeHand,
   recordPlayerMove,
   replayHandLayout,
@@ -176,17 +178,36 @@ async function partyScore(hand: any) {
   const latestHand = hands[hands.length - 1] ?? hand;
   const totals = stacksAfterPayout(latestHand);
 
-  return {
-    partyId: hand.partyId,
-    partyCode: hand.partyCode,
-    hands: hands.map((partyHand: any) => ({
+  const handScores = hands.map((partyHand: any, index: number) => {
+    const replaySource = partyHand.replayOfHandId
+      ? hands.find((candidate: any) => candidate.id === partyHand.replayOfHandId)
+      : undefined;
+    const startingStacks = replaySource
+      ? new Map<string, number>(replaySource.players.map((player: any) => [player.id, player.stack]))
+      : index > 0
+        ? stacksAfterPayout(hands[index - 1])
+        : new Map<string, number>(partyHand.players.map((player: any) => [player.id, STARTING_STACK]));
+    const result = partyHand.stage === 'showdown' ? evaluateOmahaHiLo(partyHand) : undefined;
+    return {
       id: partyHand.id,
       handCode: partyHand.handCode,
       handNumber: partyHand.handNumber,
       stage: partyHand.stage,
       replayOfHandId: partyHand.replayOfHandId,
-      points: partyHand.stage === 'showdown' ? evaluateOmahaHiLo(partyHand)?.points ?? [] : [],
-    })),
+      players: partyHand.players.map((player: any) => ({
+        id: player.id,
+        folded: Boolean(player.folded),
+        participated: (startingStacks.get(player.id) ?? 0) > 0,
+      })),
+      points: result?.points ?? [],
+      net: result ? netResultsAfterPayout(partyHand, startingStacks) : [],
+    };
+  });
+
+  return {
+    partyId: hand.partyId,
+    partyCode: hand.partyCode,
+    hands: handScores,
     totals: [...totals.entries()].map(([id, total]) => ({ id, total })),
   };
 }

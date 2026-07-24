@@ -623,6 +623,14 @@ export function stacksAfterPayout(hand: DealtHand) {
   return stacks;
 }
 
+export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<string, number>) {
+  const settledStacks = stacksAfterPayout(hand);
+  return hand.players.map((player) => ({
+    id: player.id,
+    total: (settledStacks.get(player.id) ?? 0) - (startingStacks.get(player.id) ?? STARTING_STACK),
+  }));
+}
+
 export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = [], playerBots: boolean[] = []): DealtHand {
   if (!Number.isInteger(players) || players < 1) {
     throw new Error('players must be a positive integer');

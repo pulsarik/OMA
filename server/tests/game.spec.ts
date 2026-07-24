@@ -6,6 +6,7 @@ import {
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
   nextPartyHand,
+  netResultsAfterPayout,
   recordPlayerMove,
   replayHandLayout,
   stacksAfterPayout,
@@ -161,6 +162,19 @@ test('next party hand carries stacks after payout and posts next blinds', () => 
   expect(next.players.find(player => player.id === 'P1')?.stack).toBe(1000);
   expect(next.players.find(player => player.id === 'P2')?.stack).toBe(994);
   expect(next.potCoins).toBe(6);
+});
+
+test('net results include bets and blinds instead of reporting the whole payout as profit', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
+  hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
+  hand.players[1].hole = ['Kh', 'Kc', '4h', '5c'];
+
+  expect(netResultsAfterPayout(hand, new Map([['P1', 1000], ['P2', 1000]]))).toEqual([
+    { id: 'P1', total: 4 },
+    { id: 'P2', total: -4 },
+  ]);
 });
 
 test('next party hand preserves player names', () => {
