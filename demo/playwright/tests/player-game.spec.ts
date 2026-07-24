@@ -84,6 +84,11 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
+  const chipPositions = await page.locator('[data-player-seat="P1"] [data-chip-index]')
+    .evaluateAll((chips) => chips.slice(0, 3).map((chip) => chip.getBoundingClientRect().x));
+  expect(chipPositions).toHaveLength(3);
+  expect(chipPositions[1]).toBeGreaterThan(chipPositions[0]);
+  expect(Math.abs(chipPositions[2] - chipPositions[0])).toBeLessThan(0.5);
   const tableBox = await page.getByTestId('poker-table').boundingBox();
   const actionDock = page.locator('.action-dock');
   const actionDockBox = await actionDock.boundingBox();

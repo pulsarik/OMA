@@ -999,6 +999,7 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
 
   return (
     <div
+      data-testid="coin-stack"
       title={`${formatPoints(value)} ${title}`}
       style={{
         display: 'grid',
@@ -1015,8 +1016,11 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
         {visibleChips.map((chip, index) => (
           <span
             key={index}
+            data-chip-index={index}
+            data-chip-value={chip.value}
             style={{
               gridArea: '1 / 1',
+              position: 'relative',
               width: compact ? 20 : 24,
               height: compact ? 7 : 8,
               border: `1px solid ${chip.edge}`,
@@ -1025,7 +1029,7 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
                 ? 'linear-gradient(#cbd5e1, #64748b)'
                 : `linear-gradient(#fff 0 12%, ${chip.color} 13% 72%, ${chip.edge} 73%)`,
               boxShadow: `0 1px 0 ${chip.edge}`,
-              transform: `translateY(${-index * (compact ? 2 : 3)}px)`,
+              transform: `translate(${index % 2 === 0 ? (compact ? -2 : -3) : (compact ? 2 : 3)}px, ${-index * (compact ? 2 : 3)}px)`,
             }}
           >
             {index === visibleChips.length - 1 && hiddenCount ? (
