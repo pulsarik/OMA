@@ -456,9 +456,6 @@ const PLAYER_PAGE_STYLES = `
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .action-dock {
-    position: sticky;
-    z-index: 20;
-    bottom: 8px;
     display: grid;
     gap: 8px;
     margin: 10px auto 0;
@@ -504,7 +501,7 @@ const PLAYER_PAGE_STYLES = `
     .stats-tile { border-radius: 18px; padding: 10px; }
     .poker-table { border-width: 3px; border-radius: 28px; padding: 12px 8px; }
     .winner-grid { grid-template-columns: 1fr; }
-    .action-dock { bottom: 4px; border-radius: 14px; }
+    .action-dock { border-radius: 14px; }
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
