@@ -277,9 +277,9 @@ const PLAYER_PAGE_STYLES = `
     color-scheme: light;
     --ink: #17211b;
     --muted: #65736a;
-    --felt-dark: #064e3b;
-    --felt: #087443;
-    --felt-light: #15915a;
+    --felt-dark: #03452f;
+    --felt: #087344;
+    --felt-light: #15945a;
     --gold: #fbbf24;
     --danger: #dc2626;
     --surface: #ffffff;
@@ -372,11 +372,32 @@ const PLAYER_PAGE_STYLES = `
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
-      radial-gradient(ellipse at center, rgba(255,255,255,.1), transparent 58%),
-      linear-gradient(145deg, var(--felt-light), var(--felt) 45%, var(--felt-dark));
-    box-shadow: inset 0 0 0 3px rgba(255,255,255,.12), inset 0 0 42px rgba(0,0,0,.25), 0 12px 32px rgba(31,54,42,.22);
+      radial-gradient(ellipse at 48% 42%, rgba(67,188,124,.22), transparent 58%),
+      repeating-linear-gradient(17deg, rgba(255,255,255,.018) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(103deg, rgba(0,22,12,.028) 0 1px, transparent 1px 5px),
+      linear-gradient(145deg, var(--felt-light), var(--felt) 46%, var(--felt-dark));
+    box-shadow:
+      inset 0 0 0 3px rgba(255,255,255,.1),
+      inset 0 0 62px rgba(0,23,13,.34),
+      inset 0 18px 28px rgba(255,255,255,.035),
+      0 12px 32px rgba(31,54,42,.22);
     padding: clamp(14px, 2vw, 28px);
     color: #fff;
+  }
+  .poker-table::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(255,255,255,.2) 0 .55px, transparent .8px),
+      radial-gradient(circle at 72% 64%, rgba(0,25,14,.3) 0 .65px, transparent .9px),
+      radial-gradient(circle at 42% 78%, rgba(255,255,255,.12) 0 .45px, transparent .75px);
+    background-position: 0 0, 2px 1px, 1px 3px;
+    background-size: 5px 5px, 7px 7px, 6px 6px;
+    mix-blend-mode: soft-light;
+    opacity: .34;
+    pointer-events: none;
   }
   .poker-table.is-crowded {
     gap: 10px;
