@@ -12,6 +12,9 @@
 - отдельный SQLite-файл `data/beta-hands.sqlite`;
 - автоматический деплой только после успешного GitHub CI.
 
+Build-команда явно использует `npm ci --include=dev`, потому что TypeScript,
+Vite и определения типов нужны на этапе сборки даже при `NODE_ENV=production`.
+
 ## Первое создание beta-сервиса
 
 1. Отправить ветку `beta/lobby` в GitHub.

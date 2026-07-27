@@ -5,7 +5,7 @@ services:
     plan: free
     branch: beta/lobby
     autoDeployTrigger: checksPass
-    buildCommand: npm --prefix server ci && npm --prefix demo/client ci && node server/scripts/write-build-info.cjs && npm --prefix server run build && npm --prefix demo/client run build
+    buildCommand: npm --prefix server ci --include=dev && npm --prefix demo/client ci --include=dev && node server/scripts/write-build-info.cjs && npm --prefix server run build && npm --prefix demo/client run build
     startCommand: node server/dist/index.js
     healthCheckPath: /api/version
     envVars:
