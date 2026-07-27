@@ -1,0 +1,42 @@
+import { expect, test } from '@playwright/test';
+
+test('host invites a friend, adds a bot and starts one shared game', async ({ page, browser }) => {
+  await page.goto('/');
+  await expect(page.getByRole('tab', { name: 'LOBBY' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await page.getByLabel('Host name').fill('Dima');
+  await page.getByLabel('Seats at the table').selectOption('4');
+  await page.getByRole('button', { name: 'Create lobby' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/]+$/);
+
+  const inviteUrl = page.url();
+  await expect(page.getByText('Dima (you) · host')).toBeVisible();
+
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await guest.goto(inviteUrl);
+  await guest.getByLabel('Your name').fill('Anna');
+  await guest.getByRole('button', { name: 'Take a seat' }).click();
+
+  await expect(page.getByText('Anna', { exact: true })).toBeVisible();
+  await expect(guest.getByText('Waiting for the host to start the game…')).toBeVisible();
+
+  await page.getByLabel('Bot name').fill('Max');
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByText('Max', { exact: true })).toBeVisible();
+  await expect(guest.getByText('Max', { exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Start game' }).click();
+  await Promise.all([
+    expect(page).toHaveURL(/\/player\/[^/]+\/P1\/[^/]+$/),
+    expect(guest).toHaveURL(/\/player\/[^/]+\/P2\/[^/]+$/),
+  ]);
+
+  const hostPath = new URL(page.url()).pathname.split('/');
+  const guestPath = new URL(guest.url()).pathname.split('/');
+  expect(hostPath[2], 'host and guest opened different hands').toBe(guestPath[2]);
+  await expect(page.getByText('Anna', { exact: true }).first()).toBeVisible();
+  await expect(guest.getByText('Dima', { exact: true }).first()).toBeVisible();
+
+  await guestContext.close();
+});

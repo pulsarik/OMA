@@ -266,6 +266,20 @@ type VersionInfo = {
   buildTimeGmt?: string;
 };
 
+type LobbyView = {
+  id: string;
+  hostMemberId: string;
+  maxPlayers: number;
+  status: 'waiting' | 'started';
+  handId?: string;
+  members: Array<{
+    id: string;
+    name: string;
+    isBot: boolean;
+    isHost: boolean;
+  }>;
+};
+
 const rankLabels: Record<string, string> = {
   T: '10',
   J: 'J',
@@ -2358,9 +2372,199 @@ function DebugPage() {
   );
 }
 
-export default function App() {
+function LobbyPage() {
+  const [, , lobbyId] = window.location.pathname.split('/');
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [socketReady, setSocketReady] = useState(false);
+  const [lobby, setLobby] = useState<LobbyView | null>(null);
+  const [memberId, setMemberId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [botName, setBotName] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+  const storageKey = `omaha-lobby-${lobbyId}`;
+
+  useEffect(() => {
+    const ws = new WebSocket(WS_URL);
+    ws.onopen = () => {
+      setSocketReady(true);
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const credentials = JSON.parse(saved);
+          ws.send(JSON.stringify({ action: 'join_lobby', lobbyId, ...credentials }));
+        } catch {
+          window.localStorage.removeItem(storageKey);
+        }
+      }
+    };
+    ws.onclose = () => setSocketReady(false);
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'lobby_joined') {
+        const credentials = {
+          memberId: message.data.memberId,
+          token: message.data.token,
+        };
+        window.localStorage.setItem(storageKey, JSON.stringify(credentials));
+        setMemberId(message.data.memberId);
+        setLobby(message.data.lobby);
+        setNotice(null);
+      } else if (message.type === 'lobby_updated') {
+        setLobby(message.data);
+      } else if (message.type === 'lobby_started' && message.data?.playerUrl) {
+        window.location.href = message.data.playerUrl;
+      } else if (message.type === 'error') {
+        setNotice(message.message);
+      }
+    };
+    setSocket(ws);
+    return () => ws.close();
+  }, [lobbyId, storageKey]);
+
+  function send(action: string, extra: Record<string, unknown> = {}) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setNotice('Connecting to server. Try again in a moment.');
+      return;
+    }
+    socket.send(JSON.stringify({ action, lobbyId, ...extra }));
+  }
+
+  function join() {
+    if (!name.trim()) {
+      setNotice('Enter your name.');
+      return;
+    }
+    send('join_lobby', { name: name.trim() });
+  }
+
+  const isHost = Boolean(lobby && memberId === lobby.hostMemberId);
+  const inviteUrl = `${window.location.origin}/lobby/${lobbyId}`;
+
+  return (
+    <div style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
+      <main style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <div>
+            <a href="/" style={{ color: '#047857', fontWeight: 800, textDecoration: 'none' }}>← Omaha Hi-Lo</a>
+            <h1 style={{ margin: '5px 0 0' }}>Table lobby</h1>
+          </div>
+          <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
+            {socketReady ? 'connected' : 'connecting...'}
+          </span>
+        </header>
+
+        {!memberId ? (
+          <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 12 }}>
+            <h2 style={{ margin: 0 }}>Join the table</h2>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
+              Your name
+              <input
+                aria-label="Your name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') join();
+                }}
+                style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8 }}
+              />
+            </label>
+            <button onClick={join} disabled={!socketReady} style={{ padding: '9px 14px', fontWeight: 900 }}>
+              Take a seat
+            </button>
+          </section>
+        ) : lobby ? (
+          <>
+            <nav role="tablist" aria-label="Lobby views" style={{ display: 'flex', gap: 4, margin: '0 12px -15px', zIndex: 1 }}>
+              <button role="tab" aria-selected="true" style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: '#fff', background: '#fff', fontWeight: 900 }}>
+                LOBBY
+              </button>
+            </nav>
+            <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
+              <div>
+                <strong>Invite friends</strong>
+                <div style={{ display: 'flex', gap: 8, marginTop: 7 }}>
+                  <input aria-label="Invite link" readOnly value={inviteUrl} style={{ minWidth: 0, flex: 1, padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8 }} />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard?.writeText(inviteUrl);
+                      setNotice('Invite link copied.');
+                    }}
+                    style={{ fontWeight: 800 }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <h2 style={{ margin: 0 }}>Seats</h2>
+                <span>{lobby.members.length} / {lobby.maxPlayers}</span>
+              </div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {lobby.members.map((member, index) => (
+                  <div key={member.id} style={{ display: 'grid', gridTemplateColumns: '38px 1fr auto', alignItems: 'center', gap: 8, padding: '10px 12px', border: '1px solid #dbe4df', borderRadius: 9 }}>
+                    <strong>P{index + 1}</strong>
+                    <span>
+                      <strong>{tablePlayerName(member.name, member.id)}</strong>
+                      {member.id === memberId ? ' (you)' : ''}
+                      {member.isHost ? ' · host' : ''}
+                    </span>
+                    {member.isBot ? (
+                      isHost ? <button onClick={() => send('lobby_remove_bot', { memberId: member.id })}>Remove</button> : <span>BOT</span>
+                    ) : <span style={{ color: '#166534', fontWeight: 800 }}>READY</span>}
+                  </div>
+                ))}
+                {Array.from({ length: lobby.maxPlayers - lobby.members.length }, (_, index) => (
+                  <div key={`empty-${index}`} style={{ padding: '10px 12px', border: '1px dashed #cbd5e1', borderRadius: 9, color: '#64748b' }}>
+                    Empty seat
+                  </div>
+                ))}
+              </div>
+
+              {isHost && lobby.status === 'waiting' ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    aria-label="Bot name"
+                    placeholder="Bot name (optional)"
+                    value={botName}
+                    onChange={(event) => setBotName(event.target.value)}
+                    style={{ flex: 1, minWidth: 170, padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8 }}
+                  />
+                  <button
+                    onClick={() => {
+                      send('lobby_add_bot', { name: botName.trim() });
+                      setBotName('');
+                    }}
+                    disabled={lobby.members.length >= lobby.maxPlayers}
+                    style={{ fontWeight: 800 }}
+                  >
+                    Add bot
+                  </button>
+                  <button
+                    onClick={() => send('lobby_start')}
+                    disabled={lobby.members.length < 2}
+                    style={{ padding: '9px 16px', background: '#047857', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
+                  >
+                    Start game
+                  </button>
+                </div>
+              ) : null}
+              {!isHost && lobby.status === 'waiting' ? <p style={{ margin: 0 }}>Waiting for the host to start the game…</p> : null}
+              {notice ? <p role="status" style={{ margin: 0, color: notice.includes('copied') ? '#166534' : '#b45309' }}>{notice}</p> : null}
+            </section>
+          </>
+        ) : <p>Loading lobby…</p>}
+      </main>
+    </div>
+  );
+}
+
+function HomePage() {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [homeSocketReady, setHomeSocketReady] = useState(false);
+  const [homeTab, setHomeTab] = useState<'lobby' | 'quick'>('lobby');
+  const [hostName, setHostName] = useState('Dima');
+  const [lobbySeats, setLobbySeats] = useState(4);
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
   const [playersText, setPlayersText] = useState('2');
@@ -2396,6 +2600,14 @@ export default function App() {
           } else {
             setHomeNotice(message.message);
           }
+        }
+        if (message.type === 'lobby_joined') {
+          const lobbyId = message.data.lobby.id;
+          window.localStorage.setItem(`omaha-lobby-${lobbyId}`, JSON.stringify({
+            memberId: message.data.memberId,
+            token: message.data.token,
+          }));
+          window.location.href = `/lobby/${lobbyId}`;
         }
       };
       socket.onclose = () => {
@@ -2433,14 +2645,6 @@ export default function App() {
       .catch(() => undefined);
   }, []);
 
-  if (window.location.pathname.startsWith('/player/')) {
-    return <PlayerPage />;
-  }
-
-  if (window.location.pathname.startsWith('/debug/')) {
-    return <DebugPage />;
-  }
-
   const latestDeal = [...messages].reverse().find((message) => (
     message.type === 'hand_dealt' && message.data?.playerLinks
   ));
@@ -2457,6 +2661,23 @@ export default function App() {
       players,
       playerNames: playerNames.map((name, index) => name.trim() || `Player ${index + 1}`),
       playerBots,
+    }));
+  }
+
+  function createLobbyCommand() {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      setHomeNotice('Connecting to server. Try again in a moment.');
+      return;
+    }
+    if (!hostName.trim()) {
+      setHomeNotice('Enter your name.');
+      return;
+    }
+    setHomeNotice('Creating lobby.');
+    ws.send(JSON.stringify({
+      action: 'create_lobby',
+      name: hostName.trim(),
+      maxPlayers: lobbySeats,
     }));
   }
 
@@ -2535,6 +2756,66 @@ export default function App() {
           </div>
         </header>
 
+        <nav role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -17px', zIndex: 1 }}>
+          <button
+            role="tab"
+            aria-selected={homeTab === 'lobby'}
+            onClick={() => setHomeTab('lobby')}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' ? '#fff' : '#e2e8f0', fontWeight: 900 }}
+          >
+            LOBBY
+          </button>
+          <button
+            role="tab"
+            aria-selected={homeTab === 'quick'}
+            onClick={() => setHomeTab('quick')}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'quick' ? '#fff' : '#cbd5e1', background: homeTab === 'quick' ? '#fff' : '#e2e8f0', fontWeight: 900 }}
+          >
+            QUICK DEAL
+          </button>
+        </nav>
+
+        {homeTab === 'lobby' ? (
+          <section style={{ border: '1px solid #cbd5e1', borderRadius: 12, background: '#fff', padding: 18, display: 'grid', gap: 14 }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Create a table</h2>
+              <p style={{ margin: '6px 0 0', color: '#475569' }}>
+                Invite friends, wait for them to join, fill empty seats with bots and start together.
+              </p>
+            </div>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
+              Your name
+              <input
+                aria-label="Host name"
+                value={hostName}
+                onChange={(event) => setHostName(event.target.value)}
+                style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8 }}
+              />
+            </label>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
+              Seats at the table
+              <select
+                aria-label="Seats at the table"
+                value={lobbySeats}
+                onChange={(event) => setLobbySeats(Number(event.target.value))}
+                style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}
+              >
+                {Array.from({ length: 9 }, (_, index) => index + 2).map(value => (
+                  <option key={value} value={value}>{value} players</option>
+                ))}
+              </select>
+            </label>
+            <button
+              onClick={createLobbyCommand}
+              disabled={!homeSocketReady}
+              style={{ padding: '10px 16px', border: 0, borderRadius: 8, background: '#047857', color: '#fff', fontWeight: 900 }}
+            >
+              Create lobby
+            </button>
+            {homeNotice ? <span role="status" style={{ color: '#475569' }}>{homeNotice}</span> : null}
+          </section>
+        ) : (
+          <>
         <section
           style={{
             border: '1px solid #cbd5e1',
@@ -2693,7 +2974,16 @@ export default function App() {
             </div>
           </section>
         ) : null}
+          </>
+        )}
       </main>
     </div>
   );
+}
+
+export default function App() {
+  if (window.location.pathname.startsWith('/player/')) return <PlayerPage />;
+  if (window.location.pathname.startsWith('/debug/')) return <DebugPage />;
+  if (window.location.pathname.startsWith('/lobby/')) return <LobbyPage />;
+  return <HomePage />;
 }

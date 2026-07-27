@@ -6,12 +6,14 @@ import path from 'path';
 
 export default class HandStore {
   private db?: Database<sqlite3.Database, sqlite3.Statement>;
+  private saveQueue: Promise<void> = Promise.resolve();
   constructor(public filename: string) {}
 
   async init() {
     await fs.mkdir(path.dirname(this.filename), { recursive: true });
     this.db = await open({ filename: this.filename, driver: sqlite3.Database });
     await this.db.run(`CREATE TABLE IF NOT EXISTS hands (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
+    await this.db.run(`CREATE TABLE IF NOT EXISTS lobbies (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
   }
 
   private async getDb() {
@@ -47,11 +49,22 @@ export default class HandStore {
   }
 
   async saveHand(hand: any) {
-    const db = await this.getDb();
-    const id = hand.id || uuidv4();
-    await this.assignPublicCodes(hand);
-    await db.run('INSERT INTO hands(id, created, data) VALUES(?,?,?)', id, Date.now(), JSON.stringify(hand));
-    return id;
+    let releaseSave!: () => void;
+    const previousSave = this.saveQueue;
+    this.saveQueue = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+
+    await previousSave;
+    try {
+      const db = await this.getDb();
+      const id = hand.id || uuidv4();
+      await this.assignPublicCodes(hand);
+      await db.run('INSERT INTO hands(id, created, data) VALUES(?,?,?)', id, Date.now(), JSON.stringify(hand));
+      return id;
+    } finally {
+      releaseSave();
+    }
   }
 
   async updateHand(hand: any) {
@@ -91,5 +104,26 @@ export default class HandStore {
   async listHandsByParty(partyId: string) {
     const hands = await this.listAllHands();
     return hands.filter((hand: any) => (hand.partyId ?? hand.id) === partyId);
+  }
+
+  async saveLobby(lobby: any) {
+    const db = await this.getDb();
+    await db.run(
+      'INSERT INTO lobbies(id, created, data) VALUES(?,?,?)',
+      lobby.id,
+      lobby.created ?? Date.now(),
+      JSON.stringify(lobby),
+    );
+  }
+
+  async updateLobby(lobby: any) {
+    const db = await this.getDb();
+    await db.run('UPDATE lobbies SET data = ? WHERE id = ?', JSON.stringify(lobby), lobby.id);
+  }
+
+  async getLobby(id: string) {
+    const db = await this.getDb();
+    const row = await db.get('SELECT data FROM lobbies WHERE id = ?', id);
+    return row ? JSON.parse(row.data) : null;
   }
 }

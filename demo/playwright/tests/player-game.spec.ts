@@ -3,6 +3,7 @@ import { expect, Page, test } from '@playwright/test';
 async function createDefaultHumanVsBotDeal(page: Page) {
   await page.goto('/');
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'QUICK DEAL' }).click();
   await page.getByRole('button', { name: 'New deal' }).click();
   const playerLink = page.getByRole('link', { name: /Dima Open/ });
   await expect(playerLink).toBeVisible();
@@ -36,6 +37,7 @@ test('opponent rows stay stable as seat content changes at every table size', as
   for (let playerCount = 2; playerCount <= 10; playerCount += 1) {
     await page.goto('/');
     await expect(page.getByText('connected', { exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'QUICK DEAL' }).click();
     await page.getByLabel('Players').fill(String(playerCount));
     await page.getByLabel('Players').press('Tab');
     await page.getByRole('button', { name: 'New deal' }).click();
@@ -193,6 +195,7 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto('/');
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'QUICK DEAL' }).click();
   await page.getByLabel('Players').fill('7');
   await page.getByLabel('Players').press('Tab');
   for (let playerNumber = 3; playerNumber <= 7; playerNumber += 1) {

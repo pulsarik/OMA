@@ -2,6 +2,7 @@ import express from 'express';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
 import { botMove } from './bot';
@@ -31,6 +32,8 @@ const wss = new WebSocketServer({ server });
 const store = new HandStore(process.env.DATA_FILE || path.join(process.cwd(), 'data', 'hands.sqlite'));
 const continuationLocks = new Map<string, Promise<any>>();
 const botTurnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const lobbyConnections = new Map<WebSocket, { lobbyId: string; memberId: string }>();
+const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const staticDir = [
   process.env.STATIC_DIR,
@@ -41,6 +44,25 @@ const staticDir = [
 type BuildInfo = {
   commit?: string;
   buildTimeGmt?: string;
+};
+
+type LobbyMember = {
+  id: string;
+  token: string;
+  name: string;
+  isBot: boolean;
+  joinedAt: number;
+  playerId?: string;
+};
+
+type Lobby = {
+  id: string;
+  hostMemberId: string;
+  maxPlayers: number;
+  status: 'waiting' | 'started';
+  members: LobbyMember[];
+  handId?: string;
+  created: number;
 };
 
 function formatGmt(date: Date) {
@@ -322,6 +344,208 @@ function broadcastPublicDeal(sender: WebSocket, hand: any) {
   });
 }
 
+function lobbyState(lobby: Lobby) {
+  return {
+    id: lobby.id,
+    hostMemberId: lobby.hostMemberId,
+    maxPlayers: lobby.maxPlayers,
+    status: lobby.status,
+    handId: lobby.handId,
+    members: lobby.members.map(member => ({
+      id: member.id,
+      name: member.name,
+      isBot: member.isBot,
+      isHost: member.id === lobby.hostMemberId,
+    })),
+  };
+}
+
+function lobbyName(value: unknown, fallback: string) {
+  const name = typeof value === 'string' ? value.trim().slice(0, 30) : '';
+  return name || fallback;
+}
+
+function broadcastLobby(lobby: Lobby) {
+  const message = JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) });
+  lobbyConnections.forEach((connection, client) => {
+    if (
+      connection.lobbyId === lobby.id
+      && client.readyState === WebSocket.OPEN
+    ) {
+      client.send(message);
+    }
+  });
+}
+
+function bindLobbyClient(ws: WebSocket, lobby: Lobby, member: LobbyMember) {
+  lobbyConnections.set(ws, { lobbyId: lobby.id, memberId: member.id });
+}
+
+async function withLobbyLock<T>(lobbyId: string, action: () => Promise<T>) {
+  const previous = lobbyLocks.get(lobbyId) ?? Promise.resolve();
+  const pending = previous.catch(() => undefined).then(action);
+  lobbyLocks.set(lobbyId, pending);
+  try {
+    return await pending;
+  } finally {
+    if (lobbyLocks.get(lobbyId) === pending) lobbyLocks.delete(lobbyId);
+  }
+}
+
+async function sendStartedLobby(ws: WebSocket, lobby: Lobby, member: LobbyMember) {
+  if (!lobby.handId || !member.playerId) return;
+  const hand = await store.getHand(lobby.handId);
+  const player = hand?.players.find((candidate: any) => candidate.id === member.playerId);
+  if (!hand || !player) return;
+  ws.send(JSON.stringify({
+    type: 'lobby_started',
+    data: {
+      lobby: lobbyState(lobby),
+      playerUrl: `/player/${hand.id}/${player.id}/${player.token}`,
+    },
+  }));
+}
+
+async function createLobby(ws: WebSocket, message: any) {
+  const member: LobbyMember = {
+    id: uuidv4(),
+    token: uuidv4(),
+    name: lobbyName(message.name, 'Host'),
+    isBot: false,
+    joinedAt: Date.now(),
+  };
+  const lobby: Lobby = {
+    id: uuidv4(),
+    hostMemberId: member.id,
+    maxPlayers: Math.min(Math.max(Number(message.maxPlayers) || 2, 2), 10),
+    status: 'waiting',
+    members: [member],
+    created: Date.now(),
+  };
+  await store.saveLobby(lobby);
+  bindLobbyClient(ws, lobby, member);
+  ws.send(JSON.stringify({
+    type: 'lobby_joined',
+    data: { lobby: lobbyState(lobby), memberId: member.id, token: member.token, isHost: true },
+  }));
+}
+
+async function joinLobby(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
+    if (!lobby) throw new Error('lobby not found');
+
+    let member = lobby.members.find(candidate => (
+      candidate.id === message.memberId && candidate.token === message.token && !candidate.isBot
+    ));
+    if (!member && (message.memberId || message.token)) {
+      throw new Error('invalid lobby credentials');
+    }
+    if (!member) {
+      if (lobby.status !== 'waiting') throw new Error('game already started');
+      if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
+      member = {
+        id: uuidv4(),
+        token: uuidv4(),
+        name: lobbyName(message.name, `Player ${lobby.members.length + 1}`),
+        isBot: false,
+        joinedAt: Date.now(),
+      };
+      lobby.members.push(member);
+      await store.updateLobby(lobby);
+    }
+
+    bindLobbyClient(ws, lobby, member);
+    ws.send(JSON.stringify({
+      type: 'lobby_joined',
+      data: {
+        lobby: lobbyState(lobby),
+        memberId: member.id,
+        token: member.token,
+        isHost: member.id === lobby.hostMemberId,
+      },
+    }));
+    broadcastLobby(lobby);
+    if (lobby.status === 'started') await sendStartedLobby(ws, lobby, member);
+  });
+}
+
+async function authenticatedLobby(ws: WebSocket, message: any) {
+  const connection = lobbyConnections.get(ws);
+  if (!connection || connection.lobbyId !== message.lobbyId) throw new Error('join lobby first');
+  const lobby = await store.getLobby(connection.lobbyId) as Lobby | null;
+  const member = lobby?.members.find(candidate => candidate.id === connection.memberId);
+  if (!lobby || !member) throw new Error('lobby not found');
+  return { lobby, member };
+}
+
+async function addLobbyBot(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'waiting') throw new Error('game already started');
+    if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
+    const botNumber = lobby.members.filter(candidate => candidate.isBot).length + 1;
+    lobby.members.push({
+      id: uuidv4(),
+      token: uuidv4(),
+      name: `${lobbyName(message.name, `Bot ${botNumber}`)}_bot`,
+      isBot: true,
+      joinedAt: Date.now(),
+    });
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+  });
+}
+
+async function removeLobbyBot(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'waiting') throw new Error('game already started');
+    const target = lobby.members.find(candidate => candidate.id === message.memberId);
+    if (!target?.isBot) throw new Error('only bots can be removed');
+    lobby.members = lobby.members.filter(candidate => candidate.id !== target.id);
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+  });
+}
+
+async function startLobby(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'waiting') throw new Error('game already started');
+    if (lobby.members.length < 2) throw new Error('at least two players required');
+
+    const hand = dealHand(
+      lobby.members.length,
+      undefined,
+      lobby.members.map(candidate => candidate.name),
+      lobby.members.map(candidate => candidate.isBot),
+    );
+    await store.saveHand(hand);
+    lobby.members.forEach((candidate, index) => {
+      candidate.playerId = hand.players[index].id;
+    });
+    lobby.status = 'started';
+    lobby.handId = hand.id;
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+
+    const sends: Promise<void>[] = [];
+    lobbyConnections.forEach((connection, client) => {
+      if (connection.lobbyId !== lobby.id || client.readyState !== WebSocket.OPEN) return;
+      const connectedMember = lobby.members.find(candidate => candidate.id === connection.memberId);
+      if (connectedMember && !connectedMember.isBot) {
+        sends.push(sendStartedLobby(client, lobby, connectedMember));
+      }
+    });
+    await Promise.all(sends);
+    scheduleBotTurns(hand.id);
+  });
+}
+
 function continuationHandId(hand: any) {
   return hand.nextHandId ?? hand.nextReplayHandId;
 }
@@ -447,7 +671,17 @@ wss.on('connection', (ws, req) => {
   ws.on('message', async (data) => {
     try {
       const msg = JSON.parse(data.toString());
-      if (msg.action === 'deal') {
+      if (msg.action === 'create_lobby') {
+        await createLobby(ws, msg);
+      } else if (msg.action === 'join_lobby') {
+        await joinLobby(ws, msg);
+      } else if (msg.action === 'lobby_add_bot') {
+        await addLobbyBot(ws, msg);
+      } else if (msg.action === 'lobby_remove_bot') {
+        await removeLobbyBot(ws, msg);
+      } else if (msg.action === 'lobby_start') {
+        await startLobby(ws, msg);
+      } else if (msg.action === 'deal') {
         await createAndSendDeal(
           ws,
           msg.players || 2,
@@ -518,6 +752,9 @@ wss.on('connection', (ws, req) => {
     } catch (e) {
       ws.send(JSON.stringify({ type: 'error', message: e instanceof Error ? e.message : 'invalid' }));
     }
+  });
+  ws.on('close', () => {
+    lobbyConnections.delete(ws);
   });
 });
 

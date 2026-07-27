@@ -8,6 +8,10 @@ const BOT_NAMES = ['Alex_bot', 'Maria_bot', 'Ivan_bot', 'Anna_bot', 'Dmitry_bot'
 
 type DealResponse = {
   id: string;
+  partyId: string;
+  partyCode: string;
+  handCode: string;
+  dealCode: string;
   handNumber: number;
   playerLinks: Array<{ id: string; url: string }>;
 };
@@ -24,11 +28,15 @@ async function sendDealCommand(page: Page, payload: Record<string, unknown>) {
     socket.onerror = () => reject(new Error('websocket connection failed'));
     socket.onmessage = (event) => {
       const response = JSON.parse(event.data);
-      if (response.type === 'hand_dealt') {
+      if (response.type === 'hand_dealt' && response.data?.playerLinks) {
         window.clearTimeout(timeout);
         socket.close();
         resolve({
           id: response.data.id,
+          partyId: response.data.partyId,
+          partyCode: response.data.partyCode,
+          handCode: response.data.handCode,
+          dealCode: response.data.dealCode,
           handNumber: response.data.handNumber,
           playerLinks: response.data.playerLinks,
         });
@@ -90,6 +98,78 @@ async function createBotParty(page: Page) {
   });
 }
 
+test('ten simultaneous tables remain isolated through showdown', async ({
+  page,
+  request,
+  context,
+}) => {
+  const tableCount = 10;
+  const playersPerTable = 3;
+  await page.goto('/');
+
+  const deals = await Promise.all(
+    Array.from({ length: tableCount }, (_, tableIndex) => {
+      const tableNumber = tableIndex + 1;
+      return sendDealCommand(page, {
+        action: 'deal',
+        players: playersPerTable,
+        playerNames: Array.from(
+          { length: playersPerTable },
+          (_, playerIndex) => `Table${tableNumber}_Player${playerIndex + 1}_bot`,
+        ),
+        playerBots: Array.from({ length: playersPerTable }, () => true),
+      });
+    }),
+  );
+
+  expect(new Set(deals.map((deal) => deal.id)).size, 'duplicate hand ids').toBe(tableCount);
+  expect(new Set(deals.map((deal) => deal.partyId)).size, 'duplicate party ids').toBe(tableCount);
+  expect(new Set(deals.map((deal) => deal.handCode)).size, 'duplicate hand codes').toBe(tableCount);
+  expect(new Set(deals.map((deal) => deal.partyCode)).size, 'duplicate party codes').toBe(tableCount);
+
+  const observers = await Promise.all(
+    deals.map(async (deal) => {
+      const observer = await context.newPage();
+      await observer.goto(deal.playerLinks[0].url);
+      return observer;
+    }),
+  );
+
+  const states = await Promise.all(
+    deals.map((deal, index) => waitForShowdown(request, deal, index + 1)),
+  );
+
+  await Promise.all(states.map(async (state, tableIndex) => {
+    const tableNumber = tableIndex + 1;
+    const expectedNames = Array.from(
+      { length: playersPerTable },
+      (_, playerIndex) => `Table${tableNumber}_Player${playerIndex + 1}_bot`,
+    );
+
+    expect(
+      state.players.map((player: { name: string }) => player.name),
+      `table ${tableNumber}: players leaked from another table`,
+    ).toEqual(expectedNames);
+    const observer = observers[tableIndex];
+    await expect(
+      observer.getByRole('button', { name: 'New deal' }),
+      `table ${tableNumber}: observer did not converge to showdown`,
+    ).toBeVisible();
+    await expect(
+      observer.locator('body'),
+      `table ${tableNumber}: observer shows another table`,
+    ).toContainText(`Table${tableNumber}_Player1`);
+    await expect(observer.locator('footer')).toContainText(`DEAL ${deals[tableIndex].dealCode}`);
+
+    for (let otherTableIndex = 0; otherTableIndex < tableCount; otherTableIndex += 1) {
+      if (otherTableIndex === tableIndex) continue;
+      await expect(observer.locator('body')).not.toContainText(
+        `Table${otherTableIndex + 1}_Player1`,
+      );
+    }
+  }));
+});
+
 test('seven bots and seven observing clients complete 20 deals without getting stuck', async ({
   page,
   request,
@@ -107,7 +187,7 @@ test('seven bots and seven observing clients complete 20 deals without getting s
       await waitForShowdown(request, deal, sequence);
       await Promise.all(observers.map(async (observer, index) => {
         await expect(
-          observer.getByText('showdown', { exact: true }).first(),
+          observer.getByRole('button', { name: 'New deal' }),
           `deal ${sequence}: observer P${index + 1} did not converge to showdown`,
         ).toBeVisible();
       }));
