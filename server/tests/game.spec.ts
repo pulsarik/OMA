@@ -714,6 +714,32 @@ test('shows a compact live pot breakdown only after an all-in', () => {
   ]);
 });
 
+test('folded contribution levels do not create fake side pots', () => {
+  const hand = dealHand(3, 12345);
+  hand.totalContributions = { P1: 4, P2: 62, P3: 130 };
+  hand.potCoins = 196;
+  hand.players[0].folded = true;
+  hand.players[1].folded = true;
+  hand.players[2].stack = 0;
+
+  expect(currentPotBreakdown(hand)).toEqual([
+    { amount: 196, eligiblePlayerIds: ['P3'] },
+  ]);
+});
+
+test('side pot sizes include folded chips at the correct all-in level', () => {
+  const hand = dealHand(4, 12345);
+  hand.totalContributions = { P1: 10, P2: 30, P3: 30, P4: 20 };
+  hand.potCoins = 90;
+  hand.players[0].stack = 0;
+  hand.players[3].folded = true;
+
+  expect(currentPotBreakdown(hand)).toEqual([
+    { amount: 40, eligiblePlayerIds: ['P1', 'P2', 'P3'] },
+    { amount: 50, eligiblePlayerIds: ['P2', 'P3'] },
+  ]);
+});
+
 test('evaluates folded players combinations without making them eligible to win', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'showdown';

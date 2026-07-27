@@ -286,6 +286,7 @@ const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_SCALE = 0.35;
 const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
+const CARD_IMAGE_MAX_RETRIES = 3;
 
 const PLAYER_PAGE_STYLES = `
   :root {
@@ -610,11 +611,27 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
   const rank = code.slice(0, -1).toUpperCase();
   const suit = code.slice(-1).toLowerCase();
   const assetCode = `${rank}${suit.toUpperCase()}`;
+  const [attempt, setAttempt] = useState(0);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const retryTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const suitSymbol: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
+  const isRed = suit === 'h' || suit === 'd';
+
+  useEffect(() => {
+    setAttempt(0);
+    setImageLoaded(false);
+    return () => {
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+    };
+  }, [assetCode]);
+
+  const retrySuffix = attempt ? `?retry=${attempt}` : '';
 
   return (
     <div
       title={code}
       style={{
+        position: 'relative',
         width: 92,
         height: 132,
         transform: `scale(${scale})`,
@@ -625,14 +642,43 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
         overflow: 'hidden',
       }}
     >
+      <div
+        data-testid={`card-fallback-${code}`}
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'grid',
+          alignContent: 'center',
+          justifyItems: 'center',
+          background: 'linear-gradient(145deg, #fff, #f1f5f9)',
+          color: isRed ? '#dc2626' : '#111827',
+          fontWeight: 900,
+        }}
+      >
+        <span style={{ fontSize: 34, lineHeight: 1 }}>{rankLabels[rank] ?? rank}</span>
+        <span style={{ fontSize: 30, lineHeight: 1 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
+      </div>
       <img
-        src={`/cards/revk/${assetCode}.svg`}
+        src={`/cards/revk/${assetCode}.svg${retrySuffix}`}
         alt={code}
         data-testid={`card-face-${code}`}
+        data-load-state={imageLoaded ? 'loaded' : 'loading'}
+        onLoad={() => setImageLoaded(true)}
+        onError={() => {
+          setImageLoaded(false);
+          if (attempt >= CARD_IMAGE_MAX_RETRIES) return;
+          if (retryTimer.current) clearTimeout(retryTimer.current);
+          retryTimer.current = setTimeout(() => {
+            setAttempt(current => current + 1);
+          }, 250 * (attempt + 1));
+        }}
         style={{
+          position: 'relative',
           display: 'block',
           width: '100%',
           height: '100%',
+          opacity: imageLoaded ? 1 : 0,
         }}
       />
     </div>

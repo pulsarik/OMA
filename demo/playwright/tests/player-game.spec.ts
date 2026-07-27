@@ -161,6 +161,33 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   }
 });
 
+test('a failed card image request retries without a page refresh', async ({ page, request }) => {
+  const href = await createDefaultHumanVsBotDeal(page);
+  const stateResponse = await request.get(apiUrlForPlayerLink(href));
+  const state = await stateResponse.json();
+  const cardCode = state.hole[0] as string;
+  const assetCode = `${cardCode.slice(0, -1).toUpperCase()}${cardCode.slice(-1).toUpperCase()}`;
+  let failedRequests = 0;
+
+  await page.route(`**/cards/revk/${assetCode}.svg*`, async route => {
+    if (failedRequests === 0) {
+      failedRequests += 1;
+      await route.abort('failed');
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto(href);
+  const cardImage = page.getByTestId(`card-face-${cardCode}`).first();
+  await expect(cardImage).toHaveAttribute('data-load-state', 'loaded');
+  await expect(cardImage).toHaveAttribute('src', /\?retry=1$/);
+  await expect.poll(() => cardImage.evaluate(image => (
+    (image as HTMLImageElement).naturalWidth
+  ))).toBeGreaterThan(0);
+  expect(failedRequests).toBe(1);
+});
+
 test('all action buttons fit in the viewport at a seven-player table', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -253,6 +280,11 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
   await expect(page.getByTestId('high-combo-side')).toBeVisible();
   await expect(page.getByTestId('low-combo-side')).toBeVisible();
+  const comboImages = page.locator('[data-testid$="-combo-side"] img[data-testid^="card-face-"]');
+  await expect.poll(async () => comboImages.evaluateAll(images => (
+    images.length > 0
+    && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)
+  ))).toBe(true);
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
   for (const winnerId of showdownState.showdownSummary.highWinners) {

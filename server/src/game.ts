@@ -213,19 +213,35 @@ function contributionLayers(hand: DealtHand): PotBreakdown[] {
   const levels = [...new Set(
     Object.values(hand.totalContributions).filter(amount => amount > 0),
   )].sort((a, b) => a - b);
+  const activePlayerIds = hand.players.filter(player => !player.folded).map(player => player.id);
   let previousLevel = 0;
 
-  return levels.map(level => {
+  const rawLayers = levels.map(level => {
     const contributors = hand.players.filter(player => (
       (hand.totalContributions[player.id] ?? 0) >= level
     ));
-    const eligiblePlayerIds = hand.players
+    const eligibleAtLevel = hand.players
       .filter(player => !player.folded && (hand.totalContributions[player.id] ?? 0) >= level)
       .map(player => player.id);
+    const eligiblePlayerIds = eligibleAtLevel.length ? eligibleAtLevel : activePlayerIds;
     const amount = (level - previousLevel) * contributors.length;
     previousLevel = level;
     return { amount, eligiblePlayerIds };
   });
+
+  return rawLayers.reduce<PotBreakdown[]>((pots, layer) => {
+    const previous = pots[pots.length - 1];
+    const sameEligibility = previous
+      && previous.eligiblePlayerIds.length === layer.eligiblePlayerIds.length
+      && previous.eligiblePlayerIds.every((id, index) => id === layer.eligiblePlayerIds[index]);
+
+    if (sameEligibility) {
+      previous.amount += layer.amount;
+    } else {
+      pots.push({ ...layer, eligiblePlayerIds: [...layer.eligiblePlayerIds] });
+    }
+    return pots;
+  }, []);
 }
 
 export function currentPotBreakdown(hand: DealtHand): PotBreakdown[] {
