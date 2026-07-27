@@ -42,7 +42,7 @@ test('host invites a friend, adds a bot and starts one shared game', async ({ pa
   const guestPath = new URL(guest.url()).pathname.split('/');
   expect(hostPath[2], 'host and guest opened different hands').toBe(guestPath[2]);
   await expect(page.getByTestId('opponents-grid').locator('[data-player-seat]')).toHaveCount(3);
-  await expect(page.getByText('Bot 2', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Alex', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Anna', { exact: true }).first()).toBeVisible();
   await expect(guest.getByText('Dima', { exact: true }).first()).toBeVisible();
 

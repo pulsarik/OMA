@@ -8,6 +8,7 @@ import HandStore from './handStore';
 import { botMove } from './bot';
 import {
   PlayerMove,
+  DEFAULT_BOT_NAMES,
   MAX_RAISES_PER_STREET,
   POT_COINS,
   currentPotBreakdown,
@@ -365,6 +366,17 @@ function lobbyName(value: unknown, fallback: string) {
   return name || fallback;
 }
 
+function nextLobbyBotName(lobby: Lobby) {
+  const usedNames = new Set(lobby.members.map(member => member.name.replace(/_bot$/i, '').toLowerCase()));
+  return DEFAULT_BOT_NAMES.find(name => !usedNames.has(name.toLowerCase()))
+    ?? `Guest ${lobby.members.length + 1}`;
+}
+
+function lobbyBotName(lobby: Lobby, requestedName: unknown) {
+  const name = lobbyName(requestedName, nextLobbyBotName(lobby));
+  return name.toLowerCase().endsWith('_bot') ? name : `${name}_bot`;
+}
+
 function broadcastLobby(lobby: Lobby) {
   const message = JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) });
   lobbyConnections.forEach((connection, client) => {
@@ -491,11 +503,10 @@ async function addLobbyBot(ws: WebSocket, message: any) {
     if (member.id !== lobby.hostMemberId) throw new Error('host only');
     if (lobby.status !== 'waiting') throw new Error('game already started');
     if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
-    const botNumber = lobby.members.filter(candidate => candidate.isBot).length + 1;
     lobby.members.push({
       id: uuidv4(),
       token: uuidv4(),
-      name: `${lobbyName(message.name, `Bot ${botNumber}`)}_bot`,
+      name: lobbyBotName(lobby, message.name),
       isBot: true,
       joinedAt: Date.now(),
     });
@@ -523,16 +534,14 @@ async function startLobby(ws: WebSocket, message: any) {
     if (member.id !== lobby.hostMemberId) throw new Error('host only');
     if (lobby.status !== 'waiting') throw new Error('game already started');
 
-    let botNumber = lobby.members.filter(candidate => candidate.isBot).length + 1;
     while (lobby.members.length < lobby.maxPlayers) {
       lobby.members.push({
         id: uuidv4(),
         token: uuidv4(),
-        name: `Bot ${botNumber}_bot`,
+        name: lobbyBotName(lobby, undefined),
         isBot: true,
         joinedAt: Date.now(),
       });
-      botNumber += 1;
     }
 
     const hand = dealHand(
