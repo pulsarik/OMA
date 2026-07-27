@@ -385,6 +385,7 @@ const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     display: grid;
     gap: clamp(10px, 1.5vw, 20px);
+    min-height: 780px;
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
@@ -458,17 +459,18 @@ const PLAYER_PAGE_STYLES = `
     padding: 12px;
   }
   .table-center.has-showdown {
-    grid-template-areas:
-      "status status status"
-      "stage board pot";
+    grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
+    grid-template-areas: "status board pot";
   }
   .table-showdown {
     grid-area: status;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    justify-self: start;
     gap: 10px;
   }
+  .table-center.has-showdown .table-stage { display: none; }
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
   .table-pot { grid-area: pot; justify-self: end; }
@@ -557,13 +559,25 @@ const PLAYER_PAGE_STYLES = `
   .result-points th, .result-points td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
   .all-hands { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
   .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
+  @media (max-width: 900px) {
+    .poker-table { min-height: 0; }
+    .table-center.has-showdown {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "status"
+        "board"
+        "pot";
+    }
+    .table-showdown { justify-self: center; justify-content: center; }
+    .table-center.has-showdown .table-pot { justify-self: center; }
+  }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
     .view-tabs { margin-inline: 10px; }
     .view-tab { min-height: 36px; padding: 7px 13px; }
     .game-tile { border-radius: 22px; padding: 5px; }
     .stats-tile { border-radius: 18px; padding: 10px; }
-    .poker-table { border-width: 3px; border-radius: 28px; padding: 12px 8px; }
+    .poker-table { min-height: 0; border-width: 3px; border-radius: 28px; padding: 12px 8px; }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { border-radius: 14px; }
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
@@ -581,11 +595,14 @@ const PLAYER_PAGE_STYLES = `
       gap: 8px;
     }
     .table-center.has-showdown {
+      grid-template-columns: 1fr 1fr;
       grid-template-areas:
         "status status"
-        "stage pot"
-        "board board";
+        "board board"
+        "pot pot";
     }
+    .table-showdown { justify-self: center; justify-content: center; }
+    .table-center.has-showdown .table-pot { justify-self: center; }
     .table-board { grid-column: 1 / -1; }
     .hero-zone {
       grid-template-columns: 1fr 1fr;
