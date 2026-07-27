@@ -3,7 +3,8 @@
 Новая версия с фойе живёт в ветке `beta/lobby`. Production-сервис продолжает
 собираться из `main` по основному файлу `render.yaml`.
 
-Для beta используется отдельный Blueprint [render.beta.yaml](render.beta.yaml):
+В beta-ветке корневой [render.yaml](render.yaml) описывает только beta-сервис.
+В ветке `main` этот же файл по-прежнему описывает production:
 
 - отдельный Render web service `omaha-hi-lo-beta`;
 - исходники из ветки `beta/lobby`;
@@ -15,8 +16,8 @@
 
 1. Отправить ветку `beta/lobby` в GitHub.
 2. В Render выбрать `New` → `Blueprint`.
-3. Выбрать репозиторий `pulsarik/OMA`.
-4. Указать Blueprint Path: `render.beta.yaml`.
+3. Выбрать репозиторий `pulsarik/OMA` и ветку `beta/lobby`.
+4. Оставить Blueprint Path: `render.yaml`.
 5. Проверить, что создаётся новый сервис `omaha-hi-lo-beta`, а не изменяется
    production-сервис `omaha-hi-lo-pov`.
 6. Применить Blueprint и дождаться успешной проверки `/api/version`.
