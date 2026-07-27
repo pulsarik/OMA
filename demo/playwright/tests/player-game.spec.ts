@@ -5,7 +5,7 @@ async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
   await page.getByLabel('Seats at the table').selectOption(String(playerCount));
   await page.getByRole('button', { name: 'Create lobby' }).click();
-  await expect(page).toHaveURL(/\/lobby\/[^/]+$/);
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+\?member=/);
   await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByText('Anna', { exact: true })).toBeVisible();

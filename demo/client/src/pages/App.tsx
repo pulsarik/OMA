@@ -2374,6 +2374,7 @@ function DebugPage() {
 
 function LobbyPage() {
   const [, , lobbyId] = window.location.pathname.split('/');
+  const memberHint = new URLSearchParams(window.location.search).get('member');
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [socketReady, setSocketReady] = useState(false);
   const [lobby, setLobby] = useState<LobbyView | null>(null);
@@ -2381,20 +2382,23 @@ function LobbyPage() {
   const [name, setName] = useState('');
   const [botName, setBotName] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
-  const storageKey = `omaha-lobby-${lobbyId}`;
+  const storageKey = memberHint ? `omaha-lobby-${lobbyId}-${memberHint}` : undefined;
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
     ws.onopen = () => {
       setSocketReady(true);
-      const saved = window.localStorage.getItem(storageKey);
+      const saved = storageKey ? window.localStorage.getItem(storageKey) : null;
       if (saved) {
         try {
           const credentials = JSON.parse(saved);
           ws.send(JSON.stringify({ action: 'join_lobby', lobbyId, ...credentials }));
         } catch {
           window.localStorage.removeItem(storageKey);
+          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId }));
         }
+      } else {
+        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId }));
       }
     };
     ws.onclose = () => setSocketReady(false);
@@ -2405,7 +2409,9 @@ function LobbyPage() {
           memberId: message.data.memberId,
           token: message.data.token,
         };
-        window.localStorage.setItem(storageKey, JSON.stringify(credentials));
+        const personalStorageKey = `omaha-lobby-${lobbyId}-${message.data.memberId}`;
+        window.localStorage.setItem(personalStorageKey, JSON.stringify(credentials));
+        window.history.replaceState(null, '', `/lobby/${lobbyId}?member=${message.data.memberId}`);
         setMemberId(message.data.memberId);
         setLobby(message.data.lobby);
         setNotice(null);
@@ -2456,6 +2462,23 @@ function LobbyPage() {
         {!memberId ? (
           <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 12 }}>
             <h2 style={{ margin: 0 }}>Join the table</h2>
+            {lobby ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <strong>Players already here</strong>
+                  <span>{lobby.members.length} / {lobby.maxPlayers}</span>
+                </div>
+                <div style={{ display: 'grid', gap: 7 }}>
+                  {lobby.members.map((member) => (
+                    <div key={member.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 11px', border: '1px solid #dbe4df', borderRadius: 8 }}>
+                      <span>{tablePlayerName(member.name, member.id)}{member.isHost ? ' · host' : ''}</span>
+                      <strong>{member.isBot ? 'BOT' : 'READY'}</strong>
+                    </div>
+                  ))}
+                </div>
+                {lobby.status === 'waiting' ? <p style={{ margin: 0 }}>Enter your name and wait for the host to start.</p> : <p style={{ margin: 0 }}>This game has already started.</p>}
+              </>
+            ) : <p style={{ margin: 0 }}>Loading lobby…</p>}
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
               Your name
               <input
@@ -2468,7 +2491,11 @@ function LobbyPage() {
                 style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8 }}
               />
             </label>
-            <button onClick={join} disabled={!socketReady} style={{ padding: '9px 14px', fontWeight: 900 }}>
+            <button
+              onClick={join}
+              disabled={!socketReady || !lobby || lobby.status !== 'waiting' || lobby.members.length >= lobby.maxPlayers}
+              style={{ padding: '9px 14px', fontWeight: 900 }}
+            >
               Take a seat
             </button>
           </section>
@@ -2602,11 +2629,12 @@ function HomePage() {
         }
         if (message.type === 'lobby_joined') {
           const lobbyId = message.data.lobby.id;
-          window.localStorage.setItem(`omaha-lobby-${lobbyId}`, JSON.stringify({
+          const memberId = message.data.memberId;
+          window.localStorage.setItem(`omaha-lobby-${lobbyId}-${memberId}`, JSON.stringify({
             memberId: message.data.memberId,
             token: message.data.token,
           }));
-          window.location.href = `/lobby/${lobbyId}`;
+          window.location.href = `/lobby/${lobbyId}?member=${memberId}`;
         }
       };
       socket.onclose = () => {

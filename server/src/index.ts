@@ -430,6 +430,12 @@ async function createLobby(ws: WebSocket, message: any) {
   }));
 }
 
+async function viewLobby(ws: WebSocket, message: any) {
+  const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
+  if (!lobby) throw new Error('lobby not found');
+  ws.send(JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) }));
+}
+
 async function joinLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
     const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
@@ -684,6 +690,8 @@ wss.on('connection', (ws, req) => {
       const msg = JSON.parse(data.toString());
       if (msg.action === 'create_lobby') {
         await createLobby(ws, msg);
+      } else if (msg.action === 'view_lobby') {
+        await viewLobby(ws, msg);
       } else if (msg.action === 'join_lobby') {
         await joinLobby(ws, msg);
       } else if (msg.action === 'lobby_add_bot') {
