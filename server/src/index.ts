@@ -516,7 +516,18 @@ async function startLobby(ws: WebSocket, message: any) {
     const { lobby, member } = await authenticatedLobby(ws, message);
     if (member.id !== lobby.hostMemberId) throw new Error('host only');
     if (lobby.status !== 'waiting') throw new Error('game already started');
-    if (lobby.members.length < 2) throw new Error('at least two players required');
+
+    let botNumber = lobby.members.filter(candidate => candidate.isBot).length + 1;
+    while (lobby.members.length < lobby.maxPlayers) {
+      lobby.members.push({
+        id: uuidv4(),
+        token: uuidv4(),
+        name: `Bot ${botNumber}_bot`,
+        isBot: true,
+        joinedAt: Date.now(),
+      });
+      botNumber += 1;
+    }
 
     const hand = dealHand(
       lobby.members.length,

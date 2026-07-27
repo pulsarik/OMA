@@ -2516,7 +2516,7 @@ function LobbyPage() {
                 ))}
                 {Array.from({ length: lobby.maxPlayers - lobby.members.length }, (_, index) => (
                   <div key={`empty-${index}`} style={{ padding: '10px 12px', border: '1px dashed #cbd5e1', borderRadius: 9, color: '#64748b' }}>
-                    Empty seat
+                    Empty seat · bot on start
                   </div>
                 ))}
               </div>
@@ -2542,10 +2542,9 @@ function LobbyPage() {
                   </button>
                   <button
                     onClick={() => send('lobby_start')}
-                    disabled={lobby.members.length < 2}
                     style={{ padding: '9px 16px', background: '#047857', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
                   >
-                    Start game
+                    Start game · fill with bots
                   </button>
                 </div>
               ) : null}
@@ -2759,19 +2758,10 @@ function HomePage() {
         <nav role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -17px', zIndex: 1 }}>
           <button
             role="tab"
-            aria-selected={homeTab === 'lobby'}
-            onClick={() => setHomeTab('lobby')}
-            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' ? '#fff' : '#e2e8f0', fontWeight: 900 }}
+            aria-selected="true"
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: '#fff', background: '#fff', fontWeight: 900 }}
           >
             LOBBY
-          </button>
-          <button
-            role="tab"
-            aria-selected={homeTab === 'quick'}
-            onClick={() => setHomeTab('quick')}
-            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'quick' ? '#fff' : '#cbd5e1', background: homeTab === 'quick' ? '#fff' : '#e2e8f0', fontWeight: 900 }}
-          >
-            QUICK DEAL
           </button>
         </nav>
 
@@ -2780,7 +2770,7 @@ function HomePage() {
             <div>
               <h2 style={{ margin: 0 }}>Create a table</h2>
               <p style={{ margin: '6px 0 0', color: '#475569' }}>
-                Invite friends, wait for them to join, fill empty seats with bots and start together.
+                Choose the total table size. Invite friends, then start whenever you want — every free seat will become a bot.
               </p>
             </div>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
@@ -2793,7 +2783,7 @@ function HomePage() {
               />
             </label>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
-              Seats at the table
+              Seats at the table · total
               <select
                 aria-label="Seats at the table"
                 value={lobbySeats}

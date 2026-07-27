@@ -1,15 +1,17 @@
 import { expect, Page, test } from '@playwright/test';
 
-async function createDefaultHumanVsBotDeal(page: Page) {
+async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await page.goto('/');
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'QUICK DEAL' }).click();
-  await page.getByRole('button', { name: 'New deal' }).click();
-  const playerLink = page.getByRole('link', { name: /Dima Open/ });
-  await expect(playerLink).toBeVisible();
-  const href = await playerLink.getAttribute('href');
-  expect(href).toBeTruthy();
-  return href!;
+  await page.getByLabel('Seats at the table').selectOption(String(playerCount));
+  await page.getByRole('button', { name: 'Create lobby' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/]+$/);
+  await page.getByLabel('Bot name').fill('Anna');
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByText('Anna', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(page).toHaveURL(/\/player\/[^/]+\/P1\/[^/]+$/);
+  return page.url();
 }
 
 function apiUrlForPlayerLink(href: string) {
@@ -35,18 +37,7 @@ test('opponent rows stay stable as seat content changes at every table size', as
   };
 
   for (let playerCount = 2; playerCount <= 10; playerCount += 1) {
-    await page.goto('/');
-    await expect(page.getByText('connected', { exact: true })).toBeVisible();
-    await page.getByRole('tab', { name: 'QUICK DEAL' }).click();
-    await page.getByLabel('Players').fill(String(playerCount));
-    await page.getByLabel('Players').press('Tab');
-    await page.getByRole('button', { name: 'New deal' }).click();
-
-    const playerLink = page.getByRole('link', { name: /Dima Open/ });
-    await expect(playerLink).toBeVisible();
-    const href = await playerLink.getAttribute('href');
-    expect(href).toBeTruthy();
-    await page.goto(href!);
+    await createDefaultHumanVsBotDeal(page, playerCount);
 
     const opponentsGrid = page.getByTestId('opponents-grid');
     await expect(opponentsGrid).toHaveCSS('display', 'grid');
@@ -193,24 +184,7 @@ test('a failed card image request retries without a page refresh', async ({ page
 test('all action buttons fit in the viewport at a seven-player table', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.goto('/');
-  await expect(page.getByText('connected', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'QUICK DEAL' }).click();
-  await page.getByLabel('Players').fill('7');
-  await page.getByLabel('Players').press('Tab');
-  for (let playerNumber = 3; playerNumber <= 7; playerNumber += 1) {
-    await page.getByText(`P${playerNumber}`, { exact: true })
-      .locator('..')
-      .getByRole('button', { name: 'Human' })
-      .click();
-  }
-  await page.getByRole('button', { name: 'New deal' }).click();
-
-  const playerLink = page.getByRole('link', { name: /Dima Open/ });
-  await expect(playerLink).toBeVisible();
-  const href = await playerLink.getAttribute('href');
-  expect(href).toBeTruthy();
-  await page.goto(href!);
+  await createDefaultHumanVsBotDeal(page, 7);
 
   const actionDock = page.locator('.action-dock');
   await expect(actionDock).toBeVisible({ timeout: 10_000 });

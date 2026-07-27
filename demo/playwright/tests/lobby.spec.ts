@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test('host invites a friend, adds a bot and starts one shared game', async ({ page, browser }) => {
   await page.goto('/');
   await expect(page.getByRole('tab', { name: 'LOBBY' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'QUICK DEAL' })).toHaveCount(0);
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
   await page.getByLabel('Host name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('4');
@@ -35,6 +36,8 @@ test('host invites a friend, adds a bot and starts one shared game', async ({ pa
   const hostPath = new URL(page.url()).pathname.split('/');
   const guestPath = new URL(guest.url()).pathname.split('/');
   expect(hostPath[2], 'host and guest opened different hands').toBe(guestPath[2]);
+  await expect(page.getByTestId('opponents-grid').locator('[data-player-seat]')).toHaveCount(3);
+  await expect(page.getByText('Bot 2', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Anna', { exact: true }).first()).toBeVisible();
   await expect(guest.getByText('Dima', { exact: true }).first()).toBeVisible();
 
