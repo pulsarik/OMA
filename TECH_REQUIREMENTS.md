@@ -1,342 +1,151 @@
-# Omaha Hi-Lo: technical requirements
+# Omaha Hi-Lo Replay: техническая спецификация
 
-## Goal
+## Статус и цель
 
-Домашнее веб-приложение для дружеской игры в Omaha Hi-Lo и проверки поведения бота на известных раздачах.
+Документ описывает текущие игровые правила и технические контракты прототипа. Пользовательская инструкция находится в [demo/README.md](demo/README.md), карта кода — в [demo/PROJECT_GUIDE_RU.md](demo/PROJECT_GUIDE_RU.md).
 
-Это не казино и не строгий покерный движок с рейком и полной турнирной бюрократией. Главный приоритет - понятная домашняя игра, сохранение раскладов, переигрывание раздач и удобная отладка.
+Приложение предназначено для домашних партий в Omaha Hi-Lo, воспроизводимых раздач и проверки поведения ботов. Это не казино и не полный турнирный движок.
 
-## Architecture
+## Технологии и компоненты
 
-- Backend: Node.js + TypeScript.
-- Frontend: React + Vite.
-- Storage: SQLite through `server/src/handStore.ts`.
-- Realtime updates: WebSocket.
-- Main game logic: `server/src/game.ts`.
-- Backend entry point and API/WebSocket protocol: `server/src/index.ts`.
-- Main player/home/debug UI: `demo/client/src/pages/App.tsx`.
-- Admin HTML page: `demo/client/admin.html`.
-- Game tests: `server/tests/game.spec.ts`.
+- Backend: Node.js, TypeScript, Express и `ws`.
+- Frontend: React, TypeScript и Vite.
+- Storage: SQLite через `server/src/handStore.ts`.
+- Realtime: один WebSocket-сервер рядом с HTTP API.
+- Игровые правила: `server/src/game.ts`.
+- Встроенный бот: `server/src/bot.ts`.
+- HTTP API и WebSocket-протокол: `server/src/index.ts`.
+- Основной UI: `demo/client/src/pages/App.tsx`.
+- Admin UI: `demo/client/admin.html`.
+- Unit-тесты: `server/tests/game.spec.ts`.
+- E2E-тесты: `demo/playwright`.
 
-## Pages
+Production-сборка клиента раздаётся тем же Express-процессом, что обслуживает API и WebSocket.
 
-### Home: `http://localhost:5173/`
+## Страницы
 
-Home is a clean lobby page.
+### Лобби: `/`
 
-It must show only:
+Лобби позволяет:
 
-- player count input;
-- player name inputs;
-- `New deal` button;
-- player links after a deal is created.
+- выбрать от 1 до 10 мест;
+- задать имена;
+- назначить каждое место человеку или встроенному боту;
+- создать новую партию;
+- получить приватные ссылки человеческих игроков;
+- повторить последнюю созданную руку;
+- найти replay по UUID, `HA…`, номеру руки или `dealCode`.
 
-It must not show:
+Состояние подключения и commit сборки отображаются в шапке. При разрыве WebSocket клиент повторяет подключение примерно раз в секунду.
 
-- raw WebSocket logs;
-- JSON dumps;
-- old hands list;
-- debug/admin links as primary UI.
+### Страница игрока: `/player/:handId/:playerId/:token`
 
-Creating a deal from Home starts a new party.
+Приватный URL содержит идентификатор игрока и секретный токен. Сервер проверяет токен как для начальной HTTP-загрузки, так и для игровых WebSocket-сообщений.
 
-### Player page: `/player/:handId/:playerId/:token`
+Страница показывает:
 
-Each player opens a private URL.
+- имя, четыре приватные карты и текущий стек игрока;
+- соперников, их стеки, блайнды и последнее действие;
+- закрытые карты соперников до showdown;
+- пять позиций борда и текущую улицу;
+- банк и открытую ставку;
+- текущие High/Low-комбинации игрока;
+- только допустимые действия в его ход;
+- итог раздачи, все комбинации и статистику партии;
+- следующую руку или replay, если партия ещё может продолжаться;
+- публичный `dealCode`.
 
-The page must show:
+Вкладка `STATISTICS` недоступна до showdown.
 
-- current player name, not only `P1`;
-- party code;
-- current stage;
-- connection status;
-- whose turn it is using player name;
-- private hole cards for the current player;
-- closed cards for other players unless cards are revealed;
-- board slots from the start, with closed cards for unopened streets;
-- pot as a visible chip stack and number on the table;
-- current score as chip stacks near player seats;
-- available actions only when valid.
+### Admin: `/admin.html`
 
-The page should be vertically compact. Avoid large technical blocks in the middle of the gameplay view.
+Admin — отдельная HTML-страница для локальной отладки. Она поддерживает:
 
-### Admin: `http://localhost:5173/admin.html`
+- создание новой партии с 1–10 игроками;
+- вывод приватных ссылок;
+- историю с пагинацией по 20 рук;
+- просмотр полного борда, hole cards, действий и результата.
 
-Admin is for debugging and inspection.
+Admin не имеет отдельной авторизации и не предназначен для публичного многопользовательского окружения.
 
-It must support:
+### Debug: `/debug/:handId`
 
-- creating a new party with a selected number of players and names;
-- listing saved hands with paging;
-- opening a hand and seeing all hands, board, actions and result.
+Технический React-маршрут загружает полную сохранённую руку через WebSocket-сообщение `replay`. Это не игровой replay и не защищённый пользовательский маршрут.
 
-Admin `New deal` always creates a new party. If the number of players changed, this must not continue the old party.
+## Партия и рука
 
-### Replay controls
+### Партия
 
-Replay is a rare debug/bot-testing function.
+- Имеет внутренний UUID и короткий код вида `PA0001`.
+- Начинается с 1000 фишек у каждого места.
+- Сохраняет порядок, id, имена и признак бота между руками.
+- Переносит стеки после выплаты банка.
+- Вращает блайнды только по местам с ненулевым стеком.
+- Завершается, когда фишки остаются только у одного игрока.
 
-On the player page it must be:
+`deal` из лобби/admin всегда создаёт новую партию. `new_deal` с существующим `handId` создаёт или открывает одно продолжение той же партии.
 
-- visible only at the end of a hand when continuation is not already created;
-- one compact row;
-- placed at the bottom of the page;
-- not duplicated in the main action button row.
+### Рука
 
-Replay by hand code must support short codes like `HA0001`.
+Сохранённая рука содержит:
 
-## Game model
+- UUID и короткий код вида `HA0001`;
+- UUID/код партии и номер руки;
+- игроков, токены, hole cards, стеки, fold/bot flags;
+- полный борд и текущую открытую часть;
+- `preflop`, `flop`, `turn`, `river` или `showdown`;
+- текущего игрока, ставки раунда и число повышений;
+- блайнды и банк;
+- журнал действий;
+- `dealSeed`, `dealCode` и версию состояния;
+- ссылки на продолжение/replay.
 
-### Party
+Руки хранятся в SQLite как JSON и не удаляются при `New deal`.
 
-A party groups multiple hands.
+## Карты и детерминированная раздача
 
-Party requirements:
+- Стандартная колода: 52 карты.
+- Каждому месту выдаются 4 hole cards.
+- Борд содержит 5 карт.
+- Карты не повторяются между руками и бордом.
+- Максимум 10 мест: `10 × 4 + 5 = 45` карт.
 
-- has a short code like `PA0001`;
-- keeps player ids and names between continuation hands;
-- starts every player with 1000 chips;
-- carries player stacks between hands;
-- rotates blinds between active players;
-- continues until only one player has chips left;
-- should not be continued if the player count changes from admin.
+Перемешивание использует детерминированный PRNG mulberry32. Текущая версия контракта — `OMA1`.
 
-### Hand
+Формат:
 
-A hand is one deal.
-
-Hand requirements:
-
-- has a UUID internally;
-- has a short code like `HA0001`;
-- belongs to one party;
-- stores all hole cards and full board;
-- stores deterministic `dealSeed`;
-- stores public `dealCode`;
-- stores current stage and current player;
-- stores actions;
-- stores reveal votes;
-- stores pot size;
-- stores betting-round state;
-- stores player stacks;
-- stores blind level and blind players;
-- stores `nextHandId` or `nextReplayHandId` when continuation was created.
-
-Old hands are never deleted by `New deal`.
-
-### Cards and deck
-
-- Standard 52-card deck.
-- Omaha hand: 4 private cards per player.
-- Board: 5 community cards.
-- No duplicate cards are allowed across all players and board.
-- Board must always render 5 slots on the player page.
-
-## Deal seed
+```text
+OMA1-P<players>-S<seed-in-base36>
+```
 
-- New random deals use deterministic PRNG `mulberry32`.
-- Current shuffle contract version is `OMA1`.
-- Every hand has a public deal code like `OMA1-P2-S9IX`.
-- Deal code format includes shuffle version, player count and seed.
-- The same `dealCode` must always rebuild the same hole cards and board after restart or on another server.
-- Deal code only restores card layout, not actions, stacks, pot, reveal votes or tournament state.
-- If the shuffle algorithm changes, a new version prefix must be used, for example `OMA2`.
+Пример: `OMA1-P2-S9IX`.
 
-### Stages
+Один `dealCode` всегда создаёт одинаковые hole cards и борд для указанного числа мест. Он не восстанавливает:
 
-Stages:
+- действия;
+- токены;
+- стеки;
+- банк;
+- номер руки и состояние партии.
 
-- `preflop`;
-- `flop`;
-- `turn`;
-- `river`;
-- `showdown`.
+Несовместимое изменение алгоритма перемешивания должно получить новый префикс, например `OMA2`.
 
-Visible board:
+## Улицы и порядок хода
 
-- preflop: 0 open board cards, 5 slots shown;
-- flop: 3 open board cards;
-- turn: 4 open board cards;
-- river/showdown: 5 open board cards.
+Открытые карты:
 
-## Betting model
+- preflop: 0;
+- flop: 3;
+- turn: 4;
+- river/showdown: 5.
 
-Current betting is intentionally simple tournament betting.
+На каждой улице сервер двигает очередь по порядку мест, пропуская folded и all-in игроков. Улица завершается, когда все способные действовать активные игроки сделали ход и сравняли текущую ставку.
 
-Actions:
+Если остаётся один не folded игрок либо все оставшиеся игроки all-in, рука немедленно переходит в showdown.
 
-- `Check`;
-- `Bet`;
-- `Call`;
-- `Raise`;
-- `Fold`.
+## Ставки
 
-Rules:
-
-- `Check` never increases the pot.
-- `Check` is allowed only when the player has matched the current street bet.
-- `Bet` is allowed only when no bet is currently open on the street.
-- `Call` adds the missing amount to match the current street bet.
-- `Bet` and `Raise` use the current big blind as their unit.
-- `Raise` increases the current street bet by one current big blind.
-- Maximum 3 raises are allowed on one street.
-- `Fold` removes the player from active contention.
-- A street advances only when every active player has acted and matched the current street bet.
-- If only one active player remains, the hand goes to showdown immediately.
-- A player cannot put more chips into the pot than their remaining stack.
-- A player with zero remaining stack is all-in and does not need to act again.
-
-Current limitations:
-
-- no side pots yet;
-- no rake;
-- no configurable raise cap yet;
-
-Possible future rule:
-
-- make raise cap configurable per party.
-
-## Blinds and tournament stacks
-
-- Every player starts a new party with 1000 chips.
-- First 8 hands: blinds are 2/4.
-- Next 8 hands: blinds are 4/8.
-- Next 8 hands: blinds are 8/16.
-- The pattern continues by doubling every 8 hands.
-- Blind level is based on hand number inside the party.
-- Blinds rotate through active players.
-- Posted blinds are immediately deducted from player stacks and added to the pot.
-- A player with zero chips is out of future action.
-- New continuation hands should stop being available when only one player has chips.
-
-## Pot and scoring
-
-- The hand starts with the posted blinds in the pot.
-- Betting actions add coins to the pot.
-- At showdown the pot is paid to High/Low winners.
-- Party score is represented by current chip stacks.
-- Player stacks should be shown visually as chip stacks, not as a bulky `Party score` block.
-
-Chip denominations:
-
-- 1: gold;
-- 5: red;
-- 10: blue;
-- 20: purple;
-- 100: black.
-
-## Omaha Hi-Lo evaluation
-
-Omaha rule is strict:
-
-- exactly 2 cards from hand;
-- exactly 3 cards from board.
-
-High:
-
-- normal poker high-hand ranking.
-- If there is no qualifying low, high winners take the whole pot.
-
-Low:
-
-- 8-or-better.
-- Aces are low for low evaluation.
-- Low hand must use 5 different low ranks from A through 8.
-- If there is no qualifying low, show `Low: none`.
-
-Split pot:
-
-- High and Low can be won by different players.
-- Both players can therefore see that they won.
-- UI must make this explicit, for example `Split pot: You won High` and `Split pot: You won Low`.
-- If one player wins both High and Low, show that clearly as winning both sides.
-
-Combination display:
-
-- show current known high/low combination after the first action/check information is available;
-- make combo cards smaller than table cards;
-- visually distinguish cards from hand and board;
-- group meaningful parts of combinations where useful, for example two pair as separate pair groups.
-
-## Show cards
-
-At showdown:
-
-- cards of other players remain hidden by default;
-- any player may request `Show cards`;
-- if at least one player requested it and no new deal was created yet, other players must see that request;
-- all cards are revealed only when every player votes to show cards.
-
-## New deal and replay
-
-### New deal from player page
-
-At the end of a hand:
-
-- `New deal` creates one continuation hand in the same party;
-- if another player also clicks `New deal`, they should open the same already-created continuation;
-- old hand receives `nextHandId`;
-- old hand remains available for history/replay;
-- player names and player ids are preserved.
-
-### Replay from player page
-
-Replay creates a continuation hand in the same party with:
-
-- same player ids;
-- same player names;
-- same hole cards;
-- same board;
-- fresh tokens;
-- fresh actions/state.
-- tournament stack handling remains active, so replay also starts with posted blinds for that replay hand.
-
-If one player clicks replay and another clicks new deal from the same old hand, system state must stay coherent: only one continuation should be created for that old hand.
-
-### New deal from admin/home
-
-Admin/Home `New deal` creates a new party, especially when player count or names are changed.
-
-## Identifiers
-
-Internal ids may remain UUIDs.
-
-User-facing ids should be short:
-
-- party code: `PA0001`;
-- hand code: `HA0001`.
-
-Short hand codes exist mainly for replaying known hands and bot testing.
-
-## UI rules
-
-- Cards should look like standard playing cards, not raw text.
-- Current player's own cards are visible.
-- Other players' cards are shown as card backs until reveal.
-- Board cards are always shown as 5 slots.
-- The board label is not needed if layout makes it obvious.
-- Avoid large white padding around card rows.
-- Avoid repeated player names inside card pods when the page already shows the player.
-- Technical/debug functions should be low priority visually.
-- Main action row should contain only common gameplay actions.
-- `Replay deal` must not be in the main action row.
-- Use player names in UI messages when available.
-- Do not show `Waiting for P1` if the player has a name.
-
-## WebSocket actions
-
-Known client-to-server actions:
-
-- `deal`;
-- `new_deal`;
-- `replay_deal`;
-- `join_player`;
-- `player_move`;
-- `reveal_cards`;
-- `list`;
-- `replay`.
-
-Known player moves:
+Действия:
 
 - `check`;
 - `bet`;
@@ -344,55 +153,244 @@ Known player moves:
 - `raise`;
 - `fold`.
 
-## Testing expectations
+Правила:
 
-Backend tests should cover:
+- Check разрешён только при совпадении ставки игрока с текущей ставкой улицы.
+- Bet разрешён, если открытой ставки ещё нет.
+- Call вносит недостающую сумму, но не больше остатка стека.
+- Raise требует открытой ставки и повышает целевую ставку минимум на один big blind.
+- На одной улице разрешено не более трёх Raise.
+- Fold исключает игрока из претензии на банк.
+- Стек никогда не становится отрицательным.
 
-- deterministic deal by seed;
-- deal code rebuilds the same card layout;
-- no duplicate cards;
-- private token per player;
-- stage advancement by checks;
-- invalid out-of-turn actions;
-- check does not increase pot;
-- bet/call increase pot;
-- raise keeps round open until matched;
-- raise is capped at 3 raises per street;
-- blind levels double every 8 hands;
-- stacks carry into the next hand after payout;
-- player names carry into the next hand;
-- blind positions rotate between active players;
-- players with zero stack are skipped by blinds and turns;
-- all-in calls cannot make stacks negative;
-- fold to showdown;
-- reveal only after all votes;
-- Omaha Hi-Lo high/low evaluation;
-- no qualifying low;
-- replay keeps layout with fresh tokens.
+UI предлагает четыре размера:
 
-Useful next test additions:
+- `Blind`;
+- `1/4 pot`;
+- `1/2 pot`;
+- `Pot`.
 
-- WebSocket `deal` returns `playerLinks`;
-- Home page reconnects if backend starts after the browser page;
-- `new_deal` cannot create a continuation after tournament completion;
-- replay/new-deal race creates only one continuation;
-- admin new deal creates a new party, not a continuation.
+Сервер принимает целевую целочисленную сумму и ограничивает её допустимым минимумом, остатком стека и pot-limit максимумом. Для Raise максимум рассчитывается с учётом call amount и текущего банка.
 
-Before finishing code changes, run at least:
+Текущие ограничения:
 
-```powershell
-cd server
-npm test
-npm run build
+- side pots не реализованы;
+- лимит повышений не настраивается;
+- рейка нет.
 
-cd ..\demo\client
-npm run build
+## Блайнды и стеки
+
+- Начальный small/big blind: 2/4.
+- Уровень удваивается каждые 8 рук: 2/4, 4/8, 8/16 и далее.
+- Позиции small и big blind вращаются по активным местам.
+- Блайнды немедленно списываются со стеков и попадают в банк.
+- Первый preflop-ход идёт следующему активному месту после big blind.
+- Место с нулевым стеком не получает блайнд и не действует в следующих руках.
+
+## Omaha Hi-Lo
+
+Для High и Low обязательно используются:
+
+- ровно 2 карты из hole cards;
+- ровно 3 карты борда.
+
+### High
+
+Используется обычное покерное ранжирование от high card до straight flush. При равенстве банк соответствующей части делится.
+
+### Low
+
+- 8-or-better;
+- Ace считается младшей картой;
+- нужны пять различных рангов A–8;
+- пары не образуют qualifying low.
+
+Если qualifying low отсутствует, победители High получают весь банк.
+
+### Выплата
+
+При наличии Low банк поровну делится на High и Low. Каждая сторона дополнительно поровну делится между всеми своими победителями. Текущая модель допускает дробные значения фишек и не задаёт отдельное правило для нечётной фишки.
+
+Один игрок может:
+
+- выиграть только High;
+- выиграть только Low;
+- разделить одну сторону вничью;
+- забрать обе стороны.
+
+Folded игроки сохраняют рассчитанные комбинации для разбора, но не могут выиграть банк.
+
+## Showdown и раскрытие
+
+На showdown текущая реализация автоматически:
+
+- открывает весь борд;
+- раскрывает hole cards всех игроков;
+- вычисляет результат;
+- показывает High/Low-победителей и очки;
+- включает вкладку статистики.
+
+Голосования `Show cards` в текущей версии нет. Поля `revealVotes` и `cardsRevealed` остаются в модели для совместимости сохранённых рук, но при штатном завершении заполняются автоматически.
+
+## Новая рука и replay
+
+### Следующая рука
+
+После showdown `New deal`:
+
+- создаёт максимум одно продолжение исходной руки;
+- сохраняет партию, места, имена и bot flags;
+- переносит стеки после выплаты;
+- выдаёт новые токены и новый случайный расклад;
+- увеличивает `handNumber`;
+- вращает блайнды.
+
+Параллельные запросы к одному исходному `handId` используют общий lock и получают одно продолжение.
+
+### Replay расклада
+
+Replay:
+
+- создаёт продолжение той же партии;
+- сохраняет hole cards и полный борд источника;
+- сохраняет места, имена и bot flags;
+- выдаёт новые токены;
+- очищает действия и начинает с preflop;
+- применяет блайнды и текущие стеки источника;
+- записывает `replayOfHandId`.
+
+У исходной руки может быть только одно продолжение: конкурентные `new_deal` и `replay_deal` не должны создавать две независимые ветки.
+
+## Встроенный бот
+
+Бот работает на сервере и делает ход через `BOT_THINK_MS` после перехода очереди к bot-месту.
+
+Эвристика учитывает:
+
+- силу стартовой Omaha Hi-Lo руки;
+- текущие High/Low-комбинации;
+- цену call и pot odds;
+- банк, стек и raise cap.
+
+Бот не использует скрытые карты соперников для принятия решения. После перезапуска сервера таймеры восстанавливаются только при новом подключении игрока к незавершённой руке.
+
+## HTTP API
+
+### `GET /api/version`
+
+Возвращает:
+
+```json
+{
+  "commit": "full-sha-or-dev",
+  "shortCommit": "abcdef0",
+  "buildTimeGmt": "2026-07-24 18:00:00 GMT"
+}
 ```
 
-## Open decisions
+### `GET /api/player/:handId/:playerId/:token`
 
-- Whether to add a raise cap per street.
-- Whether to add side pots.
-- Whether blinds should follow exact dealer/button rules for more than two players.
-- Whether bot logic should live inside the server or as an external client.
-- Whether old mojibake docs in `demo/` should be replaced or removed.
+Возвращает приватное состояние игрока. Ошибки:
+
+- `404` — рука не найдена;
+- `403` — id или токен не совпал.
+
+### `GET /admin/hands`
+
+Параметры:
+
+- `limit`: 1–100, по умолчанию 20;
+- `offset`: неотрицательное число, по умолчанию 0.
+
+### `GET /admin/hands/:id`
+
+Возвращает полную сохранённую руку. При отсутствии — `404`.
+
+## WebSocket-протокол
+
+Клиент → сервер:
+
+- `deal`;
+- `new_deal`;
+- `replay_deal`;
+- `join_player`;
+- `player_move`;
+- `list`;
+- `replay`.
+
+Сервер → клиент:
+
+- `hand_dealt`;
+- `player_state`;
+- `hand_updated`;
+- `hands_list`;
+- `hand_full`;
+- `error`.
+
+Player moves:
+
+- `check`;
+- `bet`;
+- `call`;
+- `raise`;
+- `fold`.
+
+Протокол пока не имеет JSON Schema и отдельного номера версии.
+
+## Хранение
+
+SQLite-файл задаётся `DATA_FILE`; значение по умолчанию — `data/hands.sqlite` относительно рабочей папки.
+
+Таблица:
+
+```sql
+CREATE TABLE IF NOT EXISTS hands (
+  id TEXT PRIMARY KEY,
+  created INTEGER,
+  data TEXT
+)
+```
+
+Короткие коды назначаются по количеству сохранённых записей. Текущая реализация рассчитана на один серверный процесс и не предоставляет миграции или конкурентную выдачу последовательностей на уровне БД.
+
+## Проверки
+
+Unit-тесты покрывают:
+
+- детерминированность и уникальность карт;
+- токены и перенос идентичности мест;
+- блайнды, очередность, all-in и перенос стеков;
+- pot-limit Bet/Raise, Call, Check, Fold и raise cap;
+- переходы улиц и раскрытие;
+- строгую оценку Omaha Hi-Lo;
+- продолжение, replay и встроенного бота;
+- максимум 10 игроков.
+
+Основные E2E-тесты покрывают:
+
+- раскладку мест от 2 до 10 игроков;
+- ход бота после действия человека;
+- доступность кнопок на столе из 7 игроков;
+- итоговые комбинации, статистику и вращение блайндов;
+- admin API.
+
+Длительный тест проводит 20 рук с семью ботами и семью наблюдающими клиентами.
+
+Запуск из `demo`:
+
+```powershell
+npm.cmd test
+npm.cmd run e2e
+npm.cmd run e2e:bots
+npm.cmd run ci
+```
+
+## Известные ограничения и открытые решения
+
+- Нужны side pots для корректной выплаты нескольких all-in.
+- Admin/debug требуют авторизации перед публичным использованием.
+- Следует решить, нужен ли настраиваемый raise cap.
+- WebSocket-контракт стоит типизировать и версионировать.
+- SQLite и in-memory locks/timers ограничивают горизонтальное масштабирование.
+- Мобильная компоновка стола и навигация требуют дальнейшей доработки.
+- Большой `App.tsx` желательно разделить на компоненты и стили.

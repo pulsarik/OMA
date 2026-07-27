@@ -1,12 +1,13 @@
-# Court card artwork
+# Court-card artwork
 
-The Jack, Queen, and King artwork comes from Adrian Kennard's English-pattern
-playing cards, packaged as SVG files by `letele/playing-cards`.
+Папка содержит отдельные SVG-иллюстрации валетов, дам и королей для четырёх мастей. Это сохранённый исходный набор и источник атрибуции; текущий игровой UI напрямую загружает готовые лица из соседней папки `revk`, а не эти файлы.
 
-- Source: https://github.com/letele/playing-cards
-- Original artwork: https://www.me.uk/cards/
-- License: CC0 1.0 Universal
+Имена файлов имеют формат `<SUIT>-<RANK>.svg`, например `D-Q.svg`.
 
-The game crops the center illustration from each SVG at runtime. Its own rank
-label remains visible in the upper-left corner, consistently with the numbered
-cards.
+Источники:
+
+- пакет SVG: [letele/playing-cards](https://github.com/letele/playing-cards);
+- оригинальные English-pattern cards: [Adrian Kennard / RevK](https://www.me.uk/cards/);
+- лицензия оригинального artwork: CC0 1.0 Universal.
+
+Если набор снова будет подключён к UI, нужно сохранить существующие имена, масти и ранги, чтобы они однозначно сопоставлялись с кодами карт.

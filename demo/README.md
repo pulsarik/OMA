@@ -1,74 +1,140 @@
 # Omaha Hi-Lo Replay
 
-Домашний прототип для дружеских раздач Omaha Hi-Lo: раздать карты, сохранить расклад, открыть повтор и обсудить.
+Домашнее веб-приложение для партий в Omaha Hi-Lo (8-or-better): люди и встроенные боты играют за одним столом, раздачи сохраняются в SQLite, а известный расклад можно повторить по коду.
 
-Если ты новичок в Node.js/npm/React и хочешь понять, где что лежит, смотри [PROJECT_GUIDE_RU.md](PROJECT_GUIDE_RU.md).
+Проект состоит из React-клиента, Node.js/TypeScript-сервера и браузерных тестов Playwright. Подробная карта проекта находится в [PROJECT_GUIDE_RU.md](PROJECT_GUIDE_RU.md), игровая и техническая спецификация — в [../TECH_REQUIREMENTS.md](../TECH_REQUIREMENTS.md).
 
-## Windows setup
+## Что уже работает
 
-Если `npm install` не запускается и PowerShell пишет, что `npm` или `node` не найдены, сначала установи Node.js LTS.
+- стол от 1 до 10 мест с переключением Human/Bot;
+- четыре закрытые карты игрока и пять общих карт;
+- улицы preflop, flop, turn, river и showdown;
+- Check, Bet, Call, Raise и Fold с выбором размера ставки;
+- блайнды, стеки, all-in и лимит трёх повышений на улицу;
+- автоматические ходы встроенных ботов;
+- строгая оценка Omaha Hi-Lo: ровно 2 карты руки и 3 карты борда;
+- продолжение партии с переносом стеков и вращением блайндов;
+- статистика партии и результаты каждой завершённой раздачи;
+- повтор сохранённой раздачи и восстановление расклада по `dealCode`;
+- SQLite-история и отдельная admin-страница.
 
-Вариант через winget:
+Текущие ограничения перечислены в [project-description.md](project-description.md#текущие-ограничения).
+
+## Требования
+
+- Node.js 20 или новее;
+- npm;
+- Chromium для E2E-тестов Playwright.
+
+Проверить установленную версию:
+
+```powershell
+node -v
+npm.cmd -v
+```
+
+Если Node.js отсутствует, на Windows его можно установить так:
 
 ```powershell
 winget install OpenJS.NodeJS.LTS
 ```
 
-После установки закрой и заново открой PowerShell, затем проверь:
+Если PowerShell блокирует `npm.ps1`, используй `npm.cmd`. Менять execution policy для работы с проектом не обязательно.
 
-```powershell
-node -v
-npm -v
-```
+## Установка
 
-Если PowerShell пишет, что `npm.ps1` не может быть загружен из-за `running scripts is disabled`, используй `npm.cmd` вместо `npm`:
-
-```powershell
-npm.cmd -v
-```
-
-Можно также один раз разрешить локальные пользовательские скрипты:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-После этого открой новый PowerShell и снова проверь `npm -v`.
-
-## Установка зависимостей
-
-Запускать из папки `demo`:
-
-```powershell
-cd C:\Users\test1234\Documents\Oma\demo
-npm run install:all
-```
-
-Если `npm` блокируется политикой PowerShell, та же команда через `npm.cmd`:
+Все команды ниже запускаются из папки `demo`:
 
 ```powershell
 cd C:\Users\test1234\Documents\Oma\demo
 npm.cmd run install:all
 ```
 
-Эта команда установит зависимости для:
+Команда устанавливает зависимости трёх пакетов:
 
-- `demo`
-- `server`
-- `demo/client`
+- `demo` — общие команды и Playwright;
+- `../server` — сервер и игровая логика;
+- `client` — React-клиент.
 
-## Запуск
+Для первого запуска E2E-тестов также установи Chromium:
+
+```powershell
+npx.cmd playwright install chromium
+```
+
+## Локальный запуск
+
+```powershell
+npm.cmd run dev
+```
+
+Открыть:
+
+- `http://localhost:5173/` — лобби;
+- `http://localhost:5173/admin.html` — история и отладка;
+- `http://localhost:4000/api/version` — версия запущенного сервера.
+
+Vite-клиент работает на порту `5173`, сервер HTTP/WebSocket — на `4000`. В production сервер сам раздаёт собранный клиент.
+
+## Основной сценарий
+
+1. Открой лобби.
+2. Выбери от 1 до 10 мест, задай имена и отметь места ботов.
+3. Нажми `New deal`.
+4. Открой приватную ссылку нужного человека. Ссылки содержат токены и не должны публиковаться без необходимости.
+5. После showdown открой вкладку `STATISTICS`, продолжи партию через `New deal` или повтори один из сохранённых раскладов.
+
+Поле `Replay` в лобби принимает:
+
+- короткий код руки, например `HA0001`;
+- полный UUID руки;
+- публичный `dealCode`, например `OMA1-P2-S9IX`;
+- номер руки из сохранённой истории.
+
+`dealCode` восстанавливает только карты и число мест. Он не восстанавливает действия, стеки или состояние партии.
+
+## Команды
 
 Из папки `demo`:
 
 ```powershell
-npm run dev
+npm.cmd test
+npm.cmd run e2e
+npm.cmd run e2e:bots
+npm.cmd run ci
 ```
 
-Сервер запускается на `http://localhost:4000`, клиент Vite обычно на `http://localhost:5173`.
+- `test` — unit-тесты сервера;
+- `e2e` — основные браузерные сценарии;
+- `e2e:bots` — длительный тест партии из семи ботов на 20 раздач;
+- `ci` — unit-тесты, обе сборки и основные E2E-тесты.
 
-## Тесты
+Отдельные сборки:
 
 ```powershell
-npm test
+npm.cmd --prefix ..\server run build
+npm.cmd --prefix client run build
 ```
+
+## Production-режим
+
+```powershell
+node ..\server\scripts\write-build-info.cjs
+npm.cmd --prefix ..\server run build
+npm.cmd --prefix client run build
+node ..\server\dist\index.js
+```
+
+После сборки приложение доступно на `http://localhost:4000/`, а admin — на `http://localhost:4000/admin.html`.
+
+## Переменные окружения сервера
+
+- `PORT` — HTTP/WebSocket-порт, по умолчанию `4000`;
+- `DATA_FILE` — путь к SQLite, по умолчанию `data/hands.sqlite` относительно рабочей папки;
+- `STATIC_DIR` — альтернативная папка собранного клиента;
+- `BOT_THINK_MS` — задержка хода встроенного бота, по умолчанию `1000` мс;
+- `COMMIT_SHA` и `BUILD_TIME_GMT` — данные, возвращаемые `/api/version`.
+
+## Деплой
+
+Render Blueprint описан в корневом `render.yaml`. Инструкция: [../DEPLOY_RU.md](../DEPLOY_RU.md).

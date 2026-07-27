@@ -1,48 +1,88 @@
-# Деплой POV на Render
+# Деплой Omaha Hi-Lo Replay на Render
 
-Проект подготовлен под один Node.js web service: сервер запускает API/WebSocket и раздает собранный React-клиент из `demo/client/dist`.
+Проект настроен как один Node.js web service: Express обслуживает HTTP API и WebSocket, а также раздаёт production-сборку React из `demo/client/dist`.
 
-## Почему Render
+Актуальная конфигурация находится в корневом [render.yaml](render.yaml).
 
-- Есть бесплатный web service для демо.
-- WebSocket работает на web services.
-- `render.yaml` в корне уже описывает сборку и запуск.
+## Что создаёт Blueprint
 
-Ограничения бесплатного плана: сервис засыпает без трафика, первый вход после паузы может занять около минуты. SQLite-файл без persistent disk не стоит считать надежным долговременным хранилищем.
+- тип: `web`;
+- имя: `omaha-hi-lo-pov`;
+- runtime: `node`;
+- plan: `free`;
+- `NODE_ENV=production`;
+- запуск: `node server/dist/index.js`.
 
-## Что загрузить в GitHub
+Сервер читает обязательный для Render порт из `PORT`.
 
-Загружать нужно всю папку `Oma`, кроме того, что перечислено в `.gitignore`: `node_modules`, `dist`, `data`, локальные SQLite-файлы и логи.
+## Перед деплоем
 
-## Деплой через Render Blueprint
-
-1. Создать пустой GitHub-репозиторий.
-2. Загрузить туда содержимое папки `C:\Users\test1234\Documents\Oma`.
-3. В Render открыть `New` -> `Blueprint`.
-4. Выбрать GitHub-репозиторий.
-5. Render найдет `render.yaml` и создаст web service `omaha-hi-lo-pov`.
-6. После успешного deploy открыть публичный URL сервиса.
-
-## Команды, которые Render выполнит
-
-Build:
+Локально проверь полный CI:
 
 ```powershell
-npm --prefix server ci && npm --prefix demo/client ci && npm --prefix server run build && npm --prefix demo/client run build
+cd C:\Users\test1234\Documents\Oma\demo
+npm.cmd run ci
 ```
 
-Start:
+Проверь, что в Git попадают:
 
-```powershell
-node server/dist/index.js
+- `server`;
+- `demo`;
+- `.github/workflows/ci.yml`;
+- `render.yaml`;
+- корневая документация.
+
+Не коммить:
+
+- `node_modules`;
+- `dist`;
+- `data`;
+- `*.sqlite`;
+- логи и `.env`.
+
+Это уже задано в `.gitignore`.
+
+## Деплой через Blueprint
+
+1. Отправь весь репозиторий `Oma` в GitHub.
+2. В Render выбери `New` → `Blueprint`.
+3. Подключи репозиторий.
+4. Render прочитает корневой `render.yaml`.
+5. Проверь имя, план и переменные окружения.
+6. Примени Blueprint и дождись успешного health/start.
+7. Открой выданный URL `onrender.com`.
+
+Публичные пути:
+
+- `/` — лобби;
+- `/admin.html` — admin/debug;
+- `/api/version` — commit и время сборки.
+
+## Команда сборки
+
+Render выполняет:
+
+```text
+npm --prefix server ci
+npm --prefix demo/client ci
+node server/scripts/write-build-info.cjs
+npm --prefix server run build
+npm --prefix demo/client run build
 ```
+
+В `render.yaml` эти шаги объединены через `&&`. Скрипт `write-build-info.cjs` записывает commit и время сборки в `server/build-info.json`; файл затем читает endpoint `/api/version`.
+
+Корневый пакет `demo` и Playwright на Render не устанавливаются, потому что для runtime нужны только сервер и собранный клиент.
 
 ## Локальная проверка production-режима
 
+Из корня репозитория:
+
 ```powershell
+node server\scripts\write-build-info.cjs
 npm.cmd --prefix server run build
-npm.cmd --prefix demo/client run build
-node server/dist/index.js
+npm.cmd --prefix demo\client run build
+node server\dist\index.js
 ```
 
 Открыть:
@@ -50,4 +90,47 @@ node server/dist/index.js
 ```text
 http://localhost:4000/
 http://localhost:4000/admin.html
+http://localhost:4000/api/version
 ```
+
+Сервер находит собранный клиент по `demo/client/dist`. Альтернативный путь можно передать через `STATIC_DIR`.
+
+## SQLite и free plan
+
+По умолчанию база создаётся в `data/hands.sqlite` относительно рабочей папки процесса.
+
+У free web service Render файловая система эфемерна: SQLite-файл теряется при redeploy, restart или spin-down. Поэтому текущий Blueprint подходит только для демонстрации и тестовых партий, а не для постоянной истории.
+
+Free web service может остановиться после 15 минут без входящих HTTP-запросов и WebSocket-сообщений; холодный запуск обычно занимает около минуты.
+
+Для постоянного окружения нужны один из вариантов:
+
+- платный Render service с persistent disk и явным `DATA_FILE` на mount path;
+- перенос хранения в постоянную внешнюю БД;
+- другой хостинг с постоянным локальным диском.
+
+При нескольких экземплярах приложения локальный SQLite, in-memory locks продолжений и таймеры ботов нельзя считать общими.
+
+## Полезные переменные окружения
+
+| Переменная | Назначение | По умолчанию |
+| --- | --- | --- |
+| `PORT` | HTTP/WebSocket-порт | `4000` локально; Render задаёт сам |
+| `DATA_FILE` | Путь к SQLite | `data/hands.sqlite` |
+| `STATIC_DIR` | Путь к собранному клиенту | автоматический поиск `demo/client/dist` |
+| `BOT_THINK_MS` | Задержка встроенного бота | `1000` мс |
+| `COMMIT_SHA` | Commit для `/api/version` | build-info или `dev` |
+| `BUILD_TIME_GMT` | Время для `/api/version` | build-info или время старта |
+
+Render также предоставляет `RENDER_GIT_COMMIT`, который имеет приоритет над `COMMIT_SHA`.
+
+## Проверка после деплоя
+
+1. `/api/version` возвращает JSON с commit.
+2. Лобби показывает `connected`.
+3. Создаётся партия человек против бота.
+4. Приватная ссылка игрока открывается.
+5. После хода человека бот отвечает.
+6. `/admin.html` видит созданную руку.
+
+Ограничения Render free plan могут меняться; перед публичным запуском сверяй их с официальными страницами [Free web services](https://render.com/docs/free) и [WebSockets](https://render.com/docs/websocket).
