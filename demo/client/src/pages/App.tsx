@@ -2372,6 +2372,155 @@ function DebugPage() {
   );
 }
 
+function LobbyCardFan({ empty = false }: { empty?: boolean }) {
+  return (
+    <div style={{ position: 'relative', width: 58, height: 42, opacity: empty ? 0.28 : 1 }}>
+      {[-18, 0, 18].map((rotation, index) => (
+        <img
+          key={rotation}
+          src="/cards/revk/BACK.svg"
+          alt=""
+          style={{
+            position: 'absolute',
+            left: 17 + index * 3,
+            bottom: 0,
+            width: 27,
+            height: 39,
+            borderRadius: 3,
+            boxShadow: '0 2px 5px rgba(15,23,42,.32)',
+            transformOrigin: '50% 90%',
+            transform: `rotate(${rotation}deg) translateY(${Math.abs(rotation) / 6}px)`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function LobbyTable({
+  lobby,
+  memberId,
+  canRemoveBots = false,
+  onRemoveBot,
+}: {
+  lobby: LobbyView;
+  memberId?: string | null;
+  canRemoveBots?: boolean;
+  onRemoveBot?: (memberId: string) => void;
+}) {
+  const seats = Array.from({ length: lobby.maxPlayers }, (_, index) => lobby.members[index]);
+
+  return (
+    <div style={{ overflowX: 'auto', padding: '4px 0 10px' }}>
+      <div
+        data-testid="lobby-table"
+        style={{
+          position: 'relative',
+          width: '100%',
+          minWidth: 620,
+          height: 440,
+          margin: '0 auto',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: '58px 42px',
+            border: '8px solid #53351f',
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at center, #16845c 0%, #08734d 55%, #07543b 100%)',
+            boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.14), inset 0 0 45px rgba(0,0,0,.28), 0 14px 28px rgba(15,23,42,.2)',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 18,
+              border: '1px solid rgba(255,255,255,.18)',
+              borderRadius: '50%',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'grid',
+              placeContent: 'center',
+              justifyItems: 'center',
+              color: '#fff',
+              textAlign: 'center',
+              textShadow: '0 2px 4px rgba(0,0,0,.35)',
+            }}
+          >
+            <strong style={{ fontSize: 20, letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
+            <span style={{ marginTop: 5, fontSize: 12, fontWeight: 800, opacity: 0.82 }}>WAITING FOR PLAYERS</span>
+            <span style={{ marginTop: 7, border: '1px solid rgba(255,255,255,.4)', borderRadius: 999, padding: '3px 10px', fontWeight: 900 }}>
+              {lobby.members.length} / {lobby.maxPlayers}
+            </span>
+          </div>
+        </div>
+
+        {seats.map((seat, index) => {
+          const angle = (Math.PI / 2) + ((Math.PI * 2 * index) / seats.length);
+          const left = 50 + 42 * Math.cos(angle);
+          const top = 50 + 38 * Math.sin(angle);
+          const isYou = seat?.id === memberId;
+
+          return (
+            <div
+              key={seat?.id ?? `empty-${index}`}
+              data-lobby-seat={index + 1}
+              data-lobby-member-id={seat?.id}
+              style={{
+                position: 'absolute',
+                left: `${left}%`,
+                top: `${top}%`,
+                width: 112,
+                display: 'grid',
+                justifyItems: 'center',
+                transform: 'translate(-50%, -50%)',
+                zIndex: 2,
+              }}
+            >
+              <LobbyCardFan empty={!seat} />
+              <div
+                style={{
+                  width: '100%',
+                  minHeight: 38,
+                  marginTop: -2,
+                  border: `2px solid ${isYou ? '#fbbf24' : seat ? '#dbe4df' : 'rgba(255,255,255,.55)'}`,
+                  borderRadius: 10,
+                  background: seat ? '#fff' : 'rgba(15,23,42,.72)',
+                  color: seat ? '#172033' : '#e2e8f0',
+                  padding: '5px 7px',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 10px rgba(15,23,42,.2)',
+                  fontSize: 12,
+                }}
+              >
+                <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {seat ? tablePlayerName(seat.name, seat.id) : 'BOT ON START'}
+                </strong>
+                <span style={{ fontSize: 10, fontWeight: 800, color: seat ? '#64748b' : '#cbd5e1' }}>
+                  {seat ? `${seat.isHost ? 'HOST · ' : ''}${seat.isBot ? 'BOT' : isYou ? 'YOU' : 'READY'}` : `SEAT ${index + 1}`}
+                </span>
+              </div>
+              {seat?.isBot && canRemoveBots && onRemoveBot ? (
+                <button
+                  onClick={() => onRemoveBot(seat.id)}
+                  style={{ minHeight: 24, marginTop: 3, padding: '2px 7px', borderRadius: 999, fontSize: 10 }}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function LobbyPage() {
   const [, , lobbyId] = window.location.pathname.split('/');
   const memberHint = new URLSearchParams(window.location.search).get('member');
@@ -2464,18 +2613,8 @@ function LobbyPage() {
             <h2 style={{ margin: 0 }}>Join the table</h2>
             {lobby ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <strong>Players already here</strong>
-                  <span>{lobby.members.length} / {lobby.maxPlayers}</span>
-                </div>
-                <div style={{ display: 'grid', gap: 7 }}>
-                  {lobby.members.map((member) => (
-                    <div key={member.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 11px', border: '1px solid #dbe4df', borderRadius: 8 }}>
-                      <span>{tablePlayerName(member.name, member.id)}{member.isHost ? ' · host' : ''}</span>
-                      <strong>{member.isBot ? 'BOT' : 'READY'}</strong>
-                    </div>
-                  ))}
-                </div>
+                <strong>Players already here</strong>
+                <LobbyTable lobby={lobby} />
                 {lobby.status === 'waiting' ? <p style={{ margin: 0 }}>Enter your name and wait for the host to start.</p> : <p style={{ margin: 0 }}>This game has already started.</p>}
               </>
             ) : <p style={{ margin: 0 }}>Loading lobby…</p>}
@@ -2523,30 +2662,12 @@ function LobbyPage() {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <h2 style={{ margin: 0 }}>Seats</h2>
-                <span>{lobby.members.length} / {lobby.maxPlayers}</span>
-              </div>
-              <div style={{ display: 'grid', gap: 8 }}>
-                {lobby.members.map((member, index) => (
-                  <div key={member.id} style={{ display: 'grid', gridTemplateColumns: '38px 1fr auto', alignItems: 'center', gap: 8, padding: '10px 12px', border: '1px solid #dbe4df', borderRadius: 9 }}>
-                    <strong>P{index + 1}</strong>
-                    <span>
-                      <strong>{tablePlayerName(member.name, member.id)}</strong>
-                      {member.id === memberId ? ' (you)' : ''}
-                      {member.isHost ? ' · host' : ''}
-                    </span>
-                    {member.isBot ? (
-                      isHost ? <button onClick={() => send('lobby_remove_bot', { memberId: member.id })}>Remove</button> : <span>BOT</span>
-                    ) : <span style={{ color: '#166534', fontWeight: 800 }}>READY</span>}
-                  </div>
-                ))}
-                {Array.from({ length: lobby.maxPlayers - lobby.members.length }, (_, index) => (
-                  <div key={`empty-${index}`} style={{ padding: '10px 12px', border: '1px dashed #cbd5e1', borderRadius: 9, color: '#64748b' }}>
-                    Empty seat · bot on start
-                  </div>
-                ))}
-              </div>
+              <LobbyTable
+                lobby={lobby}
+                memberId={memberId}
+                canRemoveBots={isHost && lobby.status === 'waiting'}
+                onRemoveBot={(botMemberId) => send('lobby_remove_bot', { memberId: botMemberId })}
+              />
 
               {isHost && lobby.status === 'waiting' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

@@ -12,13 +12,15 @@ test('host invites a friend, adds a bot and starts one shared game', async ({ pa
 
   const inviteUrl = await page.getByLabel('Invite link').inputValue();
   expect(inviteUrl).not.toContain('member=');
-  await expect(page.getByText('Dima (you) · host')).toBeVisible();
+  await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');
+  await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('HOST · YOU');
 
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
   await guest.goto(inviteUrl);
   await expect(guest.getByText('Players already here')).toBeVisible();
-  await expect(guest.getByText('Dima · host')).toBeVisible();
+  await expect(guest.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');
+  await expect(guest.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('HOST · READY');
   await expect(guest.getByText('Enter your name and wait for the host to start.')).toBeVisible();
   await guest.getByLabel('Your name').fill('Anna');
   await guest.getByRole('button', { name: 'Take a seat' }).click();
