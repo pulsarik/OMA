@@ -1,5 +1,6 @@
 import {
   blindLevelForHand,
+  currentPotBreakdown,
   dealCodeFor,
   dealHand,
   dealHandFromCode,
@@ -166,6 +167,7 @@ test('blind level doubles every eight hands', () => {
 
 test('next party hand carries stacks after payout and posts next blinds', () => {
   const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
   hand.stage = 'showdown';
   hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
   hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
@@ -183,6 +185,7 @@ test('next party hand carries stacks after payout and posts next blinds', () => 
 
 test('net results include bets and blinds instead of reporting the whole payout as profit', () => {
   const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
   hand.stage = 'showdown';
   hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
   hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
@@ -383,7 +386,7 @@ test('all-in call cannot make stack negative and does not require more action', 
   expect(hand.currentPlayerId).toBe('P2');
 
   recordPlayerMove(hand, 'P2', 'check');
-  expect(hand.stage).toBe('flop');
+  expect(hand.stage).toBe('showdown');
 });
 
 test('replay hand keeps layout with fresh tokens and state', () => {
@@ -596,6 +599,7 @@ test('all cards reveal automatically after showdown caused by a fold', () => {
 test('evaluates Omaha Hi-Lo with high and qualifying low', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'showdown';
+  hand.totalContributions = { P1: 3, P2: 3 };
   hand.fullCommunity = ['2s', '3h', '4d', 'Kc', 'Kd'];
   hand.players[0].hole = ['As', '5c', 'Qh', 'Qs'];
   hand.players[1].hole = ['Kh', '4c', 'Qd', 'Jd'];
@@ -614,6 +618,7 @@ test('evaluates Omaha Hi-Lo with high and qualifying low', () => {
 test('evaluates Omaha Hi-Lo with no qualifying low', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'showdown';
+  hand.totalContributions = { P1: 3, P2: 3 };
   hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
   hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
   hand.players[1].hole = ['Kh', 'Kc', '4h', '5c'];
@@ -626,6 +631,86 @@ test('evaluates Omaha Hi-Lo with no qualifying low', () => {
   expect(result?.points).toEqual([
     { id: 'P1', high: 6, low: 0, total: 6 },
     { id: 'P2', high: 0, low: 0, total: 0 },
+  ]);
+});
+
+test('splits the pot when a short-stacked player is all in', () => {
+  const hand = dealHand(3, 12345);
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
+  hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
+  hand.players[1].hole = ['Ah', 'Ad', '3c', '4c'];
+  hand.players[2].hole = ['Kh', 'Kd', '3h', '4h'];
+  hand.totalContributions = { P1: 10, P2: 30, P3: 30 };
+  hand.potCoins = 70;
+
+  const result = evaluateOmahaHiLo(hand);
+
+  expect(result?.sidePots).toEqual([
+    {
+      amount: 30,
+      eligiblePlayerIds: ['P1', 'P2', 'P3'],
+      highWinners: ['P1'],
+      lowWinners: [],
+      noLow: true,
+    },
+    {
+      amount: 40,
+      eligiblePlayerIds: ['P2', 'P3'],
+      highWinners: ['P2'],
+      lowWinners: [],
+      noLow: true,
+    },
+  ]);
+  expect(result?.points).toEqual([
+    { id: 'P1', high: 30, low: 0, total: 30 },
+    { id: 'P2', high: 40, low: 0, total: 40 },
+    { id: 'P3', high: 0, low: 0, total: 0 },
+  ]);
+});
+
+test('creates multiple side pots for several all-in levels', () => {
+  const hand = dealHand(3, 12345);
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
+  hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
+  hand.players[1].hole = ['Ah', 'Ad', '3c', '4c'];
+  hand.players[2].hole = ['Kh', 'Kd', '3h', '4h'];
+  hand.totalContributions = { P1: 10, P2: 30, P3: 50 };
+  hand.potCoins = 90;
+
+  const result = evaluateOmahaHiLo(hand);
+
+  expect(result?.sidePots.map(pot => ({
+    amount: pot.amount,
+    eligiblePlayerIds: pot.eligiblePlayerIds,
+    highWinners: pot.highWinners,
+  }))).toEqual([
+    { amount: 30, eligiblePlayerIds: ['P1', 'P2', 'P3'], highWinners: ['P1'] },
+    { amount: 40, eligiblePlayerIds: ['P2', 'P3'], highWinners: ['P2'] },
+    { amount: 20, eligiblePlayerIds: ['P3'], highWinners: ['P3'] },
+  ]);
+  expect(result?.points.map(({ id, total }) => ({ id, total }))).toEqual([
+    { id: 'P1', total: 30 },
+    { id: 'P2', total: 40 },
+    { id: 'P3', total: 20 },
+  ]);
+  expect(result?.points.reduce((sum, score) => sum + score.total, 0)).toBe(hand.potCoins);
+});
+
+test('shows a compact live pot breakdown only after an all-in', () => {
+  const hand = dealHand(3, 12345);
+  hand.totalContributions = { P1: 10, P2: 30, P3: 30 };
+  hand.potCoins = 70;
+
+  expect(currentPotBreakdown(hand)).toEqual([
+    { amount: 70, eligiblePlayerIds: ['P1', 'P2', 'P3'] },
+  ]);
+
+  hand.players[0].stack = 0;
+  expect(currentPotBreakdown(hand)).toEqual([
+    { amount: 30, eligiblePlayerIds: ['P1', 'P2', 'P3'] },
+    { amount: 40, eligiblePlayerIds: ['P2', 'P3'] },
   ]);
 });
 

@@ -59,6 +59,7 @@ export type DealtHand = {
   currentPlayerId?: string;
   currentBet: number;
   roundBets: Record<string, number>;
+  totalContributions: Record<string, number>;
   raiseCount: number;
   blinds: {
     level: number;
@@ -89,6 +90,13 @@ export type HiLoResult = {
   highWinners: string[];
   lowWinners: string[];
   noLow: boolean;
+  sidePots: Array<{
+    amount: number;
+    eligiblePlayerIds: string[];
+    highWinners: string[];
+    lowWinners: string[];
+    noLow: boolean;
+  }>;
   points: Array<{
     id: string;
     high: number;
@@ -105,6 +113,11 @@ export type HiLoResult = {
     lowCombo?: ComboCard[];
     lowRank?: string;
   }>;
+};
+
+export type PotBreakdown = {
+  amount: number;
+  eligiblePlayerIds: string[];
 };
 
 export type ComboCard = {
@@ -149,6 +162,7 @@ export function normalizeHand(hand: DealtHand) {
   hand.potCoins = hand.potCoins ?? POT_COINS;
   hand.currentBet = hand.currentBet ?? 0;
   hand.roundBets = hand.roundBets ?? {};
+  hand.totalContributions = hand.totalContributions ?? legacyContributions(hand);
   hand.raiseCount = hand.raiseCount ?? 0;
   hand.blinds = hand.blinds ?? { ...blindLevelForHand(hand.handNumber) };
   hand.dealSeed = normalizeSeed(hand.dealSeed ?? hand.rngSeed);
@@ -167,6 +181,70 @@ export function normalizeHand(hand: DealtHand) {
     hand.currentPlayerId = firstActivePlayer(hand)?.id;
   }
   return hand;
+}
+
+function legacyContributions(hand: DealtHand) {
+  const totals: Record<string, number> = {};
+  const streetTotals = new Map<string, number>();
+
+  (hand.actions ?? []).forEach(action => {
+    if (typeof action.amount !== 'number') return;
+    const key = `${action.stage}:${action.playerId}`;
+    streetTotals.set(key, Math.max(streetTotals.get(key) ?? 0, action.amount));
+  });
+  streetTotals.forEach((amount, key) => {
+    const playerId = key.slice(key.indexOf(':') + 1);
+    totals[playerId] = (totals[playerId] ?? 0) + amount;
+  });
+
+  Object.entries(hand.roundBets ?? {}).forEach(([playerId, amount]) => {
+    const actionAmount = streetTotals.get(`${hand.stage}:${playerId}`) ?? 0;
+    totals[playerId] = (totals[playerId] ?? 0) + Math.max(amount - actionAmount, 0);
+  });
+
+  const smallBlindId = hand.blinds?.smallBlindPlayerId;
+  const bigBlindId = hand.blinds?.bigBlindPlayerId;
+  if (smallBlindId) totals[smallBlindId] = Math.max(totals[smallBlindId] ?? 0, Math.min(hand.blinds.small, hand.potCoins));
+  if (bigBlindId) totals[bigBlindId] = Math.max(totals[bigBlindId] ?? 0, Math.min(hand.blinds.big, hand.potCoins));
+  return totals;
+}
+
+function contributionLayers(hand: DealtHand): PotBreakdown[] {
+  const levels = [...new Set(
+    Object.values(hand.totalContributions).filter(amount => amount > 0),
+  )].sort((a, b) => a - b);
+  let previousLevel = 0;
+
+  return levels.map(level => {
+    const contributors = hand.players.filter(player => (
+      (hand.totalContributions[player.id] ?? 0) >= level
+    ));
+    const eligiblePlayerIds = hand.players
+      .filter(player => !player.folded && (hand.totalContributions[player.id] ?? 0) >= level)
+      .map(player => player.id);
+    const amount = (level - previousLevel) * contributors.length;
+    previousLevel = level;
+    return { amount, eligiblePlayerIds };
+  });
+}
+
+export function currentPotBreakdown(hand: DealtHand): PotBreakdown[] {
+  normalizeHand(hand);
+  const layers = contributionLayers(hand);
+  const hasAllInContender = hand.players.some(player => !player.folded && player.stack === 0);
+
+  if (!hasAllInContender || layers.length <= 1) {
+    return [{
+      amount: hand.potCoins,
+      eligiblePlayerIds: hand.players.filter(player => !player.folded).map(player => player.id),
+    }];
+  }
+
+  const tracked = layers.reduce((sum, layer) => sum + layer.amount, 0);
+  if (tracked < hand.potCoins) {
+    layers[0].amount += hand.potCoins - tracked;
+  }
+  return layers;
 }
 
 export function visibleCommunity(hand: Pick<DealtHand, 'fullCommunity' | 'community' | 'stage'>) {
@@ -243,6 +321,11 @@ function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
     return;
   }
 
+  if (acting.length === 1 && !playerNeedsAction(hand, acting[0].id, actedPlayers)) {
+    finishHand(hand);
+    return;
+  }
+
   if (active.every(p => !playerNeedsAction(hand, p.id, actedPlayers))) {
     hand.stage = nextStage(hand.stage);
     resetBettingRound(hand);
@@ -288,6 +371,7 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
     const paid = Math.min(amount, actingPlayer.stack);
     actingPlayer.stack -= paid;
     hand.roundBets[playerId] = (hand.roundBets[playerId] ?? 0) + paid;
+    hand.totalContributions[playerId] = (hand.totalContributions[playerId] ?? 0) + paid;
     hand.potCoins += paid;
     return paid;
   }
@@ -498,33 +582,100 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
     };
   });
 
-  const activeResults = playerResults.filter(result => !result.folded);
-  const bestHighScore = activeResults
-    .map(result => result.highScore)
-    .filter((score): score is number[] => Boolean(score))
-    .sort((a, b) => compareScore(b, a))[0];
-  const bestLowScore = activeResults
-    .map(result => result.lowScore)
-    .filter((score): score is number[] => Boolean(score))
-    .sort(compareScore)[0];
-  const highWinners = bestHighScore
-    ? activeResults.filter(result => result.highScore && compareScore(result.highScore, bestHighScore) === 0).map(result => result.id)
-    : contenders.map(player => player.id);
-  const lowWinners = bestLowScore
-    ? activeResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
-    : [];
-  const noLow = !bestLowScore;
-  const highPointPool = noLow ? hand.potCoins : hand.potCoins / 2;
-  const lowPointPool = noLow ? 0 : hand.potCoins / 2;
+  const contributions = hand.totalContributions;
+  const layers = contributionLayers(hand);
+  const pointTotals = new Map(hand.players.map(player => [player.id, { high: 0, low: 0 }]));
+  const sidePots = layers.map(layer => {
+    const { amount } = layer;
+    let eligibleResults = playerResults.filter(result => (
+      layer.eligiblePlayerIds.includes(result.id)
+    ));
+    // A legacy or malformed hand can contain unmatched chips from a player who
+    // later folded. Keep those chips payable instead of silently losing them.
+    if (!eligibleResults.length) {
+      eligibleResults = playerResults.filter(result => !result.folded);
+    }
+
+    const bestHighScore = eligibleResults
+      .map(result => result.highScore)
+      .filter((score): score is number[] => Boolean(score))
+      .sort((a, b) => compareScore(b, a))[0];
+    const bestLowScore = eligibleResults
+      .map(result => result.lowScore)
+      .filter((score): score is number[] => Boolean(score))
+      .sort(compareScore)[0];
+    const highWinners = bestHighScore
+      ? eligibleResults.filter(result => result.highScore && compareScore(result.highScore, bestHighScore) === 0).map(result => result.id)
+      : eligibleResults.map(result => result.id);
+    const lowWinners = bestLowScore
+      ? eligibleResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
+      : [];
+    const noLow = !bestLowScore;
+    const highPool = noLow ? amount : amount / 2;
+    const lowPool = noLow ? 0 : amount / 2;
+    highWinners.forEach(id => {
+      const points = pointTotals.get(id);
+      if (points) points.high += highPool / highWinners.length;
+    });
+    lowWinners.forEach(id => {
+      const points = pointTotals.get(id);
+      if (points) points.low += lowPool / lowWinners.length;
+    });
+    return {
+      amount,
+      eligiblePlayerIds: eligibleResults.map(result => result.id),
+      highWinners,
+      lowWinners,
+      noLow,
+    };
+  });
+
+  // Hands created before contribution tracking may not contain enough history
+  // to reconstruct the pot. Preserve their previous whole-pot settlement.
+  const trackedPot = sidePots.reduce((sum, pot) => sum + pot.amount, 0);
+  if (trackedPot < hand.potCoins && contenders.length) {
+    const remainder = hand.potCoins - trackedPot;
+    const activeResults = playerResults.filter(result => !result.folded);
+    const bestHighScore = activeResults
+      .map(result => result.highScore)
+      .filter((score): score is number[] => Boolean(score))
+      .sort((a, b) => compareScore(b, a))[0];
+    const bestLowScore = activeResults
+      .map(result => result.lowScore)
+      .filter((score): score is number[] => Boolean(score))
+      .sort(compareScore)[0];
+    const highWinners = bestHighScore
+      ? activeResults.filter(result => result.highScore && compareScore(result.highScore, bestHighScore) === 0).map(result => result.id)
+      : contenders.map(player => player.id);
+    const lowWinners = bestLowScore
+      ? activeResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
+      : [];
+    const noLow = !bestLowScore;
+    const highPool = noLow ? remainder : remainder / 2;
+    highWinners.forEach(id => pointTotals.get(id)!.high += highPool / highWinners.length);
+    lowWinners.forEach(id => pointTotals.get(id)!.low += (remainder / 2) / lowWinners.length);
+    sidePots.push({
+      amount: remainder,
+      eligiblePlayerIds: activeResults.map(result => result.id),
+      highWinners,
+      lowWinners,
+      noLow,
+    });
+  }
+
+  const highWinners = [...new Set(sidePots.flatMap(pot => pot.highWinners))];
+  const lowWinners = [...new Set(sidePots.flatMap(pot => pot.lowWinners))];
+  const noLow = sidePots.every(pot => pot.noLow);
 
   return {
     potCoins: hand.potCoins,
     highWinners,
     lowWinners,
     noLow,
+    sidePots,
     points: hand.players.map(player => {
-      const high = highWinners.includes(player.id) ? highPointPool / highWinners.length : 0;
-      const low = lowWinners.includes(player.id) ? lowPointPool / lowWinners.length : 0;
+      const high = pointTotals.get(player.id)?.high ?? 0;
+      const low = pointTotals.get(player.id)?.low ?? 0;
       return {
         id: player.id,
         high,
@@ -586,6 +737,7 @@ function applyBlinds(hand: DealtHand) {
   };
   hand.potCoins = 0;
   hand.roundBets = {};
+  hand.totalContributions = {};
   hand.currentBet = 0;
   hand.raiseCount = 0;
 
@@ -601,6 +753,8 @@ function applyBlinds(hand: DealtHand) {
     hand.blinds.bigBlindPlayerId = bigBlind.id;
     hand.roundBets[smallBlind.id] = smallPaid;
     hand.roundBets[bigBlind.id] = bigPaid;
+    hand.totalContributions[smallBlind.id] = smallPaid;
+    hand.totalContributions[bigBlind.id] = bigPaid;
     hand.potCoins = smallPaid + bigPaid;
     hand.currentBet = Math.max(smallPaid, bigPaid);
     hand.currentPlayerId = nextActivePlayerAfter(hand, bigBlind.id)?.id ?? firstActivePlayer(hand)?.id;
@@ -675,6 +829,7 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
     currentPlayerId: undefined,
     currentBet: 0,
     roundBets: {},
+    totalContributions: {},
     raiseCount: 0,
     blinds: { ...blindLevelForHand(1) },
     revealVotes: [],

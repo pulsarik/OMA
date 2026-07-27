@@ -19,6 +19,13 @@ type HiLoResult = {
   highWinners: string[];
   lowWinners: string[];
   noLow: boolean;
+  sidePots: Array<{
+    amount: number;
+    eligiblePlayerIds: string[];
+    highWinners: string[];
+    lowWinners: string[];
+    noLow: boolean;
+  }>;
   points: Array<{
     id: string;
     high: number;
@@ -37,7 +44,7 @@ type HiLoResult = {
   }>;
 };
 
-type ShowdownSummary = Pick<HiLoResult, 'potCoins' | 'highWinners' | 'lowWinners' | 'noLow' | 'points'>;
+type ShowdownSummary = Pick<HiLoResult, 'potCoins' | 'highWinners' | 'lowWinners' | 'noLow' | 'sidePots' | 'points'>;
 
 type PartyScore = {
   partyId: string;
@@ -76,6 +83,11 @@ type BlindInfo = {
   big: number;
   smallBlindPlayerId?: string;
   bigBlindPlayerId?: string;
+};
+
+type PotBreakdown = {
+  amount: number;
+  eligiblePlayerIds: string[];
 };
 
 function sourceHandLabel(score: PartyScore | undefined, sourceHandId: string | undefined) {
@@ -155,6 +167,7 @@ type PlayerView = {
   isBot?: boolean;
   stack: number;
   potCoins: number;
+  potBreakdown: PotBreakdown[];
   currentBet: number;
   roundBets: Record<string, number>;
   raiseCount: number;
@@ -910,32 +923,68 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
   );
 }
 
-function PotDisplay({ value, currentBet }: { value: number; currentBet: number }) {
+function PotDisplay({
+  value,
+  currentBet,
+  breakdown,
+}: {
+  value: number;
+  currentBet: number;
+  breakdown?: PotBreakdown[];
+}) {
+  const visiblePots = breakdown?.length && breakdown.length > 1 ? breakdown : [];
   return (
     <div
       style={{
-        display: 'flex',
+        display: 'grid',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 8,
+        justifyItems: 'center',
+        gap: 5,
         minHeight: 44,
         color: '#fff',
       }}
     >
-      <CoinStack value={value} title="pot" compact />
-      {currentBet > 0 ? (
-        <span
-          style={{
-            border: '1px solid rgba(255,255,255,0.5)',
-            borderRadius: 999,
-            padding: '2px 8px',
-            background: 'rgba(15,23,42,0.5)',
-            fontSize: 12,
-            fontWeight: 800,
-          }}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <CoinStack value={value} title="pot" compact />
+        {currentBet > 0 ? (
+          <span
+            style={{
+              border: '1px solid rgba(255,255,255,0.5)',
+              borderRadius: 999,
+              padding: '2px 8px',
+              background: 'rgba(15,23,42,0.5)',
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            bet {formatPoints(currentBet)}
+          </span>
+        ) : null}
+      </div>
+      {visiblePots.length ? (
+        <div
+          data-testid="side-pot-breakdown"
+          style={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 280 }}
         >
-          bet {formatPoints(currentBet)}
-        </span>
+          {visiblePots.map((pot, index) => (
+            <span
+              key={`${index}-${pot.amount}`}
+              title={`Eligible: ${pot.eligiblePlayerIds.join(', ')}`}
+              style={{
+                border: '1px solid rgba(255,255,255,0.44)',
+                borderRadius: 999,
+                background: index === 0 ? 'rgba(5,150,105,0.78)' : 'rgba(30,64,175,0.72)',
+                padding: '2px 7px',
+                fontSize: 10,
+                fontWeight: 900,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {index === 0 ? 'Main' : `Side ${index}`} {formatPoints(pot.amount)}
+            </span>
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -1648,6 +1697,9 @@ function ResultView({ result, players }: {
   const lowWinnerResults = result.lowWinners
     .map((id) => playerResult(result, id))
     .filter((player): player is NonNullable<typeof player> => Boolean(player));
+  const potWinnerLine = (ids: string[], pool: number) => ids.length
+    ? `${ids.map(displayName).join(', ')} · ${formatPoints(pool / ids.length)} each`
+    : 'No qualifying low';
 
   return (
     <section className="result-panel">
@@ -1688,6 +1740,52 @@ function ResultView({ result, players }: {
           ))}
         </section>
       </div>
+
+      {result.sidePots.length > 1 ? (
+        <div
+          data-testid="showdown-side-pots"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+            gap: 8,
+            marginTop: 12,
+          }}
+        >
+          {result.sidePots.map((pot, index) => {
+            const highPool = pot.noLow ? pot.amount : pot.amount / 2;
+            const lowPool = pot.noLow ? 0 : pot.amount / 2;
+            return (
+              <section
+                key={`${index}-${pot.amount}`}
+                style={{
+                  border: `1px solid ${index === 0 ? '#a7f3d0' : '#bfdbfe'}`,
+                  borderRadius: 12,
+                  background: index === 0 ? '#f0fdf4' : '#eff6ff',
+                  padding: '9px 10px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                  <strong style={{ color: index === 0 ? '#047857' : '#1d4ed8' }}>
+                    {index === 0 ? 'Main pot' : `Side pot ${index}`}
+                  </strong>
+                  <strong>{formatPoints(pot.amount)}</strong>
+                </div>
+                <div style={{ marginTop: 5, color: '#64748b', fontSize: 12 }}>
+                  Eligible: {pot.eligiblePlayerIds.map(displayName).join(', ')}
+                </div>
+                <div style={{ marginTop: 6, fontSize: 13 }}>
+                  <strong style={{ color: '#991b1b' }}>High:</strong>{' '}
+                  {potWinnerLine(pot.highWinners, highPool)}
+                </div>
+                <div style={{ marginTop: 3, fontSize: 13 }}>
+                  <strong style={{ color: '#047857' }}>Low:</strong>{' '}
+                  {pot.noLow ? 'No qualifying low' : potWinnerLine(pot.lowWinners, lowPool)}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      ) : null}
 
       <h3 style={{ margin: '14px 0 6px' }}>Points</h3>
       <table className="result-points">
@@ -1993,7 +2091,9 @@ function PlayerPage() {
           ) : null}
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
-          <div className="table-pot" data-testid="table-pot"><PotDisplay value={player.potCoins} currentBet={currentBet} /></div>
+          <div className="table-pot" data-testid="table-pot">
+            <PotDisplay value={player.potCoins} currentBet={currentBet} breakdown={player.potBreakdown} />
+          </div>
         </section>
 
         <div className="hero-zone">

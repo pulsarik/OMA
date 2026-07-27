@@ -9,6 +9,7 @@ import {
   PlayerMove,
   MAX_RAISES_PER_STREET,
   POT_COINS,
+  currentPotBreakdown,
   STARTING_STACK,
   dealHand,
   dealHandFromCode,
@@ -119,6 +120,7 @@ function publicHandState(hand: any) {
     revision: hand.revision ?? 0,
     replayOfHandId: hand.replayOfHandId,
     potCoins: hand.potCoins ?? POT_COINS,
+    potBreakdown: currentPotBreakdown(hand),
     currentBet: hand.currentBet ?? 0,
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
@@ -164,6 +166,7 @@ function showdownSummary(hand: any) {
     highWinners: result.highWinners,
     lowWinners: result.lowWinners,
     noLow: result.noLow,
+    sidePots: result.sidePots,
     points: result.points,
   };
 }
@@ -245,6 +248,7 @@ async function playerState(hand: any, player: any) {
     isBot: Boolean(player.isBot),
     stack: player.stack,
     potCoins: hand.potCoins ?? POT_COINS,
+    potBreakdown: currentPotBreakdown(hand),
     currentBet: hand.currentBet ?? 0,
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
