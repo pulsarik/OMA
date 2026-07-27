@@ -228,8 +228,12 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   await page.getByRole('button', { name: 'Fold' }).click();
   const newDealButton = page.getByRole('button', { name: 'New deal' });
   await expect(newDealButton).toBeVisible({ timeout: 30_000 });
-  const tableHeightAfterDeal = (await page.getByTestId('poker-table').boundingBox())!.height;
-  expect(Math.abs(tableHeightAfterDeal - tableHeightDuringDeal)).toBeLessThanOrEqual(2);
+  const tableBoxAfterDeal = (await page.getByTestId('poker-table').boundingBox())!;
+  expect(Math.abs(tableBoxAfterDeal.height - tableHeightDuringDeal)).toBeLessThanOrEqual(2);
+  const showdownDock = page.locator('.action-dock').filter({ has: newDealButton });
+  await expect(showdownDock).toBeVisible();
+  const showdownDockBox = (await showdownDock.boundingBox())!;
+  expect(showdownDockBox.y).toBeGreaterThanOrEqual(tableBoxAfterDeal.y + tableBoxAfterDeal.height);
   const newDealBox = await newDealButton.boundingBox();
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);

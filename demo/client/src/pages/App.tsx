@@ -926,7 +926,6 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
     return Array.from({ length: count }, () => chip);
   });
   const visibleChips = chips.length ? chips.slice(-18) : [{ value: 0, color: '#94a3b8', edge: '#475569', text: '#fff' }];
-  const hiddenCount = Math.max(chips.length - visibleChips.length, 0);
 
   return (
     <div
@@ -962,13 +961,7 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
               boxShadow: `0 1px 0 ${chip.edge}`,
               transform: `translate(${index % 2 === 0 ? (compact ? -2 : -3) : (compact ? 2 : 3)}px, ${-index * (compact ? 2 : 3)}px)`,
             }}
-          >
-            {index === visibleChips.length - 1 && hiddenCount ? (
-              <span style={{ position: 'absolute', marginLeft: 27, marginTop: -3, fontSize: 10 }}>
-                +{hiddenCount}
-              </span>
-            ) : null}
-          </span>
+          />
         ))}
       </div>
       <span
@@ -2139,17 +2132,6 @@ function PlayerPage() {
           {player.stage === 'showdown' ? (
             <div className="table-showdown">
               <ShowdownStatus player={player} />
-              {canContinue ? (
-                <button className="action-button primary" onClick={startNewDeal}>New deal</button>
-              ) : null}
-              {player.nextPlayerLink ? (
-                <button
-                  className="action-button primary"
-                  onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
-                >
-                  New deal
-                </button>
-              ) : null}
             </div>
           ) : null}
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
@@ -2186,6 +2168,24 @@ function PlayerPage() {
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
+
+      {canContinue || player.nextPlayerLink ? (
+        <div className="action-dock">
+          <div className="main-actions">
+            {canContinue ? (
+              <button className="action-button primary" onClick={startNewDeal}>New deal</button>
+            ) : null}
+            {player.nextPlayerLink ? (
+              <button
+                className="action-button primary"
+                onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
+              >
+                New deal
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {showActionDock ? <div className="action-dock">
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
