@@ -168,6 +168,7 @@ type PlayerView = {
   stack: number;
   potCoins: number;
   potBreakdown: PotBreakdown[];
+  totalContributions: Record<string, number>;
   currentBet: number;
   roundBets: Record<string, number>;
   raiseCount: number;
@@ -215,6 +216,7 @@ type FullHandView = {
   handNumber?: number;
   replayOfHandId?: string;
   potCoins?: number;
+  totalContributions?: Record<string, number>;
   currentBet?: number;
   roundBets?: Record<string, number>;
   raiseCount?: number;
@@ -473,8 +475,8 @@ const PLAYER_PAGE_STYLES = `
     padding: 12px;
   }
   .table-center.has-showdown {
-    grid-template-columns: minmax(260px, 1fr) auto minmax(260px, 1fr);
-    grid-template-areas: "status board pot";
+    grid-template-columns: minmax(220px, 1fr) auto auto minmax(140px, 1fr);
+    grid-template-areas: "status board new-deal pot";
   }
   .table-showdown {
     grid-area: status;
@@ -487,6 +489,7 @@ const PLAYER_PAGE_STYLES = `
   .table-center.has-showdown .table-stage { display: none; }
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
+  .table-new-deal { grid-area: new-deal; justify-self: start; margin-left: 10px; }
   .table-pot { grid-area: pot; justify-self: end; }
   .hero-zone {
     display: grid;
@@ -523,6 +526,9 @@ const PLAYER_PAGE_STYLES = `
   .side-combo-cards { display: flex; justify-content: center; gap: 3px; }
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
+  .compact-card-row { display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center; }
+  .compact-card-frame { width: ${COMPACT_CARD_WIDTH}px; height: ${COMPACT_CARD_HEIGHT}px; }
+  .board-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .action-dock {
     display: flex;
     align-items: center;
@@ -576,14 +582,51 @@ const PLAYER_PAGE_STYLES = `
   @media (max-width: 900px) {
     .poker-table { min-height: 0; }
     .table-center.has-showdown {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
-        "status"
-        "board"
-        "pot";
+        "status status"
+        "board new-deal"
+        "pot pot";
     }
     .table-showdown { justify-self: center; justify-content: center; }
+    .table-new-deal { margin-left: 8px; }
     .table-center.has-showdown .table-pot { justify-self: center; }
+  }
+  @media (min-width: 761px) and (max-height: 900px) {
+    .poker-page { padding: 4px 6px 8px; }
+    .view-tabs { margin-inline: 10px; }
+    .view-tab { min-height: 32px; padding: 5px 13px; }
+    .game-tile { border-radius: 20px; padding: 4px; }
+    .poker-table,
+    .poker-table.is-crowded {
+      min-height: 0;
+      gap: 8px;
+      border-width: 3px;
+      border-radius: 34px;
+      padding: 10px 14px;
+    }
+    .opponents-row,
+    .poker-table.is-crowded .opponents-row {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px 6px;
+    }
+    .player-seat { padding: 4px !important; }
+    .compact-card-row,
+    .board-row { gap: 4px !important; }
+    .compact-card-frame {
+      width: 53.36px !important;
+      height: 76.56px !important;
+    }
+    .compact-card { transform: scale(.58) !important; }
+    .table-center,
+    .poker-table.is-crowded .table-center {
+      min-height: 92px;
+      border-radius: 20px;
+      padding: 6px;
+    }
+    .hero-zone { gap: 5px; }
+    .combo-side { width: 170px; padding: 5px; }
+    .combo-side-title { margin-bottom: 4px; }
   }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
@@ -613,9 +656,11 @@ const PLAYER_PAGE_STYLES = `
       grid-template-areas:
         "status status"
         "board board"
+        "new-deal new-deal"
         "pot pot";
     }
     .table-showdown { justify-self: center; justify-content: center; }
+    .table-new-deal { justify-self: center; margin-left: 0; }
     .table-center.has-showdown .table-pot { justify-self: center; }
     .table-board { grid-column: 1 / -1; }
     .hero-zone {
@@ -638,7 +683,7 @@ function rankNumber(rank: string) {
   return Number(rank);
 }
 
-function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
+function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: number; className?: string }) {
   const rank = code.slice(0, -1).toUpperCase();
   const suit = code.slice(-1).toLowerCase();
   const assetCode = `${rank}${suit.toUpperCase()}`;
@@ -661,6 +706,7 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
   return (
     <div
       title={code}
+      className={className}
       style={{
         position: 'relative',
         width: 92,
@@ -716,10 +762,11 @@ function Card({ code, scale = CARD_SCALE }: { code: string; scale?: number }) {
   );
 }
 
-function CardBack({ scale = CARD_SCALE }: { scale?: number }) {
+function CardBack({ scale = CARD_SCALE, className }: { scale?: number; className?: string }) {
   return (
     <div
       data-testid="card-back"
+      className={className}
       style={{
         width: 92,
         height: 132,
@@ -754,10 +801,10 @@ function CardRow({ cards }: { cards: string[] }) {
 
 function CompactCardRow({ cards, testId }: { cards: string[]; testId?: string }) {
   return (
-    <div data-testid={testId} style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', justifyContent: 'center' }}>
+    <div data-testid={testId} className="compact-card-row">
       {cards.map((card) => (
-        <div key={card} style={{ width: COMPACT_CARD_WIDTH, height: COMPACT_CARD_HEIGHT }}>
-          <Card code={card} scale={COMPACT_CARD_SCALE} />
+        <div key={card} className="compact-card-frame">
+          <Card code={card} scale={COMPACT_CARD_SCALE} className="compact-card" />
         </div>
       ))}
     </div>
@@ -893,10 +940,18 @@ function CardBackRow({ count, compact = false, testId }: { count: number; compac
   const scale = compact ? COMPACT_CARD_SCALE : CARD_SCALE;
 
   return (
-    <div data-testid={testId} style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', justifyContent: 'center' }}>
+    <div
+      data-testid={testId}
+      className={compact ? 'compact-card-row' : undefined}
+      style={compact ? undefined : { display: 'flex', gap: 6, flexWrap: 'nowrap', justifyContent: 'center' }}
+    >
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} style={{ width, height }}>
-          <CardBack scale={scale} />
+        <div
+          key={index}
+          className={compact ? 'compact-card-frame' : undefined}
+          style={compact ? undefined : { width, height }}
+        >
+          <CardBack scale={scale} className={compact ? 'compact-card' : undefined} />
         </div>
       ))}
     </div>
@@ -910,15 +965,26 @@ function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boole
   const scale = compact ? COMPACT_CARD_SCALE : CARD_SCALE;
 
   return (
-    <div style={{ display: 'flex', gap: compact ? 8 : 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div
+      className={compact ? 'board-row' : undefined}
+      style={compact ? undefined : { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}
+    >
       {cards.map((card) => (
-        <div key={card} style={{ width, height }}>
-          <Card code={card} scale={scale} />
+        <div
+          key={card}
+          className={compact ? 'compact-card-frame' : undefined}
+          style={compact ? undefined : { width, height }}
+        >
+          <Card code={card} scale={scale} className={compact ? 'compact-card' : undefined} />
         </div>
       ))}
       {Array.from({ length: hiddenCount }).map((_, index) => (
-        <div key={`hidden-${index}`} style={{ width, height }}>
-          <CardBack scale={scale} />
+        <div
+          key={`hidden-${index}`}
+          className={compact ? 'compact-card-frame' : undefined}
+          style={compact ? undefined : { width, height }}
+        >
+          <CardBack scale={scale} className={compact ? 'compact-card' : undefined} />
         </div>
       ))}
     </div>
@@ -1119,7 +1185,7 @@ function PlayerSeat({
     : undefined;
   const isYourTurn = isCurrentTurn && isYou && !isBot;
   const bubbleLabel = isCurrentTurn ? isYourTurn ? 'YOUR TURN' : 'THINKING...' : actionLabel;
-  const hasWinningHand = isHighWinner || isLowWinner;
+  const hasWinningHand = !folded && (isHighWinner || isLowWinner);
   const winnerBorder = isHighWinner && isLowWinner
     ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
     : isHighWinner
@@ -1345,6 +1411,22 @@ function PlayerSeat({
               textAlign: 'center',
             }}
           >
+            {folded ? (
+              <span
+                data-testid={`player-ineligible-${id}`}
+                style={{
+                  borderRadius: 999,
+                  background: '#e5e7eb',
+                  color: '#7f1d1d',
+                  padding: '3px 7px',
+                  marginBottom: 2,
+                  fontSize: 10,
+                  fontWeight: 900,
+                }}
+              >
+                FOLDED — NOT ELIGIBLE
+              </span>
+            ) : null}
             <span>High: {resultPlayer.highRank ?? '-'}</span>
             <span>Low: {resultPlayer.lowRank ?? 'none'}</span>
           </div>
@@ -1502,6 +1584,9 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
   const hasResult = player.cardsRevealed && score;
   const hasSummary = player.stage === 'showdown' && summaryScore;
   const knownFoldResult = player.folded || Boolean(foldedWinnerId);
+  const contributed = player.totalContributions?.[player.playerId] ?? 0;
+  const payout = score?.total ?? summaryScore?.total ?? (foldedWinnerId === player.playerId ? player.potCoins : 0);
+  const net = payout - contributed;
   const winParts = playerWinParts(player.showdownSummary, player.playerId);
   const sharedWin = Boolean(
     player.showdownSummary
@@ -1523,32 +1608,24 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
 
   if (player.stage !== 'showdown' && !knownFoldResult && !hasSummary) return null;
 
-  const won = hasResult || hasSummary
-    ? (score?.total ?? summaryScore?.total ?? 0) > 0
-    : foldedWinnerId === player.playerId;
-  const background = hasResult
-    ? won ? 'rgba(22, 163, 74, 0.94)' : 'rgba(127, 29, 29, 0.94)'
-    : hasSummary
-      ? won ? 'rgba(22, 163, 74, 0.94)' : 'rgba(127, 29, 29, 0.94)'
-    : knownFoldResult
-      ? won ? 'rgba(22, 163, 74, 0.94)' : 'rgba(127, 29, 29, 0.94)'
+  const background = hasResult || hasSummary || knownFoldResult
+    ? net > 0
+      ? 'rgba(22, 163, 74, 0.94)'
+      : net < 0
+        ? 'rgba(127, 29, 29, 0.94)'
+        : 'rgba(51, 65, 85, 0.94)'
     : 'rgba(15, 23, 42, 0.82)';
   const title = hasResult || hasSummary || knownFoldResult
-    ? won
+    ? net > 0
       ? sharedWin
         ? `You tied${winParts.length ? ` ${winParts.join(' + ')}` : ''}`
         : winParts.length
         ? `${isSplitPot ? 'Split pot: ' : ''}You won ${winParts.join(' + ')}`
         : 'You won'
-      : 'You lost'
+      : net < 0
+        ? 'You lost'
+        : 'Break even'
     : 'Showdown';
-  const detail = hasResult
-    ? `${formatPoints(score.total)} of ${formatPoints(player.potCoins)} coins`
-    : hasSummary
-      ? `${formatPoints(summaryScore.total)} of ${formatPoints(player.showdownSummary?.potCoins ?? player.potCoins)} coins`
-    : knownFoldResult
-      ? won ? `${formatPoints(player.potCoins)} coins` : 'Folded'
-      : 'Cards revealed';
   const winners = player.showdownSummary
     ? `High: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')} | Low: ${
       player.showdownSummary.noLow
@@ -1575,9 +1652,16 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
       <strong style={{ fontSize: 28, lineHeight: 1.05 }}>
         {title}
       </strong>
-      <span style={{ fontSize: 15, opacity: 0.94 }}>
-        {detail}
-      </span>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 13 }}>
+        <span data-testid="showdown-contributed">Contributed: {formatPoints(contributed)}</span>
+        <span data-testid="showdown-payout">Payout: {formatPoints(payout)}</span>
+        <strong data-testid="showdown-net">
+          Net: {net > 0 ? '+' : ''}{formatPoints(net)}
+        </strong>
+      </div>
+      {payout > 0 && net <= 0 && winParts.length ? (
+        <span style={{ fontSize: 12, opacity: 0.9 }}>Won {winParts.join(' + ')}, but finished with a net loss</span>
+      ) : null}
       {winners ? (
         <span style={{ fontSize: 13, opacity: 0.9 }}>
           {winners}
@@ -1754,9 +1838,10 @@ function PartyStatistics({ score, players }: {
   );
 }
 
-function ResultView({ result, players }: {
+function ResultView({ result, players, contributions = {} }: {
   result?: HiLoResult;
   players: Array<{ id: string; name?: string }>;
+  contributions?: Record<string, number>;
 }) {
   const [showAllHands, setShowAllHands] = useState(false);
   if (!result) return null;
@@ -1864,18 +1949,31 @@ function ResultView({ result, players }: {
             <th style={{ textAlign: 'left' }}>Player</th>
             <th>High</th>
             <th>Low</th>
-            <th>Total</th>
+            <th>Contributed</th>
+            <th>Payout</th>
+            <th>Net</th>
           </tr>
         </thead>
         <tbody>
-          {result.points.map((score) => (
-            <tr key={score.id}>
-              <td>{displayName(score.id)}</td>
-              <td style={{ textAlign: 'right' }}>{formatPoints(score.high)}</td>
-              <td style={{ textAlign: 'right' }}>{formatPoints(score.low)}</td>
-              <td style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(score.total)}</td>
-            </tr>
-          ))}
+          {result.points.map((score) => {
+            const contributed = contributions[score.id] ?? 0;
+            const net = score.total - contributed;
+            return (
+              <tr key={score.id}>
+                <td>{displayName(score.id)}</td>
+                <td style={{ textAlign: 'right' }}>{formatPoints(score.high)}</td>
+                <td style={{ textAlign: 'right' }}>{formatPoints(score.low)}</td>
+                <td style={{ textAlign: 'right' }}>{formatPoints(contributed)}</td>
+                <td style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(score.total)}</td>
+                <td
+                  data-testid={`result-net-${score.id}`}
+                  style={{ textAlign: 'right', fontWeight: 900, color: net > 0 ? '#047857' : net < 0 ? '#b91c1c' : '#475569' }}
+                >
+                  {net > 0 ? '+' : ''}{formatPoints(net)}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -2150,6 +2248,21 @@ function PlayerPage() {
           ) : null}
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
+          {canContinue || player.nextPlayerLink ? (
+            <div className="table-new-deal" data-testid="table-new-deal">
+              {canContinue ? (
+                <button className="action-button primary" onClick={startNewDeal}>New deal</button>
+              ) : null}
+              {player.nextPlayerLink ? (
+                <button
+                  className="action-button primary"
+                  onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
+                >
+                  New deal
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           <div className="table-pot" data-testid="table-pot">
             <PotDisplay value={player.potCoins} currentBet={currentBet} breakdown={player.potBreakdown} />
           </div>
@@ -2182,24 +2295,6 @@ function PlayerPage() {
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
-
-      {canContinue || player.nextPlayerLink ? (
-        <div className="action-dock">
-          <div className="main-actions">
-            {canContinue ? (
-              <button className="action-button primary" onClick={startNewDeal}>New deal</button>
-            ) : null}
-            {player.nextPlayerLink ? (
-              <button
-                className="action-button primary"
-                onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
-              >
-                New deal
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       {showActionDock ? <div className="action-dock">
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
@@ -2277,7 +2372,9 @@ function PlayerPage() {
         </p>
       ) : null}
       <PartyStatistics score={player.partyScore} players={player.players} />
-      {player.cardsRevealed ? <ResultView result={player.result} players={player.players} /> : null}
+      {player.cardsRevealed ? (
+        <ResultView result={player.result} players={player.players} contributions={player.totalContributions} />
+      ) : null}
 
       {newDealLinks.length ? (
         <section style={{ marginTop: 18, border: '1px solid #d1d5db', borderRadius: 8, padding: 12 }}>
@@ -2354,7 +2451,9 @@ function DebugPage() {
         ))}
       </div>
 
-      {hand.cardsRevealed ? <ResultView result={hand.result} players={hand.players} /> : null}
+      {hand.cardsRevealed ? (
+        <ResultView result={hand.result} players={hand.players} contributions={hand.totalContributions} />
+      ) : null}
 
       <h2>Actions</h2>
       {hand.actions?.length ? (

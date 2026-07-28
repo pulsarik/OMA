@@ -764,6 +764,42 @@ test('evaluates folded players combinations without making them eligible to win'
   expect(result?.points.find(score => score.id === 'P1')?.total).toBe(0);
 });
 
+test('a folded qualifying low receives no payout', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['2s', '3h', '4d', 'Kc', 'Kd'];
+  hand.players[0].hole = ['As', '5c', 'Qh', 'Qs'];
+  hand.players[0].folded = true;
+  hand.players[1].hole = ['Ah', '6c', 'Qd', 'Jd'];
+  hand.totalContributions = { P1: 3, P2: 3 };
+  hand.potCoins = 6;
+
+  const result = evaluateOmahaHiLo(hand);
+
+  expect(result?.players.find(player => player.id === 'P1')?.lowRank).toBe('5-4-3-2-1');
+  expect(result?.lowWinners).toEqual(['P2']);
+  expect(result?.points.find(score => score.id === 'P1')?.total).toBe(0);
+  expect(result?.points.find(score => score.id === 'P2')?.total).toBe(6);
+});
+
+test('active players with the same high hand split the high pool', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['9s', 'Th', 'Jd', 'Qc', '2d'];
+  hand.players[0].hole = ['As', 'Kc', '7h', '8s'];
+  hand.players[1].hole = ['Ah', 'Ks', '3c', '4c'];
+  hand.totalContributions = { P1: 3, P2: 3 };
+  hand.potCoins = 6;
+
+  const result = evaluateOmahaHiLo(hand);
+
+  expect(result?.highWinners).toEqual(['P1', 'P2']);
+  expect(result?.points).toEqual([
+    { id: 'P1', high: 3, low: 0, total: 3 },
+    { id: 'P2', high: 3, low: 0, total: 3 },
+  ]);
+});
+
 test('evaluates current player combo from open board cards', () => {
   const combo = evaluatePlayerCombo(
     ['As', '5c', 'Qh', 'Qs'],

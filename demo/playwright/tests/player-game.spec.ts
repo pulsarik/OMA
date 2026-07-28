@@ -207,10 +207,14 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   await expect(newDealButton).toBeVisible({ timeout: 90_000 });
   const tableBoxAfterDeal = (await page.getByTestId('poker-table').boundingBox())!;
   expect(Math.abs(tableBoxAfterDeal.height - tableHeightDuringDeal)).toBeLessThanOrEqual(2);
-  const showdownDock = page.locator('.action-dock').filter({ has: newDealButton });
-  await expect(showdownDock).toBeVisible();
-  const showdownDockBox = (await showdownDock.boundingBox())!;
-  expect(showdownDockBox.y).toBeGreaterThanOrEqual(tableBoxAfterDeal.y + tableBoxAfterDeal.height);
+  const tableNewDeal = page.getByTestId('table-new-deal');
+  await expect(tableNewDeal).toBeVisible();
+  const boardBox = (await page.getByTestId('table-board').boundingBox())!;
+  const tableNewDealBox = (await tableNewDeal.boundingBox())!;
+  expect(tableNewDealBox.x).toBeGreaterThanOrEqual(boardBox.x + boardBox.width);
+  expect(tableNewDealBox.y).toBeGreaterThanOrEqual(tableBoxAfterDeal.y);
+  expect(tableNewDealBox.y + tableNewDealBox.height)
+    .toBeLessThanOrEqual(tableBoxAfterDeal.y + tableBoxAfterDeal.height);
   const newDealBox = await newDealButton.boundingBox();
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);
@@ -219,6 +223,7 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
+  const formatResultPoints = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
   const assertCumulativeStats = async (state: any) => {
     const completedHands = state.partyScore.hands.filter((hand: any) => hand.stage === 'showdown');
     const formatPoints = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
@@ -271,6 +276,13 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   ))).toBe(true);
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
+  const contribution = showdownState.totalContributions.P1;
+  const payout = showdownState.showdownSummary.points.find((score: any) => score.id === 'P1').total;
+  const net = payout - contribution;
+  await expect(page.getByTestId('showdown-contributed')).toHaveText(`Contributed: ${formatResultPoints(contribution)}`);
+  await expect(page.getByTestId('showdown-payout')).toHaveText(`Payout: ${formatResultPoints(payout)}`);
+  await expect(page.getByTestId('showdown-net')).toHaveText(`Net: ${formatResultPoints(net)}`);
+  await expect(page.getByTestId('player-ineligible-P1')).toHaveText('FOLDED — NOT ELIGIBLE');
   for (const winnerId of showdownState.showdownSummary.highWinners) {
     await expect(page.getByTestId(`winner-high-${winnerId}`)).toHaveText('★ HIGH');
   }
@@ -283,6 +295,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(foldedTableResult.getByText(/^Low: /)).toBeVisible();
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await expect(page.getByTestId('stats-tile')).toBeVisible();
+  await expect(page.getByTestId('result-net-P1')).toHaveText(formatResultPoints(net));
   await expect(page.getByTestId('game-tile')).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toHaveAttribute('aria-selected', 'true');
   await assertCumulativeStats(showdownState);
