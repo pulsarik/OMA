@@ -25,6 +25,15 @@ type HiLoResult = {
     highWinners: string[];
     lowWinners: string[];
     noLow: boolean;
+    players: Array<{
+      id: string;
+      contributed?: number;
+      high: number;
+      low: number;
+      payout: number;
+      net?: number;
+      eligible: boolean;
+    }>;
   }>;
   points: Array<{
     id: string;
@@ -442,14 +451,13 @@ const PLAYER_PAGE_STYLES = `
     padding: 8px;
   }
   .opponents-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
-    justify-items: center;
     align-items: flex-start;
     gap: 20px 8px;
   }
-  .player-seat-wrap { min-width: 0; }
+  .player-seat-wrap { flex: 0 1 360px; min-width: 0; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
   }
@@ -607,9 +615,9 @@ const PLAYER_PAGE_STYLES = `
     }
     .opponents-row,
     .poker-table.is-crowded .opponents-row {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px 6px;
     }
+    .opponents-row .player-seat-wrap { flex-basis: calc((100% - 12px) / 3); }
     .player-seat { padding: 4px !important; }
     .compact-card-row,
     .board-row { gap: 4px !important; }
@@ -1633,6 +1641,10 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
         : player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')
     }`
     : undefined;
+  const personalPots = player.showdownSummary?.sidePots.map((pot, index) => ({
+    label: index === 0 ? 'Main' : `Side ${index}`,
+    result: pot.players.find(result => result.id === player.playerId),
+  })) ?? [];
 
   return (
     <div
@@ -1661,6 +1673,35 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
       </div>
       {payout > 0 && net <= 0 && winParts.length ? (
         <span style={{ fontSize: 12, opacity: 0.9 }}>Won {winParts.join(' + ')}, but finished with a net loss</span>
+      ) : null}
+      {personalPots.length > 1 ? (
+        <div
+          data-testid="personal-pot-results"
+          style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 }}
+        >
+          {personalPots.map(({ label, result }) => (
+            <span
+              key={label}
+              style={{
+                border: '1px solid rgba(255,255,255,.42)',
+                borderRadius: 999,
+                background: 'rgba(15,23,42,.3)',
+                padding: '2px 7px',
+                fontSize: 11,
+                fontWeight: 800,
+              }}
+            >
+              {label}:{' '}
+              {!result?.eligible
+                ? result?.contributed
+                  ? `not eligible · ${formatPoints(result.net ?? -result.contributed)}`
+                  : 'not eligible'
+                : result.net === undefined
+                  ? `payout ${formatPoints(result.payout)}`
+                  : `${result.net > 0 ? '+' : ''}${formatPoints(result.net)}`}
+            </span>
+          ))}
+        </div>
       ) : null}
       {winners ? (
         <span style={{ fontSize: 13, opacity: 0.9 }}>
@@ -1838,10 +1879,11 @@ function PartyStatistics({ score, players }: {
   );
 }
 
-function ResultView({ result, players, contributions = {} }: {
+function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   result?: HiLoResult;
   players: Array<{ id: string; name?: string }>;
   contributions?: Record<string, number>;
+  currentPlayerId?: string;
 }) {
   const [showAllHands, setShowAllHands] = useState(false);
   if (!result) return null;
@@ -1909,6 +1951,9 @@ function ResultView({ result, players, contributions = {} }: {
           {result.sidePots.map((pot, index) => {
             const highPool = pot.noLow ? pot.amount : pot.amount / 2;
             const lowPool = pot.noLow ? 0 : pot.amount / 2;
+            const personalResult = currentPlayerId
+              ? pot.players.find(player => player.id === currentPlayerId)
+              : undefined;
             return (
               <section
                 key={`${index}-${pot.amount}`}
@@ -1936,6 +1981,29 @@ function ResultView({ result, players, contributions = {} }: {
                   <strong style={{ color: '#047857' }}>Low:</strong>{' '}
                   {pot.noLow ? 'No qualifying low' : potWinnerLine(pot.lowWinners, lowPool)}
                 </div>
+                {currentPlayerId ? (
+                  <div
+                    data-testid={`personal-pot-${index}`}
+                    style={{
+                      marginTop: 7,
+                      borderTop: '1px solid rgba(100,116,139,.25)',
+                      paddingTop: 6,
+                      color: personalResult?.eligible ? '#0f172a' : '#64748b',
+                      fontSize: 12,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {!personalResult?.eligible
+                      ? `You: not eligible${
+                        personalResult?.contributed
+                          ? ` · contributed ${formatPoints(personalResult.contributed)} · net ${formatPoints(personalResult.net ?? -personalResult.contributed)}`
+                          : ''
+                      }`
+                      : personalResult.net === undefined
+                        ? `You: payout ${formatPoints(personalResult.payout)}`
+                        : `You: contributed ${formatPoints(personalResult.contributed ?? 0)} · payout ${formatPoints(personalResult.payout)} · net ${personalResult.net > 0 ? '+' : ''}${formatPoints(personalResult.net)}`}
+                  </div>
+                ) : null}
               </section>
             );
           })}
@@ -2373,7 +2441,12 @@ function PlayerPage() {
       ) : null}
       <PartyStatistics score={player.partyScore} players={player.players} />
       {player.cardsRevealed ? (
-        <ResultView result={player.result} players={player.players} contributions={player.totalContributions} />
+        <ResultView
+          result={player.result}
+          players={player.players}
+          contributions={player.totalContributions}
+          currentPlayerId={player.playerId}
+        />
       ) : null}
 
       {newDealLinks.length ? (

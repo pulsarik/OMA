@@ -96,6 +96,15 @@ export type HiLoResult = {
     highWinners: string[];
     lowWinners: string[];
     noLow: boolean;
+    players: Array<{
+      id: string;
+      contributed?: number;
+      high: number;
+      low: number;
+      payout: number;
+      net?: number;
+      eligible: boolean;
+    }>;
   }>;
   points: Array<{
     id: string;
@@ -118,6 +127,10 @@ export type HiLoResult = {
 export type PotBreakdown = {
   amount: number;
   eligiblePlayerIds: string[];
+};
+
+type ContributionLayer = PotBreakdown & {
+  contributions: Record<string, number>;
 };
 
 export type ComboCard = {
@@ -209,7 +222,7 @@ function legacyContributions(hand: DealtHand) {
   return totals;
 }
 
-function contributionLayers(hand: DealtHand): PotBreakdown[] {
+function contributionLayers(hand: DealtHand): ContributionLayer[] {
   const levels = [...new Set(
     Object.values(hand.totalContributions).filter(amount => amount > 0),
   )].sort((a, b) => a - b);
@@ -224,12 +237,16 @@ function contributionLayers(hand: DealtHand): PotBreakdown[] {
       .filter(player => !player.folded && (hand.totalContributions[player.id] ?? 0) >= level)
       .map(player => player.id);
     const eligiblePlayerIds = eligibleAtLevel.length ? eligibleAtLevel : activePlayerIds;
-    const amount = (level - previousLevel) * contributors.length;
+    const contributionPerPlayer = level - previousLevel;
+    const contributions = Object.fromEntries(
+      contributors.map(player => [player.id, contributionPerPlayer]),
+    );
+    const amount = contributionPerPlayer * contributors.length;
     previousLevel = level;
-    return { amount, eligiblePlayerIds };
+    return { amount, eligiblePlayerIds, contributions };
   });
 
-  return rawLayers.reduce<PotBreakdown[]>((pots, layer) => {
+  return rawLayers.reduce<ContributionLayer[]>((pots, layer) => {
     const previous = pots[pots.length - 1];
     const sameEligibility = previous
       && previous.eligiblePlayerIds.length === layer.eligiblePlayerIds.length
@@ -237,8 +254,15 @@ function contributionLayers(hand: DealtHand): PotBreakdown[] {
 
     if (sameEligibility) {
       previous.amount += layer.amount;
+      Object.entries(layer.contributions).forEach(([id, amount]) => {
+        previous.contributions[id] = (previous.contributions[id] ?? 0) + amount;
+      });
     } else {
-      pots.push({ ...layer, eligiblePlayerIds: [...layer.eligiblePlayerIds] });
+      pots.push({
+        ...layer,
+        eligiblePlayerIds: [...layer.eligiblePlayerIds],
+        contributions: { ...layer.contributions },
+      });
     }
     return pots;
   }, []);
@@ -260,7 +284,7 @@ export function currentPotBreakdown(hand: DealtHand): PotBreakdown[] {
   if (tracked < hand.potCoins) {
     layers[0].amount += hand.potCoins - tracked;
   }
-  return layers;
+  return layers.map(({ amount, eligiblePlayerIds }) => ({ amount, eligiblePlayerIds }));
 }
 
 export function visibleCommunity(hand: Pick<DealtHand, 'fullCommunity' | 'community' | 'stage'>) {
@@ -601,7 +625,7 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
   const contributions = hand.totalContributions;
   const layers = contributionLayers(hand);
   const pointTotals = new Map(hand.players.map(player => [player.id, { high: 0, low: 0 }]));
-  const sidePots = layers.map(layer => {
+  const sidePots: HiLoResult['sidePots'] = layers.map(layer => {
     const { amount } = layer;
     let eligibleResults = playerResults.filter(result => (
       layer.eligiblePlayerIds.includes(result.id)
@@ -629,13 +653,15 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
     const noLow = !bestLowScore;
     const highPool = noLow ? amount : amount / 2;
     const lowPool = noLow ? 0 : amount / 2;
+    const highShare = highWinners.length ? highPool / highWinners.length : 0;
+    const lowShare = lowWinners.length ? lowPool / lowWinners.length : 0;
     highWinners.forEach(id => {
       const points = pointTotals.get(id);
-      if (points) points.high += highPool / highWinners.length;
+      if (points) points.high += highShare;
     });
     lowWinners.forEach(id => {
       const points = pointTotals.get(id);
-      if (points) points.low += lowPool / lowWinners.length;
+      if (points) points.low += lowShare;
     });
     return {
       amount,
@@ -643,6 +669,21 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
       highWinners,
       lowWinners,
       noLow,
+      players: hand.players.map(player => {
+        const contributed = layer.contributions[player.id] ?? 0;
+        const high = highWinners.includes(player.id) ? highShare : 0;
+        const low = lowWinners.includes(player.id) ? lowShare : 0;
+        const payout = high + low;
+        return {
+          id: player.id,
+          contributed,
+          high,
+          low,
+          payout,
+          net: payout - contributed,
+          eligible: eligibleResults.some(result => result.id === player.id),
+        };
+      }),
     };
   });
 
@@ -676,6 +717,17 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
       highWinners,
       lowWinners,
       noLow,
+      players: hand.players.map(player => {
+        const high = highWinners.includes(player.id) ? highPool / highWinners.length : 0;
+        const low = lowWinners.includes(player.id) ? (remainder / 2) / lowWinners.length : 0;
+        return {
+          id: player.id,
+          high,
+          low,
+          payout: high + low,
+          eligible: activeResults.some(result => result.id === player.id),
+        };
+      }),
     });
   }
 

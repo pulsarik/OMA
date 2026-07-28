@@ -40,8 +40,15 @@ test('opponent rows stay stable as seat content changes at every table size', as
     await createDefaultHumanVsBotDeal(page, playerCount);
 
     const opponentsGrid = page.getByTestId('opponents-grid');
-    await expect(opponentsGrid).toHaveCSS('display', 'grid');
+    await expect(opponentsGrid).toHaveCSS('display', 'flex');
     await expect(opponentsGrid.locator('[data-player-seat]')).toHaveCount(playerCount - 1);
+    if (playerCount === 2) {
+      const gridBox = (await opponentsGrid.boundingBox())!;
+      const opponentBox = (await opponentsGrid.locator('[data-player-seat]').boundingBox())!;
+      expect(Math.abs(
+        (opponentBox.x + opponentBox.width / 2) - (gridBox.x + gridBox.width / 2)
+      )).toBeLessThanOrEqual(2);
+    }
     const rowsBeforeContentChange = await rowSizes();
 
     await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {

@@ -646,7 +646,7 @@ test('splits the pot when a short-stacked player is all in', () => {
 
   const result = evaluateOmahaHiLo(hand);
 
-  expect(result?.sidePots).toEqual([
+  expect(result?.sidePots.map(({ players, ...pot }) => pot)).toEqual([
     {
       amount: 30,
       eligiblePlayerIds: ['P1', 'P2', 'P3'],
@@ -667,6 +667,23 @@ test('splits the pot when a short-stacked player is all in', () => {
     { id: 'P2', high: 40, low: 0, total: 40 },
     { id: 'P3', high: 0, low: 0, total: 0 },
   ]);
+  expect(result?.sidePots[0].players.find(player => player.id === 'P1')).toMatchObject({
+    contributed: 10,
+    payout: 30,
+    net: 20,
+    eligible: true,
+  });
+  expect(result?.sidePots[1].players.find(player => player.id === 'P1')).toMatchObject({
+    contributed: 0,
+    payout: 0,
+    net: 0,
+    eligible: false,
+  });
+  result?.sidePots.forEach(pot => {
+    expect(pot.players.reduce((sum, player) => sum + (player.contributed ?? 0), 0)).toBe(pot.amount);
+    expect(pot.players.reduce((sum, player) => sum + player.payout, 0)).toBe(pot.amount);
+    expect(pot.players.reduce((sum, player) => sum + (player.net ?? 0), 0)).toBe(0);
+  });
 });
 
 test('creates multiple side pots for several all-in levels', () => {
