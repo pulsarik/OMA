@@ -40,6 +40,46 @@ test('a bot does not fold a made flush when the raise cap is reached', () => {
   expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
 });
 
+test('problem 1000: a strong bot calls all-in when its stack cannot cover the call', () => {
+  const hand = dealHand(3, 2947014801);
+  hand.stage = 'river';
+  hand.fullCommunity = ['Jc', 'Ah', 'Kd', 'Td', '7h'];
+  hand.community = [...hand.fullCommunity];
+  hand.currentPlayerId = 'P2';
+  hand.currentBet = 665;
+  hand.roundBets = { P1: 665 };
+  hand.totalContributions = { P1: 1103, P2: 438, P3: 438 };
+  hand.potCoins = 1995;
+  hand.players[0].stack = 0;
+  hand.players[0].hole = ['Qh', '8s', 'Jh', '4s'];
+  hand.players[1].stack = 445;
+  hand.players[1].hole = ['8c', 'Qs', 'Kh', '8h'];
+  hand.players[2].stack = 547;
+  hand.players[2].hole = ['6s', 'Ad', '3c', 'Qc'];
+  hand.actions = [{
+    playerId: 'P1',
+    move: 'bet',
+    amount: 665,
+    stage: 'river',
+    at: 1,
+  }];
+
+  expect(evaluatePlayerCombo(hand.players[1].hole, hand.community)?.highRank).toBe('straight');
+  const decision = botMove(hand, hand.players[1]);
+  expect(decision).toEqual({ move: 'call' });
+  expect(() => recordPlayerMove(hand, 'P2', decision.move, decision.amount)).not.toThrow();
+  expect(hand.players[1].stack).toBe(0);
+  expect(hand.currentPlayerId).toBe('P3');
+
+  const nextDecision = botMove(hand, hand.players[2]);
+  expect(nextDecision).toEqual({ move: 'call' });
+  expect(() => recordPlayerMove(hand, 'P3', nextDecision.move, nextDecision.amount)).not.toThrow();
+  expect(hand.stage).toBe('showdown');
+  expect(hand.currentPlayerId).toBeUndefined();
+  expect(hand.players[0].stack).toBe(118);
+  expect(hand.potCoins).toBe(2869);
+});
+
 test('a bot does not fold a full house made on the turn', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'turn';

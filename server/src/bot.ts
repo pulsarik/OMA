@@ -134,6 +134,9 @@ export function botMove(hand: any, player: any): BotDecision {
 
   const mustContinue = premiumPreflop || strongMadeHand || scoopScore >= 6;
   if (mustContinue) {
+    if (player.stack <= callAmount) {
+      return { move: 'call' };
+    }
     if (hand.raiseCount < MAX_RAISES_PER_STREET) {
       return { move: 'raise', amount: potRaiseTo(hand, player, scoopScore >= 7 ? 1 : 0.5) };
     }
