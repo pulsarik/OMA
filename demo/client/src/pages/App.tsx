@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { callAction } from '../callAction';
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
@@ -25,6 +26,7 @@ type HiLoResult = {
     highWinners: string[];
     lowWinners: string[];
     noLow: boolean;
+    uncontestedWinnerId?: string;
     players: Array<{
       id: string;
       contributed?: number;
@@ -39,6 +41,7 @@ type HiLoResult = {
     id: string;
     high: number;
     low: number;
+    uncontested?: number;
     total: number;
   }>;
   players: Array<{
@@ -77,6 +80,7 @@ type PartyScore = {
       id: string;
       high: number;
       low: number;
+      uncontested?: number;
       total: number;
     }>;
     net: Array<{
@@ -1576,6 +1580,10 @@ function summaryPoints(summary: ShowdownSummary | undefined, id: string) {
   return summary?.points.find((score) => score.id === id);
 }
 
+function isContestedPot(pot: HiLoResult['sidePots'][number]) {
+  return pot.players.filter(player => (player.contributed ?? 0) > 0).length > 1;
+}
+
 function playerWinParts(summary: ShowdownSummary | undefined, playerId: string) {
   if (!summary) return [];
   const parts: string[] = [];
@@ -1641,10 +1649,12 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
         : player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')
     }`
     : undefined;
-  const personalPots = player.showdownSummary?.sidePots.map((pot, index) => ({
-    label: index === 0 ? 'Main' : `Side ${index}`,
-    result: pot.players.find(result => result.id === player.playerId),
-  })) ?? [];
+  const personalPots = player.showdownSummary?.sidePots
+    .filter(isContestedPot)
+    .map((pot, index) => ({
+      label: index === 0 ? 'Main' : `Side ${index}`,
+      result: pot.players.find(result => result.id === player.playerId),
+    })) ?? [];
 
   return (
     <div
@@ -1894,6 +1904,12 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   const lowWinnerResults = result.lowWinners
     .map((id) => playerResult(result, id))
     .filter((player): player is NonNullable<typeof player> => Boolean(player));
+  const uncontestedWinnerIds = [...new Set(
+    result.sidePots
+      .map(pot => pot.uncontestedWinnerId)
+      .filter((id): id is string => Boolean(id)),
+  )];
+  const contestedPots = result.sidePots.filter(isContestedPot);
   const potWinnerLine = (ids: string[], pool: number) => ids.length
     ? `${ids.map(displayName).join(', ')} · ${formatPoints(pool / ids.length)} each`
     : 'No qualifying low';
@@ -1914,6 +1930,11 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
 
       <div className="winner-grid">
         <section className="winner-card">
+          {!highWinnerResults.length && uncontestedWinnerIds.length ? (
+            <h3 style={{ margin: 0, color: '#991b1b' }}>
+              Uncontested winner{uncontestedWinnerIds.length > 1 ? 's' : ''}: {uncontestedWinnerIds.map(displayName).join(', ')}
+            </h3>
+          ) : null}
           {highWinnerResults.map((winner) => (
             <div key={winner.id}>
               <h3 style={{ margin: '0 0 6px', color: '#991b1b' }}>
@@ -1938,7 +1959,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
         </section>
       </div>
 
-      {result.sidePots.length > 1 ? (
+      {contestedPots.length > 1 ? (
         <div
           data-testid="showdown-side-pots"
           style={{
@@ -1948,7 +1969,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
             marginTop: 12,
           }}
         >
-          {result.sidePots.map((pot, index) => {
+          {contestedPots.map((pot, index) => {
             const highPool = pot.noLow ? pot.amount : pot.amount / 2;
             const lowPool = pot.noLow ? 0 : pot.amount / 2;
             const personalResult = currentPlayerId
@@ -1973,14 +1994,23 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
                 <div style={{ marginTop: 5, color: '#64748b', fontSize: 12 }}>
                   Eligible: {pot.eligiblePlayerIds.map(displayName).join(', ')}
                 </div>
-                <div style={{ marginTop: 6, fontSize: 13 }}>
-                  <strong style={{ color: '#991b1b' }}>High:</strong>{' '}
-                  {potWinnerLine(pot.highWinners, highPool)}
-                </div>
-                <div style={{ marginTop: 3, fontSize: 13 }}>
-                  <strong style={{ color: '#047857' }}>Low:</strong>{' '}
-                  {pot.noLow ? 'No qualifying low' : potWinnerLine(pot.lowWinners, lowPool)}
-                </div>
+                {pot.uncontestedWinnerId ? (
+                  <div style={{ marginTop: 6, fontSize: 13 }}>
+                    <strong>Uncontested:</strong>{' '}
+                    {displayName(pot.uncontestedWinnerId)} · {formatPoints(pot.amount)}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginTop: 6, fontSize: 13 }}>
+                      <strong style={{ color: '#991b1b' }}>High:</strong>{' '}
+                      {potWinnerLine(pot.highWinners, highPool)}
+                    </div>
+                    <div style={{ marginTop: 3, fontSize: 13 }}>
+                      <strong style={{ color: '#047857' }}>Low:</strong>{' '}
+                      {pot.noLow ? 'No qualifying low' : potWinnerLine(pot.lowWinners, lowPool)}
+                    </div>
+                  </>
+                )}
                 {currentPlayerId ? (
                   <div
                     data-testid={`personal-pot-${index}`}
@@ -2017,6 +2047,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
             <th style={{ textAlign: 'left' }}>Player</th>
             <th>High</th>
             <th>Low</th>
+            <th>Returned</th>
             <th>Contributed</th>
             <th>Payout</th>
             <th>Net</th>
@@ -2031,6 +2062,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
                 <td>{displayName(score.id)}</td>
                 <td style={{ textAlign: 'right' }}>{formatPoints(score.high)}</td>
                 <td style={{ textAlign: 'right' }}>{formatPoints(score.low)}</td>
+                <td style={{ textAlign: 'right' }}>{formatPoints(score.uncontested ?? 0)}</td>
                 <td style={{ textAlign: 'right' }}>{formatPoints(contributed)}</td>
                 <td style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(score.total)}</td>
                 <td
@@ -2204,10 +2236,11 @@ function PlayerPage() {
   const raiseCount = player.raiseCount ?? 0;
   const maxRaises = player.maxRaises ?? 3;
   const callAmount = Math.max(currentBet - yourRoundBet, 0);
+  const call = callAction(callAmount, player.stack);
   const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
   const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, bigBlind, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
-  const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises;
+  const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises && call.canRaise;
   const hasContinuation = Boolean(player.nextHandId || player.nextReplayHandId);
   const remainingPlayers = player.players.filter((seat) => {
     const settledStack = player.partyScore?.totals.find((total) => total.id === seat.id)?.total;
@@ -2423,7 +2456,7 @@ function PlayerPage() {
         {canAct && callAmount > 0 ? (
           <>
             <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
-              Call {formatPoints(callAmount)}
+              {call.isAllIn ? 'All-in' : 'Call'} {formatPoints(call.amount)}
             </button>
             {raiseCount < maxRaises ? (
               <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>

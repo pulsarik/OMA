@@ -316,7 +316,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(foldedHand.getByText(/^Low: /)).toBeVisible();
   await expect(page.getByTestId('party-total-P1')).toContainText('Dima');
   await expect(page.getByTestId('party-total-P2')).toContainText('Anna');
-  await expect(page.getByRole('heading', { name: /^High winner: Anna -/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Uncontested winner: Anna' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'TABLE' }).click();
   await expect(page.getByTestId('game-tile')).toBeVisible();

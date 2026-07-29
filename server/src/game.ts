@@ -96,6 +96,7 @@ export type HiLoResult = {
     highWinners: string[];
     lowWinners: string[];
     noLow: boolean;
+    uncontestedWinnerId?: string;
     players: Array<{
       id: string;
       contributed?: number;
@@ -110,6 +111,7 @@ export type HiLoResult = {
     id: string;
     high: number;
     low: number;
+    uncontested?: number;
     total: number;
   }>;
   players: Array<{
@@ -246,7 +248,7 @@ function contributionLayers(hand: DealtHand): ContributionLayer[] {
     return { amount, eligiblePlayerIds, contributions };
   });
 
-  return rawLayers.reduce<ContributionLayer[]>((pots, layer) => {
+  const layers = rawLayers.reduce<ContributionLayer[]>((pots, layer) => {
     const previous = pots[pots.length - 1];
     const sameEligibility = previous
       && previous.eligiblePlayerIds.length === layer.eligiblePlayerIds.length
@@ -266,6 +268,24 @@ function contributionLayers(hand: DealtHand): ContributionLayer[] {
     }
     return pots;
   }, []);
+
+  // Legacy or malformed action history can reconstruct more contributions than
+  // the stored pot contains. Remove that excess from the outermost side pots
+  // first so the breakdown and settlement can never create chips.
+  let excess = layers.reduce((sum, layer) => sum + layer.amount, 0) - hand.potCoins;
+  for (let index = layers.length - 1; index >= 0 && excess > 0; index -= 1) {
+    const layer = layers[index];
+    const reduction = Math.min(excess, layer.amount);
+    const remaining = layer.amount - reduction;
+    const scale = layer.amount > 0 ? remaining / layer.amount : 0;
+    Object.keys(layer.contributions).forEach(playerId => {
+      layer.contributions[playerId] *= scale;
+    });
+    layer.amount = remaining;
+    excess -= reduction;
+  }
+
+  return layers.filter(layer => layer.amount > 0);
 }
 
 export function currentPotBreakdown(hand: DealtHand): PotBreakdown[] {
@@ -338,7 +358,27 @@ function resetBettingRound(hand: DealtHand) {
   hand.raiseCount = 0;
 }
 
+function returnUncalledBet(hand: DealtHand) {
+  const bets = hand.players
+    .map(player => ({ player, amount: hand.roundBets[player.id] ?? 0 }))
+    .sort((a, b) => b.amount - a.amount);
+  const highest = bets[0];
+  const matchedAmount = bets[1]?.amount ?? 0;
+
+  if (!highest || highest.amount <= matchedAmount) return;
+
+  const returned = highest.amount - matchedAmount;
+  highest.player.stack += returned;
+  hand.roundBets[highest.player.id] = matchedAmount;
+  hand.totalContributions[highest.player.id] = Math.max(
+    (hand.totalContributions[highest.player.id] ?? 0) - returned,
+    0,
+  );
+  hand.potCoins = Math.max(hand.potCoins - returned, 0);
+}
+
 function finishHand(hand: DealtHand) {
+  returnUncalledBet(hand);
   hand.stage = 'showdown';
   hand.currentPlayerId = undefined;
   resetBettingRound(hand);
@@ -367,6 +407,7 @@ function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
   }
 
   if (active.every(p => !playerNeedsAction(hand, p.id, actedPlayers))) {
+    returnUncalledBet(hand);
     hand.stage = nextStage(hand.stage);
     resetBettingRound(hand);
     hand.currentPlayerId = hand.stage === 'showdown' ? undefined : firstActivePlayer(hand)?.id;
@@ -431,6 +472,7 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
     if (hand.currentBet === 0) throw new Error('raise requires an open bet');
     if (hand.raiseCount >= MAX_RAISES_PER_STREET) throw new Error('raise cap reached');
     const callAmount = Math.max(hand.currentBet - playerBet, 0);
+    if (actingPlayer.stack <= callAmount) throw new Error('insufficient chips to raise');
     const maxRaiseTo = Math.min(playerBet + actingPlayer.stack, hand.currentBet + hand.potCoins + callAmount);
     const minRaiseTo = Math.min(hand.currentBet + betUnit, maxRaiseTo);
     const nextBet = Math.min(Math.max(requestedBet ?? minRaiseTo, minRaiseTo), maxRaiseTo);
@@ -624,7 +666,7 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
 
   const contributions = hand.totalContributions;
   const layers = contributionLayers(hand);
-  const pointTotals = new Map(hand.players.map(player => [player.id, { high: 0, low: 0 }]));
+  const pointTotals = new Map(hand.players.map(player => [player.id, { high: 0, low: 0, uncontested: 0 }]));
   const sidePots: HiLoResult['sidePots'] = layers.map(layer => {
     const { amount } = layer;
     let eligibleResults = playerResults.filter(result => (
@@ -634,6 +676,33 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
     // later folded. Keep those chips payable instead of silently losing them.
     if (!eligibleResults.length) {
       eligibleResults = playerResults.filter(result => !result.folded);
+    }
+
+    if (eligibleResults.length === 1) {
+      const winnerId = eligibleResults[0].id;
+      const points = pointTotals.get(winnerId);
+      if (points) points.uncontested += amount;
+      return {
+        amount,
+        eligiblePlayerIds: [winnerId],
+        highWinners: [],
+        lowWinners: [],
+        noLow: true,
+        uncontestedWinnerId: winnerId,
+        players: hand.players.map(player => {
+          const contributed = layer.contributions[player.id] ?? 0;
+          const payout = player.id === winnerId ? amount : 0;
+          return {
+            id: player.id,
+            contributed,
+            high: 0,
+            low: 0,
+            payout,
+            net: payout - contributed,
+            eligible: player.id === winnerId,
+          };
+        }),
+      };
     }
 
     const bestHighScore = eligibleResults
@@ -693,47 +762,74 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
   if (trackedPot < hand.potCoins && contenders.length) {
     const remainder = hand.potCoins - trackedPot;
     const activeResults = playerResults.filter(result => !result.folded);
-    const bestHighScore = activeResults
-      .map(result => result.highScore)
-      .filter((score): score is number[] => Boolean(score))
-      .sort((a, b) => compareScore(b, a))[0];
-    const bestLowScore = activeResults
-      .map(result => result.lowScore)
-      .filter((score): score is number[] => Boolean(score))
-      .sort(compareScore)[0];
-    const highWinners = bestHighScore
-      ? activeResults.filter(result => result.highScore && compareScore(result.highScore, bestHighScore) === 0).map(result => result.id)
-      : contenders.map(player => player.id);
-    const lowWinners = bestLowScore
-      ? activeResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
-      : [];
-    const noLow = !bestLowScore;
-    const highPool = noLow ? remainder : remainder / 2;
-    highWinners.forEach(id => pointTotals.get(id)!.high += highPool / highWinners.length);
-    lowWinners.forEach(id => pointTotals.get(id)!.low += (remainder / 2) / lowWinners.length);
-    sidePots.push({
-      amount: remainder,
-      eligiblePlayerIds: activeResults.map(result => result.id),
-      highWinners,
-      lowWinners,
-      noLow,
-      players: hand.players.map(player => {
-        const high = highWinners.includes(player.id) ? highPool / highWinners.length : 0;
-        const low = lowWinners.includes(player.id) ? (remainder / 2) / lowWinners.length : 0;
-        return {
+    if (activeResults.length === 1) {
+      const winnerId = activeResults[0].id;
+      pointTotals.get(winnerId)!.uncontested += remainder;
+      sidePots.push({
+        amount: remainder,
+        eligiblePlayerIds: [winnerId],
+        highWinners: [],
+        lowWinners: [],
+        noLow: true,
+        uncontestedWinnerId: winnerId,
+        players: hand.players.map(player => ({
           id: player.id,
-          high,
-          low,
-          payout: high + low,
-          eligible: activeResults.some(result => result.id === player.id),
-        };
-      }),
-    });
+          high: 0,
+          low: 0,
+          payout: player.id === winnerId ? remainder : 0,
+          eligible: player.id === winnerId,
+        })),
+      });
+    } else {
+      const bestHighScore = activeResults
+        .map(result => result.highScore)
+        .filter((score): score is number[] => Boolean(score))
+        .sort((a, b) => compareScore(b, a))[0];
+      const bestLowScore = activeResults
+        .map(result => result.lowScore)
+        .filter((score): score is number[] => Boolean(score))
+        .sort(compareScore)[0];
+      const highWinners = bestHighScore
+        ? activeResults.filter(result => result.highScore && compareScore(result.highScore, bestHighScore) === 0).map(result => result.id)
+        : contenders.map(player => player.id);
+      const lowWinners = bestLowScore
+        ? activeResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
+        : [];
+      const noLow = !bestLowScore;
+      const highPool = noLow ? remainder : remainder / 2;
+      highWinners.forEach(id => pointTotals.get(id)!.high += highPool / highWinners.length);
+      lowWinners.forEach(id => pointTotals.get(id)!.low += (remainder / 2) / lowWinners.length);
+      sidePots.push({
+        amount: remainder,
+        eligiblePlayerIds: activeResults.map(result => result.id),
+        highWinners,
+        lowWinners,
+        noLow,
+        players: hand.players.map(player => {
+          const high = highWinners.includes(player.id) ? highPool / highWinners.length : 0;
+          const low = lowWinners.includes(player.id) ? (remainder / 2) / lowWinners.length : 0;
+          return {
+            id: player.id,
+            high,
+            low,
+            payout: high + low,
+            eligible: activeResults.some(result => result.id === player.id),
+          };
+        }),
+      });
+    }
   }
 
-  const highWinners = [...new Set(sidePots.flatMap(pot => pot.highWinners))];
-  const lowWinners = [...new Set(sidePots.flatMap(pot => pot.lowWinners))];
-  const noLow = sidePots.every(pot => pot.noLow);
+  // A layer funded by only one player is an uncalled-chip return, not a won
+  // poker pot. Keep its payout for legacy hands, but do not show that player as
+  // a HIGH/LOW winner merely for receiving their own chips back.
+  const contestedPots = sidePots.filter(pot => (
+    pot.players.filter(player => (player.contributed ?? 0) > 0).length > 1
+  ));
+  const winnerPots = contestedPots.length ? contestedPots : sidePots;
+  const highWinners = [...new Set(winnerPots.flatMap(pot => pot.highWinners))];
+  const lowWinners = [...new Set(winnerPots.flatMap(pot => pot.lowWinners))];
+  const noLow = winnerPots.every(pot => pot.noLow);
 
   return {
     potCoins: hand.potCoins,
@@ -748,7 +844,10 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
         id: player.id,
         high,
         low,
-        total: high + low,
+        ...(pointTotals.get(player.id)?.uncontested
+          ? { uncontested: pointTotals.get(player.id)!.uncontested }
+          : {}),
+        total: high + low + (pointTotals.get(player.id)?.uncontested ?? 0),
       };
     }),
     players: playerResults.map(({ highScore, lowScore, ...result }) => result),

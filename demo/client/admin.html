@@ -354,6 +354,7 @@
               <th>Player</th>
               <th>High</th>
               <th>Low</th>
+              <th>Returned</th>
               <th>Total</th>
             </tr>
           </thead>
@@ -363,6 +364,7 @@
                 <td>${escapeHtml(displayName(score.id))}</td>
                 <td>${formatPoints(score.high)}</td>
                 <td>${formatPoints(score.low)}</td>
+                <td>${formatPoints(score.uncontested || 0)}</td>
                 <td>${formatPoints(score.total)}</td>
               </tr>
             `).join('')}
