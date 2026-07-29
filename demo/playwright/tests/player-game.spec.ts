@@ -226,6 +226,9 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);
   expect(newDealBox!.y + newDealBox!.height).toBeLessThanOrEqual(viewport.height);
+  const oldUrl = page.url();
+  await newDealButton.click();
+  await expect(page).not.toHaveURL(oldUrl);
 });
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {

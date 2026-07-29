@@ -2077,6 +2077,7 @@ function PlayerPage() {
   const [socketReady, setSocketReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
+  const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
   const [activeView, setActiveView] = useState<'table' | 'stats'>('table');
   const [, , handId, playerId, token] = window.location.pathname.split('/');
@@ -2121,6 +2122,7 @@ function PlayerPage() {
         setNotice(null);
       }
       if (message.type === 'hand_dealt' && message.data?.playerLinks) {
+        setIsCreatingDeal(false);
         setNewDealLinks(message.data.playerLinks);
         const samePlayerLink = message.data.playerLinks.find((link: { id: string; url: string }) => (
           link.id === playerId
@@ -2137,6 +2139,7 @@ function PlayerPage() {
         socket.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
       }
       if (message.type === 'error') {
+        setIsCreatingDeal(false);
         setError(message.message);
       }
     };
@@ -2159,14 +2162,25 @@ function PlayerPage() {
   }
 
   function startNewDeal() {
+    if (isCreatingDeal) return;
+
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setNotice('Connecting to server. Try again in a moment.');
       return;
     }
 
+    setIsCreatingDeal(true);
     setNewDealLinks([]);
     setNotice('Creating new deal.');
     ws.send(JSON.stringify({ action: 'new_deal', handId }));
+    window.setTimeout(() => {
+      setIsCreatingDeal((stillCreating) => {
+        if (stillCreating) {
+          setNotice('New deal is taking longer than expected. Try again.');
+        }
+        return false;
+      });
+    }, 10_000);
   }
 
   function replayDeal(sourceHandId = handId) {
@@ -2319,7 +2333,13 @@ function PlayerPage() {
           {canContinue || player.nextPlayerLink ? (
             <div className="table-new-deal" data-testid="table-new-deal">
               {canContinue ? (
-                <button className="action-button primary" onClick={startNewDeal}>New deal</button>
+                <button
+                  className="action-button primary"
+                  disabled={isCreatingDeal}
+                  onClick={startNewDeal}
+                >
+                  {isCreatingDeal ? 'Creating…' : 'New deal'}
+                </button>
               ) : null}
               {player.nextPlayerLink ? (
                 <button
