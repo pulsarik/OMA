@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { callAction } from '../callAction';
+import { callAction, isAllInWager } from '../callAction';
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
@@ -2239,6 +2239,8 @@ function PlayerPage() {
   const call = callAction(callAmount, player.stack);
   const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
   const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, bigBlind, player.stack);
+  const betIsAllIn = isAllInWager(betAmount, yourRoundBet, player.stack);
+  const raiseIsAllIn = isAllInWager(raiseTo, yourRoundBet, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
   const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises && call.canRaise;
   const hasContinuation = Boolean(player.nextHandId || player.nextReplayHandId);
@@ -2438,11 +2440,13 @@ function PlayerPage() {
           <>
             <button className="action-button primary" onClick={() => sendMove('check')}>Check</button>
             {currentBet === 0 ? (
-              <button className="action-button" onClick={() => sendMove('bet', betAmount)}>Bet {formatPoints(betAmount)}</button>
+              <button className="action-button" onClick={() => sendMove('bet', betAmount)}>
+                {betIsAllIn ? 'Bet all-in' : 'Bet'} {formatPoints(betAmount)}
+              </button>
             ) : null}
             {currentBet > 0 && raiseCount < maxRaises ? (
               <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
-                Raise to {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
+                {raiseIsAllIn ? 'Raise all-in to' : 'Raise to'} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
             <button
@@ -2460,7 +2464,7 @@ function PlayerPage() {
             </button>
             {raiseCount < maxRaises ? (
               <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
-                Raise to {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
+                {raiseIsAllIn ? 'Raise all-in to' : 'Raise to'} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
             <button
