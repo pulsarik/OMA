@@ -19,8 +19,34 @@ function apiUrlForPlayerLink(href: string) {
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
 }
 
+test('pot details and bet-size math are available on demand', async ({ page, request }) => {
+  const href = await createDefaultHumanVsBotDeal(page);
+  const response = await request.get(apiUrlForPlayerLink(href));
+  const state = await response.json();
+
+  const contributions = page.getByTestId('pot-contributions');
+  await expect(contributions).toBeHidden();
+  await page.locator('.pot-summary').click();
+  await expect(contributions).toBeVisible();
+  await expect(contributions).toContainText(`Pot ${state.potCoins}`);
+  await expect(contributions).toContainText('In pot');
+  await expect(contributions).toContainText('This round');
+  await expect(contributions.locator('.pot-contribution-row')).toHaveCount(
+    Object.values(state.totalContributions).filter((amount) => Number(amount) > 0).length,
+  );
+  await expect(contributions.locator('.pot-contribution-row').filter({ hasText: 'You' }))
+    .toContainText(String(state.totalContributions[state.playerId]));
+
+  await page.getByRole('button', { name: '1/2 pot' }).click();
+  const callAmount = Math.max(state.currentBet - state.roundBets[state.playerId], 0);
+  const potAfterCall = state.potCoins + callAmount;
+  await expect(page.getByTestId('bet-size-explanation'))
+    .toContainText(`Pot after call: ${potAfterCall} · 1/2 pot = ${Math.ceil(potAfterCall / 2)} · Raise to`);
+});
+
 test('opponent rows stay stable as seat content changes at every table size', async ({ page }) => {
   test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1600, height: 900 });
   const rowSizes = async () => {
     const positions = await page.getByTestId('opponents-grid').locator('[data-player-seat]')
       .evaluateAll((seats) => seats.map((seat) => ({
@@ -50,6 +76,9 @@ test('opponent rows stay stable as seat content changes at every table size', as
       )).toBeLessThanOrEqual(2);
     }
     const rowsBeforeContentChange = await rowSizes();
+    if (playerCount === 5) {
+      expect(rowsBeforeContentChange, 'four opponents should fit on a wide screen').toEqual([4]);
+    }
 
     await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {
       (seat as HTMLElement).style.width = `${(seat as HTMLElement).offsetWidth + 140}px`;

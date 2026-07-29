@@ -461,7 +461,7 @@ const PLAYER_PAGE_STYLES = `
     align-items: flex-start;
     gap: 20px 8px;
   }
-  .player-seat-wrap { flex: 0 1 360px; min-width: 0; }
+  .player-seat-wrap { flex: 0 1 320px; min-width: 0; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
   }
@@ -503,6 +503,83 @@ const PLAYER_PAGE_STYLES = `
   .table-board { grid-area: board; justify-self: center; }
   .table-new-deal { grid-area: new-deal; justify-self: start; margin-left: 10px; }
   .table-pot { grid-area: pot; justify-self: end; }
+  .pot-details { position: relative; }
+  .pot-details > summary { list-style: none; }
+  .pot-details > summary::-webkit-details-marker { display: none; }
+  .pot-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 12px;
+    padding: 4px;
+    cursor: pointer;
+    transition: background .16s ease, box-shadow .16s ease;
+  }
+  .pot-summary:hover,
+  .pot-summary:focus-visible,
+  .pot-details[open] .pot-summary {
+    background: rgba(255,255,255,.12);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.26);
+    outline: none;
+  }
+  .pot-current-bet {
+    border: 1px solid rgba(255,255,255,.5);
+    border-radius: 999px;
+    padding: 2px 8px;
+    background: rgba(15,23,42,.5);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .pot-popover {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    z-index: 20;
+    width: max-content;
+    min-width: 230px;
+    max-width: min(300px, calc(100vw - 32px));
+    border: 1px solid rgba(255,255,255,.42);
+    border-radius: 14px;
+    background: rgba(15,23,42,.96);
+    padding: 9px 10px;
+    color: #fff;
+    box-shadow: 0 14px 34px rgba(0,0,0,.34);
+    backdrop-filter: blur(12px);
+  }
+  .pot-popover-title,
+  .pot-contribution-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 1fr) auto auto;
+    align-items: center;
+    gap: 12px;
+  }
+  .pot-popover-title {
+    border-bottom: 1px solid rgba(255,255,255,.2);
+    padding: 1px 2px 7px;
+    color: #cbd5e1;
+    font-size: 10px;
+    text-align: right;
+    text-transform: uppercase;
+  }
+  .pot-popover-title strong {
+    color: #fff;
+    font-size: 13px;
+    text-align: left;
+    text-transform: none;
+  }
+  .pot-contribution-row {
+    padding: 6px 2px 0;
+    font-size: 12px;
+    text-align: right;
+  }
+  .pot-contribution-row > :first-child {
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .hero-zone {
     display: grid;
     grid-template-columns: auto auto auto;
@@ -564,6 +641,15 @@ const PLAYER_PAGE_STYLES = `
     font-weight: 800;
   }
   .bet-size-button.is-selected { border: 2px solid #087443; background: #dcfce7; color: #065f46; }
+  .bet-size-explanation {
+    flex: 1 0 100%;
+    order: 3;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 750;
+    text-align: center;
+  }
+  .bet-size-explanation strong { color: #065f46; }
   .action-button.primary { border-color: #047857; background: #087443; color: #fff; min-width: 120px; }
   .action-button.danger { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
   .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
@@ -621,7 +707,6 @@ const PLAYER_PAGE_STYLES = `
     .poker-table.is-crowded .opponents-row {
       gap: 8px 6px;
     }
-    .opponents-row .player-seat-wrap { flex-basis: calc((100% - 12px) / 3); }
     .player-seat { padding: 4px !important; }
     .compact-card-row,
     .board-row { gap: 4px !important; }
@@ -1075,12 +1160,28 @@ function PotDisplay({
   value,
   currentBet,
   breakdown,
+  players,
+  contributions,
+  roundBets,
+  currentPlayerId,
 }: {
   value: number;
   currentBet: number;
   breakdown?: PotBreakdown[];
+  players: Array<{ id: string; name?: string }>;
+  contributions: Record<string, number>;
+  roundBets: Record<string, number>;
+  currentPlayerId: string;
 }) {
   const visiblePots = breakdown?.length && breakdown.length > 1 ? breakdown : [];
+  const contributingPlayers = players
+    .map((player) => ({
+      ...player,
+      total: contributions[player.id] ?? 0,
+      round: roundBets[player.id] ?? 0,
+    }))
+    .filter((player) => player.total > 0 || player.round > 0);
+
   return (
     <div
       style={{
@@ -1093,23 +1194,32 @@ function PotDisplay({
         color: '#fff',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        <CoinStack value={value} title="pot" compact />
-        {currentBet > 0 ? (
-          <span
-            style={{
-              border: '1px solid rgba(255,255,255,0.5)',
-              borderRadius: 999,
-              padding: '2px 8px',
-              background: 'rgba(15,23,42,0.5)',
-              fontSize: 12,
-              fontWeight: 800,
-            }}
-          >
-            bet {formatPoints(currentBet)}
-          </span>
-        ) : null}
-      </div>
+      <details className="pot-details">
+        <summary className="pot-summary" aria-label={`Pot ${formatPoints(value)}. Show contributions`}>
+          <CoinStack value={value} title="pot" compact />
+          {currentBet > 0 ? (
+            <span className="pot-current-bet">
+              bet {formatPoints(currentBet)}
+            </span>
+          ) : null}
+        </summary>
+        <div className="pot-popover" data-testid="pot-contributions">
+          <div className="pot-popover-title">
+            <strong>Pot {formatPoints(value)}</strong>
+            <span>In pot</span>
+            <span>This round</span>
+          </div>
+          {contributingPlayers.map((seat) => (
+            <div className="pot-contribution-row" key={seat.id}>
+              <span>
+                {seat.id === currentPlayerId ? 'You' : tablePlayerName(seat.name, seat.id)}
+              </span>
+              <strong>{formatPoints(seat.total)}</strong>
+              <span>{formatPoints(seat.round)}</span>
+            </div>
+          ))}
+        </div>
+      </details>
       {visiblePots.length ? (
         <div
           data-testid="side-pot-breakdown"
@@ -2134,9 +2244,43 @@ function PlayerPage() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load hand'));
 
     const socket = new WebSocket(WS_URL);
+    const client = {
+      platform: navigator.platform,
+      screenWidth: window.screen.width,
+      screenHeight: window.screen.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      pixelRatio: window.devicePixelRatio,
+    };
+    let lastInteraction = Date.now();
+    let lastActivitySent = 0;
+    const sendActivity = () => {
+      const now = Date.now();
+      lastInteraction = now;
+      if (socket.readyState === WebSocket.OPEN && now - lastActivitySent >= 5_000) {
+        lastActivitySent = now;
+        socket.send(JSON.stringify({ action: 'player_activity' }));
+      }
+    };
+    const interactionEvents = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'scroll'] as const;
+    interactionEvents.forEach((eventName) => {
+      window.addEventListener(eventName, sendActivity, { passive: true });
+    });
+    const activityTimer = window.setInterval(() => {
+      const now = Date.now();
+      if (
+        document.visibilityState === 'visible'
+        && now - lastInteraction <= 30_000
+        && socket.readyState === WebSocket.OPEN
+      ) {
+        lastActivitySent = now;
+        socket.send(JSON.stringify({ action: 'player_activity' }));
+      }
+    }, 10_000);
     socket.onopen = () => {
       setSocketReady(true);
-      socket.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
+      lastActivitySent = Date.now();
+      socket.send(JSON.stringify({ action: 'join_player', handId, playerId, token, client }));
     };
     socket.onclose = () => {
       setSocketReady(false);
@@ -2179,6 +2323,10 @@ function PlayerPage() {
 
     return () => {
       setSocketReady(false);
+      window.clearInterval(activityTimer);
+      interactionEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, sendActivity);
+      });
       socket.close();
     };
   }, [handId, playerId, token]);
@@ -2239,6 +2387,10 @@ function PlayerPage() {
   const call = callAction(callAmount, player.stack);
   const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
   const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, bigBlind, player.stack);
+  const betSizeFraction = betSizeFactor(betSize);
+  const potAfterCall = player.potCoins + callAmount;
+  const nominalRaiseSize = Math.ceil(potAfterCall * betSizeFraction);
+  const selectedBetSizeLabel = BET_SIZE_OPTIONS.find((option) => option.value === betSize)?.label;
   const betIsAllIn = isAllInWager(betAmount, yourRoundBet, player.stack);
   const raiseIsAllIn = isAllInWager(raiseTo, yourRoundBet, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
@@ -2387,7 +2539,15 @@ function PlayerPage() {
             </div>
           ) : null}
           <div className="table-pot" data-testid="table-pot">
-            <PotDisplay value={player.potCoins} currentBet={currentBet} breakdown={player.potBreakdown} />
+            <PotDisplay
+              value={player.potCoins}
+              currentBet={currentBet}
+              breakdown={player.potBreakdown}
+              players={player.players}
+              contributions={player.totalContributions ?? {}}
+              roundBets={player.roundBets ?? {}}
+              currentPlayerId={player.playerId}
+            />
           </div>
         </section>
 
@@ -2476,6 +2636,22 @@ function PlayerPage() {
           </>
         ) : null}
         </div>
+        {betSizeFraction > 0 ? (
+          <div className="bet-size-explanation" data-testid="bet-size-explanation">
+            {currentBet > 0 ? (
+              <>
+                Pot after call: <strong>{formatPoints(potAfterCall)}</strong>
+                {' · '}{selectedBetSizeLabel} = <strong>{formatPoints(nominalRaiseSize)}</strong>
+                {' · '}Raise to <strong>{formatPoints(raiseTo)}</strong>
+              </>
+            ) : (
+              <>
+                Pot: <strong>{formatPoints(player.potCoins)}</strong>
+                {' · '}{selectedBetSizeLabel} = Bet <strong>{formatPoints(betAmount)}</strong>
+              </>
+            )}
+          </div>
+        ) : null}
       </div> : null}
       {notice ? (
         <p className="game-notice">

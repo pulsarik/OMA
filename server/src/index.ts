@@ -34,6 +34,12 @@ const store = new HandStore(process.env.DATA_FILE || path.join(process.cwd(), 'd
 const continuationLocks = new Map<string, Promise<any>>();
 const botTurnTimers = new Map<string, ReturnType<typeof setTimeout>>();
 const lobbyConnections = new Map<WebSocket, { lobbyId: string; memberId: string }>();
+const playerConnections = new Map<WebSocket, {
+  handId: string;
+  partyId: string;
+  playerId: string;
+  visitId: number;
+}>();
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const staticDir = [
@@ -237,6 +243,69 @@ async function partyScore(hand: any) {
     hands: handScores,
     totals: [...totals.entries()].map(([id, total]) => ({ id, total })),
   };
+}
+
+function clientIp(req: http.IncomingMessage) {
+  const forwarded = req.headers['x-forwarded-for'];
+  const value = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0];
+  return (value?.trim() || req.socket.remoteAddress || '').replace(/^::ffff:/, '').slice(0, 100);
+}
+
+function finiteClientNumber(value: unknown, max: number) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.min(Math.max(number, 0), max) : undefined;
+}
+
+function deviceType(userAgent: string) {
+  if (/ipad|tablet|kindle|silk/i.test(userAgent)) return 'Tablet';
+  if (/mobi|android|iphone|ipod/i.test(userAgent)) return 'Mobile';
+  return 'Desktop';
+}
+
+async function recordPlayerConnection(
+  ws: WebSocket,
+  req: http.IncomingMessage,
+  hand: any,
+  player: any,
+  client: any,
+) {
+  const current = playerConnections.get(ws);
+  if (current?.handId === hand.id && current?.playerId === player.id) return current;
+
+  const userAgent = (req.headers['user-agent'] || '').slice(0, 500);
+  const visitId = await store.recordAnalyticsVisit({
+    partyId: hand.partyId ?? hand.id,
+    handId: hand.id,
+    playerId: player.id,
+    ip: clientIp(req),
+    userAgent,
+    deviceType: deviceType(userAgent),
+    platform: typeof client?.platform === 'string' ? client.platform.slice(0, 100) : undefined,
+    screenWidth: finiteClientNumber(client?.screenWidth, 20000),
+    screenHeight: finiteClientNumber(client?.screenHeight, 20000),
+    viewportWidth: finiteClientNumber(client?.viewportWidth, 20000),
+    viewportHeight: finiteClientNumber(client?.viewportHeight, 20000),
+    pixelRatio: finiteClientNumber(client?.pixelRatio, 20),
+  });
+  const connection = {
+    handId: hand.id,
+    partyId: hand.partyId ?? hand.id,
+    playerId: player.id,
+    visitId,
+  };
+  playerConnections.set(ws, connection);
+  await store.recordAnalyticsActivity(connection.partyId);
+  return connection;
+}
+
+async function recordBoundPlayerActivity(ws: WebSocket) {
+  const connection = playerConnections.get(ws);
+  if (!connection) throw new Error('join player first');
+  const now = Date.now();
+  await Promise.all([
+    store.recordAnalyticsActivity(connection.partyId, now),
+    store.touchAnalyticsVisit(connection.visitId, now),
+  ]);
 }
 
 function diagnosticHandSnapshot(hand: any) {
@@ -698,6 +767,9 @@ app.get('/admin/hands', async (req, res) => {
 
   res.json({ hands, total, limit, offset });
 });
+app.get('/admin/stats', async (_req, res) => {
+  res.json(await store.getAnalyticsStats());
+});
 app.get('/admin/hands/:id', async (req, res) => {
   const h = await store.getHand(req.params.id);
   if (!h) return res.status(404).send('Not found');
@@ -829,6 +901,7 @@ wss.on('connection', (ws, req) => {
           Array.isArray(msg.playerBots) ? msg.playerBots : [],
         );
       } else if (msg.action === 'new_deal') {
+        if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
         const hand = msg.handId ? await store.getHand(msg.handId) : null;
         if (hand) {
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
@@ -846,6 +919,7 @@ wss.on('connection', (ws, req) => {
           );
         }
       } else if (msg.action === 'replay_deal') {
+        if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
         const hand = msg.handId
           ? await store.getHand(msg.handId)
           : typeof msg.handQuery === 'string'
@@ -869,6 +943,7 @@ wss.on('connection', (ws, req) => {
         normalizeHand(hand);
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
+        await recordPlayerConnection(ws, req, hand, player, msg.client);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
         // Bot timers live in memory and disappear when the server restarts. A
         // player reconnecting to an unfinished hand must also wake the bot up.
@@ -879,11 +954,17 @@ wss.on('connection', (ws, req) => {
         normalizeHand(hand);
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
+        if (!playerConnections.has(ws)) {
+          await recordPlayerConnection(ws, req, hand, player, msg.client);
+        }
+        await recordBoundPlayerActivity(ws);
         recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount);
         await store.updateHand(hand);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
         broadcastHandUpdated(hand);
         scheduleBotTurns(hand.id);
+      } else if (msg.action === 'player_activity') {
+        await recordBoundPlayerActivity(ws);
       } else if (msg.action === 'replay' && msg.id) {
         const h = await store.getHand(msg.id);
         if (h) ws.send(JSON.stringify({ type: 'hand_full', data: h }));
@@ -895,6 +976,7 @@ wss.on('connection', (ws, req) => {
   });
   ws.on('close', () => {
     lobbyConnections.delete(ws);
+    playerConnections.delete(ws);
   });
 });
 

@@ -137,4 +137,8 @@ node ..\server\dist\index.js
 
 ## Деплой
 
-Render Blueprint описан в корневом `render.yaml`. Инструкция: [../DEPLOY_RU.md](../DEPLOY_RU.md).
+Render Blueprint описан в корневом `render.yaml`.
+
+- [../DEPLOY_RU.md](../DEPLOY_RU.md) — общая настройка Render и production;
+- [../BETA_DEPLOY_RU.md](../BETA_DEPLOY_RU.md) — обычное обновление
+  `beta/lobby`, автоматический деплой после CI и диагностика.

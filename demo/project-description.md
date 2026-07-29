@@ -108,4 +108,6 @@ Admin/debug предназначены для домашней отладки и
 - [README.md](README.md) — установка, запуск и команды;
 - [PROJECT_GUIDE_RU.md](PROJECT_GUIDE_RU.md) — архитектура и карта файлов;
 - [../TECH_REQUIREMENTS.md](../TECH_REQUIREMENTS.md) — правила и технические контракты;
-- [../DEPLOY_RU.md](../DEPLOY_RU.md) — деплой на Render.
+- [../DEPLOY_RU.md](../DEPLOY_RU.md) — общая настройка и деплой на Render;
+- [../BETA_DEPLOY_RU.md](../BETA_DEPLOY_RU.md) — обновление beta после push,
+  проверка CI и опубликованного commit.

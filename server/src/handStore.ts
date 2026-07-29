@@ -15,6 +15,36 @@ export default class HandStore {
     await this.db.run(`CREATE TABLE IF NOT EXISTS hands (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
     await this.db.run(`CREATE TABLE IF NOT EXISTS lobbies (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
     await this.db.run(`
+      CREATE TABLE IF NOT EXISTS analytics_activity (
+        party_id TEXT PRIMARY KEY,
+        first_activity INTEGER NOT NULL,
+        last_activity INTEGER NOT NULL,
+        active_ms INTEGER NOT NULL DEFAULT 0,
+        event_count INTEGER NOT NULL DEFAULT 1
+      )
+    `);
+    await this.db.run(`
+      CREATE TABLE IF NOT EXISTS analytics_visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created INTEGER NOT NULL,
+        last_seen INTEGER NOT NULL,
+        party_id TEXT NOT NULL,
+        hand_id TEXT NOT NULL,
+        player_id TEXT NOT NULL,
+        ip TEXT,
+        user_agent TEXT,
+        device_type TEXT,
+        platform TEXT,
+        screen_width INTEGER,
+        screen_height INTEGER,
+        viewport_width INTEGER,
+        viewport_height INTEGER,
+        pixel_ratio REAL
+      )
+    `);
+    await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_party ON analytics_visits(party_id)');
+    await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_created ON analytics_visits(created DESC)');
+    await this.db.run(`
       CREATE TABLE IF NOT EXISTS problems (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created INTEGER NOT NULL,
@@ -168,6 +198,149 @@ export default class HandStore {
       created: row.created as number,
       description: row.description as string,
       ...JSON.parse(row.data),
+    };
+  }
+
+  async recordAnalyticsActivity(partyId: string, occurredAt = Date.now()) {
+    const db = await this.getDb();
+    await db.run(`
+      INSERT INTO analytics_activity(
+        party_id, first_activity, last_activity, active_ms, event_count
+      ) VALUES(?, ?, ?, 0, 1)
+      ON CONFLICT(party_id) DO UPDATE SET
+        active_ms = active_ms + MIN(MAX(? - last_activity, 0), 30000),
+        last_activity = MAX(last_activity, ?),
+        event_count = event_count + 1
+    `, partyId, occurredAt, occurredAt, occurredAt, occurredAt);
+  }
+
+  async recordAnalyticsVisit(visit: {
+    partyId: string;
+    handId: string;
+    playerId: string;
+    ip?: string;
+    userAgent?: string;
+    deviceType?: string;
+    platform?: string;
+    screenWidth?: number;
+    screenHeight?: number;
+    viewportWidth?: number;
+    viewportHeight?: number;
+    pixelRatio?: number;
+  }, occurredAt = Date.now()) {
+    const db = await this.getDb();
+    const result = await db.run(`
+      INSERT INTO analytics_visits(
+        created, last_seen, party_id, hand_id, player_id, ip, user_agent,
+        device_type, platform, screen_width, screen_height, viewport_width,
+        viewport_height, pixel_ratio
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    occurredAt,
+    occurredAt,
+    visit.partyId,
+    visit.handId,
+    visit.playerId,
+    visit.ip ?? null,
+    visit.userAgent ?? null,
+    visit.deviceType ?? null,
+    visit.platform ?? null,
+    visit.screenWidth ?? null,
+    visit.screenHeight ?? null,
+    visit.viewportWidth ?? null,
+    visit.viewportHeight ?? null,
+    visit.pixelRatio ?? null);
+    return result.lastID as number;
+  }
+
+  async touchAnalyticsVisit(id: number, occurredAt = Date.now()) {
+    const db = await this.getDb();
+    await db.run(
+      'UPDATE analytics_visits SET last_seen = MAX(last_seen, ?) WHERE id = ?',
+      occurredAt,
+      id,
+    );
+  }
+
+  async getAnalyticsStats(now = Date.now()) {
+    const db = await this.getDb();
+    const [handRows, activityRows, accesses, devices, totals] = await Promise.all([
+      db.all('SELECT created, data FROM hands ORDER BY created ASC'),
+      db.all('SELECT * FROM analytics_activity'),
+      db.all(`
+        SELECT MIN(created) AS firstSeen, MAX(last_seen) AS lastSeen,
+          ip, user_agent AS userAgent, device_type AS deviceType,
+          platform, screen_width AS screenWidth,
+          screen_height AS screenHeight, viewport_width AS viewportWidth,
+          viewport_height AS viewportHeight, pixel_ratio AS pixelRatio,
+          COUNT(*) AS connections
+        FROM analytics_visits
+        GROUP BY ip, user_agent, device_type, platform, screen_width,
+          screen_height, viewport_width, viewport_height, pixel_ratio
+        ORDER BY lastSeen DESC
+        LIMIT 200
+      `),
+      db.all(`
+        SELECT COALESCE(device_type, 'Unknown') AS deviceType,
+          COALESCE(platform, 'Unknown') AS platform,
+          COUNT(*) AS visits
+        FROM analytics_visits
+        GROUP BY device_type, platform
+        ORDER BY visits DESC
+      `),
+      db.get(`
+        SELECT COUNT(*) AS visits, COUNT(DISTINCT ip) AS uniqueIps
+        FROM analytics_visits
+      `),
+    ]);
+
+    const hands = handRows.map((row: any) => {
+      const hand = JSON.parse(row.data);
+      return { ...hand, created: hand.created ?? row.created };
+    });
+    const parties = new Map<string, any>();
+    hands.forEach((hand: any) => {
+      const partyId = hand.partyId ?? hand.id;
+      const party = parties.get(partyId) ?? {
+        partyId,
+        partyCode: hand.partyCode,
+        deals: 0,
+        created: hand.created,
+      };
+      party.deals += 1;
+      party.created = Math.min(party.created ?? hand.created, hand.created);
+      party.partyCode = party.partyCode ?? hand.partyCode;
+      parties.set(partyId, party);
+    });
+
+    const activityByParty = new Map(activityRows.map((row: any) => [row.party_id, row]));
+    let totalActiveMs = 0;
+    const partyStats = [...parties.values()].map((party: any) => {
+      const activity: any = activityByParty.get(party.partyId);
+      const liveTail = activity ? Math.min(Math.max(now - activity.last_activity, 0), 30000) : 0;
+      const activeMs = (activity?.active_ms ?? 0) + liveTail;
+      totalActiveMs += activeMs;
+      return {
+        ...party,
+        activeMs,
+        firstActivity: activity?.first_activity,
+        lastActivity: activity?.last_activity,
+        eventCount: activity?.event_count ?? 0,
+      };
+    }).sort((a: any, b: any) => (b.lastActivity ?? b.created) - (a.lastActivity ?? a.created));
+
+    return {
+      generatedAt: now,
+      totals: {
+        deals: hands.length,
+        parties: parties.size,
+        activeMs: totalActiveMs,
+        averagePartyActiveMs: parties.size ? Math.round(totalActiveMs / parties.size) : 0,
+        visits: totals.visits as number,
+        uniqueIps: totals.uniqueIps as number,
+      },
+      devices,
+      accesses,
     };
   }
 }

@@ -15,6 +15,7 @@ Oma/
     bots/                      Пример внешнего WebSocket-клиента
     package.json               Общие команды разработки и CI
   DEPLOY_RU.md                 Деплой на Render
+  BETA_DEPLOY_RU.md            Обновление beta/lobby и проверка деплоя
   TECH_REQUIREMENTS.md         Техническая спецификация
   render.yaml                  Render Blueprint
 ```
