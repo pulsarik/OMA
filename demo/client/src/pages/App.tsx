@@ -3345,9 +3345,218 @@ function HomePage() {
   );
 }
 
+function currentProblemContext() {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  const viewport = {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  };
+
+  if (parts[0] === 'player') {
+    return {
+      page: 'player',
+      handId: parts[1],
+      playerId: parts[2],
+      viewport,
+    };
+  }
+  if (parts[0] === 'debug') {
+    return {
+      page: 'debug',
+      handId: parts[1],
+      viewport,
+    };
+  }
+  if (parts[0] === 'lobby') {
+    return {
+      page: 'lobby',
+      lobbyId: parts[1],
+      viewport,
+    };
+  }
+  return { page: 'home', viewport };
+}
+
+function ReportProblemButton() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [description, setDescription] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  function close() {
+    if (isSaving) return;
+    setIsOpen(false);
+    setDescription('');
+  }
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    const normalizedDescription = description.trim();
+    if (!normalizedDescription || isSaving) return;
+
+    setIsSaving(true);
+    setStatus(null);
+    try {
+      const response = await fetch(`${SERVER_URL}/api/problems`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: normalizedDescription,
+          ...currentProblemContext(),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Could not save the problem');
+      }
+      setStatus(`Problem #${result.id} saved`);
+      setDescription('');
+      setIsOpen(false);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : 'Could not save the problem');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <>
+      {status ? (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            right: 18,
+            bottom: 72,
+            zIndex: 1001,
+            maxWidth: 320,
+            padding: '9px 12px',
+            border: '1px solid #94a3b8',
+            borderRadius: 8,
+            background: '#fff',
+            color: status.startsWith('Problem #') ? '#166534' : '#b91c1c',
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.18)',
+            fontFamily: 'system-ui, sans-serif',
+            fontWeight: 700,
+          }}
+        >
+          {status}
+        </div>
+      ) : null}
+      <button
+        type="button"
+        aria-label="Report a problem"
+        onClick={() => {
+          setStatus(null);
+          setIsOpen(true);
+        }}
+        style={{
+          position: 'fixed',
+          right: 18,
+          bottom: 18,
+          zIndex: 1000,
+          padding: '10px 14px',
+          border: '1px solid #991b1b',
+          borderRadius: 999,
+          background: '#b91c1c',
+          color: '#fff',
+          boxShadow: '0 6px 18px rgba(15, 23, 42, 0.22)',
+          fontFamily: 'system-ui, sans-serif',
+          fontWeight: 800,
+          cursor: 'pointer',
+        }}
+      >
+        Report a problem
+      </button>
+      {isOpen ? (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) close();
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1100,
+            display: 'grid',
+            placeItems: 'center',
+            padding: 20,
+            background: 'rgba(15, 23, 42, 0.55)',
+          }}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="problem-dialog-title"
+            onSubmit={submit}
+            style={{
+              width: 'min(460px, 100%)',
+              display: 'grid',
+              gap: 14,
+              padding: 20,
+              borderRadius: 12,
+              background: '#fff',
+              color: '#0f172a',
+              boxShadow: '0 20px 50px rgba(15, 23, 42, 0.3)',
+              fontFamily: 'system-ui, sans-serif',
+            }}
+          >
+            <h2 id="problem-dialog-title" style={{ margin: 0, fontSize: 22 }}>
+              Report a problem
+            </h2>
+            <label style={{ display: 'grid', gap: 7, fontWeight: 700 }}>
+              Description
+              <textarea
+                autoFocus
+                required
+                maxLength={2000}
+                rows={6}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="What went wrong?"
+                style={{
+                  boxSizing: 'border-box',
+                  width: '100%',
+                  resize: 'vertical',
+                  padding: '10px 12px',
+                  border: '1px solid #94a3b8',
+                  borderRadius: 8,
+                  font: 'inherit',
+                  fontWeight: 400,
+                }}
+              />
+            </label>
+            {status ? <p role="alert" style={{ margin: 0, color: '#b91c1c' }}>{status}</p> : null}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" disabled={isSaving} onClick={close}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSaving || !description.trim()}
+                style={{ fontWeight: 800 }}
+              >
+                {isSaving ? 'Saving…' : 'OK'}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 export default function App() {
-  if (window.location.pathname.startsWith('/player/')) return <PlayerPage />;
-  if (window.location.pathname.startsWith('/debug/')) return <DebugPage />;
-  if (window.location.pathname.startsWith('/lobby/')) return <LobbyPage />;
-  return <HomePage />;
+  let page: React.ReactNode;
+  if (window.location.pathname.startsWith('/player/')) page = <PlayerPage />;
+  else if (window.location.pathname.startsWith('/debug/')) page = <DebugPage />;
+  else if (window.location.pathname.startsWith('/lobby/')) page = <LobbyPage />;
+  else page = <HomePage />;
+
+  return (
+    <>
+      {page}
+      <ReportProblemButton />
+    </>
+  );
 }

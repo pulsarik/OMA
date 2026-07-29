@@ -86,7 +86,7 @@ const buildTimeGmt = process.env.BUILD_TIME_GMT || buildInfo.buildTimeGmt || for
 app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   next();
 });
 
@@ -236,6 +236,45 @@ async function partyScore(hand: any) {
     partyCode: hand.partyCode,
     hands: handScores,
     totals: [...totals.entries()].map(([id, total]) => ({ id, total })),
+  };
+}
+
+function diagnosticHandSnapshot(hand: any) {
+  normalizeHand(hand);
+  return {
+    id: hand.id,
+    partyId: hand.partyId,
+    partyCode: hand.partyCode,
+    handCode: hand.handCode,
+    handNumber: hand.handNumber,
+    revision: hand.revision ?? 0,
+    replayOfHandId: hand.replayOfHandId,
+    dealCode: hand.dealCode,
+    dealSeed: hand.dealSeed,
+    rngSeed: hand.rngSeed,
+    players: hand.players.map((player: any) => ({
+      id: player.id,
+      name: player.name,
+      isBot: Boolean(player.isBot),
+      hole: player.hole,
+      folded: Boolean(player.folded),
+      stack: player.stack,
+    })),
+    community: hand.community,
+    fullCommunity: hand.fullCommunity,
+    stage: hand.stage,
+    currentPlayerId: hand.currentPlayerId,
+    currentBet: hand.currentBet,
+    roundBets: hand.roundBets,
+    totalContributions: hand.totalContributions,
+    raiseCount: hand.raiseCount,
+    blinds: hand.blinds,
+    potCoins: hand.potCoins,
+    revealVotes: hand.revealVotes,
+    cardsRevealed: hand.cardsRevealed,
+    actions: hand.actions,
+    result: hand.stage === 'showdown' ? evaluateOmahaHiLo(hand) : undefined,
+    created: hand.created,
   };
 }
 
@@ -672,6 +711,77 @@ app.get('/api/version', (req, res) => {
     shortCommit: commitSha === 'dev' ? 'dev' : commitSha.slice(0, 7),
     buildTimeGmt,
   });
+});
+app.post('/api/problems', async (req, res) => {
+  const description = typeof req.body?.description === 'string'
+    ? req.body.description.trim()
+    : '';
+  if (!description) {
+    return res.status(400).json({ error: 'Description is required' });
+  }
+  if (description.length > 2000) {
+    return res.status(400).json({ error: 'Description must be 2000 characters or fewer' });
+  }
+
+  const handId = typeof req.body?.handId === 'string'
+    ? req.body.handId.trim().slice(0, 100)
+    : '';
+  const hand = handId ? await store.getHand(handId) : null;
+  if (handId && !hand) {
+    return res.status(404).json({ error: 'Hand not found' });
+  }
+
+  const page = typeof req.body?.page === 'string'
+    ? req.body.page.trim().slice(0, 30)
+    : 'unknown';
+  const playerId = typeof req.body?.playerId === 'string'
+    ? req.body.playerId.trim().slice(0, 100)
+    : undefined;
+  const lobbyId = typeof req.body?.lobbyId === 'string'
+    ? req.body.lobbyId.trim().slice(0, 100)
+    : undefined;
+  const viewport = req.body?.viewport
+    && Number.isFinite(req.body.viewport.width)
+    && Number.isFinite(req.body.viewport.height)
+    ? {
+      width: Math.max(0, Math.round(req.body.viewport.width)),
+      height: Math.max(0, Math.round(req.body.viewport.height)),
+    }
+    : undefined;
+
+  const handSnapshot = hand ? diagnosticHandSnapshot(hand) : undefined;
+  const saved = await store.saveProblem(description, {
+    build: {
+      commit: commitSha,
+      buildTimeGmt,
+    },
+    context: {
+      page,
+      handId: hand?.id,
+      playerId,
+      lobbyId,
+      viewport,
+      userAgent: req.get('user-agent')?.slice(0, 500),
+    },
+    hand: handSnapshot,
+  });
+
+  res.status(201).json(saved);
+});
+app.get('/api/problems/:id', async (req, res) => {
+  const expectedToken = process.env.PROBLEM_API_TOKEN;
+  if (expectedToken && req.get('authorization') !== `Bearer ${expectedToken}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 1000) {
+    return res.status(400).json({ error: 'Problem ID must be an integer starting at 1000' });
+  }
+
+  const problem = await store.getProblem(id);
+  if (!problem) return res.status(404).json({ error: 'Problem not found' });
+  res.json(problem);
 });
 app.get('/api/player/:handId/:playerId/:token', async (req, res) => {
   const hand = await store.getHand(req.params.handId);

@@ -14,6 +14,20 @@ export default class HandStore {
     this.db = await open({ filename: this.filename, driver: sqlite3.Database });
     await this.db.run(`CREATE TABLE IF NOT EXISTS hands (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
     await this.db.run(`CREATE TABLE IF NOT EXISTS lobbies (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
+    await this.db.run(`
+      CREATE TABLE IF NOT EXISTS problems (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        created INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        data TEXT NOT NULL
+      )
+    `);
+    await this.db.run(`
+      INSERT INTO sqlite_sequence(name, seq)
+      SELECT 'problems', 999
+      WHERE NOT EXISTS (SELECT 1 FROM sqlite_sequence WHERE name = 'problems')
+    `);
+    await this.db.run(`UPDATE sqlite_sequence SET seq = 999 WHERE name = 'problems' AND seq < 999`);
   }
 
   private async getDb() {
@@ -125,5 +139,35 @@ export default class HandStore {
     const db = await this.getDb();
     const row = await db.get('SELECT data FROM lobbies WHERE id = ?', id);
     return row ? JSON.parse(row.data) : null;
+  }
+
+  async saveProblem(description: string, data: any) {
+    const db = await this.getDb();
+    const created = Date.now();
+    const result = await db.run(
+      'INSERT INTO problems(created, description, data) VALUES(?,?,?)',
+      created,
+      description,
+      JSON.stringify(data),
+    );
+    return {
+      id: result.lastID as number,
+      created,
+    };
+  }
+
+  async getProblem(id: number) {
+    const db = await this.getDb();
+    const row = await db.get(
+      'SELECT id, created, description, data FROM problems WHERE id = ?',
+      id,
+    );
+    if (!row) return null;
+    return {
+      id: row.id as number,
+      created: row.created as number,
+      description: row.description as string,
+      ...JSON.parse(row.data),
+    };
   }
 }
