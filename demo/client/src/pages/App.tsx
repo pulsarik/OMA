@@ -7,6 +7,55 @@ const WS_URL = isLocalVite
   ? 'ws://localhost:4000'
   : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
 
+type UiLanguage = 'en' | 'ru';
+
+function storedLanguage(): UiLanguage {
+  return window.localStorage.getItem('omaha-language') === 'en' ? 'en' : 'ru';
+}
+
+function ui(en: string, ru: string) {
+  return storedLanguage() === 'ru' ? ru : en;
+}
+
+function localizedServerMessage(message: string) {
+  if (storedLanguage() !== 'ru') return message;
+  const messages: Record<string, string> = {
+    'server overloaded: no table names available': 'Сервер перегружен: сейчас нет свободных названий столов. Попробуйте позже.',
+    'enter a 4-digit PIN': 'Введите PIN из 4 цифр.',
+    'table not found': 'Стол не найден.',
+    'lobby is full': 'За этим столом нет свободных мест.',
+    'lobby not found': 'Стол не найден.',
+    'game already started': 'Игра за этим столом уже началась.',
+    'invalid lobby credentials': 'Не удалось восстановить место за столом.',
+    'host only': 'Это действие доступно только ведущему.',
+  };
+  return messages[message] ?? message;
+}
+
+function LanguageSelect({ light = false }: { light?: boolean }) {
+  return (
+    <select
+      aria-label={ui('Language', 'Язык')}
+      defaultValue={storedLanguage()}
+      onChange={(event) => {
+        window.localStorage.setItem('omaha-language', event.target.value);
+        window.location.reload();
+      }}
+      style={{
+        border: `1px solid ${light ? 'rgba(255,255,255,.5)' : '#cbd5e1'}`,
+        borderRadius: 999,
+        background: '#fff',
+        padding: '5px 9px',
+        color: '#17211b',
+        fontWeight: 800,
+      }}
+    >
+      <option value="ru">Русский</option>
+      <option value="en">English</option>
+    </select>
+  );
+}
+
 type ActionLog = {
   playerId: string;
   move: string;
@@ -130,9 +179,47 @@ function playerLabel(players: Array<{ id: string; name?: string }> | undefined, 
 
 function playerBlindLabel(blinds: BlindInfo | undefined, playerId: string, stage: string) {
   if (!blinds || stage !== 'preflop') return undefined;
-  if (blinds.smallBlindPlayerId === playerId) return `1× BLIND ${formatPoints(blinds.small)}`;
-  if (blinds.bigBlindPlayerId === playerId) return `2× BLIND ${formatPoints(blinds.big)}`;
+  if (blinds.smallBlindPlayerId === playerId) return `1× ${ui('BLIND', 'БЛАЙНД')} ${formatPoints(blinds.small)}`;
+  if (blinds.bigBlindPlayerId === playerId) return `2× ${ui('BLIND', 'БЛАЙНД')} ${formatPoints(blinds.big)}`;
   return undefined;
+}
+
+function localizedStage(stage: string) {
+  const stages: Record<string, string> = {
+    preflop: 'префлоп',
+    flop: 'флоп',
+    turn: 'тёрн',
+    river: 'ривер',
+    showdown: 'шоудаун',
+  };
+  return storedLanguage() === 'ru' ? stages[stage] ?? stage : stage;
+}
+
+function localizedMove(move: string) {
+  const moves: Record<string, string> = {
+    check: 'чек',
+    bet: 'ставка',
+    call: 'колл',
+    raise: 'рейз',
+    fold: 'фолд',
+  };
+  return storedLanguage() === 'ru' ? moves[move] ?? move : move;
+}
+
+function localizedRank(rank: string | undefined) {
+  if (!rank || storedLanguage() !== 'ru') return rank;
+  const ranks: Record<string, string> = {
+    'straight flush': 'стрит-флеш',
+    'four of a kind': 'каре',
+    'full house': 'фулл-хаус',
+    flush: 'флеш',
+    straight: 'стрит',
+    'three of a kind': 'сет',
+    'two pair': 'две пары',
+    pair: 'пара',
+    'high card': 'старшая карта',
+  };
+  return ranks[rank] ?? rank;
 }
 
 function tablePlayerName(name: string | undefined, id: string) {
@@ -162,6 +249,14 @@ const BET_SIZE_OPTIONS: Array<{ value: BetSizeOption; label: string }> = [
   { value: 'half', label: '1/2 pot' },
   { value: 'pot', label: 'Pot' },
 ];
+
+function localizedBetSize(option: { value: BetSizeOption; label: string }) {
+  if (storedLanguage() !== 'ru') return option.label;
+  if (option.value === 'blind') return 'Блайнд';
+  if (option.value === 'quarter') return '1/4 банка';
+  if (option.value === 'half') return '1/2 банка';
+  return 'Банк';
+}
 
 const MAX_PLAYERS = 10;
 const DEFAULT_PLAYER_NAMES = ['Dima', 'Anna', 'Ivan', 'Maria', 'Pavel', 'Elena', 'Alex', 'Sofia', 'Nikolai', 'Olga'];
@@ -1262,24 +1357,24 @@ function PotDisplay({
       }}
     >
       <details className="pot-details">
-        <summary className="pot-summary" aria-label={`Pot ${formatPoints(value)}. Show contributions`}>
-          <CoinStack value={value} title="pot" compact />
+        <summary className="pot-summary" aria-label={`${ui('Pot', 'Банк')} ${formatPoints(value)}. ${ui('Show contributions', 'Показать взносы')}`}>
+          <CoinStack value={value} title={ui('pot', 'банк')} compact />
           {currentBet > 0 ? (
             <span className="pot-current-bet">
-              bet {formatPoints(currentBet)}
+              {ui('bet', 'ставка')} {formatPoints(currentBet)}
             </span>
           ) : null}
         </summary>
         <div className="pot-popover" data-testid="pot-contributions">
           <div className="pot-popover-title">
-            <strong>Pot {formatPoints(value)}</strong>
-            <span>In pot</span>
-            <span>This round</span>
+            <strong>{ui('Pot', 'Банк')} {formatPoints(value)}</strong>
+            <span>{ui('In pot', 'В банке')}</span>
+            <span>{ui('This round', 'Этот круг')}</span>
           </div>
           {contributingPlayers.map((seat) => (
             <div className="pot-contribution-row" key={seat.id}>
               <span>
-                {seat.id === currentPlayerId ? 'You' : tablePlayerName(seat.name, seat.id)}
+                {seat.id === currentPlayerId ? ui('You', 'Вы') : tablePlayerName(seat.name, seat.id)}
               </span>
               <strong>{formatPoints(seat.total)}</strong>
               <span>{formatPoints(seat.round)}</span>
@@ -1295,7 +1390,7 @@ function PotDisplay({
           {visiblePots.map((pot, index) => (
             <span
               key={`${index}-${pot.amount}`}
-              title={`Eligible: ${pot.eligiblePlayerIds.join(', ')}`}
+              title={`${ui('Eligible', 'Участвуют')}: ${pot.eligiblePlayerIds.join(', ')}`}
               style={{
                 border: '1px solid rgba(255,255,255,0.44)',
                 borderRadius: 999,
@@ -1306,7 +1401,7 @@ function PotDisplay({
                 whiteSpace: 'nowrap',
               }}
             >
-              {index === 0 ? 'Main' : `Side ${index}`} {formatPoints(pot.amount)}
+              {index === 0 ? ui('Main', 'Основной') : `${ui('Side', 'Побочный')} ${index}`} {formatPoints(pot.amount)}
             </span>
           ))}
         </div>
@@ -1330,7 +1425,7 @@ function StreetBadge({ stage }: { stage: string }) {
         textTransform: 'uppercase',
       }}
     >
-      {stage}
+      {localizedStage(stage)}
     </span>
   );
 }
@@ -1370,10 +1465,12 @@ function PlayerSeat({
 }) {
   const shouldShowCards = Boolean(hole?.length);
   const actionLabel = action
-    ? `${action.move.toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
+    ? `${localizedMove(action.move).toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
     : undefined;
   const isYourTurn = isCurrentTurn && isYou && !isBot;
-  const bubbleLabel = isCurrentTurn ? isYourTurn ? 'YOUR TURN' : 'THINKING...' : actionLabel;
+  const bubbleLabel = isCurrentTurn
+    ? isYourTurn ? ui('YOUR TURN', 'ВАШ ХОД') : ui('THINKING…', 'ДУМАЕТ…')
+    : actionLabel;
   const hasWinningHand = !folded && (isHighWinner || isLowWinner);
   const winnerBorder = isHighWinner && isLowWinner
     ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
@@ -1407,7 +1504,7 @@ function PlayerSeat({
       >
         {compact && !isYou ? (
           <span
-            title={`${tablePlayerName(name, id)}: ${formatPoints(score)} coins`}
+            title={`${tablePlayerName(name, id)}: ${formatPoints(score)} ${ui('coins', 'фишек')}`}
             style={{
               position: 'absolute',
               top: -18,
@@ -1448,14 +1545,14 @@ function PlayerSeat({
               lineHeight: 1.1,
             }}
           >
-            BOT
+            {ui('BOT', 'БОТ')}
           </span>
         ) : null}
         {bubbleLabel ? (
           <div
             title={isCurrentTurn
-              ? isYourTurn ? 'Your turn' : `${tablePlayerName(name, id)} is thinking`
-              : `Last action: ${actionLabel}`}
+              ? isYourTurn ? ui('Your turn', 'Ваш ход') : `${tablePlayerName(name, id)} ${ui('is thinking', 'думает')}`
+              : `${ui('Last action', 'Последнее действие')}: ${actionLabel}`}
             style={{
               position: 'absolute',
               top: -18,
@@ -1564,7 +1661,7 @@ function PlayerSeat({
                     lineHeight: 1,
                   }}
                 >
-                  ★ HIGH
+                  ★ {ui('HIGH', 'ХАЙ')}
                 </span>
               ) : null}
               {isLowWinner ? (
@@ -1580,7 +1677,7 @@ function PlayerSeat({
                     lineHeight: 1,
                   }}
                 >
-                  ★ LOW
+                  ★ {ui('LOW', 'ЛОУ')}
                 </span>
               ) : null}
             </div>
@@ -1613,11 +1710,11 @@ function PlayerSeat({
                   fontWeight: 900,
                 }}
               >
-                FOLDED — NOT ELIGIBLE
+                {ui('FOLDED — NOT ELIGIBLE', 'ФОЛД — НЕ УЧАСТВУЕТ')}
               </span>
             ) : null}
-            <span>High: {resultPlayer.highRank ?? '-'}</span>
-            <span>Low: {resultPlayer.lowRank ?? 'none'}</span>
+            <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank) ?? '-'}</span>
+            <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank) ?? ui('none', 'нет')}</span>
           </div>
         ) : null}
       </section>
@@ -1643,7 +1740,7 @@ function PlayerSeat({
               whiteSpace: 'nowrap',
             }}
           >
-            {tablePlayerName(name, id)}{isYou ? ' (you)' : ''}
+            {tablePlayerName(name, id)}{isYou ? ` (${ui('you', 'вы')})` : ''}
           </span>
           {blindLabel ? (
             <span
@@ -1688,11 +1785,11 @@ function HandBanner({ player }: { player: PlayerView }) {
       }}
     >
       <strong style={{ display: 'block', fontSize: 14, lineHeight: 1.1 }}>
-        Party hand {handLabel(player.handCode, player.handNumber, player.handId)}
+        {ui('Party hand', 'Раздача партии')} {handLabel(player.handCode, player.handNumber, player.handId)}
       </strong>
       {isReplay ? (
         <span style={{ display: 'block', marginTop: 2, fontSize: 12 }}>
-          Replay of {replaySource ?? '?'}
+          {ui('Replay of', 'Повтор')} {replaySource ?? '?'}
         </span>
       ) : null}
     </div>
@@ -1764,8 +1861,8 @@ function isContestedPot(pot: HiLoResult['sidePots'][number]) {
 function playerWinParts(summary: ShowdownSummary | undefined, playerId: string) {
   if (!summary) return [];
   const parts: string[] = [];
-  if (summary.highWinners.includes(playerId)) parts.push('High');
-  if (summary.lowWinners.includes(playerId)) parts.push('Low');
+  if (summary.highWinners.includes(playerId)) parts.push(ui('High', 'хай'));
+  if (summary.lowWinners.includes(playerId)) parts.push(ui('Low', 'лоу'));
   return parts;
 }
 
@@ -1811,25 +1908,25 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
   const title = hasResult || hasSummary || knownFoldResult
     ? net > 0
       ? sharedWin
-        ? `You tied${winParts.length ? ` ${winParts.join(' + ')}` : ''}`
+        ? `${ui('You tied', 'Ничья')}${winParts.length ? `: ${winParts.join(' + ')}` : ''}`
         : winParts.length
-        ? `${isSplitPot ? 'Split pot: ' : ''}You won ${winParts.join(' + ')}`
-        : 'You won'
+        ? `${isSplitPot ? `${ui('Split pot', 'Раздел банка')}: ` : ''}${ui('You won', 'Вы выиграли')} ${winParts.join(' + ')}`
+        : ui('You won', 'Вы выиграли')
       : net < 0
-        ? 'You lost'
-        : 'Break even'
-    : 'Showdown';
+        ? ui('You lost', 'Вы проиграли')
+        : ui('Break even', 'Без прибыли и убытка')
+    : ui('Showdown', 'Шоудаун');
   const winners = player.showdownSummary
-    ? `High: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')} | Low: ${
+    ? `${ui('High', 'Хай')}: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')} | ${ui('Low', 'Лоу')}: ${
       player.showdownSummary.noLow
-        ? 'none'
+        ? ui('none', 'нет')
         : player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')
     }`
     : undefined;
   const personalPots = player.showdownSummary?.sidePots
     .filter(isContestedPot)
     .map((pot, index) => ({
-      label: index === 0 ? 'Main' : `Side ${index}`,
+      label: index === 0 ? ui('Main', 'Основной') : `${ui('Side', 'Побочный')} ${index}`,
       result: pot.players.find(result => result.id === player.playerId),
     })) ?? [];
 
@@ -1852,14 +1949,16 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
         {title}
       </strong>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 13 }}>
-        <span data-testid="showdown-contributed">Contributed: {formatPoints(contributed)}</span>
-        <span data-testid="showdown-payout">Payout: {formatPoints(payout)}</span>
+        <span data-testid="showdown-contributed">{ui('Contributed', 'Внесено')}: {formatPoints(contributed)}</span>
+        <span data-testid="showdown-payout">{ui('Payout', 'Выплата')}: {formatPoints(payout)}</span>
         <strong data-testid="showdown-net">
-          Net: {net > 0 ? '+' : ''}{formatPoints(net)}
+          {ui('Net', 'Итог')}: {net > 0 ? '+' : ''}{formatPoints(net)}
         </strong>
       </div>
       {payout > 0 && net <= 0 && winParts.length ? (
-        <span style={{ fontSize: 12, opacity: 0.9 }}>Won {winParts.join(' + ')}, but finished with a net loss</span>
+        <span style={{ fontSize: 12, opacity: 0.9 }}>
+          {ui(`Won ${winParts.join(' + ')}, but finished with a net loss`, `Выиграна часть «${winParts.join(' + ')}», но итог раздачи отрицательный`)}
+        </span>
       ) : null}
       {personalPots.length > 1 ? (
         <div
@@ -1881,10 +1980,10 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
               {label}:{' '}
               {!result?.eligible
                 ? result?.contributed
-                  ? `not eligible · ${formatPoints(result.net ?? -result.contributed)}`
-                  : 'not eligible'
+                  ? `${ui('not eligible', 'не участвует')} · ${formatPoints(result.net ?? -result.contributed)}`
+                  : ui('not eligible', 'не участвует')
                 : result.net === undefined
-                  ? `payout ${formatPoints(result.payout)}`
+                  ? `${ui('payout', 'выплата')} ${formatPoints(result.payout)}`
                   : `${result.net > 0 ? '+' : ''}${formatPoints(result.net)}`}
             </span>
           ))}
@@ -1908,8 +2007,8 @@ function PlayerComboSide({ combo, kind }: { combo?: PlayerCombo; kind: 'high' | 
   return (
     <aside className={`combo-side ${kind}`} data-testid={`${kind}-combo-side`}>
       <div className="combo-side-title">
-        <span>{isHigh ? 'HI' : 'LO'}</span>
-        <span className="combo-side-rank">{rank ?? 'none'}</span>
+        <span>{isHigh ? ui('HI', 'ХАЙ') : ui('LO', 'ЛОУ')}</span>
+        <span className="combo-side-rank">{localizedRank(rank) ?? ui('none', 'нет')}</span>
       </div>
       {cards ? (
         <div className="combo-side-cards">
@@ -1948,9 +2047,9 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
         fontSize: 13,
       }}
     >
-      <span style={{ color: '#475569', fontWeight: 700 }}>Replay</span>
+      <span style={{ color: '#475569', fontWeight: 700 }}>{ui('Replay', 'Повторить')}</span>
       <label style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        Hand
+        {ui('Hand', 'Раздача')}
         <input
           placeholder="HA0001"
           type="text"
@@ -1963,17 +2062,19 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
         disabled={!requestedHand}
         onClick={() => requestedHand && onReplayHand(requestedHand.id)}
       >
-        Replay
+        {ui('Replay', 'Повторить')}
       </button>
       {handNumber && !requestedHand ? (
-        <span style={{ color: '#b91c1c' }}>not found</span>
+        <span style={{ color: '#b91c1c' }}>{ui('not found', 'не найдено')}</span>
       ) : null}
-      <span style={{ color: '#475569' }}>Latest:</span>
+      <span style={{ color: '#475569' }}>{ui('Latest', 'Последние')}:</span>
       {latestHands.map((hand) => (
         <button
           key={hand.id}
           onClick={() => onReplayHand(hand.id)}
-          title={hand.replayOfHandId ? 'This hand is already a replay' : 'Replay this hand layout'}
+          title={hand.replayOfHandId
+            ? ui('This hand is already a replay', 'Эта раздача уже является повтором')
+            : ui('Replay this hand layout', 'Повторить расклад этой раздачи')}
         >
           {handLabel(hand.handCode, hand.handNumber, hand.id)}{hand.replayOfHandId ? 'R' : ''}
         </button>
@@ -2019,12 +2120,12 @@ function PartyStatistics({ score, players }: {
   return (
     <section className="party-summary" data-testid="party-statistics">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0 }}>Cumulative statistics</h2>
+        <h2 style={{ margin: 0 }}>{ui('Cumulative statistics', 'Общая статистика')}</h2>
         <strong
           data-testid="completed-hand-count"
           style={{ borderRadius: 999, background: '#ecfdf5', color: '#065f46', padding: '6px 10px' }}
         >
-          {completedHands.length} {completedHands.length === 1 ? 'hand' : 'hands'}
+          {completedHands.length} {storedLanguage() === 'ru' ? 'раздач' : completedHands.length === 1 ? 'hand' : 'hands'}
         </strong>
       </div>
 
@@ -2032,16 +2133,16 @@ function PartyStatistics({ score, players }: {
         <table className="result-points" data-testid="party-totals">
           <thead>
             <tr>
-              <th style={{ textAlign: 'left' }}>Player</th>
-              <th>Hands</th>
-              <th>Fold</th>
-              <th>Win</th>
-              <th>Loss</th>
-              <th>Net</th>
-              <th>Avg/hand</th>
-              <th>Max win</th>
-              <th>Max loss</th>
-              <th>Stack</th>
+              <th style={{ textAlign: 'left' }}>{ui('Player', 'Игрок')}</th>
+              <th>{ui('Hands', 'Раздачи')}</th>
+              <th>{ui('Fold', 'Фолд')}</th>
+              <th>{ui('Win', 'Победа')}</th>
+              <th>{ui('Loss', 'Проигрыш')}</th>
+              <th>{ui('Net', 'Итог')}</th>
+              <th>{ui('Avg/hand', 'Среднее')}</th>
+              <th>{ui('Max win', 'Макс. выигрыш')}</th>
+              <th>{ui('Max loss', 'Макс. проигрыш')}</th>
+              <th>{ui('Stack', 'Стек')}</th>
             </tr>
           </thead>
           <tbody>
@@ -2088,20 +2189,20 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   )];
   const contestedPots = result.sidePots.filter(isContestedPot);
   const potWinnerLine = (ids: string[], pool: number) => ids.length
-    ? `${ids.map(displayName).join(', ')} · ${formatPoints(pool / ids.length)} each`
-    : 'No qualifying low';
+    ? `${ids.map(displayName).join(', ')} · ${formatPoints(pool / ids.length)} ${ui('each', 'каждому')}`
+    : ui('No qualifying low', 'Нет подходящего лоу');
 
   return (
     <section className="result-panel">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 10 }}>
         <div>
           <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase' }}>
-            Hand complete
+            {ui('Hand complete', 'Раздача завершена')}
           </span>
-          <h2 style={{ margin: '2px 0 0' }}>Results</h2>
+          <h2 style={{ margin: '2px 0 0' }}>{ui('Results', 'Результаты')}</h2>
         </div>
         <strong style={{ borderRadius: 999, background: '#ecfdf5', color: '#065f46', padding: '6px 10px' }}>
-          Pot {formatPoints(result.potCoins)} coins
+          {ui('Pot', 'Банк')} {formatPoints(result.potCoins)} {ui('coins', 'фишек')}
         </strong>
       </div>
 
@@ -2109,13 +2210,13 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
         <section className="winner-card">
           {!highWinnerResults.length && uncontestedWinnerIds.length ? (
             <h3 style={{ margin: 0, color: '#991b1b' }}>
-              Uncontested winner{uncontestedWinnerIds.length > 1 ? 's' : ''}: {uncontestedWinnerIds.map(displayName).join(', ')}
+              {ui('Uncontested winner', 'Победитель без вскрытия')}: {uncontestedWinnerIds.map(displayName).join(', ')}
             </h3>
           ) : null}
           {highWinnerResults.map((winner) => (
             <div key={winner.id}>
               <h3 style={{ margin: '0 0 6px', color: '#991b1b' }}>
-                High winner{highWinnerResults.length > 1 ? 's' : ''}: {displayName(winner.id)} - {winner.highRank}
+                {ui('High winner', 'Победитель хай')}: {displayName(winner.id)} — {localizedRank(winner.highRank)}
               </h3>
               {winner.highCombo ? <ComboCardRow combo={winner.highCombo} tone="high" /> : null}
             </div>
@@ -2124,11 +2225,11 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
 
         <section className="winner-card">
           {result.noLow ? (
-            <h3 style={{ margin: 0, color: '#047857' }}>Low winner: No qualifying low</h3>
+            <h3 style={{ margin: 0, color: '#047857' }}>{ui('Low winner: No qualifying low', 'Лоу: нет подходящей комбинации')}</h3>
           ) : lowWinnerResults.map((winner) => (
             <div key={winner.id}>
               <h3 style={{ margin: '0 0 6px', color: '#047857' }}>
-                Low winner{lowWinnerResults.length > 1 ? 's' : ''}: {displayName(winner.id)} - {winner.lowRank}
+                {ui('Low winner', 'Победитель лоу')}: {displayName(winner.id)} — {localizedRank(winner.lowRank)}
               </h3>
               {winner.lowCombo ? <ComboCardRow combo={winner.lowCombo} tone="low" /> : null}
             </div>
@@ -2164,27 +2265,27 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                   <strong style={{ color: index === 0 ? '#047857' : '#1d4ed8' }}>
-                    {index === 0 ? 'Main pot' : `Side pot ${index}`}
+                    {index === 0 ? ui('Main pot', 'Основной банк') : `${ui('Side pot', 'Побочный банк')} ${index}`}
                   </strong>
                   <strong>{formatPoints(pot.amount)}</strong>
                 </div>
                 <div style={{ marginTop: 5, color: '#64748b', fontSize: 12 }}>
-                  Eligible: {pot.eligiblePlayerIds.map(displayName).join(', ')}
+                  {ui('Eligible', 'Участвуют')}: {pot.eligiblePlayerIds.map(displayName).join(', ')}
                 </div>
                 {pot.uncontestedWinnerId ? (
                   <div style={{ marginTop: 6, fontSize: 13 }}>
-                    <strong>Uncontested:</strong>{' '}
+                    <strong>{ui('Uncontested', 'Без вскрытия')}:</strong>{' '}
                     {displayName(pot.uncontestedWinnerId)} · {formatPoints(pot.amount)}
                   </div>
                 ) : (
                   <>
                     <div style={{ marginTop: 6, fontSize: 13 }}>
-                      <strong style={{ color: '#991b1b' }}>High:</strong>{' '}
+                      <strong style={{ color: '#991b1b' }}>{ui('High', 'Хай')}:</strong>{' '}
                       {potWinnerLine(pot.highWinners, highPool)}
                     </div>
                     <div style={{ marginTop: 3, fontSize: 13 }}>
-                      <strong style={{ color: '#047857' }}>Low:</strong>{' '}
-                      {pot.noLow ? 'No qualifying low' : potWinnerLine(pot.lowWinners, lowPool)}
+                      <strong style={{ color: '#047857' }}>{ui('Low', 'Лоу')}:</strong>{' '}
+                      {pot.noLow ? ui('No qualifying low', 'Нет подходящего лоу') : potWinnerLine(pot.lowWinners, lowPool)}
                     </div>
                   </>
                 )}
@@ -2201,14 +2302,14 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
                     }}
                   >
                     {!personalResult?.eligible
-                      ? `You: not eligible${
+                      ? `${ui('You', 'Вы')}: ${ui('not eligible', 'не участвуете')}${
                         personalResult?.contributed
-                          ? ` · contributed ${formatPoints(personalResult.contributed)} · net ${formatPoints(personalResult.net ?? -personalResult.contributed)}`
+                          ? ` · ${ui('contributed', 'внесено')} ${formatPoints(personalResult.contributed)} · ${ui('net', 'итог')} ${formatPoints(personalResult.net ?? -personalResult.contributed)}`
                           : ''
                       }`
                       : personalResult.net === undefined
-                        ? `You: payout ${formatPoints(personalResult.payout)}`
-                        : `You: contributed ${formatPoints(personalResult.contributed ?? 0)} · payout ${formatPoints(personalResult.payout)} · net ${personalResult.net > 0 ? '+' : ''}${formatPoints(personalResult.net)}`}
+                        ? `${ui('You', 'Вы')}: ${ui('payout', 'выплата')} ${formatPoints(personalResult.payout)}`
+                        : `${ui('You', 'Вы')}: ${ui('contributed', 'внесено')} ${formatPoints(personalResult.contributed ?? 0)} · ${ui('payout', 'выплата')} ${formatPoints(personalResult.payout)} · ${ui('net', 'итог')} ${personalResult.net > 0 ? '+' : ''}${formatPoints(personalResult.net)}`}
                   </div>
                 ) : null}
               </section>
@@ -2217,17 +2318,17 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
         </div>
       ) : null}
 
-      <h3 style={{ margin: '14px 0 6px' }}>Points</h3>
+      <h3 style={{ margin: '14px 0 6px' }}>{ui('Points', 'Очки')}</h3>
       <table className="result-points">
         <thead>
           <tr>
-            <th style={{ textAlign: 'left' }}>Player</th>
-            <th>High</th>
-            <th>Low</th>
-            <th>Returned</th>
-            <th>Contributed</th>
-            <th>Payout</th>
-            <th>Net</th>
+            <th style={{ textAlign: 'left' }}>{ui('Player', 'Игрок')}</th>
+            <th>{ui('High', 'Хай')}</th>
+            <th>{ui('Low', 'Лоу')}</th>
+            <th>{ui('Returned', 'Возврат')}</th>
+            <th>{ui('Contributed', 'Внесено')}</th>
+            <th>{ui('Payout', 'Выплата')}</th>
+            <th>{ui('Net', 'Итог')}</th>
           </tr>
         </thead>
         <tbody>
@@ -2260,16 +2361,16 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
         onClick={() => setShowAllHands((shown) => !shown)}
         style={{ marginTop: 12, border: '1px solid #cbd5e1', borderRadius: 10, background: '#fff', padding: '7px 12px', fontWeight: 800 }}
       >
-        {showAllHands ? 'Hide all hands' : 'Show all hands'}
+        {showAllHands ? ui('Hide all hands', 'Скрыть все руки') : ui('Show all hands', 'Показать все руки')}
       </button>
       {showAllHands ? (
         <div className="all-hands">
           {result.players.map((player) => (
-            <section className="hand-detail" key={player.id}>
-              <h3 style={{ margin: '0 0 5px' }}>{displayName(player.id)}{player.folded ? ' - folded' : ''}</h3>
-              <p style={{ margin: '0 0 4px' }}>High: {player.highRank}</p>
+            <section className="hand-detail" data-testid={`hand-detail-${player.id}`} key={player.id}>
+              <h3 style={{ margin: '0 0 5px' }}>{displayName(player.id)}{player.folded ? ` — ${ui('folded', 'фолд')}` : ''}</h3>
+              <p style={{ margin: '0 0 4px' }}>{ui('High', 'Хай')}: {localizedRank(player.highRank)}</p>
               {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
-              <p style={{ margin: '0 0 4px' }}>Low: {player.lowRank ?? 'no low'}</p>
+              <p style={{ margin: '0 0 4px' }}>{ui('Low', 'Лоу')}: {localizedRank(player.lowRank) ?? ui('no low', 'нет лоу')}</p>
               {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
             </section>
           ))}
@@ -2312,7 +2413,7 @@ function PlayerPage() {
 
   useEffect(() => {
     if (sessionDeadline !== null && sessionNow >= sessionDeadline) {
-      setError('This table expired after 2 hours without activity.');
+      setError(ui('This table expired after 2 hours without activity.', 'Стол удалён после 2 часов без активности.'));
     }
   }, [sessionDeadline, sessionNow]);
 
@@ -2332,7 +2433,7 @@ function PlayerPage() {
             : nextPlayer
         ));
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load hand'));
+      .catch((err) => setError(err instanceof Error ? err.message : ui('Could not load hand', 'Не удалось загрузить раздачу')));
 
     const socket = new WebSocket(WS_URL);
     const client = {
@@ -2393,7 +2494,7 @@ function PlayerPage() {
         applySessionTiming(message.data);
       }
       if (message.type === 'session_expired') {
-        setError('This table expired after 2 hours without activity.');
+        setError(ui('This table expired after 2 hours without activity.', 'Стол удалён после 2 часов без активности.'));
       }
       if (message.type === 'hand_dealt' && message.data?.playerLinks) {
         setIsCreatingDeal(false);
@@ -2403,10 +2504,10 @@ function PlayerPage() {
         ));
 
         if (samePlayerLink) {
-          setNotice('New deal created. Opening your new hand.');
+          setNotice(ui('New deal created. Opening your new hand.', 'Новая раздача создана. Открываем вашу руку.'));
           window.location.href = samePlayerLink.url;
         } else {
-          setNotice('New deal created.');
+          setNotice(ui('New deal created.', 'Новая раздача создана.'));
         }
       }
       if (message.type === 'hand_updated' && message.data?.id === handId) {
@@ -2414,7 +2515,7 @@ function PlayerPage() {
       }
       if (message.type === 'error') {
         setIsCreatingDeal(false);
-        setError(message.message);
+        setError(localizedServerMessage(message.message));
       }
     };
     setWs(socket);
@@ -2431,11 +2532,11 @@ function PlayerPage() {
 
   function sendMove(move: PlayerMove, amount?: number) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setNotice('Connecting to server. Try again in a moment.');
+      setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
 
-    setNotice(`${move[0].toUpperCase()}${move.slice(1)} sent.`);
+    setNotice(`${localizedMove(move)} — ${ui('sent', 'отправлено')}.`);
     ws.send(JSON.stringify({ action: 'player_move', handId, playerId, token, move, amount }));
   }
 
@@ -2443,18 +2544,18 @@ function PlayerPage() {
     if (isCreatingDeal) return;
 
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setNotice('Connecting to server. Try again in a moment.');
+      setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
 
     setIsCreatingDeal(true);
     setNewDealLinks([]);
-    setNotice('Creating new deal.');
+    setNotice(ui('Creating new deal.', 'Создаём новую раздачу.'));
     ws.send(JSON.stringify({ action: 'new_deal', handId }));
     window.setTimeout(() => {
       setIsCreatingDeal((stillCreating) => {
         if (stillCreating) {
-          setNotice('New deal is taking longer than expected. Try again.');
+          setNotice(ui('New deal is taking longer than expected. Try again.', 'Новая раздача создаётся дольше обычного. Попробуйте ещё раз.'));
         }
         return false;
       });
@@ -2463,17 +2564,17 @@ function PlayerPage() {
 
   function replayDeal(sourceHandId = handId) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setNotice('Connecting to server. Try again in a moment.');
+      setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
 
     setNewDealLinks([]);
-    setNotice('Creating replay deal.');
+    setNotice(ui('Creating replay deal.', 'Создаём повтор раздачи.'));
     ws.send(JSON.stringify({ action: 'replay_deal', handId: sourceHandId }));
   }
 
-  if (error) return <div style={{ padding: 12 }}>Error: {error}</div>;
-  if (!player) return <div style={{ padding: 12 }}>Loading...</div>;
+  if (error) return <div style={{ padding: 12 }}>{ui('Error', 'Ошибка')}: {error}</div>;
+  if (!player) return <div style={{ padding: 12 }}>{ui('Loading…', 'Загрузка…')}</div>;
 
   const sessionRemainingMs = sessionDeadline === null
     ? Number.POSITIVE_INFINITY
@@ -2499,7 +2600,8 @@ function PlayerPage() {
   const betSizeFraction = betSizeFactor(betSize);
   const potAfterCall = player.potCoins + callAmount;
   const nominalRaiseSize = Math.ceil(potAfterCall * betSizeFraction);
-  const selectedBetSizeLabel = BET_SIZE_OPTIONS.find((option) => option.value === betSize)?.label;
+  const selectedBetSize = BET_SIZE_OPTIONS.find((option) => option.value === betSize);
+  const selectedBetSizeLabel = selectedBetSize ? localizedBetSize(selectedBetSize) : '';
   const betIsAllIn = isAllInWager(betAmount, yourRoundBet, player.stack);
   const raiseIsAllIn = isAllInWager(raiseTo, yourRoundBet, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
@@ -2530,7 +2632,10 @@ function PlayerPage() {
   return (
     <div className="poker-page">
       <style>{PLAYER_PAGE_STYLES}</style>
-      <nav className="view-tabs" role="tablist" aria-label="Game views">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
+        <LanguageSelect />
+      </div>
+      <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
         <button
           id="table-tab"
           type="button"
@@ -2540,7 +2645,7 @@ function PlayerPage() {
           className={`view-tab${!isStatsView ? ' is-active' : ''}`}
           onClick={() => setActiveView('table')}
         >
-          TABLE
+          {ui('TABLE', 'СТОЛ')}
         </button>
         <button
           id="stats-tab"
@@ -2552,7 +2657,7 @@ function PlayerPage() {
           disabled={!showStatsTile}
           onClick={() => setActiveView('stats')}
         >
-          STATISTICS
+          {ui('STATISTICS', 'СТАТИСТИКА')}
         </button>
       </nav>
 
@@ -2565,7 +2670,7 @@ function PlayerPage() {
       >
       {showSessionWarning ? (
         <p className="session-warning" role="alert" data-testid="session-expiry-warning">
-          No activity. This table will be deleted in {sessionCountdown}.
+          {ui('No activity. This table will be deleted in', 'Нет активности. Стол будет удалён через')} {sessionCountdown}.
         </p>
       ) : null}
       {!socketReady ? (
@@ -2579,7 +2684,7 @@ function PlayerPage() {
               fontWeight: 800,
             }}
           >
-            disconnected
+            {ui('disconnected', 'нет соединения')}
           </span>
         </div>
       ) : null}
@@ -2639,7 +2744,7 @@ function PlayerPage() {
                   disabled={isCreatingDeal}
                   onClick={startNewDeal}
                 >
-                  {isCreatingDeal ? 'Creating…' : 'New deal'}
+                  {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
                 </button>
               ) : null}
               {player.nextPlayerLink ? (
@@ -2647,7 +2752,7 @@ function PlayerPage() {
                   className="action-button primary"
                   onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
                 >
-                  New deal
+                  {ui('New deal', 'Новая раздача')}
                 </button>
               ) : null}
             </div>
@@ -2696,7 +2801,7 @@ function PlayerPage() {
       {showActionDock ? <div className="action-dock">
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
           <div className="bet-sizes">
-            <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>Bet size</span>
+            <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
             {BET_SIZE_OPTIONS.map((option) => (
               <button
                 key={option.value}
@@ -2704,7 +2809,7 @@ function PlayerPage() {
                 onClick={() => setBetSize(option.value)}
                 className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
               >
-                {option.label}
+                {localizedBetSize(option)}
               </button>
             ))}
           </div>
@@ -2712,40 +2817,40 @@ function PlayerPage() {
         <div className="main-actions">
         {canAct && callAmount === 0 ? (
           <>
-            <button className="action-button primary" onClick={() => sendMove('check')}>Check</button>
+            <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
             {currentBet === 0 ? (
               <button className="action-button" onClick={() => sendMove('bet', betAmount)}>
-                {betIsAllIn ? 'Bet all-in' : 'Bet'} {formatPoints(betAmount)}
+                {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(betAmount)}
               </button>
             ) : null}
             {currentBet > 0 && raiseCount < maxRaises ? (
               <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
-                {raiseIsAllIn ? 'Raise all-in to' : 'Raise to'} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
+                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
             <button
               className="action-button danger"
               onClick={() => sendMove('fold')}
             >
-              Fold
+              {ui('Fold', 'Фолд')}
             </button>
           </>
         ) : null}
         {canAct && callAmount > 0 ? (
           <>
             <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
-              {call.isAllIn ? 'All-in' : 'Call'} {formatPoints(call.amount)}
+              {call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')} {formatPoints(call.amount)}
             </button>
             {raiseCount < maxRaises ? (
               <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
-                {raiseIsAllIn ? 'Raise all-in to' : 'Raise to'} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
+                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
             <button
               className="action-button danger"
               onClick={() => sendMove('fold')}
             >
-              Fold
+              {ui('Fold', 'Фолд')}
             </button>
           </>
         ) : null}
@@ -2754,14 +2859,14 @@ function PlayerPage() {
           <div className="bet-size-explanation" data-testid="bet-size-explanation">
             {currentBet > 0 ? (
               <>
-                Pot after call: <strong>{formatPoints(potAfterCall)}</strong>
+                {ui('Pot after call', 'Банк после колла')}: <strong>{formatPoints(potAfterCall)}</strong>
                 {' · '}{selectedBetSizeLabel} = <strong>{formatPoints(nominalRaiseSize)}</strong>
-                {' · '}Raise to <strong>{formatPoints(raiseTo)}</strong>
+                {' · '}{ui('Raise to', 'Рейз до')} <strong>{formatPoints(raiseTo)}</strong>
               </>
             ) : (
               <>
-                Pot: <strong>{formatPoints(player.potCoins)}</strong>
-                {' · '}{selectedBetSizeLabel} = Bet <strong>{formatPoints(betAmount)}</strong>
+                {ui('Pot', 'Банк')}: <strong>{formatPoints(player.potCoins)}</strong>
+                {' · '}{selectedBetSizeLabel} = {ui('Bet', 'ставка')} <strong>{formatPoints(betAmount)}</strong>
               </>
             )}
           </div>
@@ -2783,7 +2888,7 @@ function PlayerPage() {
       >
       {tournamentWinner ? (
         <p style={{ fontWeight: 800 }}>
-          Tournament winner: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
+          {ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
         </p>
       ) : null}
       <PartyStatistics score={player.partyScore} players={player.players} />
@@ -2798,13 +2903,13 @@ function PlayerPage() {
 
       {newDealLinks.length ? (
         <section style={{ marginTop: 18, border: '1px solid #d1d5db', borderRadius: 8, padding: 12 }}>
-          <h2>New deal</h2>
+          <h2>{ui('New deal', 'Новая раздача')}</h2>
           <ul>
             {newDealLinks.map((link) => (
               <li key={link.id}>
                 {link.id}:{' '}
                 <a href={link.url} target="_blank" rel="noreferrer">
-                  open page
+                  {ui('open page', 'открыть страницу')}
                 </a>
               </li>
             ))}
@@ -2821,7 +2926,7 @@ function PlayerPage() {
 
       {player.dealCode ? (
         <footer className="deal-footer" data-testid="deal-footer">
-          <span className="deal-chip">DEAL {player.dealCode}</span>
+          <span className="deal-chip">{ui('DEAL', 'РАЗДАЧА')} {player.dealCode}</span>
         </footer>
       ) : null}
 
@@ -2842,30 +2947,31 @@ function DebugPage() {
         return res.json();
       })
       .then(setHand)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Could not load hand'));
+      .catch((err) => setError(err instanceof Error ? err.message : ui('Could not load hand', 'Не удалось загрузить раздачу')));
   }, []);
 
-  if (error) return <div style={{ padding: 20 }}>Error: {error}</div>;
-  if (!hand) return <div style={{ padding: 20 }}>Loading...</div>;
+  if (error) return <div style={{ padding: 20 }}>{ui('Error', 'Ошибка')}: {error}</div>;
+  if (!hand) return <div style={{ padding: 20 }}>{ui('Loading…', 'Загрузка…')}</div>;
 
   return (
     <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
       <style>{PLAYER_PAGE_STYLES}</style>
-      <h1>Debug hand</h1>
-      <p title={hand.id}>Hand: {handLabel(hand.handCode, hand.handNumber, hand.id)}</p>
-      <p title={hand.partyId}>Party: {partyLabel(hand.partyCode, hand.partyId)}</p>
-      <p>Pot: {formatPoints(hand.potCoins ?? 2)} coins</p>
-      <p>Stage: {hand.stage ?? 'showdown'}</p>
-      <p>Turn: {hand.currentPlayerId ?? '-'}</p>
-      <h2>Board</h2>
+      <LanguageSelect />
+      <h1>{ui('Debug hand', 'Отладка раздачи')}</h1>
+      <p title={hand.id}>{ui('Hand', 'Раздача')}: {handLabel(hand.handCode, hand.handNumber, hand.id)}</p>
+      <p title={hand.partyId}>{ui('Party', 'Партия')}: {partyLabel(hand.partyCode, hand.partyId)}</p>
+      <p>{ui('Pot', 'Банк')}: {formatPoints(hand.potCoins ?? 2)} {ui('coins', 'фишек')}</p>
+      <p>{ui('Stage', 'Улица')}: {localizedStage(hand.stage ?? 'showdown')}</p>
+      <p>{ui('Turn', 'Ход')}: {hand.currentPlayerId ?? '-'}</p>
+      <h2>{ui('Board', 'Борд')}</h2>
       <CardRow cards={hand.fullCommunity ?? hand.community} />
 
-      <h2>Players</h2>
+      <h2>{ui('Players', 'Игроки')}</h2>
       <div style={{ display: 'grid', gap: 18 }}>
         {hand.players.map((player) => (
           <section key={player.id}>
             <h3>{player.id}</h3>
-            {player.folded ? <p>Folded</p> : null}
+            {player.folded ? <p>{ui('Folded', 'Фолд')}</p> : null}
             <CardRow cards={player.hole} />
           </section>
         ))}
@@ -2875,7 +2981,7 @@ function DebugPage() {
         <ResultView result={hand.result} players={hand.players} contributions={hand.totalContributions} />
       ) : null}
 
-      <h2>Actions</h2>
+      <h2>{ui('Actions', 'Действия')}</h2>
       {hand.actions?.length ? (
         <ul>
           {hand.actions.map((action) => (
@@ -2885,7 +2991,7 @@ function DebugPage() {
           ))}
         </ul>
       ) : (
-        <p>No actions yet.</p>
+        <p>{ui('No actions yet.', 'Действий пока нет.')}</p>
       )}
     </div>
   );
@@ -2971,8 +3077,8 @@ function LobbyTable({
               textShadow: '0 2px 4px rgba(0,0,0,.35)',
             }}
           >
-            <strong style={{ fontSize: 20, letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
-            <span style={{ marginTop: 5, fontSize: 12, fontWeight: 800, opacity: 0.82 }}>WAITING FOR PLAYERS</span>
+            <strong style={{ fontSize: 20, letterSpacing: '.12em' }}>{ui('OMAHA HI-LO', 'ОМАХА ХАЙ-ЛО')}</strong>
+            <span style={{ marginTop: 5, fontSize: 12, fontWeight: 800, opacity: 0.82 }}>{ui('WAITING FOR PLAYERS', 'ОЖИДАЕМ ИГРОКОВ')}</span>
             <span style={{ marginTop: 7, border: '1px solid rgba(255,255,255,.4)', borderRadius: 999, padding: '3px 10px', fontWeight: 900 }}>
               {lobby.members.length} / {lobby.maxPlayers}
             </span>
@@ -3018,10 +3124,12 @@ function LobbyTable({
                 }}
               >
                 <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {seat ? tablePlayerName(seat.name, seat.id) : 'BOT ON START'}
+                  {seat ? tablePlayerName(seat.name, seat.id) : ui('BOT ON START', 'БОТ ПРИ СТАРТЕ')}
                 </strong>
                 <span style={{ fontSize: 10, fontWeight: 800, color: seat ? '#64748b' : '#cbd5e1' }}>
-                  {seat ? `${seat.isHost ? 'HOST · ' : ''}${seat.isBot ? 'BOT' : isYou ? 'YOU' : 'READY'}` : `SEAT ${index + 1}`}
+                  {seat
+                    ? `${seat.isHost ? `${ui('HOST', 'ВЕДУЩИЙ')} · ` : ''}${seat.isBot ? ui('BOT', 'БОТ') : isYou ? ui('YOU', 'ВЫ') : ui('READY', 'ГОТОВ')}`
+                    : `${ui('SEAT', 'МЕСТО')} ${index + 1}`}
                 </span>
               </div>
               {seat?.isBot && canRemoveBots && onRemoveBot ? (
@@ -3029,7 +3137,7 @@ function LobbyTable({
                   onClick={() => onRemoveBot(seat.id)}
                   style={{ minHeight: 24, marginTop: 3, padding: '2px 7px', borderRadius: 999, fontSize: 10 }}
                 >
-                  Remove
+                  {ui('Remove', 'Убрать')}
                 </button>
               ) : null}
             </div>
@@ -3112,7 +3220,7 @@ function LobbyPage() {
       } else if (message.type === 'lobby_started' && message.data?.playerUrl) {
         window.location.href = message.data.playerUrl;
       } else if (message.type === 'error') {
-        setNotice(message.message);
+        setNotice(localizedServerMessage(message.message));
       } else if (message.type === 'session_expired') {
         setLobbyExpired(true);
       }
@@ -3138,7 +3246,7 @@ function LobbyPage() {
 
   function send(action: string, extra: Record<string, unknown> = {}) {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      setNotice('Connecting to server. Try again in a moment.');
+      setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
     socket.send(JSON.stringify({ action, lobbyId, ...extra }));
@@ -3146,13 +3254,17 @@ function LobbyPage() {
 
   function join() {
     if (!name.trim()) {
-      setNotice('Enter your name.');
+      setNotice(ui('Enter your name.', 'Введите ваше имя.'));
       return;
     }
     send('join_lobby', { name: name.trim() });
   }
 
   const isHost = Boolean(lobby && memberId === lobby.hostMemberId);
+  const hostMember = lobby?.members.find(member => member.id === lobby.hostMemberId);
+  const hostDisplayName = hostMember
+    ? tablePlayerName(hostMember.name, hostMember.id)
+    : ui('the host', 'ведущий');
   const sessionRemainingMs = sessionDeadline === null
     ? Number.POSITIVE_INFINITY
     : Math.max(0, sessionDeadline - sessionNow);
@@ -3169,38 +3281,49 @@ function LobbyPage() {
       <main style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
-            <a href="/" style={{ color: '#047857', fontWeight: 800, textDecoration: 'none' }}>← Omaha Hi-Lo</a>
-            <h1 style={{ margin: '5px 0 0' }}>Table lobby</h1>
+            <a href="/" style={{ color: '#047857', fontWeight: 800, textDecoration: 'none' }}>← {ui('Omaha Hi-Lo', 'Омаха хай-ло')}</a>
+            <h1 style={{ margin: '5px 0 0' }}>{ui('Table lobby', 'Лобби стола')}</h1>
           </div>
-          <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
-            {socketReady ? 'connected' : 'connecting...'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <LanguageSelect />
+            <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
+              {socketReady ? ui('connected', 'подключено') : ui('connecting…', 'подключение…')}
+            </span>
+          </div>
         </header>
 
         {lobbyExpired ? (
           <p className="session-warning" role="alert" style={{ margin: 0, border: '1px solid #f59e0b', borderRadius: 12, padding: '9px 12px', background: '#fffbeb', color: '#92400e', fontWeight: 800, textAlign: 'center' }}>
-            This lobby expired after 2 hours without activity.
+            {ui('This lobby expired after 2 hours without activity.', 'Лобби удалено после 2 часов без активности.')}
           </p>
         ) : showSessionWarning ? (
           <p className="session-warning" role="alert" style={{ margin: 0, border: '1px solid #f59e0b', borderRadius: 12, padding: '9px 12px', background: '#fffbeb', color: '#92400e', fontWeight: 800, textAlign: 'center' }}>
-            No activity. This lobby will be deleted in {sessionCountdown}.
+            {ui('No activity. This lobby will be deleted in', 'Нет активности. Лобби будет удалено через')} {sessionCountdown}.
           </p>
         ) : null}
 
         {!memberId ? (
           <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 12 }}>
-            <h2 style={{ margin: 0 }}>Join the table</h2>
+            <h2 style={{ margin: 0 }}>{ui('Join the table', 'Занять место')}</h2>
             {lobby ? (
               <>
-                <strong>Players already here</strong>
+                <strong>{ui('Players already here', 'За столом уже сидят')}</strong>
                 <LobbyTable lobby={lobby} />
-                {lobby.status === 'waiting' ? <p style={{ margin: 0 }}>Enter your name and wait for the host to start.</p> : <p style={{ margin: 0 }}>This game has already started.</p>}
+                {lobby.status === 'waiting'
+                  ? (
+                    <p style={{ margin: 0 }}>
+                      {storedLanguage() === 'ru'
+                        ? `Введите имя и дождитесь, когда ${hostDisplayName} начнёт игру.`
+                        : `Enter your name and wait for ${hostDisplayName} to start the game.`}
+                    </p>
+                  )
+                  : <p style={{ margin: 0 }}>{ui('This game has already started.', 'Игра за этим столом уже началась.')}</p>}
               </>
-            ) : <p style={{ margin: 0 }}>Loading lobby…</p>}
+            ) : <p style={{ margin: 0 }}>{ui('Loading lobby…', 'Загружаем лобби…')}</p>}
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
-              Your name
+              {ui('Your name', 'Ваше имя')}
               <input
-                aria-label="Your name"
+                aria-label={ui('Your name', 'Ваше имя')}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 onKeyDown={(event) => {
@@ -3214,26 +3337,41 @@ function LobbyPage() {
               disabled={!socketReady || !lobby || lobby.status !== 'waiting' || lobby.members.length >= lobby.maxPlayers}
               style={{ padding: '9px 14px', fontWeight: 900 }}
             >
-              Take a seat
+              {ui('Take a seat', 'Занять место')}
             </button>
           </section>
         ) : lobby ? (
           <>
-            <nav role="tablist" aria-label="Lobby views" style={{ display: 'flex', gap: 4, margin: '0 12px -15px', zIndex: 1 }}>
+            <nav role="tablist" aria-label={ui('Lobby views', 'Разделы лобби')} style={{ display: 'flex', gap: 4, margin: '0 12px -15px', zIndex: 1 }}>
               <button role="tab" aria-selected="true" style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: '#fff', background: '#fff', fontWeight: 900 }}>
-                LOBBY
+                {ui('LOBBY', 'ЛОББИ')}
               </button>
             </nav>
             <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
-              <div>
-                <span style={{ display: 'block', color: '#64748b', fontSize: 13, fontWeight: 800 }}>TABLE {lobby.tableName?.toUpperCase()}</span>
-                <strong style={{ display: 'block', marginTop: 4 }}>Tell friends this PIN</strong>
-                <output
-                  aria-label="Table PIN"
-                  style={{ display: 'inline-block', marginTop: 7, border: '1px solid #a7f3d0', borderRadius: 12, background: '#ecfdf5', padding: '8px 18px', color: '#065f46', font: '900 28px/1 ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing: '.2em' }}
-                >
-                  {lobby.pin}
-                </output>
+              <div style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
+                <strong style={{ display: 'block', color: '#526159', fontSize: 15 }}>
+                  {ui('Tell your friends the table name and PIN', 'Сообщите друзьям название стола и PIN')}
+                </strong>
+                <div style={{ display: 'flex', alignItems: 'stretch', gap: 12, flexWrap: 'wrap', marginTop: 11 }}>
+                  <div style={{ flex: '1 1 260px', borderRadius: 13, background: '#08734d', padding: '11px 16px', color: '#fff' }}>
+                    <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em', opacity: .75 }}>{ui('TABLE', 'СТОЛ')}</span>
+                    <output
+                      aria-label={ui('Table name', 'Название стола')}
+                      style={{ display: 'block', marginTop: 2, fontSize: 'clamp(27px, 5vw, 40px)', fontWeight: 900, lineHeight: 1.05 }}
+                    >
+                      {lobby.tableName}
+                    </output>
+                  </div>
+                  <div style={{ flex: '0 1 190px', border: '2px solid #6ee7b7', borderRadius: 13, background: '#fff', padding: '9px 16px', color: '#065f46' }}>
+                    <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em' }}>PIN</span>
+                    <output
+                      aria-label={ui('Table PIN', 'PIN стола')}
+                      style={{ display: 'block', marginTop: 2, font: '900 clamp(27px, 5vw, 40px)/1.05 ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing: '.16em' }}
+                    >
+                      {lobby.pin}
+                    </output>
+                  </div>
+                </div>
               </div>
 
               <LobbyTable
@@ -3246,8 +3384,8 @@ function LobbyPage() {
               {isHost && lobby.status === 'waiting' ? (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <input
-                    aria-label="Bot name"
-                    placeholder="Bot name (optional)"
+                    aria-label={ui('Bot name', 'Имя бота')}
+                    placeholder={ui('Bot name (optional)', 'Имя бота (необязательно)')}
                     value={botName}
                     onChange={(event) => setBotName(event.target.value)}
                     style={{ flex: 1, minWidth: 170, padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8 }}
@@ -3260,21 +3398,27 @@ function LobbyPage() {
                     disabled={lobby.members.length >= lobby.maxPlayers}
                     style={{ fontWeight: 800 }}
                   >
-                    Add bot
+                    {ui('Add bot', 'Добавить бота')}
                   </button>
                   <button
                     onClick={() => send('lobby_start')}
                     style={{ padding: '9px 16px', background: '#047857', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
                   >
-                    Start game · fill with bots
+                    {ui('Start game · fill with bots', 'Начать игру · заполнить ботами')}
                   </button>
                 </div>
               ) : null}
-              {!isHost && lobby.status === 'waiting' ? <p style={{ margin: 0 }}>Waiting for the host to start the game…</p> : null}
+              {!isHost && lobby.status === 'waiting' ? (
+                <p style={{ margin: 0 }}>
+                  {storedLanguage() === 'ru'
+                    ? `Ждём, когда ${hostDisplayName} начнёт игру…`
+                    : `Waiting for ${hostDisplayName} to start the game…`}
+                </p>
+              ) : null}
               {notice ? <p role="status" style={{ margin: 0, color: notice.includes('copied') ? '#166534' : '#b45309' }}>{notice}</p> : null}
             </section>
           </>
-        ) : <p>Loading lobby…</p>}
+        ) : <p>{ui('Loading lobby…', 'Загружаем лобби…')}</p>}
       </main>
     </div>
   );
@@ -3752,9 +3896,7 @@ const WELCOME_TEXT = {
 } as const;
 
 function WelcomePage() {
-  const [language, setLanguage] = useState<'en' | 'ru'>(() => (
-    window.localStorage.getItem('omaha-language') === 'en' ? 'en' : 'ru'
-  ));
+  const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [connected, setConnected] = useState(false);
@@ -3793,7 +3935,7 @@ function WelcomePage() {
           window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
           window.location.href = `/lobby/${lobby.id}?member=${memberId}`;
         }
-        if (message.type === 'error') setNotice(message.message);
+        if (message.type === 'error') setNotice(localizedServerMessage(message.message));
       };
       ws.onclose = () => {
         setConnected(false);
@@ -3878,7 +4020,12 @@ function WelcomePage() {
             <select
               aria-label={t.language}
               value={language}
-              onChange={event => setLanguage(event.target.value as 'en' | 'ru')}
+              onChange={event => {
+                const nextLanguage = event.target.value as UiLanguage;
+                window.localStorage.setItem('omaha-language', nextLanguage);
+                setLanguage(nextLanguage);
+                window.dispatchEvent(new Event('omaha-language-change'));
+              }}
               style={{ border: '1px solid rgba(255,255,255,.5)', borderRadius: 999, background: '#fff', padding: '6px 10px' }}
             >
               <option value="ru">Русский</option>
@@ -4049,13 +4196,13 @@ function ReportProblemButton() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(result.error || 'Could not save the problem');
+        throw new Error(result.error || ui('Could not save the problem', 'Не удалось сохранить сообщение'));
       }
-      setStatus(`Problem #${result.id} saved`);
+      setStatus(ui(`Problem #${result.id} saved`, `Сообщение #${result.id} сохранено`));
       setDescription('');
       setIsOpen(false);
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Could not save the problem');
+      setStatus(error instanceof Error ? error.message : ui('Could not save the problem', 'Не удалось сохранить сообщение'));
     } finally {
       setIsSaving(false);
     }
@@ -4076,7 +4223,7 @@ function ReportProblemButton() {
             border: '1px solid #94a3b8',
             borderRadius: 8,
             background: '#fff',
-            color: status.startsWith('Problem #') ? '#166534' : '#b91c1c',
+            color: status.includes(' saved') || status.includes(' сохранено') ? '#166534' : '#b91c1c',
             boxShadow: '0 8px 24px rgba(15, 23, 42, 0.18)',
             fontFamily: 'system-ui, sans-serif',
             fontWeight: 700,
@@ -4087,7 +4234,7 @@ function ReportProblemButton() {
       ) : null}
       <button
         type="button"
-        aria-label="Report a problem"
+        aria-label={ui('Report a problem', 'Сообщить о проблеме')}
         onClick={() => {
           setStatus(null);
           setIsOpen(true);
@@ -4108,7 +4255,7 @@ function ReportProblemButton() {
           cursor: 'pointer',
         }}
       >
-        Report a problem
+        {ui('Report a problem', 'Сообщить о проблеме')}
       </button>
       {isOpen ? (
         <div
@@ -4144,10 +4291,10 @@ function ReportProblemButton() {
             }}
           >
             <h2 id="problem-dialog-title" style={{ margin: 0, fontSize: 22 }}>
-              Report a problem
+              {ui('Report a problem', 'Сообщить о проблеме')}
             </h2>
             <label style={{ display: 'grid', gap: 7, fontWeight: 700 }}>
-              Description
+              {ui('Description', 'Описание')}
               <textarea
                 autoFocus
                 required
@@ -4155,7 +4302,7 @@ function ReportProblemButton() {
                 rows={6}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="What went wrong?"
+                placeholder={ui('What went wrong?', 'Что пошло не так?')}
                 style={{
                   boxSizing: 'border-box',
                   width: '100%',
@@ -4171,14 +4318,14 @@ function ReportProblemButton() {
             {status ? <p role="alert" style={{ margin: 0, color: '#b91c1c' }}>{status}</p> : null}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" disabled={isSaving} onClick={close}>
-                Cancel
+                {ui('Cancel', 'Отмена')}
               </button>
               <button
                 type="submit"
                 disabled={isSaving || !description.trim()}
                 style={{ fontWeight: 800 }}
               >
-                {isSaving ? 'Saving…' : 'OK'}
+                {isSaving ? ui('Saving…', 'Сохраняем…') : ui('OK', 'Отправить')}
               </button>
             </div>
           </form>
@@ -4189,6 +4336,17 @@ function ReportProblemButton() {
 }
 
 export default function App() {
+  const [, setLanguageRevision] = useState(0);
+  useEffect(() => {
+    const refreshLanguage = () => {
+      document.documentElement.lang = storedLanguage();
+      setLanguageRevision(revision => revision + 1);
+    };
+    document.documentElement.lang = storedLanguage();
+    window.addEventListener('omaha-language-change', refreshLanguage);
+    return () => window.removeEventListener('omaha-language-change', refreshLanguage);
+  }, []);
+
   let page: React.ReactNode;
   if (window.location.pathname.startsWith('/player/')) page = <PlayerPage />;
   else if (window.location.pathname.startsWith('/debug/')) page = <DebugPage />;

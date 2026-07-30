@@ -2,10 +2,12 @@ import { expect, Page, test } from '@playwright/test';
 
 async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Создать стол' }).click();
-  await page.getByLabel('Ваше имя').fill('Dima');
-  await page.getByLabel('Мест за столом').selectOption(String(playerCount));
-  await page.getByRole('button', { name: 'Создать стол' }).click();
+  const language = page.locator('select[aria-label="Language"], select[aria-label="Язык"]');
+  if (await language.inputValue() !== 'en') await language.selectOption('en');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByLabel('Seats at the table').selectOption(String(playerCount));
+  await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+\?member=/);
   await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
@@ -164,8 +166,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
 
   const thinkingSeat = page.getByTestId('active-player-P2');
   await expect(thinkingSeat).toBeVisible();
-  await expect(thinkingSeat.getByText('THINKING...', { exact: true })).toBeVisible();
-  await expect(page.getByText('Anna — THINKING...', { exact: true })).toHaveCount(0);
+  await expect(thinkingSeat.getByText('THINKING…', { exact: true })).toBeVisible();
+  await expect(page.getByText('Anna — THINKING…', { exact: true })).toHaveCount(0);
 
   await expect.poll(async () => {
     const response = await request.get(apiUrl);
@@ -341,7 +343,8 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await assertCumulativeStats(showdownState);
   await page.getByRole('button', { name: 'Show all hands' }).click();
 
-  const foldedHand = page.getByRole('heading', { name: 'Dima - folded' }).locator('..');
+  const foldedHand = page.getByTestId('hand-detail-P1');
+  await expect(foldedHand.getByRole('heading', { name: 'Dima — folded' })).toBeVisible();
   await expect(foldedHand.getByText(/^High: /)).toBeVisible();
   await expect(foldedHand.getByText(/^Low: /)).toBeVisible();
   await expect(page.getByTestId('party-total-P1')).toContainText('Dima');

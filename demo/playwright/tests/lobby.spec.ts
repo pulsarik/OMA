@@ -12,28 +12,44 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   await expect(page).toHaveURL(/\/lobby\/[^/?]+\?member=/);
 
   const pin = (await page.getByLabel('Table PIN').textContent())?.trim() ?? '';
+  const tableName = (await page.getByLabel('Table name').textContent())?.trim() ?? '';
   expect(pin).toMatch(/^\d{4}$/);
-  await expect(page.getByText(/^TABLE [A-Z ]+$/)).toBeVisible();
+  expect(tableName).not.toBe('');
+  await expect(page.getByText('Tell your friends the table name and PIN')).toBeVisible();
+  await expect(page.getByLabel('Table name')).not.toBeEmpty();
   await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');
   await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('HOST · YOU');
+
+  const secondHostContext = await browser.newContext();
+  const secondHost = await secondHostContext.newPage();
+  await secondHost.goto('/');
+  await secondHost.getByLabel('Язык').selectOption('en');
+  await secondHost.getByRole('button', { name: 'Create a table' }).click();
+  await secondHost.getByLabel('Your name').fill('Pavel');
+  await secondHost.getByRole('button', { name: 'Create table' }).click();
+  await expect(secondHost).toHaveURL(/\/lobby\/[^/?]+\?member=/);
+  await expect(secondHost.getByLabel('Table name')).not.toHaveText(tableName);
+  await secondHostContext.close();
 
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
   await guest.goto('/');
   await guest.getByRole('button', { name: 'Войти в открытый стол' }).click();
-  await expect(guest.getByText('Dima', { exact: true })).toBeVisible();
+  const targetTable = guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' });
+  await expect(targetTable).toBeVisible();
   await guest.getByLabel('PIN стола').fill(pin);
   await guest.getByRole('button', { name: 'Найти стол' }).click();
   await expect(guest).toHaveURL(/\/lobby\/[^/?]+$/);
-  await expect(guest.getByText('Players already here')).toBeVisible();
+  await expect(guest.getByRole('heading', { name: 'Лобби стола' })).toBeVisible();
+  await expect(guest.getByText('За столом уже сидят')).toBeVisible();
   await expect(guest.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');
-  await expect(guest.getByText('Enter your name and wait for the host to start.')).toBeVisible();
-  await guest.getByLabel('Your name').fill('Anna');
-  await guest.getByRole('button', { name: 'Take a seat' }).click();
+  await expect(guest.getByText('Введите имя и дождитесь, когда Dima начнёт игру.')).toBeVisible();
+  await guest.getByLabel('Ваше имя').fill('Anna');
+  await guest.getByRole('button', { name: 'Занять место' }).click();
   await expect(guest).toHaveURL(/\/lobby\/[^/?]+\?member=/);
 
   await expect(page.getByText('Anna', { exact: true })).toBeVisible();
-  await expect(guest.getByText('Waiting for the host to start the game…')).toBeVisible();
+  await expect(guest.getByText('Ждём, когда Dima начнёт игру…')).toBeVisible();
 
   await page.getByLabel('Bot name').fill('Max');
   await page.getByRole('button', { name: 'Add bot' }).click();
@@ -49,6 +65,9 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   const hostPath = new URL(page.url()).pathname.split('/');
   const guestPath = new URL(guest.url()).pathname.split('/');
   expect(hostPath[2], 'host and guest opened different hands').toBe(guestPath[2]);
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  await expect(guest.getByRole('tab', { name: 'СТОЛ' })).toBeVisible();
+  await expect(guest.getByLabel('Язык')).toHaveValue('ru');
   await expect(page.getByTestId('opponents-grid').locator('[data-player-seat]')).toHaveCount(3);
   await expect(page.getByText('Alex', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Anna', { exact: true }).first()).toBeVisible();

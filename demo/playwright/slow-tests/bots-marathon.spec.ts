@@ -106,6 +106,7 @@ test('ten simultaneous tables remain isolated through showdown', async ({
   const tableCount = 10;
   const playersPerTable = 3;
   await page.goto('/');
+  await page.getByLabel('Язык').selectOption('en');
 
   const deals = await Promise.all(
     Array.from({ length: tableCount }, (_, tableIndex) => {
@@ -176,6 +177,7 @@ test('seven bots and seven observing clients complete 20 deals without getting s
   context,
 }) => {
   await page.goto('/');
+  await page.getByLabel('Язык').selectOption('en');
   let deal = await createBotParty(page);
   const observers = await Promise.all(
     Array.from({ length: BOT_COUNT }, () => context.newPage()),

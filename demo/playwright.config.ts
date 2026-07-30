@@ -12,7 +12,7 @@ export default defineConfig({
       url: 'http://localhost:4000/api/version',
       timeout: 120_000,
       reuseExistingServer: false,
-      env: { DATA_FILE: '../data/e2e-hands.sqlite' },
+      env: { DATA_FILE: ':memory:' },
     },
     {
       command: 'node client/node_modules/vite/bin/vite.js client --host localhost',

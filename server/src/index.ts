@@ -81,13 +81,37 @@ type Lobby = {
   lastActivity: number;
 };
 
-const TABLE_CITIES = [
-  'Amsterdam', 'Athens', 'Barcelona', 'Berlin', 'Brussels', 'Budapest',
-  'Copenhagen', 'Dublin', 'Edinburgh', 'Florence', 'Geneva', 'Helsinki',
-  'Istanbul', 'Kyoto', 'Lisbon', 'London', 'Madrid', 'Milan', 'Monaco',
-  'Montreal', 'Naples', 'Oslo', 'Paris', 'Porto', 'Prague', 'Reykjavik',
-  'Riga', 'Rome', 'Seoul', 'Singapore', 'Stockholm', 'Sydney', 'Tallinn',
-  'Tokyo', 'Valencia', 'Vancouver', 'Venice', 'Vienna', 'Warsaw', 'Zurich',
+const WORLD_CAPITALS = [
+  'Abu Dhabi', 'Abuja', 'Accra', 'Addis Ababa', 'Algiers', 'Amman',
+  'Amsterdam', 'Andorra la Vella', 'Ankara', 'Antananarivo', 'Apia',
+  'Ashgabat', 'Asmara', 'Astana', 'Asuncion', 'Athens', 'Baghdad', 'Baku',
+  'Bamako', 'Bandar Seri Begawan', 'Bangkok', 'Bangui', 'Banjul', 'Beijing',
+  'Beirut', 'Belgrade', 'Belmopan', 'Berlin', 'Bern', 'Bishkek', 'Bissau',
+  'Bogota', 'Brasilia', 'Bratislava', 'Brazzaville', 'Bridgetown', 'Brussels',
+  'Bucharest', 'Budapest', 'Buenos Aires', 'Cairo', 'Canberra', 'Caracas',
+  'Castries', 'Chisinau', 'Conakry', 'Copenhagen', 'Dakar', 'Damascus',
+  'Dhaka', 'Dili', 'Djibouti', 'Doha', 'Dublin', 'Dushanbe', 'Freetown',
+  'Funafuti', 'Gaborone', 'Georgetown', 'Guatemala City', 'Hanoi', 'Harare',
+  'Havana', 'Helsinki', 'Honiara', 'Islamabad', 'Jakarta', 'Jerusalem',
+  'Juba', 'Kabul', 'Kampala', 'Kathmandu', 'Khartoum', 'Kigali', 'Kingston',
+  'Kingstown', 'Kinshasa', 'Kuala Lumpur', 'Kuwait City', 'Kyiv', 'Libreville',
+  'Lilongwe', 'Lima', 'Lisbon', 'Ljubljana', 'Lome', 'London', 'Luanda',
+  'Lusaka', 'Luxembourg', 'Madrid', 'Majuro', 'Malabo', 'Male', 'Managua',
+  'Manama', 'Manila', 'Maputo', 'Maseru', 'Mbabane', 'Mexico City', 'Minsk',
+  'Mogadishu', 'Monaco', 'Monrovia', 'Montevideo', 'Moroni', 'Moscow',
+  'Muscat', 'Nairobi', 'Nassau', 'Naypyidaw', "N'Djamena", 'New Delhi',
+  'Ngerulmud', 'Niamey', 'Nicosia', 'Nouakchott', "Nuku'alofa", 'Oslo',
+  'Ottawa', 'Ouagadougou', 'Panama City', 'Paramaribo', 'Paris', 'Phnom Penh',
+  'Podgorica', 'Port Louis', 'Port Moresby', 'Port Vila', 'Port-au-Prince',
+  'Port of Spain', 'Prague', 'Praia', 'Pretoria', 'Pyongyang', 'Quito',
+  'Rabat', 'Reykjavik', 'Riga', 'Riyadh', 'Rome', 'Roseau', 'San Jose',
+  'San Marino', 'San Salvador', 'Sanaa', 'Santiago', 'Santo Domingo',
+  'Sao Tome', 'Sarajevo', 'Seoul', 'Singapore', 'Skopje', 'Sofia',
+  'Stockholm', 'Sucre', 'Suva', 'Taipei', 'Tallinn', 'Tashkent', 'Tbilisi',
+  'Tegucigalpa', 'Tehran', 'Thimphu', 'Tirana', 'Tokyo', 'Tripoli', 'Tunis',
+  'Ulaanbaatar', 'Vaduz', 'Valletta', 'Vatican City', 'Victoria', 'Vienna',
+  'Vientiane', 'Vilnius', 'Warsaw', 'Washington', 'Wellington', 'Windhoek',
+  'Yamoussoukro', 'Yaounde', 'Yerevan', 'Zagreb',
 ];
 
 function formatGmt(date: Date) {
@@ -598,15 +622,11 @@ async function newLobbyPin() {
 async function newLobbyTableName() {
   const usedNames = new Set(
     (await store.listLobbies() as Lobby[])
-      .filter(lobby => lobby.status === 'waiting')
       .map(lobby => lobby.tableName),
   );
-  const start = Math.floor(Math.random() * TABLE_CITIES.length);
-  for (let offset = 0; offset < TABLE_CITIES.length; offset += 1) {
-    const city = TABLE_CITIES[(start + offset) % TABLE_CITIES.length];
-    if (!usedNames.has(city)) return city;
-  }
-  return `${TABLE_CITIES[start]} ${usedNames.size + 1}`;
+  const availableCapitals = WORLD_CAPITALS.filter(city => !usedNames.has(city));
+  if (!availableCapitals.length) throw new Error('server overloaded: no table names available');
+  return availableCapitals[Math.floor(Math.random() * availableCapitals.length)];
 }
 
 function lobbyName(value: unknown, fallback: string) {
