@@ -7,8 +7,17 @@ import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
 import { botMove } from './bot';
 import {
+  Lobby,
+  LobbyMember,
+  WORLD_CAPITALS,
+  firstOpenLobbySeat,
+  lobbyBotName,
+  lobbyName,
+  normalizeLobbySeats,
+  seatedLobbyMembers,
+} from './lobby';
+import {
   PlayerMove,
-  DEFAULT_BOT_NAMES,
   MAX_RAISES_PER_STREET,
   POT_COINS,
   currentPotBreakdown,
@@ -41,7 +50,6 @@ const playerConnections = new Map<WebSocket, {
   visitId: number;
 }>();
 const lobbyLocks = new Map<string, Promise<any>>();
-const cityImageCache = new Map<string, { imageUrl: string; sourceUrl: string } | null>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const SESSION_EXPIRE_MS = Math.max(60_000, Number(process.env.SESSION_EXPIRE_MS) || 2 * 60 * 60_000);
 const SESSION_WARNING_MS = Math.min(
@@ -49,6 +57,7 @@ const SESSION_WARNING_MS = Math.min(
   Math.max(0, Number(process.env.SESSION_WARNING_MS) || 60 * 60_000),
 );
 const SESSION_CLEANUP_MS = Math.max(10_000, Number(process.env.SESSION_CLEANUP_MS) || 60_000);
+const MAX_FAILED_PIN_ATTEMPTS = 5;
 const staticDir = [
   process.env.STATIC_DIR,
   path.resolve(process.cwd(), 'demo/client/dist'),
@@ -59,62 +68,6 @@ type BuildInfo = {
   commit?: string;
   buildTimeGmt?: string;
 };
-
-type LobbyMember = {
-  id: string;
-  token: string;
-  name: string;
-  isBot: boolean;
-  joinedAt: number;
-  seat?: number;
-  playerId?: string;
-};
-
-type Lobby = {
-  id: string;
-  pin: string;
-  tableName: string;
-  hostMemberId: string;
-  maxPlayers: number;
-  status: 'waiting' | 'started';
-  members: LobbyMember[];
-  handId?: string;
-  created: number;
-  lastActivity: number;
-};
-
-const WORLD_CAPITALS = [
-  'Abu Dhabi', 'Abuja', 'Accra', 'Addis Ababa', 'Algiers', 'Amman',
-  'Amsterdam', 'Andorra la Vella', 'Ankara', 'Antananarivo', 'Apia',
-  'Ashgabat', 'Asmara', 'Astana', 'Asuncion', 'Athens', 'Baghdad', 'Baku',
-  'Bamako', 'Bandar Seri Begawan', 'Bangkok', 'Bangui', 'Banjul', 'Beijing',
-  'Beirut', 'Belgrade', 'Belmopan', 'Berlin', 'Bern', 'Bishkek', 'Bissau',
-  'Bogota', 'Brasilia', 'Bratislava', 'Brazzaville', 'Bridgetown', 'Brussels',
-  'Bucharest', 'Budapest', 'Buenos Aires', 'Cairo', 'Canberra', 'Caracas',
-  'Castries', 'Chisinau', 'Conakry', 'Copenhagen', 'Dakar', 'Damascus',
-  'Dhaka', 'Dili', 'Djibouti', 'Doha', 'Dublin', 'Dushanbe', 'Freetown',
-  'Funafuti', 'Gaborone', 'Georgetown', 'Guatemala City', 'Hanoi', 'Harare',
-  'Havana', 'Helsinki', 'Honiara', 'Islamabad', 'Jakarta', 'Jerusalem',
-  'Juba', 'Kabul', 'Kampala', 'Kathmandu', 'Khartoum', 'Kigali', 'Kingston',
-  'Kingstown', 'Kinshasa', 'Kuala Lumpur', 'Kuwait City', 'Kyiv', 'Libreville',
-  'Lilongwe', 'Lima', 'Lisbon', 'Ljubljana', 'Lome', 'London', 'Luanda',
-  'Lusaka', 'Luxembourg', 'Madrid', 'Majuro', 'Malabo', 'Male', 'Managua',
-  'Manama', 'Manila', 'Maputo', 'Maseru', 'Mbabane', 'Mexico City', 'Minsk',
-  'Mogadishu', 'Monaco', 'Monrovia', 'Montevideo', 'Moroni', 'Moscow',
-  'Muscat', 'Nairobi', 'Nassau', 'Naypyidaw', "N'Djamena", 'New Delhi',
-  'Ngerulmud', 'Niamey', 'Nicosia', 'Nouakchott', "Nuku'alofa", 'Oslo',
-  'Ottawa', 'Ouagadougou', 'Panama City', 'Paramaribo', 'Paris', 'Phnom Penh',
-  'Podgorica', 'Port Louis', 'Port Moresby', 'Port Vila', 'Port-au-Prince',
-  'Port of Spain', 'Prague', 'Praia', 'Pretoria', 'Pyongyang', 'Quito',
-  'Rabat', 'Reykjavik', 'Riga', 'Riyadh', 'Rome', 'Roseau', 'San Jose',
-  'San Marino', 'San Salvador', 'Sanaa', 'Santiago', 'Santo Domingo',
-  'Sao Tome', 'Sarajevo', 'Seoul', 'Singapore', 'Skopje', 'Sofia',
-  'Stockholm', 'Sucre', 'Suva', 'Taipei', 'Tallinn', 'Tashkent', 'Tbilisi',
-  'Tegucigalpa', 'Tehran', 'Thimphu', 'Tirana', 'Tokyo', 'Tripoli', 'Tunis',
-  'Ulaanbaatar', 'Vaduz', 'Valletta', 'Vatican City', 'Victoria', 'Vienna',
-  'Vientiane', 'Vilnius', 'Warsaw', 'Washington', 'Wellington', 'Windhoek',
-  'Yamoussoukro', 'Yaounde', 'Yerevan', 'Zagreb',
-];
 
 function formatGmt(date: Date) {
   return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, ' GMT');
@@ -450,6 +403,8 @@ function diagnosticHandSnapshot(hand: any) {
     potCoins: hand.potCoins,
     revealVotes: hand.revealVotes,
     cardsRevealed: hand.cardsRevealed,
+    earlyFinishRequest: hand.earlyFinishRequest,
+    partyFinishedEarly: Boolean(hand.partyFinishedEarly),
     actions: hand.actions,
     result: hand.stage === 'showdown' ? evaluateOmahaHiLo(hand) : undefined,
     created: hand.created,
@@ -475,6 +430,7 @@ async function nextPlayerLink(hand: any, player: any) {
 async function playerState(hand: any, player: any) {
   normalizeHand(hand);
   const community = visibleCommunity(hand);
+  const enteredPlayerIds = new Set<string>(hand.enteredPlayerIds ?? []);
   return {
     handId: hand.id,
     partyId: hand.partyId,
@@ -514,6 +470,14 @@ async function playerState(hand: any, player: any) {
     nextHandId: hand.nextHandId,
     nextReplayHandId: hand.nextReplayHandId,
     nextPlayerLink: await nextPlayerLink(hand, player),
+    waitingForPlayers: hand.previousHandId
+      ? hand.players
+        .filter((candidate: any) => !candidate.isBot && !enteredPlayerIds.has(candidate.id))
+        .map((candidate: any) => ({ id: candidate.id, name: candidate.name }))
+      : [],
+    earlyFinishRequest: hand.earlyFinishRequest,
+    partyFinishedEarly: Boolean(hand.partyFinishedEarly),
+    partyFinishedAt: hand.partyFinishedAt,
     showdownSummary: showdownSummary(hand),
     partyScore: await partyScore(hand),
     result: hand.cardsRevealed ? evaluateOmahaHiLo(hand) : undefined,
@@ -563,45 +527,6 @@ function broadcastPublicDeal(sender: WebSocket, hand: any) {
       c.send(JSON.stringify({ type: 'hand_dealt', data: publicState }));
     }
   });
-}
-
-function normalizeLobbySeats(lobby: Lobby) {
-  const usedSeats = new Set<number>();
-  lobby.members.forEach((member) => {
-    if (
-      Number.isInteger(member.seat)
-      && member.seat! >= 0
-      && member.seat! < lobby.maxPlayers
-      && !usedSeats.has(member.seat!)
-    ) {
-      usedSeats.add(member.seat!);
-      return;
-    }
-    member.seat = undefined;
-  });
-  lobby.members.forEach((member) => {
-    if (member.seat !== undefined) return;
-    const openSeat = Array.from(
-      { length: lobby.maxPlayers },
-      (_, index) => index,
-    ).find(seat => !usedSeats.has(seat));
-    if (openSeat === undefined) return;
-    member.seat = openSeat;
-    usedSeats.add(openSeat);
-  });
-  lobby.members.sort((a, b) => (a.seat ?? lobby.maxPlayers) - (b.seat ?? lobby.maxPlayers));
-}
-
-function firstOpenLobbySeat(lobby: Lobby) {
-  normalizeLobbySeats(lobby);
-  const usedSeats = new Set(lobby.members.map(member => member.seat));
-  return Array.from({ length: lobby.maxPlayers }, (_, index) => index)
-    .find(seat => !usedSeats.has(seat));
-}
-
-function seatedLobbyMembers(lobby: Lobby) {
-  normalizeLobbySeats(lobby);
-  return lobby.members;
 }
 
 function lobbyState(lobby: Lobby) {
@@ -660,12 +585,14 @@ async function broadcastOpenLobbies() {
 }
 
 async function newLobbyPin() {
-  const usedPins = new Set((await store.listLobbies() as Lobby[]).map(lobby => lobby.pin));
-  for (let attempt = 0; attempt < 10_000; attempt += 1) {
-    const pin = String(Math.floor(1000 + Math.random() * 9000));
-    if (!usedPins.has(pin)) return pin;
-  }
-  throw new Error('no lobby PINs available');
+  return withLobbyLock('__pin__', async () => {
+    const usedPins = new Set((await store.listLobbies() as Lobby[]).map(lobby => lobby.pin));
+    for (let attempt = 0; attempt < 10_000; attempt += 1) {
+      const pin = String(Math.floor(1000 + Math.random() * 9000));
+      if (!usedPins.has(pin)) return pin;
+    }
+    throw new Error('no lobby PINs available');
+  });
 }
 
 async function newLobbyTableName() {
@@ -678,22 +605,6 @@ async function newLobbyTableName() {
   return availableCapitals[Math.floor(Math.random() * availableCapitals.length)];
 }
 
-function lobbyName(value: unknown, fallback: string) {
-  const name = typeof value === 'string' ? value.trim().slice(0, 30) : '';
-  return name || fallback;
-}
-
-function nextLobbyBotName(lobby: Lobby) {
-  const usedNames = new Set(lobby.members.map(member => member.name.replace(/_bot$/i, '').toLowerCase()));
-  return DEFAULT_BOT_NAMES.find(name => !usedNames.has(name.toLowerCase()))
-    ?? `Guest ${lobby.members.length + 1}`;
-}
-
-function lobbyBotName(lobby: Lobby, requestedName: unknown) {
-  const name = lobbyName(requestedName, nextLobbyBotName(lobby));
-  return name.toLowerCase().endsWith('_bot') ? name : `${name}_bot`;
-}
-
 function broadcastLobby(lobby: Lobby) {
   const message = JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) });
   lobbyConnections.forEach((connection, client) => {
@@ -704,6 +615,47 @@ function broadcastLobby(lobby: Lobby) {
       client.send(message);
     }
   });
+}
+
+function notifyLobbyHostPinChanged(lobby: Lobby) {
+  const message = JSON.stringify({
+    type: 'lobby_pin_changed',
+    data: { pin: lobby.pin },
+  });
+  lobbyConnections.forEach((connection, client) => {
+    if (
+      connection.lobbyId === lobby.id
+      && connection.memberId === lobby.hostMemberId
+      && client.readyState === WebSocket.OPEN
+    ) {
+      client.send(message);
+    }
+  });
+}
+
+async function validateLobbyPin(lobby: Lobby, suppliedPin: unknown) {
+  if (/^\d{4}$/.test(lobby.pin) && suppliedPin === lobby.pin) {
+    if (lobby.failedPinAttempts) {
+      lobby.failedPinAttempts = 0;
+      await store.updateLobby(lobby);
+    }
+    return;
+  }
+
+  lobby.failedPinAttempts = (lobby.failedPinAttempts ?? 0) + 1;
+  if (lobby.failedPinAttempts >= MAX_FAILED_PIN_ATTEMPTS) {
+    await withLobbyLock('__create__', async () => {
+      lobby.pin = await newLobbyPin();
+      lobby.failedPinAttempts = 0;
+      await store.updateLobby(lobby);
+    });
+    broadcastLobby(lobby);
+    notifyLobbyHostPinChanged(lobby);
+    throw new Error('incorrect table PIN; PIN changed after 5 failed attempts');
+  }
+
+  await store.updateLobby(lobby);
+  throw new Error('incorrect table PIN');
 }
 
 function bindLobbyClient(ws: WebSocket, lobby: Lobby, member: LobbyMember) {
@@ -761,7 +713,20 @@ async function moveLobbyToHand(previousHandId: string, hand: any) {
   lobby.lastActivity = Date.now();
   await store.updateLobby(lobby);
   broadcastLobby(lobby);
-  await sendStartedLobbyToMembers(lobby);
+  // Keep each active player on the completed hand until they choose New deal.
+  // The lobby still points at the latest hand so a later reconnect can recover.
+}
+
+async function markPlayerEntered(hand: any, playerId: string) {
+  if (!hand.previousHandId) return false;
+  const enteredPlayerIds = new Set<string>(hand.enteredPlayerIds ?? []);
+  if (enteredPlayerIds.has(playerId)) return false;
+
+  enteredPlayerIds.add(playerId);
+  hand.enteredPlayerIds = [...enteredPlayerIds];
+  hand.revision = (hand.revision ?? 0) + 1;
+  await store.updateHand(hand);
+  return true;
 }
 
 async function createLobby(ws: WebSocket, message: any) {
@@ -797,24 +762,27 @@ async function createLobby(ws: WebSocket, message: any) {
 }
 
 async function viewLobby(ws: WebSocket, message: any) {
-  await cleanupInactiveSessions();
-  const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
-  if (!lobby) throw new Error('lobby not found');
-  if (!/^\d{4}$/.test(lobby.pin) || message.pin !== lobby.pin) throw new Error('incorrect table PIN');
-  ws.send(JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) }));
+  return withLobbyLock(message.lobbyId, async () => {
+    await cleanupInactiveSessions();
+    const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
+    if (!lobby) throw new Error('lobby not found');
+    await validateLobbyPin(lobby, message.pin);
+    ws.send(JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) }));
+  });
 }
 
 async function findLobbyByPin(ws: WebSocket, message: any) {
-  await cleanupInactiveSessions();
   const pin = typeof message.pin === 'string' ? message.pin.trim() : '';
   if (!/^\d{4}$/.test(pin)) throw new Error('enter a 4-digit PIN');
   const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
-  const lobby = (await store.listLobbies() as Lobby[])
-    .find(candidate => candidate.id === lobbyId && candidate.status === 'waiting');
-  if (!lobby) throw new Error('table not found');
-  if (lobby.pin !== pin) throw new Error('incorrect table PIN');
-  if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
-  ws.send(JSON.stringify({ type: 'lobby_found', data: { lobbyId: lobby.id } }));
+  return withLobbyLock(lobbyId, async () => {
+    await cleanupInactiveSessions();
+    const lobby = await store.getLobby(lobbyId) as Lobby | null;
+    if (!lobby || lobby.status !== 'waiting') throw new Error('table not found');
+    await validateLobbyPin(lobby, pin);
+    if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
+    ws.send(JSON.stringify({ type: 'lobby_found', data: { lobbyId: lobby.id } }));
+  });
 }
 
 async function joinLobby(ws: WebSocket, message: any) {
@@ -830,7 +798,7 @@ async function joinLobby(ws: WebSocket, message: any) {
       throw new Error('invalid lobby credentials');
     }
     if (!member) {
-      if (!/^\d{4}$/.test(lobby.pin) || message.pin !== lobby.pin) throw new Error('incorrect table PIN');
+      await validateLobbyPin(lobby, message.pin);
       if (lobby.status !== 'waiting') throw new Error('game already started');
       if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
       member = {
@@ -988,7 +956,10 @@ async function restartLobby(ws: WebSocket, message: any) {
     if (!latestHand) throw new Error('hand not found');
     normalizeHand(latestHand);
     const playersWithChips = latestHand.players.filter((player: any) => player.stack > 0);
-    if (latestHand.stage !== 'showdown' || playersWithChips.length > 1) {
+    if (
+      latestHand.stage !== 'showdown'
+      || (playersWithChips.length > 1 && !latestHand.partyFinishedEarly)
+    ) {
       throw new Error('game not finished');
     }
 
@@ -1016,6 +987,96 @@ function continuationHandId(hand: any) {
   return hand.nextHandId ?? hand.nextReplayHandId;
 }
 
+async function lobbyForCurrentHand(handId: string) {
+  return (await store.listLobbies() as Lobby[]).find(candidate => (
+    candidate.status === 'started' && candidate.handId === handId
+  ));
+}
+
+function finishVotePlayer(hand: any, message: any) {
+  return hand.players.find((candidate: any) => (
+    candidate.id === message.playerId && candidate.token === message.token && !candidate.isBot
+  ));
+}
+
+function completeEarlyFinishIfUnanimous(hand: any) {
+  const request = hand.earlyFinishRequest;
+  if (!request || request.status !== 'pending') return;
+  const approvals = new Set<string>(request.approvals ?? []);
+  if (!(request.requiredPlayerIds ?? []).every((playerId: string) => approvals.has(playerId))) return;
+  request.status = 'approved';
+  request.completedAt = Date.now();
+  hand.partyFinishedEarly = true;
+  hand.partyFinishedAt = request.completedAt;
+}
+
+async function updateEarlyFinishVote(ws: WebSocket, message: any, mode: 'request' | 'vote') {
+  const connection = playerConnections.get(ws);
+  if (
+    !connection
+    || connection.handId !== message.handId
+    || connection.playerId !== message.playerId
+  ) {
+    throw new Error('join player first');
+  }
+
+  const lobby = await lobbyForCurrentHand(message.handId);
+  if (!lobby) throw new Error('table is no longer on this deal');
+
+  return withLobbyLock(lobby.id, async () => {
+    const currentLobby = await store.getLobby(lobby.id) as Lobby | null;
+    if (!currentLobby || currentLobby.handId !== message.handId) {
+      throw new Error('table is no longer on this deal');
+    }
+    const hand = await getActiveHand(message.handId);
+    if (!hand) throw new Error('hand not found');
+    normalizeHand(hand);
+    const player = finishVotePlayer(hand, message);
+    if (!player) throw new Error('player not found');
+    if (hand.stage !== 'showdown') throw new Error('finish is available after the deal');
+    if (continuationHandId(hand)) throw new Error('next deal already started');
+    if (hand.partyFinishedEarly) throw new Error('table already finished');
+
+    if (mode === 'request') {
+      const host = currentLobby.members.find(member => member.id === currentLobby.hostMemberId);
+      if (host?.playerId !== player.id) throw new Error('host only');
+
+      const requiredPlayerIds = hand.players.map((candidate: any) => candidate.id);
+      const approvals = hand.players
+        .filter((candidate: any) => candidate.isBot || candidate.id === player.id)
+        .map((candidate: any) => candidate.id);
+      hand.earlyFinishRequest = {
+        status: 'pending',
+        requestedAt: Date.now(),
+        requestedByPlayerId: player.id,
+        requiredPlayerIds,
+        approvals,
+      };
+      completeEarlyFinishIfUnanimous(hand);
+    } else {
+      const request = hand.earlyFinishRequest;
+      if (!request || request.status !== 'pending') throw new Error('no finish vote in progress');
+      if (!(request.requiredPlayerIds ?? []).includes(player.id)) {
+        throw new Error('player is not part of this vote');
+      }
+      if (message.approve === true) {
+        request.approvals = [...new Set<string>([...(request.approvals ?? []), player.id])];
+        completeEarlyFinishIfUnanimous(hand);
+      } else {
+        request.status = 'rejected';
+        request.rejectedByPlayerId = player.id;
+        request.completedAt = Date.now();
+      }
+    }
+
+    hand.revision = (hand.revision ?? 0) + 1;
+    await store.updateHand(hand);
+    await recordBoundPlayerActivity(ws);
+    ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
+    broadcastHandUpdated(hand);
+  });
+}
+
 async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, mode: 'new' | 'replay') {
   if (continuationLocks.has(hand.id)) {
     return continuationLocks.get(hand.id);
@@ -1024,6 +1085,10 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
   const pending = (async () => {
     const latestHand = await store.getHand(hand.id) ?? hand;
     normalizeHand(latestHand);
+    if (latestHand.partyFinishedEarly) throw new Error('table already finished');
+    if (latestHand.earlyFinishRequest?.status === 'pending') {
+      throw new Error('finish vote in progress');
+    }
 
     const existingId = continuationHandId(latestHand);
     if (existingId) {
@@ -1113,52 +1178,6 @@ app.get('/api/version', (req, res) => {
     shortCommit: commitSha === 'dev' ? 'dev' : commitSha.slice(0, 7),
     buildTimeGmt,
   });
-});
-app.get('/api/city-image/:city', async (req, res) => {
-  const city = req.params.city.trim();
-  if (!WORLD_CAPITALS.includes(city)) return res.status(404).json({ error: 'city not found' });
-
-  if (cityImageCache.has(city)) {
-    const cached = cityImageCache.get(city);
-    return cached ? res.json(cached) : res.status(404).json({ error: 'city image not found' });
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 1_600);
-  try {
-    const query = new URLSearchParams({
-      action: 'query',
-      prop: 'pageimages',
-      titles: city,
-      redirects: '1',
-      piprop: 'thumbnail|name',
-      pithumbsize: '1400',
-      pilicense: 'free',
-      format: 'json',
-      origin: '*',
-    });
-    const response = await fetch(`https://en.wikipedia.org/w/api.php?${query}`, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'OmahaHiLo/1.0 (city table backgrounds)' },
-    });
-    if (!response.ok) throw new Error(`Wikipedia returned ${response.status}`);
-    const data: any = await response.json();
-    const page = Object.values(data.query?.pages ?? {})[0] as any;
-    if (!page?.thumbnail?.source || !page.pageimage) {
-      cityImageCache.set(city, null);
-      return res.status(404).json({ error: 'city image not found' });
-    }
-    const result = {
-      imageUrl: page.thumbnail.source as string,
-      sourceUrl: `https://en.wikipedia.org/wiki/File:${encodeURIComponent(page.pageimage)}`,
-    };
-    cityImageCache.set(city, result);
-    return res.json(result);
-  } catch {
-    return res.status(504).json({ error: 'city image unavailable' });
-  } finally {
-    clearTimeout(timeout);
-  }
 });
 app.post('/api/problems', async (req, res) => {
   const description = typeof req.body?.description === 'string'
@@ -1282,6 +1301,10 @@ wss.on('connection', (ws, req) => {
         lobby.lastActivity = Date.now();
         await store.updateLobby(lobby);
         broadcastLobby(lobby);
+      } else if (msg.action === 'request_early_finish') {
+        await updateEarlyFinishVote(ws, msg, 'request');
+      } else if (msg.action === 'vote_early_finish') {
+        await updateEarlyFinishVote(ws, msg, 'vote');
       } else if (msg.action === 'deal') {
         await createAndSendDeal(
           ws,
@@ -1294,6 +1317,8 @@ wss.on('connection', (ws, req) => {
         if (hand) {
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
+          const requestingPlayer = playerConnections.get(ws);
+          if (requestingPlayer) await markPlayerEntered(nextHand, requestingPlayer.playerId);
           await moveLobbyToHand(hand.id, nextHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
@@ -1317,6 +1342,8 @@ wss.on('connection', (ws, req) => {
         if (hand) {
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const replayHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'replay');
+          const requestingPlayer = playerConnections.get(ws);
+          if (requestingPlayer) await markPlayerEntered(replayHand, requestingPlayer.playerId);
           await moveLobbyToHand(hand.id, replayHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
@@ -1335,7 +1362,9 @@ wss.on('connection', (ws, req) => {
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
         await recordPlayerConnection(ws, req, hand, player, msg.client);
+        const entered = await markPlayerEntered(hand, player.id);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
+        if (entered) broadcastHandUpdated(hand);
         // Bot timers live in memory and disappear when the server restarts. A
         // player reconnecting to an unfinished hand must also wake the bot up.
         scheduleBotTurns(hand.id);

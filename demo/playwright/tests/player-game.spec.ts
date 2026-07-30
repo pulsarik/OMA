@@ -112,6 +112,24 @@ test('opponent rows stay stable as seat content changes at every table size', as
   expect(boardBox!.x + boardBox!.width).toBeLessThan(potBox!.x);
 });
 
+test('the table keeps its height in a compact desktop viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  const language = page.locator('select').first();
+  if (await language.inputValue() !== 'en') await language.selectOption('en');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByLabel('Seats at the table').selectOption('2');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+
+  const compactTableBox = await page.getByTestId('poker-table').boundingBox();
+  expect(compactTableBox).toBeTruthy();
+  expect(compactTableBox!.height).toBeGreaterThanOrEqual(700);
+});
+
 test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);

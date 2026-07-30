@@ -50,6 +50,8 @@ export type DealtHand = {
   handCode?: string;
   handNumber: number;
   revision?: number;
+  previousHandId?: string;
+  enteredPlayerIds?: string[];
   replayOfHandId?: string;
   nextReplayHandId?: string;
   players: PlayerHand[];
@@ -1053,6 +1055,7 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   hand.partyId = previous.partyId;
   hand.partyCode = previous.partyCode;
   hand.handNumber = previous.handNumber + 1;
+  hand.previousHandId = previous.id;
   hand.blinds = { ...blindLevelForHand(hand.handNumber) };
   const stacks = stacksAfterPayout(previous);
   hand.players = hand.players.map((player, index) => ({
@@ -1062,6 +1065,7 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
     stack: stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK,
     folded: (stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK) <= 0,
   }));
+  hand.enteredPlayerIds = hand.players.filter(player => player.isBot).map(player => player.id);
   applyBlinds(hand);
   return hand;
 }
@@ -1072,6 +1076,7 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   hand.partyId = source.partyId;
   hand.partyCode = source.partyCode;
   hand.handNumber = source.handNumber + 1;
+  hand.previousHandId = source.id;
   hand.replayOfHandId = source.id;
   hand.players = source.players.map((player) => ({
     id: player.id,
@@ -1084,6 +1089,7 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   }));
   hand.community = [];
   hand.fullCommunity = [...source.fullCommunity];
+  hand.enteredPlayerIds = hand.players.filter(player => player.isBot).map(player => player.id);
   applyBlinds(hand);
   return hand;
 }
