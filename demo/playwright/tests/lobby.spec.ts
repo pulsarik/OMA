@@ -39,11 +39,11 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   await expect(targetTable).toBeVisible();
   await expect(guest.getByLabel('PIN стола')).toHaveCount(0);
   await targetTable.click();
-  await guest.getByLabel('PIN стола').fill(pin === '0000' ? '0001' : '0000');
+  await guest.getByRole('textbox', { name: 'PIN стола' }).fill(pin === '0000' ? '0001' : '0000');
   await guest.getByRole('button', { name: 'Войти за стол' }).click();
   await expect(guest.getByText('Неверный PIN выбранного стола.')).toBeVisible();
   await expect(guest).toHaveURL('/');
-  await guest.getByLabel('PIN стола').fill(pin);
+  await guest.getByRole('textbox', { name: 'PIN стола' }).fill(pin);
   await guest.getByRole('button', { name: 'Войти за стол' }).click();
   await expect(guest).toHaveURL(/\/lobby\/[^/?]+$/);
   await expect(guest.getByRole('heading', { name: 'Лобби стола' })).toBeVisible();

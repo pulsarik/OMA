@@ -482,7 +482,6 @@ async function playerState(hand: any, player: any) {
     handCode: hand.handCode,
     dealCode: hand.dealCode,
     handNumber: hand.handNumber,
-    tableName: hand.tableName,
     revision: hand.revision ?? 0,
     replayOfHandId: hand.replayOfHandId,
     playerId: player.id,
@@ -963,7 +962,6 @@ async function startLobby(ws: WebSocket, message: any) {
       seatedMembers.map(candidate => candidate.name),
       seatedMembers.map(candidate => candidate.isBot),
     );
-    hand.tableName = lobby.tableName;
     await store.saveHand(hand);
     seatedMembers.forEach((candidate, index) => {
       candidate.playerId = hand.players[index].id;
@@ -1001,7 +999,6 @@ async function restartLobby(ws: WebSocket, message: any) {
       seatedMembers.map(candidate => candidate.name),
       seatedMembers.map(candidate => candidate.isBot),
     );
-    hand.tableName = lobby.tableName;
     await store.saveHand(hand);
     seatedMembers.forEach((candidate, index) => {
       candidate.playerId = hand.players[index].id;
@@ -1044,7 +1041,6 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
     const nextHand = mode === 'replay' && latestHand.players?.length
       ? replayHandLayout(latestHand)
       : nextPartyHand(latestHand.players?.length ? latestHand : dealHand(fallbackPlayers));
-    nextHand.tableName = latestHand.tableName;
     await store.saveHand(nextHand);
     latestHand.nextHandId = nextHand.id;
     if (mode === 'replay') {

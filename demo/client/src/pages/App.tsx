@@ -431,6 +431,64 @@ type OpenLobbyView = Omit<LobbyView, 'members' | 'pin'> & {
   }>;
 };
 
+type CityImage = {
+  imageUrl: string;
+  sourceUrl: string;
+};
+
+function useCityImage(city: string | undefined) {
+  const [cityImage, setCityImage] = useState<CityImage | null>(null);
+
+  useEffect(() => {
+    setCityImage(null);
+    if (!city) return undefined;
+
+    let acceptingImage = true;
+    const controller = new AbortController();
+    let preloadedImage: HTMLImageElement | undefined;
+    const timeout = window.setTimeout(() => {
+      acceptingImage = false;
+      controller.abort();
+    }, 2_000);
+
+    fetch(`${SERVER_URL}/api/city-image/${encodeURIComponent(city)}`, { signal: controller.signal })
+      .then(response => {
+        if (!response.ok) throw new Error('city image unavailable');
+        return response.json();
+      })
+      .then((image: CityImage) => {
+        if (!acceptingImage) return;
+        preloadedImage = new Image();
+        preloadedImage.onload = () => {
+          if (!acceptingImage) return;
+          window.clearTimeout(timeout);
+          setCityImage(image);
+        };
+        preloadedImage.onerror = () => {
+          acceptingImage = false;
+          window.clearTimeout(timeout);
+        };
+        preloadedImage.src = image.imageUrl;
+      })
+      .catch(() => {
+        acceptingImage = false;
+        window.clearTimeout(timeout);
+      });
+
+    return () => {
+      acceptingImage = false;
+      controller.abort();
+      window.clearTimeout(timeout);
+      if (preloadedImage) {
+        preloadedImage.onload = null;
+        preloadedImage.onerror = null;
+      }
+    };
+  }, [city]);
+
+  return cityImage;
+}
+
 const rankLabels: Record<string, string> = {
   T: '10',
   J: 'J',
@@ -456,6 +514,74 @@ const SIDE_COMBO_CARD_SCALE = 0.35;
 const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
 const CARD_IMAGE_MAX_RETRIES = 3;
+
+const APP_SHELL_STYLES = `
+  html, body, #root { min-height: 100%; }
+  body { min-height: 100dvh; }
+  .portrait-orientation-guard { display: none; }
+
+  @media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) and (pointer: coarse) {
+    body { overflow: hidden; }
+    .portrait-orientation-guard {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: grid;
+      place-items: center;
+      min-height: 100dvh;
+      padding:
+        max(20px, env(safe-area-inset-top))
+        max(20px, env(safe-area-inset-right))
+        max(20px, env(safe-area-inset-bottom))
+        max(20px, env(safe-area-inset-left));
+      background: radial-gradient(circle at 50% 10%, #147a58, #064630 52%, #022c20);
+      color: #fff;
+      font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+      text-align: center;
+    }
+    .portrait-orientation-card {
+      width: min(100%, 420px);
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 24px;
+      background: rgba(255,255,255,.1);
+      padding: 22px;
+      box-shadow: 0 24px 70px rgba(1,35,25,.34);
+      backdrop-filter: blur(12px);
+    }
+    .portrait-orientation-icon {
+      position: relative;
+      display: block;
+      width: 42px;
+      height: 68px;
+      margin: 0 auto 14px;
+      border: 3px solid currentColor;
+      border-radius: 9px;
+      box-shadow: 0 0 0 7px rgba(255,255,255,.08);
+    }
+    .portrait-orientation-icon::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 5px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+      transform: translateX(-50%);
+    }
+    .portrait-orientation-card strong {
+      display: block;
+      font-size: clamp(20px, 5vw, 28px);
+      line-height: 1.1;
+    }
+    .portrait-orientation-card p {
+      margin: 8px 0 0;
+      color: rgba(255,255,255,.78);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+  }
+`;
 
 const PLAYER_PAGE_STYLES = `
   :root {
@@ -595,6 +721,13 @@ const PLAYER_PAGE_STYLES = `
     mix-blend-mode: soft-light;
     opacity: .34;
     pointer-events: none;
+  }
+  .city-photo-credit {
+    display: block;
+    margin: 4px 10px 0;
+    color: #64748b;
+    font-size: 10px;
+    text-align: right;
   }
   .poker-table.is-crowded {
     gap: 10px;
@@ -941,6 +1074,56 @@ const PLAYER_PAGE_STYLES = `
       align-items: center;
     }
     .combo-side.high, .combo-side.low { justify-self: center; }
+  }
+  @media (orientation: portrait) and (max-width: 430px) {
+    .poker-page {
+      min-height: 100dvh;
+      padding:
+        max(5px, env(safe-area-inset-top))
+        max(5px, env(safe-area-inset-right))
+        max(8px, env(safe-area-inset-bottom))
+        max(5px, env(safe-area-inset-left));
+      overflow-x: hidden;
+    }
+    .view-tabs { margin-inline: 7px; }
+    .view-tab { padding-inline: 11px; letter-spacing: .025em; }
+    .poker-table,
+    .poker-table.is-crowded {
+      gap: 8px;
+      padding: 9px 6px;
+    }
+    .opponents-row,
+    .poker-table.is-crowded .opponents-row { gap: 8px 4px; }
+    .player-seat-wrap { flex-basis: min(288px, 100%); }
+    .table-center,
+    .poker-table.is-crowded .table-center { padding: 8px 5px; }
+    .hero-zone {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "high"
+        "low"
+        "hero";
+      width: 100%;
+    }
+    .combo-side {
+      width: min(184px, 100%);
+      justify-self: center;
+    }
+    .action-dock {
+      gap: 7px;
+      padding: 8px 6px;
+    }
+    .main-actions { width: 100%; }
+    .main-actions .action-button { min-width: 0; padding-inline: 8px; }
+    .pot-popover {
+      position: fixed;
+      right: max(8px, env(safe-area-inset-right));
+      bottom: max(8px, env(safe-area-inset-bottom));
+      left: max(8px, env(safe-area-inset-left));
+      width: auto;
+      min-width: 0;
+      max-width: none;
+    }
   }
 `;
 
@@ -2445,6 +2628,7 @@ function PlayerPage({
 
   useEffect(() => {
     setActiveView('table');
+    setIsCreatingDeal(false);
   }, [handId]);
 
   useEffect(() => {
@@ -2848,7 +3032,6 @@ function PlayerPage({
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
-
       {tournamentWinner ? (
         <section
           data-testid="game-finished-prompt"
@@ -3134,6 +3317,7 @@ function LobbyTable({
   canMoveMembers?: boolean;
   onMoveMember?: (memberId: string, seat: number) => void;
 }) {
+  const cityImage = useCityImage(lobby.tableName);
   const physicalSeats = Array.from(
     { length: lobby.maxPlayers },
     (_, index) => lobby.members.find(member => member.seat === index),
@@ -3162,7 +3346,9 @@ function LobbyTable({
             inset: '58px 42px',
             border: '8px solid #53351f',
             borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, #16845c 0%, #08734d 55%, #07543b 100%)',
+            background: cityImage
+              ? `linear-gradient(rgba(4,84,57,.68), rgba(2,61,41,.83)), url(${JSON.stringify(cityImage.imageUrl)}) center / cover`
+              : 'radial-gradient(ellipse at center, #16845c 0%, #08734d 55%, #07543b 100%)',
             boxShadow: 'inset 0 0 0 3px rgba(255,255,255,.14), inset 0 0 45px rgba(0,0,0,.28), 0 14px 28px rgba(15,23,42,.2)',
           }}
         >
@@ -3281,6 +3467,11 @@ function LobbyTable({
           );
         })}
       </div>
+      {cityImage ? (
+        <a className="city-photo-credit" href={cityImage.sourceUrl} target="_blank" rel="noreferrer">
+          {ui('City photo: Wikimedia Commons', 'Фото города: Wikimedia Commons')}
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -4074,6 +4265,43 @@ const WELCOME_TEXT = {
   },
 } as const;
 
+function CityIcon({ city }: { city: string }) {
+  const seed = Array.from(city).reduce((hash, char) => ((hash * 31) + (char.codePointAt(0) ?? 0)) >>> 0, 0);
+  const hue = seed % 360;
+  const leftTop = 14 + (seed % 5);
+  const towerTop = 8 + ((seed >>> 3) % 5);
+  const rightTop = 16 + ((seed >>> 6) % 5);
+  const spire = (seed & 1) === 0;
+
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: 'grid',
+        flex: '0 0 48px',
+        placeItems: 'center',
+        width: 48,
+        height: 48,
+        overflow: 'hidden',
+        border: `1px solid hsl(${hue} 42% 78%)`,
+        borderRadius: 14,
+        background: `linear-gradient(145deg, hsl(${hue} 70% 95%), hsl(${hue} 54% 87%))`,
+        color: `hsl(${hue} 54% 30%)`,
+      }}
+    >
+      <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
+        <circle cx="27" cy="9" r="4" fill="currentColor" opacity=".18" />
+        <path d="M4 29.5h28" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity=".35" />
+        <rect x="6" y={leftTop} width="8" height={29 - leftTop} fill="currentColor" opacity=".82" />
+        <rect x="14" y={towerTop} width="8" height={29 - towerTop} fill="currentColor" opacity=".82" />
+        <rect x="22" y={rightTop} width="8" height={29 - rightTop} fill="currentColor" opacity=".82" />
+        <path d={`M18 ${towerTop}V5`} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" opacity={spire ? .82 : 0} />
+        <path d="M9 20h2M9 24h2M17 15h2M17 19h2M17 23h2M25 22h2M25 26h2" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity=".9" />
+      </svg>
+    </span>
+  );
+}
+
 function WelcomePage() {
   const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
@@ -4089,6 +4317,7 @@ function WelcomePage() {
   const pendingPinRef = useRef('');
   const pinInputRef = useRef<HTMLInputElement>(null);
   const t = WELCOME_TEXT[language];
+  const selectedLobby = openLobbies.find(lobby => lobby.id === selectedLobbyId);
 
   useEffect(() => {
     window.localStorage.setItem('omaha-language', language);
@@ -4298,45 +4527,131 @@ function WelcomePage() {
                     background: selectedLobbyId === lobby.id ? '#ecfdf5' : '#f8fbf9',
                     padding: 14,
                     textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 14,
                   }}
                 >
-                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                    <strong style={{ fontSize: 18 }}>{lobby.tableName}</strong>
-                    <span style={{ color: '#08734d', fontWeight: 900 }}>{lobby.members.length}/{lobby.maxPlayers}</span>
-                  </span>
-                  <span style={{ display: 'block', marginTop: 6, color: '#65736a' }}>
-                    {lobby.members.map(member => member.name.replace(/_bot$/i, '')).join(', ')}
+                  <CityIcon city={lobby.tableName} />
+                  <span style={{ display: 'block', minWidth: 0, flex: 1 }}>
+                    <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                      <strong style={{ overflow: 'hidden', fontSize: 18, textOverflow: 'ellipsis' }}>{lobby.tableName}</strong>
+                      <span style={{ flex: '0 0 auto', color: '#08734d', fontWeight: 900 }}>{lobby.members.length}/{lobby.maxPlayers}</span>
+                    </span>
+                    <span style={{ display: 'block', marginTop: 6, overflow: 'hidden', color: '#65736a', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {lobby.members.map(member => member.name.replace(/_bot$/i, '')).join(', ')}
+                    </span>
                   </span>
                 </button>
               )) : <p style={{ margin: 0, color: '#65736a' }}>{t.empty}</p>}
             </div>
-            {selectedLobbyId ? (
-              <>
-                <div style={{ height: 1, background: '#e2e8f0' }} />
-                <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
-                  {language === 'ru'
-                    ? `Введите PIN стола «${openLobbies.find(lobby => lobby.id === selectedLobbyId)?.tableName ?? ''}»`
-                    : `Enter the PIN for “${openLobbies.find(lobby => lobby.id === selectedLobbyId)?.tableName ?? ''}”`}
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
-                <input
-                  ref={pinInputRef}
-                  aria-label={t.pinLabel}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={4}
-                  placeholder={t.pinPlaceholder}
-                  value={pin}
-                  onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
-                  onKeyDown={event => { if (event.key === 'Enter') findByPin(); }}
-                  style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 20, fontWeight: 900, letterSpacing: '.18em' }}
-                />
-                <button onClick={findByPin} disabled={!connected} style={primaryButton}>{t.find}</button>
-              </div>
-                </label>
-              </>
-            ) : null}
-            {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
+            {!selectedLobby && notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
           </section>
+        ) : null}
+
+        {view === 'join' && selectedLobby ? (
+          <div
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setSelectedLobbyId(null);
+                setPin('');
+                setNotice(null);
+              }
+            }}
+            style={{
+              position: 'fixed',
+              zIndex: 1000,
+              inset: 0,
+              display: 'grid',
+              placeItems: 'center',
+              padding: 18,
+              background: 'rgba(1, 35, 25, .68)',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="table-pin-title"
+              style={{
+                width: 'min(100%, 430px)',
+                border: '1px solid #a7f3d0',
+                borderRadius: 22,
+                background: '#fff',
+                boxShadow: '0 28px 80px rgba(0, 0, 0, .34)',
+                padding: 'clamp(20px, 5vw, 30px)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+                  <CityIcon city={selectedLobby.tableName} />
+                  <div>
+                    <small style={{ display: 'block', color: '#65736a', fontWeight: 800 }}>
+                      {language === 'ru' ? 'Выбранный стол' : 'Selected table'}
+                    </small>
+                    <strong style={{ display: 'block', marginTop: 2, fontSize: 24 }}>{selectedLobby.tableName}</strong>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label={language === 'ru' ? 'Закрыть' : 'Close'}
+                  onClick={() => {
+                    setSelectedLobbyId(null);
+                    setPin('');
+                    setNotice(null);
+                  }}
+                  style={{ border: 0, background: 'transparent', color: '#65736a', fontSize: 26, lineHeight: 1, cursor: 'pointer' }}
+                >
+                  ×
+                </button>
+              </div>
+              <h2 id="table-pin-title" style={{ margin: '24px 0 6px', fontSize: 22 }}>
+                {language === 'ru' ? 'Введите PIN стола' : 'Enter the table PIN'}
+              </h2>
+              <p style={{ margin: '0 0 16px', color: '#65736a' }}>
+                {language === 'ru'
+                  ? 'Попросите четырёхзначный PIN у создателя стола.'
+                  : 'Ask the table creator for the four-digit PIN.'}
+              </p>
+              <input
+                ref={pinInputRef}
+                aria-label={t.pinLabel}
+                autoFocus
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={4}
+                placeholder={t.pinPlaceholder}
+                value={pin}
+                onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') findByPin();
+                  if (event.key === 'Escape') {
+                    setSelectedLobbyId(null);
+                    setPin('');
+                    setNotice(null);
+                  }
+                }}
+                style={{
+                  ...inputStyle,
+                  height: 62,
+                  textAlign: 'center',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace',
+                  fontSize: 30,
+                  fontWeight: 900,
+                  letterSpacing: '.28em',
+                }}
+              />
+              {notice ? <p role="status" style={{ margin: '10px 0 0', color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
+              <button
+                onClick={findByPin}
+                disabled={!connected || pin.length !== 4}
+                style={{ ...primaryButton, width: '100%', marginTop: 16, opacity: connected && pin.length === 4 ? 1 : .55 }}
+              >
+                {t.find}
+              </button>
+            </section>
+          </div>
         ) : null}
 
         <footer style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'rgba(255,255,255,.72)', fontSize: 12 }}>
@@ -4549,6 +4864,29 @@ function ReportProblemButton() {
   );
 }
 
+function PortraitOrientationGuard() {
+  return (
+    <aside
+      className="portrait-orientation-guard"
+      role="dialog"
+      aria-modal="true"
+      aria-label={ui('Portrait orientation required', 'Нужна вертикальная ориентация')}
+      data-testid="portrait-orientation-guard"
+    >
+      <div className="portrait-orientation-card">
+        <span className="portrait-orientation-icon" aria-hidden="true" />
+        <strong>{ui('Turn your phone upright', 'Поверните телефон вертикально')}</strong>
+        <p>
+          {ui(
+            'The game is temporarily available in portrait orientation only.',
+            'Пока игра доступна только в вертикальной ориентации.',
+          )}
+        </p>
+      </div>
+    </aside>
+  );
+}
+
 export default function App() {
   const [, setLanguageRevision] = useState(0);
   useEffect(() => {
@@ -4569,8 +4907,10 @@ export default function App() {
 
   return (
     <>
+      <style>{APP_SHELL_STYLES}</style>
       {page}
       <ReportProblemButton />
+      <PortraitOrientationGuard />
     </>
   );
 }
