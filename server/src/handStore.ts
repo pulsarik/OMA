@@ -12,8 +12,61 @@ export default class HandStore {
   async init() {
     await fs.mkdir(path.dirname(this.filename), { recursive: true });
     this.db = await open({ filename: this.filename, driver: sqlite3.Database });
-    await this.db.run(`CREATE TABLE IF NOT EXISTS hands (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
-    await this.db.run(`CREATE TABLE IF NOT EXISTS lobbies (id TEXT PRIMARY KEY, created INTEGER, data TEXT)`);
+    await this.db.run(`CREATE TABLE IF NOT EXISTS hands (
+      id TEXT PRIMARY KEY, created INTEGER, party_id TEXT, data TEXT
+    )`);
+    await this.db.run(`CREATE TABLE IF NOT EXISTS lobbies (
+      id TEXT PRIMARY KEY, created INTEGER, hand_id TEXT, last_activity INTEGER, data TEXT
+    )`);
+    const handColumns = await this.db.all('PRAGMA table_info(hands)');
+    if (!handColumns.some((column: any) => column.name === 'party_id')) {
+      await this.db.run('ALTER TABLE hands ADD COLUMN party_id TEXT');
+    }
+    const lobbyColumns = await this.db.all('PRAGMA table_info(lobbies)');
+    if (!lobbyColumns.some((column: any) => column.name === 'hand_id')) {
+      await this.db.run('ALTER TABLE lobbies ADD COLUMN hand_id TEXT');
+    }
+    if (!lobbyColumns.some((column: any) => column.name === 'last_activity')) {
+      await this.db.run('ALTER TABLE lobbies ADD COLUMN last_activity INTEGER');
+    }
+    await this.db.run(`
+      CREATE TABLE IF NOT EXISTS party_sessions (
+        party_id TEXT PRIMARY KEY,
+        created INTEGER NOT NULL,
+        last_activity INTEGER NOT NULL
+      )
+    `);
+    await this.db.run('CREATE INDEX IF NOT EXISTS party_sessions_activity ON party_sessions(last_activity)');
+    const savedHands = await this.db.all('SELECT id, data FROM hands WHERE party_id IS NULL');
+    for (const row of savedHands) {
+      const hand = JSON.parse(row.data);
+      const partyId = hand.partyId ?? hand.id ?? row.id;
+      await this.db.run('UPDATE hands SET party_id = ? WHERE id = ?', partyId, row.id);
+    }
+    await this.db.run(`
+      INSERT INTO party_sessions(party_id, created, last_activity)
+      SELECT party_id, MIN(created), MAX(created)
+      FROM hands
+      WHERE party_id IS NOT NULL
+      GROUP BY party_id
+      ON CONFLICT(party_id) DO NOTHING
+    `);
+    const savedLobbies = await this.db.all(`
+      SELECT id, data FROM lobbies
+      WHERE hand_id IS NULL AND data LIKE '%"handId"%'
+    `);
+    for (const row of savedLobbies) {
+      const lobby = JSON.parse(row.data);
+      await this.db.run(
+        'UPDATE lobbies SET hand_id = ?, last_activity = COALESCE(last_activity, created) WHERE id = ?',
+        lobby.handId ?? null,
+        row.id,
+      );
+    }
+    await this.db.run('UPDATE lobbies SET last_activity = created WHERE last_activity IS NULL');
+    await this.db.run('CREATE INDEX IF NOT EXISTS hands_party ON hands(party_id)');
+    await this.db.run('CREATE INDEX IF NOT EXISTS lobbies_hand ON lobbies(hand_id)');
+    await this.db.run('CREATE INDEX IF NOT EXISTS lobbies_activity ON lobbies(last_activity)');
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS analytics_activity (
         party_id TEXT PRIMARY KEY,
@@ -44,6 +97,18 @@ export default class HandStore {
     `);
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_party ON analytics_visits(party_id)');
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_created ON analytics_visits(created DESC)');
+    await this.db.run(`
+      UPDATE party_sessions
+      SET last_activity = MAX(
+        last_activity,
+        COALESCE(
+          (SELECT analytics_activity.last_activity
+           FROM analytics_activity
+           WHERE analytics_activity.party_id = party_sessions.party_id),
+          last_activity
+        )
+      )
+    `);
     await this.db.run(`
       CREATE TABLE IF NOT EXISTS problems (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +169,20 @@ export default class HandStore {
       const db = await this.getDb();
       const id = hand.id || uuidv4();
       await this.assignPublicCodes(hand);
-      await db.run('INSERT INTO hands(id, created, data) VALUES(?,?,?)', id, Date.now(), JSON.stringify(hand));
+      const created = hand.created ?? Date.now();
+      await db.run(
+        'INSERT INTO hands(id, created, party_id, data) VALUES(?,?,?,?)',
+        id,
+        created,
+        hand.partyId ?? id,
+        JSON.stringify(hand),
+      );
+      await db.run(`
+        INSERT INTO party_sessions(party_id, created, last_activity)
+        VALUES(?, ?, ?)
+        ON CONFLICT(party_id) DO UPDATE SET
+          last_activity = MAX(last_activity, excluded.last_activity)
+      `, hand.partyId ?? id, created, created);
       return id;
     } finally {
       releaseSave();
@@ -113,7 +191,12 @@ export default class HandStore {
 
   async updateHand(hand: any) {
     const db = await this.getDb();
-    await db.run('UPDATE hands SET data = ? WHERE id = ?', JSON.stringify(hand), hand.id);
+    await db.run(
+      'UPDATE hands SET party_id = ?, data = ? WHERE id = ?',
+      hand.partyId ?? hand.id,
+      JSON.stringify(hand),
+      hand.id,
+    );
   }
 
   async listHands(limit = 20, offset = 0) {
@@ -146,29 +229,47 @@ export default class HandStore {
   }
 
   async listHandsByParty(partyId: string) {
-    const hands = await this.listAllHands();
-    return hands.filter((hand: any) => (hand.partyId ?? hand.id) === partyId);
+    const db = await this.getDb();
+    const rows = await db.all(
+      'SELECT data FROM hands WHERE party_id = ? ORDER BY created ASC',
+      partyId,
+    );
+    return rows.map((row: any) => JSON.parse(row.data));
   }
 
   async saveLobby(lobby: any) {
     const db = await this.getDb();
     await db.run(
-      'INSERT INTO lobbies(id, created, data) VALUES(?,?,?)',
+      'INSERT INTO lobbies(id, created, hand_id, last_activity, data) VALUES(?,?,?,?,?)',
       lobby.id,
       lobby.created ?? Date.now(),
+      lobby.handId ?? null,
+      lobby.lastActivity ?? lobby.created ?? Date.now(),
       JSON.stringify(lobby),
     );
   }
 
   async updateLobby(lobby: any) {
     const db = await this.getDb();
-    await db.run('UPDATE lobbies SET data = ? WHERE id = ?', JSON.stringify(lobby), lobby.id);
+    await db.run(
+      'UPDATE lobbies SET hand_id = ?, last_activity = ?, data = ? WHERE id = ?',
+      lobby.handId ?? null,
+      lobby.lastActivity ?? Date.now(),
+      JSON.stringify(lobby),
+      lobby.id,
+    );
   }
 
   async getLobby(id: string) {
     const db = await this.getDb();
     const row = await db.get('SELECT data FROM lobbies WHERE id = ?', id);
     return row ? JSON.parse(row.data) : null;
+  }
+
+  async listLobbies() {
+    const db = await this.getDb();
+    const rows = await db.all('SELECT data FROM lobbies ORDER BY created DESC');
+    return rows.map((row: any) => JSON.parse(row.data));
   }
 
   async saveProblem(description: string, data: any) {
@@ -204,6 +305,12 @@ export default class HandStore {
   async recordAnalyticsActivity(partyId: string, occurredAt = Date.now()) {
     const db = await this.getDb();
     await db.run(`
+      INSERT INTO party_sessions(party_id, created, last_activity)
+      VALUES(?, ?, ?)
+      ON CONFLICT(party_id) DO UPDATE SET
+        last_activity = MAX(last_activity, excluded.last_activity)
+    `, partyId, occurredAt, occurredAt);
+    await db.run(`
       INSERT INTO analytics_activity(
         party_id, first_activity, last_activity, active_ms, event_count
       ) VALUES(?, ?, ?, 0, 1)
@@ -212,6 +319,70 @@ export default class HandStore {
         last_activity = MAX(last_activity, ?),
         event_count = event_count + 1
     `, partyId, occurredAt, occurredAt, occurredAt, occurredAt);
+  }
+
+  async getPartyLastActivity(partyId: string) {
+    const db = await this.getDb();
+    const row = await db.get(
+      'SELECT last_activity FROM party_sessions WHERE party_id = ?',
+      partyId,
+    );
+    return row?.last_activity as number | undefined;
+  }
+
+  async deleteExpiredParties(cutoff: number) {
+    const db = await this.getDb();
+    const expiredRows = await db.all(
+      'SELECT party_id FROM party_sessions WHERE last_activity <= ?',
+      cutoff,
+    );
+    const partyIds = expiredRows.map((row: any) => row.party_id as string);
+    if (!partyIds.length) return { partyIds: [], handIds: [] };
+
+    const deletedPartyIds: string[] = [];
+    const deletedHandIds: string[] = [];
+
+    await db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const partyId of partyIds) {
+        const stillExpired = await db.get(
+          'SELECT 1 AS expired FROM party_sessions WHERE party_id = ? AND last_activity <= ?',
+          partyId,
+          cutoff,
+        );
+        if (!stillExpired) continue;
+        const partyHandRows = await db.all('SELECT id FROM hands WHERE party_id = ?', partyId);
+        const partyHandIds = partyHandRows.map((row: any) => row.id as string);
+        await db.run('DELETE FROM hands WHERE party_id = ?', partyId);
+        deletedPartyIds.push(partyId);
+        deletedHandIds.push(...partyHandIds);
+        await db.run('DELETE FROM analytics_visits WHERE party_id = ?', partyId);
+        await db.run('DELETE FROM analytics_activity WHERE party_id = ?', partyId);
+        await db.run('DELETE FROM party_sessions WHERE party_id = ?', partyId);
+      }
+      for (const handId of deletedHandIds) {
+        await db.run('DELETE FROM lobbies WHERE hand_id = ?', handId);
+      }
+      await db.exec('COMMIT');
+    } catch (error) {
+      await db.exec('ROLLBACK');
+      throw error;
+    }
+
+    return { partyIds: deletedPartyIds, handIds: deletedHandIds };
+  }
+
+  async deleteExpiredWaitingLobbies(cutoff: number) {
+    const db = await this.getDb();
+    const rows = await db.all(
+      'SELECT id FROM lobbies WHERE hand_id IS NULL AND last_activity <= ?',
+      cutoff,
+    );
+    await db.run(
+      'DELETE FROM lobbies WHERE hand_id IS NULL AND last_activity <= ?',
+      cutoff,
+    );
+    return rows.map((row: any) => row.id as string);
   }
 
   async recordAnalyticsVisit(visit: {

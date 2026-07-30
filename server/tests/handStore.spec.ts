@@ -61,3 +61,59 @@ test('analytics pauses after 30 seconds and resumes on later activity', async ()
     connections: 1,
   });
 });
+
+test('expired parties and their started lobbies are forgotten while active parties remain', async () => {
+  const store = new HandStore(':memory:');
+  await store.saveHand({
+    id: 'expired-hand-1',
+    partyId: 'expired-party',
+    created: 1_000,
+  });
+  await store.saveHand({
+    id: 'expired-hand-2',
+    partyId: 'expired-party',
+    created: 2_000,
+  });
+  await store.saveHand({
+    id: 'active-hand',
+    partyId: 'active-party',
+    created: 1_000,
+  });
+  await store.recordAnalyticsActivity('active-party', 10_000);
+  await store.saveLobby({
+    id: 'expired-lobby',
+    status: 'started',
+    handId: 'expired-hand-1',
+    created: 1_000,
+  });
+
+  await expect(store.deleteExpiredParties(5_000)).resolves.toEqual({
+    partyIds: ['expired-party'],
+    handIds: ['expired-hand-1', 'expired-hand-2'],
+  });
+  await expect(store.getHand('expired-hand-1')).resolves.toBeNull();
+  await expect(store.getHand('expired-hand-2')).resolves.toBeNull();
+  await expect(store.getLobby('expired-lobby')).resolves.toBeNull();
+  await expect(store.getHand('active-hand')).resolves.toMatchObject({ id: 'active-hand' });
+  await expect(store.getPartyLastActivity('active-party')).resolves.toBe(10_000);
+});
+
+test('waiting lobbies are forgotten after their inactivity cutoff', async () => {
+  const store = new HandStore(':memory:');
+  await store.saveLobby({
+    id: 'old-lobby',
+    status: 'waiting',
+    created: 1_000,
+    lastActivity: 1_000,
+  });
+  await store.saveLobby({
+    id: 'recent-lobby',
+    status: 'waiting',
+    created: 1_000,
+    lastActivity: 10_000,
+  });
+
+  await expect(store.deleteExpiredWaitingLobbies(5_000)).resolves.toEqual(['old-lobby']);
+  await expect(store.getLobby('old-lobby')).resolves.toBeNull();
+  await expect(store.getLobby('recent-lobby')).resolves.toMatchObject({ id: 'recent-lobby' });
+});

@@ -2,9 +2,10 @@ import { expect, Page, test } from '@playwright/test';
 
 async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await page.goto('/');
-  await expect(page.getByText('connected', { exact: true })).toBeVisible();
-  await page.getByLabel('Seats at the table').selectOption(String(playerCount));
-  await page.getByRole('button', { name: 'Create lobby' }).click();
+  await page.getByRole('button', { name: 'Создать стол' }).click();
+  await page.getByLabel('Ваше имя').fill('Dima');
+  await page.getByLabel('Мест за столом').selectOption(String(playerCount));
+  await page.getByRole('button', { name: 'Создать стол' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+\?member=/);
   await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();

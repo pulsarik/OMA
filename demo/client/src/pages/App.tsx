@@ -218,6 +218,12 @@ type PlayerView = {
   community: string[];
   actions: ActionLog[];
   created: number;
+  session: {
+    lastActivity: number;
+    warningAfterMs: number;
+    expiresAfterMs: number;
+    serverNow: number;
+  };
 };
 
 type FullHandView = {
@@ -283,12 +289,28 @@ type VersionInfo = {
 
 type LobbyView = {
   id: string;
+  pin: string;
+  tableName: string;
   hostMemberId: string;
   maxPlayers: number;
   status: 'waiting' | 'started';
   handId?: string;
+  session: {
+    lastActivity: number;
+    warningAfterMs: number;
+    expiresAfterMs: number;
+    serverNow: number;
+  };
   members: Array<{
     id: string;
+    name: string;
+    isBot: boolean;
+    isHost: boolean;
+  }>;
+};
+
+type OpenLobbyView = Omit<LobbyView, 'members'> & {
+  members: Array<{
     name: string;
     isBot: boolean;
     isHost: boolean;
@@ -403,6 +425,17 @@ const PLAYER_PAGE_STYLES = `
     align-items: center;
     min-height: 34px;
     margin-bottom: 8px;
+  }
+  .session-warning {
+    margin: 0 0 10px;
+    border: 1px solid #f59e0b;
+    border-radius: 12px;
+    padding: 9px 12px;
+    background: #fffbeb;
+    color: #92400e;
+    font-size: 13px;
+    font-weight: 800;
+    text-align: center;
   }
   .deal-chip {
     border: 1px solid #cbd5cf;
@@ -2256,11 +2289,32 @@ function PlayerPage() {
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
   const [activeView, setActiveView] = useState<'table' | 'stats'>('table');
+  const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
+  const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
+  const [sessionNow, setSessionNow] = useState(Date.now());
   const [, , handId, playerId, token] = window.location.pathname.split('/');
+
+  function applySessionTiming(timing: PlayerView['session'] | undefined) {
+    if (!timing) return;
+    const elapsedAtReceipt = Math.max(0, timing.serverNow - timing.lastActivity);
+    setSessionDeadline(Date.now() + Math.max(0, timing.expiresAfterMs - elapsedAtReceipt));
+    setSessionWarningRemainingMs(Math.max(0, timing.expiresAfterMs - timing.warningAfterMs));
+  }
 
   useEffect(() => {
     setActiveView('table');
   }, [handId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSessionNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (sessionDeadline !== null && sessionNow >= sessionDeadline) {
+      setError('This table expired after 2 hours without activity.');
+    }
+  }, [sessionDeadline, sessionNow]);
 
   useEffect(() => {
     fetch(`${SERVER_URL}/api/player/${handId}/${playerId}/${token}`)
@@ -2268,13 +2322,16 @@ function PlayerPage() {
         if (!res.ok) throw new Error(await res.text());
         return res.json();
       })
-      .then((nextPlayer) => setPlayer((currentPlayer) => (
-        currentPlayer
-        && currentPlayer.handId === nextPlayer.handId
-        && currentPlayer.revision > nextPlayer.revision
-          ? currentPlayer
-          : nextPlayer
-      )))
+      .then((nextPlayer) => {
+        applySessionTiming(nextPlayer.session);
+        setPlayer((currentPlayer) => (
+          currentPlayer
+          && currentPlayer.handId === nextPlayer.handId
+          && currentPlayer.revision > nextPlayer.revision
+            ? currentPlayer
+            : nextPlayer
+        ));
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Could not load hand'));
 
     const socket = new WebSocket(WS_URL);
@@ -2322,6 +2379,7 @@ function PlayerPage() {
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.type === 'player_state') {
+        applySessionTiming(message.data.session);
         setPlayer((currentPlayer) => (
           currentPlayer
           && currentPlayer.handId === message.data.handId
@@ -2330,6 +2388,12 @@ function PlayerPage() {
             : message.data
         ));
         setNotice(null);
+      }
+      if (message.type === 'session_activity') {
+        applySessionTiming(message.data);
+      }
+      if (message.type === 'session_expired') {
+        setError('This table expired after 2 hours without activity.');
       }
       if (message.type === 'hand_dealt' && message.data?.playerLinks) {
         setIsCreatingDeal(false);
@@ -2411,6 +2475,17 @@ function PlayerPage() {
   if (error) return <div style={{ padding: 12 }}>Error: {error}</div>;
   if (!player) return <div style={{ padding: 12 }}>Loading...</div>;
 
+  const sessionRemainingMs = sessionDeadline === null
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, sessionDeadline - sessionNow);
+  const showSessionWarning = sessionRemainingMs <= sessionWarningRemainingMs;
+  const sessionRemainingSeconds = Math.ceil(sessionRemainingMs / 1_000);
+  const sessionHours = Math.floor(sessionRemainingSeconds / 3_600);
+  const sessionMinutes = Math.floor((sessionRemainingSeconds % 3_600) / 60);
+  const sessionSeconds = sessionRemainingSeconds % 60;
+  const sessionCountdown = sessionHours
+    ? `${sessionHours}:${String(sessionMinutes).padStart(2, '0')}:${String(sessionSeconds).padStart(2, '0')}`
+    : `${sessionMinutes}:${String(sessionSeconds).padStart(2, '0')}`;
   const canAct = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
@@ -2488,6 +2563,11 @@ function PlayerPage() {
         className="game-tile"
         data-testid="game-tile"
       >
+      {showSessionWarning ? (
+        <p className="session-warning" role="alert" data-testid="session-expiry-warning">
+          No activity. This table will be deleted in {sessionCountdown}.
+        </p>
+      ) : null}
       {!socketReady ? (
         <div className="game-toolbar">
           <span
@@ -2970,7 +3050,29 @@ function LobbyPage() {
   const [name, setName] = useState('');
   const [botName, setBotName] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
+  const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
+  const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
+  const [sessionNow, setSessionNow] = useState(Date.now());
+  const [lobbyExpired, setLobbyExpired] = useState(false);
   const storageKey = memberHint ? `omaha-lobby-${lobbyId}-${memberHint}` : undefined;
+
+  function applyLobbySession(nextLobby: LobbyView | undefined) {
+    const timing = nextLobby?.session;
+    if (!timing) return;
+    const elapsedAtReceipt = Math.max(0, timing.serverNow - timing.lastActivity);
+    setSessionDeadline(Date.now() + Math.max(0, timing.expiresAfterMs - elapsedAtReceipt));
+    setSessionWarningRemainingMs(Math.max(0, timing.expiresAfterMs - timing.warningAfterMs));
+    setLobbyExpired(false);
+  }
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSessionNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (sessionDeadline !== null && sessionNow >= sessionDeadline) setLobbyExpired(true);
+  }, [sessionDeadline, sessionNow]);
 
   useEffect(() => {
     const ws = new WebSocket(WS_URL);
@@ -3001,19 +3103,38 @@ function LobbyPage() {
         window.localStorage.setItem(personalStorageKey, JSON.stringify(credentials));
         window.history.replaceState(null, '', `/lobby/${lobbyId}?member=${message.data.memberId}`);
         setMemberId(message.data.memberId);
+        applyLobbySession(message.data.lobby);
         setLobby(message.data.lobby);
         setNotice(null);
       } else if (message.type === 'lobby_updated') {
+        applyLobbySession(message.data);
         setLobby(message.data);
       } else if (message.type === 'lobby_started' && message.data?.playerUrl) {
         window.location.href = message.data.playerUrl;
       } else if (message.type === 'error') {
         setNotice(message.message);
+      } else if (message.type === 'session_expired') {
+        setLobbyExpired(true);
       }
     };
     setSocket(ws);
     return () => ws.close();
   }, [lobbyId, storageKey]);
+
+  useEffect(() => {
+    if (!socket || !memberId) return undefined;
+    let lastActivitySent = 0;
+    const sendActivity = () => {
+      const now = Date.now();
+      if (socket.readyState === WebSocket.OPEN && now - lastActivitySent >= 5_000) {
+        lastActivitySent = now;
+        socket.send(JSON.stringify({ action: 'lobby_activity', lobbyId }));
+      }
+    };
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll'] as const;
+    events.forEach(eventName => window.addEventListener(eventName, sendActivity, { passive: true }));
+    return () => events.forEach(eventName => window.removeEventListener(eventName, sendActivity));
+  }, [socket, memberId, lobbyId]);
 
   function send(action: string, extra: Record<string, unknown> = {}) {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
@@ -3032,8 +3153,17 @@ function LobbyPage() {
   }
 
   const isHost = Boolean(lobby && memberId === lobby.hostMemberId);
-  const inviteUrl = `${window.location.origin}/lobby/${lobbyId}`;
-
+  const sessionRemainingMs = sessionDeadline === null
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, sessionDeadline - sessionNow);
+  const showSessionWarning = sessionRemainingMs <= sessionWarningRemainingMs;
+  const sessionRemainingSeconds = Math.ceil(sessionRemainingMs / 1_000);
+  const sessionHours = Math.floor(sessionRemainingSeconds / 3_600);
+  const sessionMinutes = Math.floor((sessionRemainingSeconds % 3_600) / 60);
+  const sessionSeconds = sessionRemainingSeconds % 60;
+  const sessionCountdown = sessionHours
+    ? `${sessionHours}:${String(sessionMinutes).padStart(2, '0')}:${String(sessionSeconds).padStart(2, '0')}`
+    : `${sessionMinutes}:${String(sessionSeconds).padStart(2, '0')}`;
   return (
     <div style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
       <main style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
@@ -3046,6 +3176,16 @@ function LobbyPage() {
             {socketReady ? 'connected' : 'connecting...'}
           </span>
         </header>
+
+        {lobbyExpired ? (
+          <p className="session-warning" role="alert" style={{ margin: 0, border: '1px solid #f59e0b', borderRadius: 12, padding: '9px 12px', background: '#fffbeb', color: '#92400e', fontWeight: 800, textAlign: 'center' }}>
+            This lobby expired after 2 hours without activity.
+          </p>
+        ) : showSessionWarning ? (
+          <p className="session-warning" role="alert" style={{ margin: 0, border: '1px solid #f59e0b', borderRadius: 12, padding: '9px 12px', background: '#fffbeb', color: '#92400e', fontWeight: 800, textAlign: 'center' }}>
+            No activity. This lobby will be deleted in {sessionCountdown}.
+          </p>
+        ) : null}
 
         {!memberId ? (
           <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 12 }}>
@@ -3086,19 +3226,14 @@ function LobbyPage() {
             </nav>
             <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
               <div>
-                <strong>Invite friends</strong>
-                <div style={{ display: 'flex', gap: 8, marginTop: 7 }}>
-                  <input aria-label="Invite link" readOnly value={inviteUrl} style={{ minWidth: 0, flex: 1, padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8 }} />
-                  <button
-                    onClick={() => {
-                      navigator.clipboard?.writeText(inviteUrl);
-                      setNotice('Invite link copied.');
-                    }}
-                    style={{ fontWeight: 800 }}
-                  >
-                    Copy
-                  </button>
-                </div>
+                <span style={{ display: 'block', color: '#64748b', fontSize: 13, fontWeight: 800 }}>TABLE {lobby.tableName?.toUpperCase()}</span>
+                <strong style={{ display: 'block', marginTop: 4 }}>Tell friends this PIN</strong>
+                <output
+                  aria-label="Table PIN"
+                  style={{ display: 'inline-block', marginTop: 7, border: '1px solid #a7f3d0', borderRadius: 12, background: '#ecfdf5', padding: '8px 18px', color: '#065f46', font: '900 28px/1 ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing: '.2em' }}
+                >
+                  {lobby.pin}
+                </output>
               </div>
 
               <LobbyTable
@@ -3559,6 +3694,299 @@ function HomePage() {
   );
 }
 
+const WELCOME_TEXT = {
+  en: {
+    language: 'Language',
+    eyebrow: 'A split-pot poker game',
+    title: 'Omaha Hi-Lo',
+    intro: 'Make your best high hand and your best qualifying low hand. The pot is split between them.',
+    differenceTitle: 'How it differs from regular poker',
+    difference: 'You receive four private cards and must use exactly two of them with exactly three board cards. A qualifying low uses five different cards ranked eight or lower.',
+    create: 'Create a table',
+    createHint: 'Choose the table size and become the host.',
+    join: 'Join an open table',
+    joinHint: 'See who is waiting or enter a 4-digit PIN.',
+    back: 'Back',
+    yourName: 'Your name',
+    seats: 'Seats at the table',
+    createButton: 'Create table',
+    openTables: 'Open tables',
+    refresh: 'Refresh',
+    empty: 'No tables are waiting right now. Create the first one.',
+    players: 'players',
+    seatsFree: 'seats',
+    pinLabel: 'Table PIN',
+    pinPlaceholder: '4 digits',
+    find: 'Find table',
+    enterName: 'Enter your name.',
+    connecting: 'Connecting…',
+    copyright: 'All rights reserved.',
+  },
+  ru: {
+    language: 'Язык',
+    eyebrow: 'Покер с разделением банка',
+    title: 'Омаха хай-ло',
+    intro: 'Соберите лучшую старшую и лучшую подходящую младшую комбинацию — банк делится между ними.',
+    differenceTitle: 'Чем отличается от обычного покера',
+    difference: 'Вы получаете четыре закрытые карты и обязаны использовать ровно две из них вместе с ровно тремя картами стола. Для лоу нужны пять разных карт достоинством не выше восьмёрки.',
+    create: 'Создать стол',
+    createHint: 'Выберите размер стола и станьте ведущим.',
+    join: 'Войти в открытый стол',
+    joinHint: 'Посмотрите, кто уже ждёт, или введите PIN из 4 цифр.',
+    back: 'Назад',
+    yourName: 'Ваше имя',
+    seats: 'Мест за столом',
+    createButton: 'Создать стол',
+    openTables: 'Открытые столы',
+    refresh: 'Обновить',
+    empty: 'Сейчас никто не ждёт игроков. Создайте первый стол.',
+    players: 'игроки',
+    seatsFree: 'мест',
+    pinLabel: 'PIN стола',
+    pinPlaceholder: '4 цифры',
+    find: 'Найти стол',
+    enterName: 'Введите ваше имя.',
+    connecting: 'Подключение…',
+    copyright: 'Все права защищены.',
+  },
+} as const;
+
+function WelcomePage() {
+  const [language, setLanguage] = useState<'en' | 'ru'>(() => (
+    window.localStorage.getItem('omaha-language') === 'en' ? 'en' : 'ru'
+  ));
+  const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [hostName, setHostName] = useState('');
+  const [seats, setSeats] = useState(4);
+  const [pin, setPin] = useState('');
+  const [openLobbies, setOpenLobbies] = useState<OpenLobbyView[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [version, setVersion] = useState<VersionInfo | null>(null);
+  const t = WELCOME_TEXT[language];
+
+  useEffect(() => {
+    window.localStorage.setItem('omaha-language', language);
+    document.documentElement.lang = language;
+  }, [language]);
+
+  useEffect(() => {
+    let stopped = false;
+    let reconnectTimer: number | undefined;
+    let ws: WebSocket;
+
+    const connect = () => {
+      ws = new WebSocket(WS_URL);
+      setSocket(ws);
+      ws.onopen = () => {
+        setConnected(true);
+        setNotice(null);
+        ws.send(JSON.stringify({ action: 'list_open_lobbies' }));
+      };
+      ws.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'open_lobbies') setOpenLobbies(message.data);
+        if (message.type === 'lobby_found') window.location.href = `/lobby/${message.data.lobbyId}`;
+        if (message.type === 'lobby_joined') {
+          const { lobby, memberId, token } = message.data;
+          window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
+          window.location.href = `/lobby/${lobby.id}?member=${memberId}`;
+        }
+        if (message.type === 'error') setNotice(message.message);
+      };
+      ws.onclose = () => {
+        setConnected(false);
+        if (!stopped) reconnectTimer = window.setTimeout(connect, 1000);
+      };
+      ws.onerror = () => setConnected(false);
+    };
+
+    connect();
+    return () => {
+      stopped = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      ws?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    fetch(`${SERVER_URL}/api/version`)
+      .then(response => response.ok ? response.json() : undefined)
+      .then(data => {
+        if (data?.shortCommit) setVersion(data);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function send(action: string, extra: Record<string, unknown> = {}) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setNotice(t.connecting);
+      return;
+    }
+    setNotice(null);
+    socket.send(JSON.stringify({ action, ...extra }));
+  }
+
+  function createTable() {
+    if (!hostName.trim()) {
+      setNotice(t.enterName);
+      return;
+    }
+    send('create_lobby', { name: hostName.trim(), maxPlayers: seats });
+  }
+
+  function findByPin() {
+    if (pin.length !== 4) {
+      setNotice(language === 'ru' ? 'Введите PIN из 4 цифр.' : 'Enter a 4-digit PIN.');
+      return;
+    }
+    send('find_lobby_by_pin', { pin });
+  }
+
+  const cardStyle: React.CSSProperties = {
+    border: '1px solid rgba(167,243,208,.24)',
+    borderRadius: 22,
+    background: 'rgba(255,255,255,.96)',
+    boxShadow: '0 24px 70px rgba(1,35,25,.22)',
+    padding: 'clamp(18px, 4vw, 30px)',
+  };
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    border: '1px solid #cbd5e1',
+    borderRadius: 10,
+    background: '#fff',
+    padding: '11px 12px',
+    font: 'inherit',
+  };
+  const primaryButton: React.CSSProperties = {
+    border: 0,
+    borderRadius: 12,
+    background: '#08734d',
+    color: '#fff',
+    padding: '12px 16px',
+    fontWeight: 900,
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #147a58, #064630 48%, #022c20)', color: '#17211b', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', padding: 'clamp(14px, 4vw, 38px)' }}>
+      <main style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
+          <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800 }}>
+            {t.language}
+            <select
+              aria-label={t.language}
+              value={language}
+              onChange={event => setLanguage(event.target.value as 'en' | 'ru')}
+              style={{ border: '1px solid rgba(255,255,255,.5)', borderRadius: 999, background: '#fff', padding: '6px 10px' }}
+            >
+              <option value="ru">Русский</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+        </header>
+
+        <section style={cardStyle}>
+          <span style={{ color: '#08734d', fontSize: 12, fontWeight: 900, letterSpacing: '.12em', textTransform: 'uppercase' }}>{t.eyebrow}</span>
+          <h1 style={{ margin: '8px 0 10px', fontSize: 'clamp(36px, 8vw, 68px)', lineHeight: .95 }}>{t.title}</h1>
+          <p style={{ maxWidth: 680, margin: 0, color: '#3f5148', fontSize: 'clamp(17px, 2.5vw, 21px)', lineHeight: 1.5 }}>{t.intro}</p>
+          <div style={{ marginTop: 18, borderLeft: '4px solid #fbbf24', padding: '3px 0 3px 14px' }}>
+            <strong>{t.differenceTitle}</strong>
+            <p style={{ margin: '5px 0 0', color: '#526159', lineHeight: 1.5 }}>{t.difference}</p>
+          </div>
+        </section>
+
+        {view === 'choice' ? (
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+            {([
+              ['create', '＋', t.create, t.createHint],
+              ['join', '→', t.join, t.joinHint],
+            ] as const).map(([target, icon, title, hint]) => (
+              <button
+                key={target}
+                onClick={() => setView(target)}
+                style={{ ...cardStyle, minHeight: 158, display: 'grid', gridTemplateColumns: '52px 1fr', alignItems: 'center', gap: 14, border: '1px solid #d8e2dc', textAlign: 'left', cursor: 'pointer' }}
+              >
+                <span style={{ display: 'grid', placeItems: 'center', width: 52, height: 52, borderRadius: 16, background: '#e8f7ef', color: '#08734d', fontSize: 28, fontWeight: 800 }}>{icon}</span>
+                <span>
+                  <strong style={{ display: 'block', fontSize: 20 }}>{title}</strong>
+                  <small style={{ display: 'block', marginTop: 6, color: '#65736a', fontSize: 14, lineHeight: 1.4 }}>{hint}</small>
+                </span>
+              </button>
+            ))}
+          </section>
+        ) : null}
+
+        {view === 'create' ? (
+          <section style={{ ...cardStyle, display: 'grid', gap: 14 }}>
+            <button onClick={() => { setView('choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#08734d', fontWeight: 900 }}>← {t.back}</button>
+            <h2 style={{ margin: 0 }}>{t.create}</h2>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.yourName}<input aria-label={t.yourName} autoFocus value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
+              <select aria-label={t.seats} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
+                {Array.from({ length: 9 }, (_, index) => index + 2).map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+            </label>
+            <button onClick={createTable} disabled={!connected} style={primaryButton}>{connected ? t.createButton : t.connecting}</button>
+            {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
+          </section>
+        ) : null}
+
+        {view === 'join' ? (
+          <section style={{ ...cardStyle, display: 'grid', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <button onClick={() => { setView('choice'); setNotice(null); }} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900 }}>← {t.back}</button>
+              <button onClick={() => send('list_open_lobbies')} disabled={!connected} style={{ border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', padding: '7px 10px', fontWeight: 800 }}>{t.refresh}</button>
+            </div>
+            <h2 style={{ margin: 0 }}>{t.openTables}</h2>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {openLobbies.length ? openLobbies.map(lobby => (
+                <button
+                  key={lobby.id}
+                  onClick={() => { window.location.href = `/lobby/${lobby.id}`; }}
+                  style={{ border: '1px solid #d8e2dc', borderRadius: 14, background: '#f8fbf9', padding: 14, textAlign: 'left' }}
+                >
+                  <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <strong style={{ fontSize: 18 }}>{lobby.tableName}</strong>
+                    <span style={{ color: '#08734d', fontWeight: 900 }}>{lobby.members.length}/{lobby.maxPlayers}</span>
+                  </span>
+                  <span style={{ display: 'block', marginTop: 6, color: '#65736a' }}>
+                    {lobby.members.map(member => member.name.replace(/_bot$/i, '')).join(', ')}
+                  </span>
+                </button>
+              )) : <p style={{ margin: 0, color: '#65736a' }}>{t.empty}</p>}
+            </div>
+            <div style={{ height: 1, background: '#e2e8f0' }} />
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.pinLabel}
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
+                <input
+                  aria-label={t.pinLabel}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={4}
+                  placeholder={t.pinPlaceholder}
+                  value={pin}
+                  onChange={event => setPin(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                  onKeyDown={event => { if (event.key === 'Enter') findByPin(); }}
+                  style={{ ...inputStyle, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', fontSize: 20, fontWeight: 900, letterSpacing: '.18em' }}
+                />
+                <button onClick={findByPin} disabled={!connected} style={primaryButton}>{t.find}</button>
+              </div>
+            </label>
+            {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
+          </section>
+        ) : null}
+
+        <footer style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'rgba(255,255,255,.72)', fontSize: 12 }}>
+          <span>© {new Date().getFullYear()} Omaha Hi-Lo. {t.copyright}</span>
+          {version ? <span title={version.commit}>{version.shortCommit}</span> : null}
+        </footer>
+      </main>
+    </div>
+  );
+}
+
 function currentProblemContext() {
   const parts = window.location.pathname.split('/').filter(Boolean);
   const viewport = {
@@ -3765,7 +4193,7 @@ export default function App() {
   if (window.location.pathname.startsWith('/player/')) page = <PlayerPage />;
   else if (window.location.pathname.startsWith('/debug/')) page = <DebugPage />;
   else if (window.location.pathname.startsWith('/lobby/')) page = <LobbyPage />;
-  else page = <HomePage />;
+  else page = <WelcomePage />;
 
   return (
     <>
