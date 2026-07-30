@@ -46,7 +46,7 @@ test('pot details and bet-size math are available on demand', async ({ page, req
 
 test('opponent rows stay stable as seat content changes at every table size', async ({ page }) => {
   test.setTimeout(60_000);
-  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
   const rowSizes = async () => {
     const positions = await page.getByTestId('opponents-grid').locator('[data-player-seat]')
       .evaluateAll((seats) => seats.map((seat) => ({
@@ -77,7 +77,7 @@ test('opponent rows stay stable as seat content changes at every table size', as
     }
     const rowsBeforeContentChange = await rowSizes();
     if (playerCount === 5) {
-      expect(rowsBeforeContentChange, 'four opponents should fit on a wide screen').toEqual([4]);
+      expect(rowsBeforeContentChange, 'four opponents should fit on a landscape tablet').toEqual([4]);
     }
 
     await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {

@@ -307,8 +307,12 @@ const CARD_SCALE = 0.8;
 const CARD_WIDTH = 92 * CARD_SCALE;
 const CARD_HEIGHT = 132 * CARD_SCALE;
 const COMPACT_CARD_SCALE = 0.72;
-const COMPACT_CARD_WIDTH = 92 * COMPACT_CARD_SCALE;
-const COMPACT_CARD_HEIGHT = 132 * COMPACT_CARD_SCALE;
+const OPPONENT_CARD_SCALE = COMPACT_CARD_SCALE * 0.9;
+const OPPONENT_CARD_WIDTH = 92 * OPPONENT_CARD_SCALE;
+const OPPONENT_CARD_HEIGHT = 132 * OPPONENT_CARD_SCALE;
+const FOCAL_CARD_SCALE = COMPACT_CARD_SCALE * 1.1;
+const FOCAL_CARD_WIDTH = 92 * FOCAL_CARD_SCALE;
+const FOCAL_CARD_HEIGHT = 132 * FOCAL_CARD_SCALE;
 const COMBO_CARD_SCALE = 0.48;
 const COMBO_CARD_WIDTH = 92 * COMBO_CARD_SCALE;
 const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
@@ -461,7 +465,7 @@ const PLAYER_PAGE_STYLES = `
     align-items: flex-start;
     gap: 20px 8px;
   }
-  .player-seat-wrap { flex: 0 1 320px; min-width: 0; }
+  .player-seat-wrap { flex: 0 1 288px; min-width: 0; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
   }
@@ -616,7 +620,8 @@ const PLAYER_PAGE_STYLES = `
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .compact-card-row { display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center; }
-  .compact-card-frame { width: ${COMPACT_CARD_WIDTH}px; height: ${COMPACT_CARD_HEIGHT}px; }
+  .opponent-card-frame { width: ${OPPONENT_CARD_WIDTH}px; height: ${OPPONENT_CARD_HEIGHT}px; }
+  .focal-card-frame { width: ${FOCAL_CARD_WIDTH}px; height: ${FOCAL_CARD_HEIGHT}px; }
   .board-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
   .action-dock {
     display: flex;
@@ -710,11 +715,16 @@ const PLAYER_PAGE_STYLES = `
     .player-seat { padding: 4px !important; }
     .compact-card-row,
     .board-row { gap: 4px !important; }
-    .compact-card-frame {
-      width: 53.36px !important;
-      height: 76.56px !important;
+    .opponent-card-frame {
+      width: 48.024px !important;
+      height: 68.904px !important;
     }
-    .compact-card { transform: scale(.58) !important; }
+    .opponent-card { transform: scale(.522) !important; }
+    .focal-card-frame {
+      width: 58.696px !important;
+      height: 84.216px !important;
+    }
+    .focal-card { transform: scale(.638) !important; }
     .table-center,
     .poker-table.is-crowded .table-center {
       min-height: 92px;
@@ -896,12 +906,24 @@ function CardRow({ cards }: { cards: string[] }) {
   );
 }
 
-function CompactCardRow({ cards, testId }: { cards: string[]; testId?: string }) {
+function CompactCardRow({
+  cards,
+  testId,
+  focal = false,
+}: {
+  cards: string[];
+  testId?: string;
+  focal?: boolean;
+}) {
+  const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
+  const cardClass = focal ? 'focal-card' : 'opponent-card';
+  const scale = focal ? FOCAL_CARD_SCALE : OPPONENT_CARD_SCALE;
+
   return (
     <div data-testid={testId} className="compact-card-row">
       {cards.map((card) => (
-        <div key={card} className="compact-card-frame">
-          <Card code={card} scale={COMPACT_CARD_SCALE} className="compact-card" />
+        <div key={card} className={frameClass}>
+          <Card code={card} scale={scale} className={cardClass} />
         </div>
       ))}
     </div>
@@ -1031,10 +1053,22 @@ function SideComboCards({ combo }: { combo: ComboCard[] }) {
   );
 }
 
-function CardBackRow({ count, compact = false, testId }: { count: number; compact?: boolean; testId?: string }) {
-  const width = compact ? COMPACT_CARD_WIDTH : CARD_WIDTH;
-  const height = compact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
-  const scale = compact ? COMPACT_CARD_SCALE : CARD_SCALE;
+function CardBackRow({
+  count,
+  compact = false,
+  focal = false,
+  testId,
+}: {
+  count: number;
+  compact?: boolean;
+  focal?: boolean;
+  testId?: string;
+}) {
+  const width = compact ? focal ? FOCAL_CARD_WIDTH : OPPONENT_CARD_WIDTH : CARD_WIDTH;
+  const height = compact ? focal ? FOCAL_CARD_HEIGHT : OPPONENT_CARD_HEIGHT : CARD_HEIGHT;
+  const scale = compact ? focal ? FOCAL_CARD_SCALE : OPPONENT_CARD_SCALE : CARD_SCALE;
+  const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
+  const cardClass = focal ? 'focal-card' : 'opponent-card';
 
   return (
     <div
@@ -1045,10 +1079,10 @@ function CardBackRow({ count, compact = false, testId }: { count: number; compac
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className={compact ? 'compact-card-frame' : undefined}
+          className={compact ? frameClass : undefined}
           style={compact ? undefined : { width, height }}
         >
-          <CardBack scale={scale} className={compact ? 'compact-card' : undefined} />
+          <CardBack scale={scale} className={compact ? cardClass : undefined} />
         </div>
       ))}
     </div>
@@ -1057,9 +1091,9 @@ function CardBackRow({ count, compact = false, testId }: { count: number; compac
 
 function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boolean }) {
   const hiddenCount = Math.max(5 - cards.length, 0);
-  const width = compact ? COMPACT_CARD_WIDTH : CARD_WIDTH;
-  const height = compact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
-  const scale = compact ? COMPACT_CARD_SCALE : CARD_SCALE;
+  const width = compact ? FOCAL_CARD_WIDTH : CARD_WIDTH;
+  const height = compact ? FOCAL_CARD_HEIGHT : CARD_HEIGHT;
+  const scale = compact ? FOCAL_CARD_SCALE : CARD_SCALE;
 
   return (
     <div
@@ -1069,19 +1103,19 @@ function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boole
       {cards.map((card) => (
         <div
           key={card}
-          className={compact ? 'compact-card-frame' : undefined}
+          className={compact ? 'focal-card-frame' : undefined}
           style={compact ? undefined : { width, height }}
         >
-          <Card code={card} scale={scale} className={compact ? 'compact-card' : undefined} />
+          <Card code={card} scale={scale} className={compact ? 'focal-card' : undefined} />
         </div>
       ))}
       {Array.from({ length: hiddenCount }).map((_, index) => (
         <div
           key={`hidden-${index}`}
-          className={compact ? 'compact-card-frame' : undefined}
+          className={compact ? 'focal-card-frame' : undefined}
           style={compact ? undefined : { width, height }}
         >
-          <CardBack scale={scale} className={compact ? 'compact-card' : undefined} />
+          <CardBack scale={scale} className={compact ? 'focal-card' : undefined} />
         </div>
       ))}
     </div>
@@ -1467,9 +1501,9 @@ function PlayerSeat({
           }}
         >
           {shouldShowCards ? (
-            <CompactCardRow cards={hole ?? []} testId={`player-cards-${id}`} />
+            <CompactCardRow cards={hole ?? []} testId={`player-cards-${id}`} focal={isYou} />
           ) : (
-            <CardBackRow count={cardCount} compact={compact} testId={`player-cards-${id}`} />
+            <CardBackRow count={cardCount} compact={compact} focal={isYou} testId={`player-cards-${id}`} />
           )}
           {hasWinningHand ? (
             <div
