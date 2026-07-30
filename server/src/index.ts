@@ -41,6 +41,7 @@ const playerConnections = new Map<WebSocket, {
   visitId: number;
 }>();
 const lobbyLocks = new Map<string, Promise<any>>();
+const cityImageCache = new Map<string, { imageUrl: string; sourceUrl: string } | null>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const SESSION_EXPIRE_MS = Math.max(60_000, Number(process.env.SESSION_EXPIRE_MS) || 2 * 60 * 60_000);
 const SESSION_WARNING_MS = Math.min(
@@ -65,6 +66,7 @@ type LobbyMember = {
   name: string;
   isBot: boolean;
   joinedAt: number;
+  seat?: number;
   playerId?: string;
 };
 
@@ -480,6 +482,7 @@ async function playerState(hand: any, player: any) {
     handCode: hand.handCode,
     dealCode: hand.dealCode,
     handNumber: hand.handNumber,
+    tableName: hand.tableName,
     revision: hand.revision ?? 0,
     replayOfHandId: hand.replayOfHandId,
     playerId: player.id,
@@ -563,7 +566,47 @@ function broadcastPublicDeal(sender: WebSocket, hand: any) {
   });
 }
 
+function normalizeLobbySeats(lobby: Lobby) {
+  const usedSeats = new Set<number>();
+  lobby.members.forEach((member) => {
+    if (
+      Number.isInteger(member.seat)
+      && member.seat! >= 0
+      && member.seat! < lobby.maxPlayers
+      && !usedSeats.has(member.seat!)
+    ) {
+      usedSeats.add(member.seat!);
+      return;
+    }
+    member.seat = undefined;
+  });
+  lobby.members.forEach((member) => {
+    if (member.seat !== undefined) return;
+    const openSeat = Array.from(
+      { length: lobby.maxPlayers },
+      (_, index) => index,
+    ).find(seat => !usedSeats.has(seat));
+    if (openSeat === undefined) return;
+    member.seat = openSeat;
+    usedSeats.add(openSeat);
+  });
+  lobby.members.sort((a, b) => (a.seat ?? lobby.maxPlayers) - (b.seat ?? lobby.maxPlayers));
+}
+
+function firstOpenLobbySeat(lobby: Lobby) {
+  normalizeLobbySeats(lobby);
+  const usedSeats = new Set(lobby.members.map(member => member.seat));
+  return Array.from({ length: lobby.maxPlayers }, (_, index) => index)
+    .find(seat => !usedSeats.has(seat));
+}
+
+function seatedLobbyMembers(lobby: Lobby) {
+  normalizeLobbySeats(lobby);
+  return lobby.members;
+}
+
 function lobbyState(lobby: Lobby) {
+  normalizeLobbySeats(lobby);
   const serverNow = Date.now();
   return {
     id: lobby.id,
@@ -584,13 +627,15 @@ function lobbyState(lobby: Lobby) {
       name: member.name,
       isBot: member.isBot,
       isHost: member.id === lobby.hostMemberId,
+      seat: member.seat,
     })),
   };
 }
 
 function openLobbyState(lobby: Lobby) {
+  const { pin: _pin, ...publicLobby } = lobbyState(lobby);
   return {
-    ...lobbyState(lobby),
+    ...publicLobby,
     members: lobbyState(lobby).members.map(({ id, ...member }) => member),
   };
 }
@@ -599,7 +644,12 @@ async function listOpenLobbies() {
   await cleanupInactiveSessions();
   const lobbies = await store.listLobbies() as Lobby[];
   return lobbies
-    .filter(lobby => lobby.status === 'waiting' && lobby.members.length < lobby.maxPlayers)
+    .filter(lobby => (
+      lobby.status === 'waiting'
+      && lobby.members.length < lobby.maxPlayers
+      && /^\d{4}$/.test(lobby.pin)
+      && typeof lobby.tableName === 'string'
+    ))
     .map(openLobbyState);
 }
 
@@ -686,6 +736,35 @@ async function sendStartedLobby(ws: WebSocket, lobby: Lobby, member: LobbyMember
   }));
 }
 
+async function sendStartedLobbyToMembers(lobby: Lobby) {
+  const sends: Promise<void>[] = [];
+  lobbyConnections.forEach((connection, client) => {
+    if (connection.lobbyId !== lobby.id || client.readyState !== WebSocket.OPEN) return;
+    const connectedMember = lobby.members.find(candidate => candidate.id === connection.memberId);
+    if (connectedMember && !connectedMember.isBot) {
+      sends.push(sendStartedLobby(client, lobby, connectedMember));
+    }
+  });
+  await Promise.all(sends);
+}
+
+async function moveLobbyToHand(previousHandId: string, hand: any) {
+  const lobbies = await store.listLobbies() as Lobby[];
+  const lobby = lobbies.find(candidate => (
+    candidate.status === 'started' && candidate.handId === previousHandId
+  ));
+  if (!lobby) return;
+
+  lobby.handId = hand.id;
+  seatedLobbyMembers(lobby).forEach((member, index) => {
+    member.playerId = hand.players[index]?.id;
+  });
+  lobby.lastActivity = Date.now();
+  await store.updateLobby(lobby);
+  broadcastLobby(lobby);
+  await sendStartedLobbyToMembers(lobby);
+}
+
 async function createLobby(ws: WebSocket, message: any) {
   return withLobbyLock('__create__', async () => {
     await cleanupInactiveSessions();
@@ -695,6 +774,7 @@ async function createLobby(ws: WebSocket, message: any) {
       name: lobbyName(message.name, 'Host'),
       isBot: false,
       joinedAt: Date.now(),
+      seat: 0,
     };
     const lobby: Lobby = {
       id: uuidv4(),
@@ -721,6 +801,7 @@ async function viewLobby(ws: WebSocket, message: any) {
   await cleanupInactiveSessions();
   const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
   if (!lobby) throw new Error('lobby not found');
+  if (!/^\d{4}$/.test(lobby.pin) || message.pin !== lobby.pin) throw new Error('incorrect table PIN');
   ws.send(JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) }));
 }
 
@@ -728,9 +809,11 @@ async function findLobbyByPin(ws: WebSocket, message: any) {
   await cleanupInactiveSessions();
   const pin = typeof message.pin === 'string' ? message.pin.trim() : '';
   if (!/^\d{4}$/.test(pin)) throw new Error('enter a 4-digit PIN');
+  const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
   const lobby = (await store.listLobbies() as Lobby[])
-    .find(candidate => candidate.pin === pin && candidate.status === 'waiting');
+    .find(candidate => candidate.id === lobbyId && candidate.status === 'waiting');
   if (!lobby) throw new Error('table not found');
+  if (lobby.pin !== pin) throw new Error('incorrect table PIN');
   if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
   ws.send(JSON.stringify({ type: 'lobby_found', data: { lobbyId: lobby.id } }));
 }
@@ -748,6 +831,7 @@ async function joinLobby(ws: WebSocket, message: any) {
       throw new Error('invalid lobby credentials');
     }
     if (!member) {
+      if (!/^\d{4}$/.test(lobby.pin) || message.pin !== lobby.pin) throw new Error('incorrect table PIN');
       if (lobby.status !== 'waiting') throw new Error('game already started');
       if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
       member = {
@@ -756,6 +840,7 @@ async function joinLobby(ws: WebSocket, message: any) {
         name: lobbyName(message.name, `Player ${lobby.members.length + 1}`),
         isBot: false,
         joinedAt: Date.now(),
+        seat: firstOpenLobbySeat(lobby),
       };
       lobby.members.push(member);
     }
@@ -803,6 +888,7 @@ async function addLobbyBot(ws: WebSocket, message: any) {
       name: lobbyBotName(lobby, message.name),
       isBot: true,
       joinedAt: Date.now(),
+      seat: firstOpenLobbySeat(lobby),
     });
     lobby.lastActivity = Date.now();
     await store.updateLobby(lobby);
@@ -826,6 +912,33 @@ async function removeLobbyBot(ws: WebSocket, message: any) {
   });
 }
 
+async function moveLobbyMember(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'waiting') throw new Error('game already started');
+    normalizeLobbySeats(lobby);
+
+    const target = lobby.members.find(candidate => candidate.id === message.memberId);
+    if (!target) throw new Error('player not found');
+    if (target.id === lobby.hostMemberId) throw new Error('host seat is fixed');
+    const targetSeat = Number(message.seat);
+    if (!Number.isInteger(targetSeat) || targetSeat < 0 || targetSeat >= lobby.maxPlayers) {
+      throw new Error('invalid seat');
+    }
+    const occupant = lobby.members.find(candidate => candidate.seat === targetSeat);
+    if (occupant?.id === lobby.hostMemberId) throw new Error('host seat is fixed');
+
+    const previousSeat = target.seat;
+    target.seat = targetSeat;
+    if (occupant && occupant.id !== target.id) occupant.seat = previousSeat;
+    normalizeLobbySeats(lobby);
+    lobby.lastActivity = Date.now();
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+  });
+}
+
 async function startLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
     const { lobby, member } = await authenticatedLobby(ws, message);
@@ -839,17 +952,20 @@ async function startLobby(ws: WebSocket, message: any) {
         name: lobbyBotName(lobby, undefined),
         isBot: true,
         joinedAt: Date.now(),
+        seat: firstOpenLobbySeat(lobby),
       });
     }
 
+    const seatedMembers = seatedLobbyMembers(lobby);
     const hand = dealHand(
-      lobby.members.length,
+      seatedMembers.length,
       undefined,
-      lobby.members.map(candidate => candidate.name),
-      lobby.members.map(candidate => candidate.isBot),
+      seatedMembers.map(candidate => candidate.name),
+      seatedMembers.map(candidate => candidate.isBot),
     );
+    hand.tableName = lobby.tableName;
     await store.saveHand(hand);
-    lobby.members.forEach((candidate, index) => {
+    seatedMembers.forEach((candidate, index) => {
       candidate.playerId = hand.players[index].id;
     });
     lobby.status = 'started';
@@ -859,15 +975,42 @@ async function startLobby(ws: WebSocket, message: any) {
     broadcastLobby(lobby);
     await broadcastOpenLobbies();
 
-    const sends: Promise<void>[] = [];
-    lobbyConnections.forEach((connection, client) => {
-      if (connection.lobbyId !== lobby.id || client.readyState !== WebSocket.OPEN) return;
-      const connectedMember = lobby.members.find(candidate => candidate.id === connection.memberId);
-      if (connectedMember && !connectedMember.isBot) {
-        sends.push(sendStartedLobby(client, lobby, connectedMember));
-      }
+    await sendStartedLobbyToMembers(lobby);
+    scheduleBotTurns(hand.id);
+  });
+}
+
+async function restartLobby(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'started' || !lobby.handId) throw new Error('game not started');
+
+    const latestHand = await store.getHand(lobby.handId);
+    if (!latestHand) throw new Error('hand not found');
+    normalizeHand(latestHand);
+    const playersWithChips = latestHand.players.filter((player: any) => player.stack > 0);
+    if (latestHand.stage !== 'showdown' || playersWithChips.length > 1) {
+      throw new Error('game not finished');
+    }
+
+    const seatedMembers = seatedLobbyMembers(lobby);
+    const hand = dealHand(
+      seatedMembers.length,
+      undefined,
+      seatedMembers.map(candidate => candidate.name),
+      seatedMembers.map(candidate => candidate.isBot),
+    );
+    hand.tableName = lobby.tableName;
+    await store.saveHand(hand);
+    seatedMembers.forEach((candidate, index) => {
+      candidate.playerId = hand.players[index].id;
     });
-    await Promise.all(sends);
+    lobby.handId = hand.id;
+    lobby.lastActivity = Date.now();
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+    await sendStartedLobbyToMembers(lobby);
     scheduleBotTurns(hand.id);
   });
 }
@@ -901,6 +1044,7 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
     const nextHand = mode === 'replay' && latestHand.players?.length
       ? replayHandLayout(latestHand)
       : nextPartyHand(latestHand.players?.length ? latestHand : dealHand(fallbackPlayers));
+    nextHand.tableName = latestHand.tableName;
     await store.saveHand(nextHand);
     latestHand.nextHandId = nextHand.id;
     if (mode === 'replay') {
@@ -973,6 +1117,52 @@ app.get('/api/version', (req, res) => {
     shortCommit: commitSha === 'dev' ? 'dev' : commitSha.slice(0, 7),
     buildTimeGmt,
   });
+});
+app.get('/api/city-image/:city', async (req, res) => {
+  const city = req.params.city.trim();
+  if (!WORLD_CAPITALS.includes(city)) return res.status(404).json({ error: 'city not found' });
+
+  if (cityImageCache.has(city)) {
+    const cached = cityImageCache.get(city);
+    return cached ? res.json(cached) : res.status(404).json({ error: 'city image not found' });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1_600);
+  try {
+    const query = new URLSearchParams({
+      action: 'query',
+      prop: 'pageimages',
+      titles: city,
+      redirects: '1',
+      piprop: 'thumbnail|name',
+      pithumbsize: '1400',
+      pilicense: 'free',
+      format: 'json',
+      origin: '*',
+    });
+    const response = await fetch(`https://en.wikipedia.org/w/api.php?${query}`, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'OmahaHiLo/1.0 (city table backgrounds)' },
+    });
+    if (!response.ok) throw new Error(`Wikipedia returned ${response.status}`);
+    const data: any = await response.json();
+    const page = Object.values(data.query?.pages ?? {})[0] as any;
+    if (!page?.thumbnail?.source || !page.pageimage) {
+      cityImageCache.set(city, null);
+      return res.status(404).json({ error: 'city image not found' });
+    }
+    const result = {
+      imageUrl: page.thumbnail.source as string,
+      sourceUrl: `https://en.wikipedia.org/wiki/File:${encodeURIComponent(page.pageimage)}`,
+    };
+    cityImageCache.set(city, result);
+    return res.json(result);
+  } catch {
+    return res.status(504).json({ error: 'city image unavailable' });
+  } finally {
+    clearTimeout(timeout);
+  }
 });
 app.post('/api/problems', async (req, res) => {
   const description = typeof req.body?.description === 'string'
@@ -1085,8 +1275,12 @@ wss.on('connection', (ws, req) => {
         await addLobbyBot(ws, msg);
       } else if (msg.action === 'lobby_remove_bot') {
         await removeLobbyBot(ws, msg);
+      } else if (msg.action === 'lobby_move_member') {
+        await moveLobbyMember(ws, msg);
       } else if (msg.action === 'lobby_start') {
         await startLobby(ws, msg);
+      } else if (msg.action === 'lobby_restart') {
+        await restartLobby(ws, msg);
       } else if (msg.action === 'lobby_activity') {
         const { lobby } = await authenticatedLobby(ws, msg);
         lobby.lastActivity = Date.now();
@@ -1104,6 +1298,7 @@ wss.on('connection', (ws, req) => {
         if (hand) {
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
+          await moveLobbyToHand(hand.id, nextHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
           sendDeal(ws, nextHand);
@@ -1126,6 +1321,7 @@ wss.on('connection', (ws, req) => {
         if (hand) {
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const replayHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'replay');
+          await moveLobbyToHand(hand.id, replayHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
           sendDeal(ws, replayHand);

@@ -65,6 +65,7 @@ export type DealtHand = {
     level: number;
     small: number;
     big: number;
+    dealerPlayerId?: string;
     smallBlindPlayerId?: string;
     bigBlindPlayerId?: string;
   };
@@ -188,6 +189,7 @@ export function normalizeHand(hand: DealtHand) {
     player.name = normalizedPlayerName(player.name, index, player.isBot);
     player.stack = Math.max(0, player.stack ?? STARTING_STACK);
   });
+  hand.blinds.dealerPlayerId = hand.blinds.dealerPlayerId ?? inferredDealerPlayer(hand)?.id;
   if (hand.stage === 'showdown') {
     hand.cardsRevealed = true;
     hand.revealVotes = hand.players.map(player => player.id);
@@ -332,6 +334,25 @@ function firstActivePlayer(hand: DealtHand) {
   return actingPlayers(hand)[0] ?? activePlayers(hand)[0];
 }
 
+function inferredDealerPlayer(hand: DealtHand) {
+  const smallBlindPlayerId = hand.blinds.smallBlindPlayerId;
+  if (!smallBlindPlayerId) return undefined;
+
+  const dealtPlayers = hand.players.filter(player => (
+    player.stack > 0 || (hand.totalContributions[player.id] ?? 0) > 0
+  ));
+  const smallBlindIndex = dealtPlayers.findIndex(player => player.id === smallBlindPlayerId);
+  if (smallBlindIndex === -1) return undefined;
+  if (dealtPlayers.length === 2) return dealtPlayers[smallBlindIndex];
+  return dealtPlayers[(smallBlindIndex - 1 + dealtPlayers.length) % dealtPlayers.length];
+}
+
+function firstPostflopPlayer(hand: DealtHand) {
+  const dealerPlayerId = hand.blinds.dealerPlayerId;
+  if (!dealerPlayerId) return firstActivePlayer(hand);
+  return nextActivePlayerAfter(hand, dealerPlayerId);
+}
+
 function nextActivePlayerAfter(hand: DealtHand, playerId: string) {
   if (!actingPlayers(hand).length) return undefined;
 
@@ -410,7 +431,7 @@ function setNextTurnOrAdvance(hand: DealtHand, playerId: string) {
     returnUncalledBet(hand);
     hand.stage = nextStage(hand.stage);
     resetBettingRound(hand);
-    hand.currentPlayerId = hand.stage === 'showdown' ? undefined : firstActivePlayer(hand)?.id;
+    hand.currentPlayerId = hand.stage === 'showdown' ? undefined : firstPostflopPlayer(hand)?.id;
     hand.community = visibleCommunity(hand);
     if (hand.stage === 'showdown') {
       hand.cardsRevealed = true;
@@ -913,9 +934,13 @@ function applyBlinds(hand: DealtHand) {
     const bigBlindIndex = (smallBlindIndex + 1) % livePlayers.length;
     const smallBlind = livePlayers[smallBlindIndex];
     const bigBlind = livePlayers[bigBlindIndex];
+    const dealer = livePlayers.length === 2
+      ? smallBlind
+      : livePlayers[(smallBlindIndex - 1 + livePlayers.length) % livePlayers.length];
     const smallPaid = payFromStack(smallBlind, blindInfo.small);
     const bigPaid = payFromStack(bigBlind, blindInfo.big);
 
+    hand.blinds.dealerPlayerId = dealer.id;
     hand.blinds.smallBlindPlayerId = smallBlind.id;
     hand.blinds.bigBlindPlayerId = bigBlind.id;
     hand.roundBets[smallBlind.id] = smallPaid;

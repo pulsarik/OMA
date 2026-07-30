@@ -8,13 +8,20 @@ async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(playerCount));
   await page.getByRole('button', { name: 'Create table' }).click();
-  await expect(page).toHaveURL(/\/lobby\/[^/?]+\?member=/);
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
   await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByText('Anna', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Start game/ }).click();
-  await expect(page).toHaveURL(/\/player\/[^/]+\/P1\/[^/]+$/);
-  return page.url();
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  return currentPlayerUrl(page);
+}
+
+async function currentPlayerUrl(page: Page) {
+  return page.evaluate(() => (
+    Object.entries(window.sessionStorage)
+      .find(([key]) => key.endsWith('-player-url'))?.[1] ?? ''
+  ));
 }
 
 function apiUrlForPlayerLink(href: string) {
@@ -259,8 +266,10 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);
   expect(newDealBox!.y + newDealBox!.height).toBeLessThanOrEqual(viewport.height);
   const oldUrl = page.url();
+  const oldPlayerUrl = await currentPlayerUrl(page);
   await newDealButton.click();
-  await expect(page).not.toHaveURL(oldUrl);
+  await expect(page).toHaveURL(oldUrl);
+  await expect.poll(() => currentPlayerUrl(page)).not.toBe(oldPlayerUrl);
 });
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
@@ -301,7 +310,6 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
     }
   };
   const href = await createDefaultHumanVsBotDeal(page);
-  await page.goto(href);
   await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
   const firstStateResponse = await request.get(apiUrlForPlayerLink(href));
@@ -311,6 +319,11 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
   await expect(page.getByTestId('high-combo-side')).toBeVisible();
   await expect(page.getByTestId('low-combo-side')).toBeVisible();
+  const heroCardsBox = (await page.getByTestId('player-cards-P1').boundingBox())!;
+  const highHintBox = (await page.getByTestId('high-combo-side').boundingBox())!;
+  const lowHintBox = (await page.getByTestId('low-combo-side').boundingBox())!;
+  expect(highHintBox.x + highHintBox.width).toBeLessThanOrEqual(heroCardsBox.x);
+  expect(lowHintBox.x).toBeGreaterThanOrEqual(heroCardsBox.x + heroCardsBox.width);
   const comboImages = page.locator('[data-testid$="-combo-side"] img[data-testid^="card-face-"]');
   await expect.poll(async () => comboImages.evaluateAll(images => (
     images.length > 0
@@ -355,11 +368,13 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId('game-tile')).toBeVisible();
   await expect(page.getByTestId('stats-tile')).toHaveCount(0);
   const oldUrl = page.url();
+  const oldPlayerUrl = await currentPlayerUrl(page);
   await page.getByRole('button', { name: 'New deal' }).click();
-  await expect(page).not.toHaveURL(oldUrl);
+  await expect(page).toHaveURL(oldUrl);
+  await expect.poll(() => currentPlayerUrl(page)).not.toBe(oldPlayerUrl);
   await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
   await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible();
-  const nextStateResponse = await request.get(apiUrlForPlayerLink(page.url()));
+  const nextStateResponse = await request.get(apiUrlForPlayerLink(await currentPlayerUrl(page)));
   const nextState = await nextStateResponse.json();
   expect(nextState.blinds.smallBlindPlayerId).not.toBe(firstState.blinds.smallBlindPlayerId);
   expect(nextState.blinds.bigBlindPlayerId).not.toBe(firstState.blinds.bigBlindPlayerId);
@@ -376,7 +391,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByRole('button', { name: 'New deal' })).toBeVisible();
-  const secondShowdownResponse = await request.get(apiUrlForPlayerLink(page.url()));
+  const secondShowdownResponse = await request.get(apiUrlForPlayerLink(await currentPlayerUrl(page)));
   const secondShowdownState = await secondShowdownResponse.json();
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await assertCumulativeStats(secondShowdownState);

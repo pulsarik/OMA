@@ -306,6 +306,27 @@ test('blinds move clockwise through every seat and determine the first preflop t
   });
 });
 
+test('postflop action starts left of the rotating dealer button', () => {
+  let hand = dealHand(5, 12345);
+  hand.stage = 'showdown';
+  hand = nextPartyHand(hand);
+
+  expect(hand.blinds).toMatchObject({
+    dealerPlayerId: 'P1',
+    smallBlindPlayerId: 'P2',
+    bigBlindPlayerId: 'P3',
+  });
+
+  ['P4', 'P5', 'P1', 'P2', 'P3'].forEach((playerId) => {
+    expect(hand.currentPlayerId).toBe(playerId);
+    const playerBet = hand.roundBets[playerId] ?? 0;
+    recordPlayerMove(hand, playerId, playerBet < hand.currentBet ? 'call' : 'check');
+  });
+
+  expect(hand.stage).toBe('flop');
+  expect(hand.currentPlayerId).toBe('P2');
+});
+
 test('turns move through seats from left to right and top to bottom on every street', () => {
   const hand = dealHand(6, 12345);
   const expectedByStreet = {
@@ -557,7 +578,7 @@ test('deal starts preflop with blinds and advances to flop after they are matche
   expect(hand.revision).toBe(2);
   expect(hand.stage).toBe('flop');
   expect(hand.community).toEqual(hand.fullCommunity.slice(0, 3));
-  expect(hand.currentPlayerId).toBe('P1');
+  expect(hand.currentPlayerId).toBe('P2');
 });
 
 test('check does not change the pot', () => {
@@ -575,14 +596,14 @@ test('bet and call grow the pot before the next street opens', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
-  recordPlayerMove(hand, 'P1', 'bet');
+  recordPlayerMove(hand, 'P2', 'bet');
   expect(hand.potCoins).toBe(12);
   expect(hand.currentBet).toBe(4);
-  expect(hand.currentPlayerId).toBe('P2');
+  expect(hand.currentPlayerId).toBe('P1');
 
-  expect(() => recordPlayerMove(hand, 'P2', 'check')).toThrow('call or fold required');
+  expect(() => recordPlayerMove(hand, 'P1', 'check')).toThrow('call or fold required');
 
-  recordPlayerMove(hand, 'P2', 'call');
+  recordPlayerMove(hand, 'P1', 'call');
   expect(hand.potCoins).toBe(16);
   expect(hand.stage).toBe('turn');
   expect(hand.currentBet).toBe(0);
@@ -593,13 +614,13 @@ test('raise keeps the betting round open until every active player matches', () 
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
-  recordPlayerMove(hand, 'P1', 'bet');
-  recordPlayerMove(hand, 'P2', 'raise');
+  recordPlayerMove(hand, 'P2', 'bet');
+  recordPlayerMove(hand, 'P1', 'raise');
   expect(hand.potCoins).toBe(20);
   expect(hand.currentBet).toBe(8);
-  expect(hand.currentPlayerId).toBe('P1');
+  expect(hand.currentPlayerId).toBe('P2');
 
-  recordPlayerMove(hand, 'P1', 'call');
+  recordPlayerMove(hand, 'P2', 'call');
   expect(hand.potCoins).toBe(24);
   expect(hand.stage).toBe('turn');
 });
@@ -608,31 +629,31 @@ test('bet and raise accept pot-limit target amounts', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
-  recordPlayerMove(hand, 'P1', 'bet', 8);
+  recordPlayerMove(hand, 'P2', 'bet', 8);
   expect(hand.potCoins).toBe(16);
   expect(hand.currentBet).toBe(8);
 
-  recordPlayerMove(hand, 'P2', 'raise', 100);
+  recordPlayerMove(hand, 'P1', 'raise', 100);
   expect(hand.potCoins).toBe(48);
   expect(hand.currentBet).toBe(32);
-  expect(hand.currentPlayerId).toBe('P1');
+  expect(hand.currentPlayerId).toBe('P2');
 });
 
 test('player must call after opponent raises a custom amount', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
-  recordPlayerMove(hand, 'P1', 'bet', 8);
-  recordPlayerMove(hand, 'P2', 'raise', 30);
+  recordPlayerMove(hand, 'P2', 'bet', 8);
+  recordPlayerMove(hand, 'P1', 'raise', 30);
 
   expect(hand.stage).toBe('flop');
   expect(hand.currentBet).toBe(30);
-  expect(hand.roundBets.P1).toBe(8);
-  expect(hand.roundBets.P2).toBe(30);
-  expect(hand.currentPlayerId).toBe('P1');
-  expect(() => recordPlayerMove(hand, 'P1', 'check')).toThrow('call or fold required');
+  expect(hand.roundBets.P2).toBe(8);
+  expect(hand.roundBets.P1).toBe(30);
+  expect(hand.currentPlayerId).toBe('P2');
+  expect(() => recordPlayerMove(hand, 'P2', 'check')).toThrow('call or fold required');
 
-  recordPlayerMove(hand, 'P1', 'call');
+  recordPlayerMove(hand, 'P2', 'call');
   expect(hand.stage).toBe('turn');
 });
 
@@ -640,15 +661,15 @@ test('raise is capped at three raises per street', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
-  recordPlayerMove(hand, 'P1', 'bet');
-  recordPlayerMove(hand, 'P2', 'raise');
+  recordPlayerMove(hand, 'P2', 'bet');
   recordPlayerMove(hand, 'P1', 'raise');
   recordPlayerMove(hand, 'P2', 'raise');
+  recordPlayerMove(hand, 'P1', 'raise');
 
   expect(hand.raiseCount).toBe(3);
-  expect(() => recordPlayerMove(hand, 'P1', 'raise')).toThrow('raise cap reached');
+  expect(() => recordPlayerMove(hand, 'P2', 'raise')).toThrow('raise cap reached');
 
-  recordPlayerMove(hand, 'P1', 'call');
+  recordPlayerMove(hand, 'P2', 'call');
   expect(hand.stage).toBe('turn');
 });
 
@@ -663,12 +684,12 @@ test('checking through all streets reaches showdown', () => {
 
   recordPlayerMove(hand, 'P1', 'call');
   recordPlayerMove(hand, 'P2', 'check');
-  recordPlayerMove(hand, 'P1', 'check');
   recordPlayerMove(hand, 'P2', 'check');
   recordPlayerMove(hand, 'P1', 'check');
   recordPlayerMove(hand, 'P2', 'check');
   recordPlayerMove(hand, 'P1', 'check');
   recordPlayerMove(hand, 'P2', 'check');
+  recordPlayerMove(hand, 'P1', 'check');
 
   expect(hand.stage).toBe('showdown');
   expect(hand.currentPlayerId).toBeUndefined();
@@ -680,12 +701,12 @@ test('players who reach final showdown reveal automatically', () => {
 
   recordPlayerMove(hand, 'P1', 'call');
   recordPlayerMove(hand, 'P2', 'check');
-  recordPlayerMove(hand, 'P1', 'check');
   recordPlayerMove(hand, 'P2', 'check');
   recordPlayerMove(hand, 'P1', 'check');
   recordPlayerMove(hand, 'P2', 'check');
   recordPlayerMove(hand, 'P1', 'check');
   recordPlayerMove(hand, 'P2', 'check');
+  recordPlayerMove(hand, 'P1', 'check');
 
   expect(hand.stage).toBe('showdown');
   expect(hand.cardsRevealed).toBe(true);

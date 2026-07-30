@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { callAction, isAllInWager } from '../callAction';
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
@@ -23,9 +23,13 @@ function localizedServerMessage(message: string) {
     'server overloaded: no table names available': 'Сервер перегружен: сейчас нет свободных названий столов. Попробуйте позже.',
     'enter a 4-digit PIN': 'Введите PIN из 4 цифр.',
     'table not found': 'Стол не найден.',
+    'incorrect table PIN': 'Неверный PIN выбранного стола.',
     'lobby is full': 'За этим столом нет свободных мест.',
     'lobby not found': 'Стол не найден.',
     'game already started': 'Игра за этим столом уже началась.',
+    'player not found': 'Игрок больше не находится за столом.',
+    'host seat is fixed': 'Место ведущего закреплено.',
+    'invalid seat': 'Такого места за столом нет.',
     'invalid lobby credentials': 'Не удалось восстановить место за столом.',
     'host only': 'Это действие доступно только ведущему.',
   };
@@ -382,6 +386,20 @@ type VersionInfo = {
   buildTimeGmt?: string;
 };
 
+type PlayerPageProps = {
+  playerUrl?: string;
+  isLobbyHost?: boolean;
+  onPlayerUrl?: (url: string) => void;
+  onRestartGame?: () => void;
+  onExitGame?: () => void;
+};
+
+function playerAccessFromUrl(url: string) {
+  const pathname = new URL(url, window.location.origin).pathname;
+  const [, , handId, playerId, token] = pathname.split('/');
+  return { handId, playerId, token };
+}
+
 type LobbyView = {
   id: string;
   pin: string;
@@ -396,15 +414,16 @@ type LobbyView = {
     expiresAfterMs: number;
     serverNow: number;
   };
-  members: Array<{
-    id: string;
-    name: string;
-    isBot: boolean;
-    isHost: boolean;
-  }>;
+    members: Array<{
+      id: string;
+      name: string;
+      isBot: boolean;
+      isHost: boolean;
+      seat: number;
+    }>;
 };
 
-type OpenLobbyView = Omit<LobbyView, 'members'> & {
+type OpenLobbyView = Omit<LobbyView, 'members' | 'pin'> & {
   members: Array<{
     name: string;
     isBot: boolean;
@@ -714,15 +733,17 @@ const PLAYER_PAGE_STYLES = `
   }
   .hero-zone {
     display: grid;
-    grid-template-columns: auto auto auto;
+    grid-template-columns: 190px auto 190px;
     grid-template-areas: "high hero low";
     justify-content: center;
     align-items: end;
-    gap: clamp(6px, 1vw, 12px);
+    column-gap: clamp(24px, 2.5vw, 42px);
+    width: 100%;
   }
-  .hero-seat { grid-area: hero; align-self: end; }
+  .hero-seat { grid-area: hero; align-self: end; justify-self: center; }
   .combo-side {
     align-self: center;
+    box-sizing: border-box;
     width: 190px;
     min-width: 0;
     border: 1px solid rgba(255,255,255,.32);
@@ -859,7 +880,10 @@ const PLAYER_PAGE_STYLES = `
       border-radius: 20px;
       padding: 6px;
     }
-    .hero-zone { gap: 5px; }
+    .hero-zone {
+      grid-template-columns: 170px auto 170px;
+      column-gap: 24px;
+    }
     .combo-side { width: 170px; padding: 5px; }
     .combo-side-title { margin-bottom: 4px; }
   }
@@ -875,8 +899,17 @@ const PLAYER_PAGE_STYLES = `
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
-    .hero-zone { gap: 6px; }
+    .hero-zone { column-gap: 12px; }
     .combo-side { width: 184px; padding: 6px 5px; }
+  }
+  @media (min-width: 761px) and (max-width: 820px) {
+    .hero-zone { column-gap: 12px; }
+    .hero-zone .compact-card-row { gap: 4px; }
+    .hero-zone .focal-card-frame {
+      width: 54.004px;
+      height: 77.484px;
+    }
+    .hero-zone .focal-card { transform: scale(.587); }
   }
   @media (max-width: 560px) {
     .table-center {
@@ -903,6 +936,8 @@ const PLAYER_PAGE_STYLES = `
       grid-template-areas:
         "high low"
         "hero hero";
+      column-gap: 6px;
+      row-gap: 8px;
       align-items: center;
     }
     .combo-side.high, .combo-side.low { justify-self: center; }
@@ -2380,7 +2415,13 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   );
 }
 
-function PlayerPage() {
+function PlayerPage({
+  playerUrl,
+  isLobbyHost = false,
+  onPlayerUrl,
+  onRestartGame,
+  onExitGame,
+}: PlayerPageProps = {}) {
   const [player, setPlayer] = useState<PlayerView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -2393,7 +2434,7 @@ function PlayerPage() {
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
-  const [, , handId, playerId, token] = window.location.pathname.split('/');
+  const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
 
   function applySessionTiming(timing: PlayerView['session'] | undefined) {
     if (!timing) return;
@@ -2505,7 +2546,8 @@ function PlayerPage() {
 
         if (samePlayerLink) {
           setNotice(ui('New deal created. Opening your new hand.', 'Новая раздача создана. Открываем вашу руку.'));
-          window.location.href = samePlayerLink.url;
+          if (onPlayerUrl) onPlayerUrl(samePlayerLink.url);
+          else window.location.href = samePlayerLink.url;
         } else {
           setNotice(ui('New deal created.', 'Новая раздача создана.'));
         }
@@ -2528,7 +2570,7 @@ function PlayerPage() {
       });
       socket.close();
     };
-  }, [handId, playerId, token]);
+  }, [handId, playerId, token, onPlayerUrl]);
 
   function sendMove(move: PlayerMove, amount?: number) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -2619,7 +2661,13 @@ function PlayerPage() {
     tournamentWinner || completedPartyHands.length || newDealLinks.length
   );
   const isStatsView = activeView === 'stats' && showStatsTile;
-  const otherPlayers = player.players.filter((seat) => seat.id !== player.playerId);
+  const playerSeatIndex = player.players.findIndex(seat => seat.id === player.playerId);
+  const otherPlayers = playerSeatIndex < 0
+    ? player.players.filter(seat => seat.id !== player.playerId)
+    : [
+        ...player.players.slice(playerSeatIndex + 1),
+        ...player.players.slice(0, playerSeatIndex),
+      ];
   const statusPillStyle: React.CSSProperties = {
     border: '1px solid #d1d5db',
     borderRadius: 999,
@@ -2750,7 +2798,10 @@ function PlayerPage() {
               {player.nextPlayerLink ? (
                 <button
                   className="action-button primary"
-                  onClick={() => { window.location.href = player.nextPlayerLink!.url; }}
+                  onClick={() => {
+                    if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
+                    else window.location.href = player.nextPlayerLink!.url;
+                  }}
                 >
                   {ui('New deal', 'Новая раздача')}
                 </button>
@@ -2797,6 +2848,32 @@ function PlayerPage() {
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
+
+      {tournamentWinner ? (
+        <section
+          data-testid="game-finished-prompt"
+          style={{ display: 'grid', gap: 10, marginTop: 10, padding: 14, border: '1px solid #a7f3d0', borderRadius: 12, background: '#ecfdf5' }}
+        >
+          <strong>
+            {ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
+          </strong>
+          {isLobbyHost ? (
+            <>
+              <span>{ui('The game is over. What next?', 'Игра окончена. Что дальше?')}</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="action-button primary" onClick={onRestartGame}>
+                  {ui('Deal 1000 to everyone again', 'Снова раздать всем по 1000')}
+                </button>
+                <button className="action-button" onClick={onExitGame}>
+                  {ui('Exit to home page', 'Выйти на начальную страницу')}
+                </button>
+              </div>
+            </>
+          ) : (
+            <span>{ui('Waiting for the host to choose what happens next.', 'Ждём решения хоста: начать заново или выйти.')}</span>
+          )}
+        </section>
+      ) : null}
 
       {showActionDock ? <div className="action-dock">
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
@@ -2887,9 +2964,29 @@ function PlayerPage() {
         data-testid="stats-tile"
       >
       {tournamentWinner ? (
-        <p style={{ fontWeight: 800 }}>
-          {ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
-        </p>
+        <>
+          <p style={{ fontWeight: 800 }}>
+            {ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
+          </p>
+          {isLobbyHost ? (
+            <section
+              data-testid="host-game-finished"
+              style={{ display: 'grid', gap: 10, padding: 14, border: '1px solid #a7f3d0', borderRadius: 12, background: '#ecfdf5' }}
+            >
+              <strong>{ui('The game is over. What next?', 'Игра окончена. Что дальше?')}</strong>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="action-button primary" onClick={onRestartGame}>
+                  {ui('Deal 1000 to everyone again', 'Снова раздать всем по 1000')}
+                </button>
+                <button className="action-button" onClick={onExitGame}>
+                  {ui('Exit to home page', 'Выйти на начальную страницу')}
+                </button>
+              </div>
+            </section>
+          ) : (
+            <p>{ui('Waiting for the host to choose what happens next.', 'Ждём решения хоста: начать заново или выйти.')}</p>
+          )}
+        </>
       ) : null}
       <PartyStatistics score={player.partyScore} players={player.players} />
       {player.cardsRevealed ? (
@@ -3027,13 +3124,25 @@ function LobbyTable({
   memberId,
   canRemoveBots = false,
   onRemoveBot,
+  canMoveMembers = false,
+  onMoveMember,
 }: {
   lobby: LobbyView;
   memberId?: string | null;
   canRemoveBots?: boolean;
   onRemoveBot?: (memberId: string) => void;
+  canMoveMembers?: boolean;
+  onMoveMember?: (memberId: string, seat: number) => void;
 }) {
-  const seats = Array.from({ length: lobby.maxPlayers }, (_, index) => lobby.members[index]);
+  const physicalSeats = Array.from(
+    { length: lobby.maxPlayers },
+    (_, index) => lobby.members.find(member => member.seat === index),
+  );
+  const viewerSeat = lobby.members.find(member => member.id === memberId)?.seat ?? 0;
+  const seats = Array.from({ length: lobby.maxPlayers }, (_, screenSeat) => {
+    const physicalSeat = (viewerSeat + screenSeat) % lobby.maxPlayers;
+    return { member: physicalSeats[physicalSeat], physicalSeat };
+  });
 
   return (
     <div style={{ overflowX: 'auto', padding: '4px 0 10px' }}>
@@ -3085,7 +3194,7 @@ function LobbyTable({
           </div>
         </div>
 
-        {seats.map((seat, index) => {
+        {seats.map(({ member: seat, physicalSeat }, index) => {
           const angle = (Math.PI / 2) + ((Math.PI * 2 * index) / seats.length);
           const left = 50 + 42 * Math.cos(angle);
           const top = 50 + 38 * Math.sin(angle);
@@ -3095,6 +3204,7 @@ function LobbyTable({
             <div
               key={seat?.id ?? `empty-${index}`}
               data-lobby-seat={index + 1}
+              data-physical-seat={physicalSeat + 1}
               data-lobby-member-id={seat?.id}
               style={{
                 position: 'absolute',
@@ -3129,9 +3239,36 @@ function LobbyTable({
                 <span style={{ fontSize: 10, fontWeight: 800, color: seat ? '#64748b' : '#cbd5e1' }}>
                   {seat
                     ? `${seat.isHost ? `${ui('HOST', 'ВЕДУЩИЙ')} · ` : ''}${seat.isBot ? ui('BOT', 'БОТ') : isYou ? ui('YOU', 'ВЫ') : ui('READY', 'ГОТОВ')}`
-                    : `${ui('SEAT', 'МЕСТО')} ${index + 1}`}
+                    : `${ui('SEAT', 'МЕСТО')} ${physicalSeat + 1}`}
                 </span>
               </div>
+              {seat && !seat.isHost && canMoveMembers && onMoveMember ? (
+                <label style={{ display: 'grid', gap: 2, marginTop: 3, color: '#334155', fontSize: 10, fontWeight: 800 }}>
+                  {ui('Move to', 'Пересадить')}
+                  <select
+                    aria-label={`${ui('Seat for', 'Место для')} ${tablePlayerName(seat.name, seat.id)}`}
+                    value={seat.seat}
+                    onChange={(event) => onMoveMember(seat.id, Number(event.target.value))}
+                    style={{ maxWidth: 112, minHeight: 24, borderRadius: 6, fontSize: 11 }}
+                  >
+                    {Array.from({ length: lobby.maxPlayers }, (_, targetSeat) => {
+                      const occupant = physicalSeats[targetSeat];
+                      return (
+                        <option
+                          key={targetSeat}
+                          value={targetSeat}
+                          disabled={Boolean(occupant?.isHost)}
+                        >
+                          {ui('Seat', 'Место')} {targetSeat + 1}
+                          {occupant && occupant.id !== seat.id
+                            ? ` · ${tablePlayerName(occupant.name, occupant.id)}`
+                            : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              ) : null}
               {seat?.isBot && canRemoveBots && onRemoveBot ? (
                 <button
                   onClick={() => onRemoveBot(seat.id)}
@@ -3162,7 +3299,11 @@ function LobbyPage() {
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
   const [lobbyExpired, setLobbyExpired] = useState(false);
-  const storageKey = memberHint ? `omaha-lobby-${lobbyId}-${memberHint}` : undefined;
+  const [playerUrl, setPlayerUrl] = useState<string | null>(null);
+  const activeStorageKey = `omaha-lobby-${lobbyId}-active`;
+  const accessStorageKey = `omaha-lobby-${lobbyId}-access-pin`;
+  const playerStorageKey = `omaha-lobby-${lobbyId}-player-url`;
+  const storageKey = memberHint ? `omaha-lobby-${lobbyId}-${memberHint}` : activeStorageKey;
 
   function applyLobbySession(nextLobby: LobbyView | undefined) {
     const timing = nextLobby?.session;
@@ -3186,17 +3327,21 @@ function LobbyPage() {
     const ws = new WebSocket(WS_URL);
     ws.onopen = () => {
       setSocketReady(true);
-      const saved = storageKey ? window.localStorage.getItem(storageKey) : null;
+      const accessPin = window.sessionStorage.getItem(accessStorageKey) ?? undefined;
+      const saved = window.sessionStorage.getItem(activeStorageKey)
+        ?? window.localStorage.getItem(storageKey)
+        ?? window.localStorage.getItem(activeStorageKey);
       if (saved) {
         try {
           const credentials = JSON.parse(saved);
           ws.send(JSON.stringify({ action: 'join_lobby', lobbyId, ...credentials }));
         } catch {
+          window.sessionStorage.removeItem(activeStorageKey);
           window.localStorage.removeItem(storageKey);
-          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId }));
+          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
         }
       } else {
-        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId }));
+        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
       }
     };
     ws.onclose = () => setSocketReady(false);
@@ -3209,7 +3354,10 @@ function LobbyPage() {
         };
         const personalStorageKey = `omaha-lobby-${lobbyId}-${message.data.memberId}`;
         window.localStorage.setItem(personalStorageKey, JSON.stringify(credentials));
-        window.history.replaceState(null, '', `/lobby/${lobbyId}?member=${message.data.memberId}`);
+        window.localStorage.setItem(activeStorageKey, JSON.stringify(credentials));
+        window.sessionStorage.setItem(activeStorageKey, JSON.stringify(credentials));
+        window.sessionStorage.removeItem(accessStorageKey);
+        window.history.replaceState(null, '', `/lobby/${lobbyId}`);
         setMemberId(message.data.memberId);
         applyLobbySession(message.data.lobby);
         setLobby(message.data.lobby);
@@ -3218,7 +3366,8 @@ function LobbyPage() {
         applyLobbySession(message.data);
         setLobby(message.data);
       } else if (message.type === 'lobby_started' && message.data?.playerUrl) {
-        window.location.href = message.data.playerUrl;
+        window.sessionStorage.setItem(playerStorageKey, message.data.playerUrl);
+        setPlayerUrl(message.data.playerUrl);
       } else if (message.type === 'error') {
         setNotice(localizedServerMessage(message.message));
       } else if (message.type === 'session_expired') {
@@ -3227,7 +3376,7 @@ function LobbyPage() {
     };
     setSocket(ws);
     return () => ws.close();
-  }, [lobbyId, storageKey]);
+  }, [accessStorageKey, activeStorageKey, lobbyId, playerStorageKey, storageKey]);
 
   useEffect(() => {
     if (!socket || !memberId) return undefined;
@@ -3257,7 +3406,10 @@ function LobbyPage() {
       setNotice(ui('Enter your name.', 'Введите ваше имя.'));
       return;
     }
-    send('join_lobby', { name: name.trim() });
+    send('join_lobby', {
+      name: name.trim(),
+      pin: window.sessionStorage.getItem(accessStorageKey) ?? undefined,
+    });
   }
 
   const isHost = Boolean(lobby && memberId === lobby.hostMemberId);
@@ -3276,6 +3428,24 @@ function LobbyPage() {
   const sessionCountdown = sessionHours
     ? `${sessionHours}:${String(sessionMinutes).padStart(2, '0')}:${String(sessionSeconds).padStart(2, '0')}`
     : `${sessionMinutes}:${String(sessionSeconds).padStart(2, '0')}`;
+
+  const applyPlayerUrl = useCallback((url: string) => {
+    window.sessionStorage.setItem(playerStorageKey, url);
+    setPlayerUrl(url);
+  }, [playerStorageKey]);
+
+  if (playerUrl) {
+    return (
+      <PlayerPage
+        playerUrl={playerUrl}
+        isLobbyHost={isHost}
+        onPlayerUrl={applyPlayerUrl}
+        onRestartGame={() => send('lobby_restart')}
+        onExitGame={() => { window.location.href = '/'; }}
+      />
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
       <main style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
@@ -3379,6 +3549,11 @@ function LobbyPage() {
                 memberId={memberId}
                 canRemoveBots={isHost && lobby.status === 'waiting'}
                 onRemoveBot={(botMemberId) => send('lobby_remove_bot', { memberId: botMemberId })}
+                canMoveMembers={isHost && lobby.status === 'waiting'}
+                onMoveMember={(movedMemberId, seat) => send('lobby_move_member', {
+                  memberId: movedMemberId,
+                  seat,
+                })}
               />
 
               {isHost && lobby.status === 'waiting' ? (
@@ -3473,7 +3648,11 @@ function HomePage() {
             memberId: message.data.memberId,
             token: message.data.token,
           }));
-          window.location.href = `/lobby/${lobbyId}?member=${memberId}`;
+          window.localStorage.setItem(`omaha-lobby-${lobbyId}-active`, JSON.stringify({
+            memberId: message.data.memberId,
+            token: message.data.token,
+          }));
+          window.location.href = `/lobby/${lobbyId}`;
         }
       };
       socket.onclose = () => {
@@ -3849,7 +4028,7 @@ const WELCOME_TEXT = {
     create: 'Create a table',
     createHint: 'Choose the table size and become the host.',
     join: 'Join an open table',
-    joinHint: 'See who is waiting or enter a 4-digit PIN.',
+    joinHint: 'Choose a waiting table, then enter its 4-digit PIN.',
     back: 'Back',
     yourName: 'Your name',
     seats: 'Seats at the table',
@@ -3861,7 +4040,7 @@ const WELCOME_TEXT = {
     seatsFree: 'seats',
     pinLabel: 'Table PIN',
     pinPlaceholder: '4 digits',
-    find: 'Find table',
+    find: 'Enter table',
     enterName: 'Enter your name.',
     connecting: 'Connecting…',
     copyright: 'All rights reserved.',
@@ -3876,7 +4055,7 @@ const WELCOME_TEXT = {
     create: 'Создать стол',
     createHint: 'Выберите размер стола и станьте ведущим.',
     join: 'Войти в открытый стол',
-    joinHint: 'Посмотрите, кто уже ждёт, или введите PIN из 4 цифр.',
+    joinHint: 'Выберите стол, который ждёт игроков, затем введите его PIN.',
     back: 'Назад',
     yourName: 'Ваше имя',
     seats: 'Мест за столом',
@@ -3888,7 +4067,7 @@ const WELCOME_TEXT = {
     seatsFree: 'мест',
     pinLabel: 'PIN стола',
     pinPlaceholder: '4 цифры',
-    find: 'Найти стол',
+    find: 'Войти за стол',
     enterName: 'Введите ваше имя.',
     connecting: 'Подключение…',
     copyright: 'Все права защищены.',
@@ -3903,9 +4082,12 @@ function WelcomePage() {
   const [hostName, setHostName] = useState('');
   const [seats, setSeats] = useState(4);
   const [pin, setPin] = useState('');
+  const [selectedLobbyId, setSelectedLobbyId] = useState<string | null>(null);
   const [openLobbies, setOpenLobbies] = useState<OpenLobbyView[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
+  const pendingPinRef = useRef('');
+  const pinInputRef = useRef<HTMLInputElement>(null);
   const t = WELCOME_TEXT[language];
 
   useEffect(() => {
@@ -3929,11 +4111,18 @@ function WelcomePage() {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         if (message.type === 'open_lobbies') setOpenLobbies(message.data);
-        if (message.type === 'lobby_found') window.location.href = `/lobby/${message.data.lobbyId}`;
+        if (message.type === 'lobby_found') {
+          window.sessionStorage.setItem(
+            `omaha-lobby-${message.data.lobbyId}-access-pin`,
+            pendingPinRef.current,
+          );
+          window.location.href = `/lobby/${message.data.lobbyId}`;
+        }
         if (message.type === 'lobby_joined') {
           const { lobby, memberId, token } = message.data;
           window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
-          window.location.href = `/lobby/${lobby.id}?member=${memberId}`;
+          window.localStorage.setItem(`omaha-lobby-${lobby.id}-active`, JSON.stringify({ memberId, token }));
+          window.location.href = `/lobby/${lobby.id}`;
         }
         if (message.type === 'error') setNotice(localizedServerMessage(message.message));
       };
@@ -3979,11 +4168,16 @@ function WelcomePage() {
   }
 
   function findByPin() {
+    if (!selectedLobbyId) {
+      setNotice(language === 'ru' ? 'Сначала выберите стол.' : 'Choose a table first.');
+      return;
+    }
     if (pin.length !== 4) {
       setNotice(language === 'ru' ? 'Введите PIN из 4 цифр.' : 'Enter a 4-digit PIN.');
       return;
     }
-    send('find_lobby_by_pin', { pin });
+    pendingPinRef.current = pin;
+    send('find_lobby_by_pin', { lobbyId: selectedLobbyId, pin });
   }
 
   const cardStyle: React.CSSProperties = {
@@ -4091,8 +4285,20 @@ function WelcomePage() {
               {openLobbies.length ? openLobbies.map(lobby => (
                 <button
                   key={lobby.id}
-                  onClick={() => { window.location.href = `/lobby/${lobby.id}`; }}
-                  style={{ border: '1px solid #d8e2dc', borderRadius: 14, background: '#f8fbf9', padding: 14, textAlign: 'left' }}
+                  aria-pressed={selectedLobbyId === lobby.id}
+                  onClick={() => {
+                    setSelectedLobbyId(lobby.id);
+                    setPin('');
+                    setNotice(null);
+                    window.setTimeout(() => pinInputRef.current?.focus(), 0);
+                  }}
+                  style={{
+                    border: `2px solid ${selectedLobbyId === lobby.id ? '#08734d' : '#d8e2dc'}`,
+                    borderRadius: 14,
+                    background: selectedLobbyId === lobby.id ? '#ecfdf5' : '#f8fbf9',
+                    padding: 14,
+                    textAlign: 'left',
+                  }}
                 >
                   <span style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                     <strong style={{ fontSize: 18 }}>{lobby.tableName}</strong>
@@ -4104,10 +4310,16 @@ function WelcomePage() {
                 </button>
               )) : <p style={{ margin: 0, color: '#65736a' }}>{t.empty}</p>}
             </div>
-            <div style={{ height: 1, background: '#e2e8f0' }} />
-            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.pinLabel}
+            {selectedLobbyId ? (
+              <>
+                <div style={{ height: 1, background: '#e2e8f0' }} />
+                <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
+                  {language === 'ru'
+                    ? `Введите PIN стола «${openLobbies.find(lobby => lobby.id === selectedLobbyId)?.tableName ?? ''}»`
+                    : `Enter the PIN for “${openLobbies.find(lobby => lobby.id === selectedLobbyId)?.tableName ?? ''}”`}
               <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 8 }}>
                 <input
+                  ref={pinInputRef}
                   aria-label={t.pinLabel}
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -4120,7 +4332,9 @@ function WelcomePage() {
                 />
                 <button onClick={findByPin} disabled={!connected} style={primaryButton}>{t.find}</button>
               </div>
-            </label>
+                </label>
+              </>
+            ) : null}
             {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
           </section>
         ) : null}
