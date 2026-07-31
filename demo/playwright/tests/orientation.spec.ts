@@ -28,6 +28,21 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('4');
   await page.getByRole('button', { name: 'Create table' }).click();
+  const lobbyTable = page.getByTestId('lobby-table');
+  await expect(lobbyTable).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => page.evaluate(() => (
+    document.documentElement.scrollWidth <= window.innerWidth
+  ))).toBe(true);
+  const lobbyTableBox = await lobbyTable.boundingBox();
+  expect(lobbyTableBox).toBeTruthy();
+  expect(lobbyTableBox!.x).toBeGreaterThanOrEqual(0);
+  expect(lobbyTableBox!.x + lobbyTableBox!.width).toBeLessThanOrEqual(360);
+  for (const seat of await lobbyTable.locator('[data-lobby-seat]').all()) {
+    const seatBox = await seat.boundingBox();
+    expect(seatBox).toBeTruthy();
+    expect(seatBox!.x).toBeGreaterThanOrEqual(lobbyTableBox!.x);
+    expect(seatBox!.x + seatBox!.width).toBeLessThanOrEqual(lobbyTableBox!.x + lobbyTableBox!.width);
+  }
   await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByText('Anna', { exact: true })).toBeVisible();
@@ -82,7 +97,7 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   expect(showdownTableBox!.y).toBeGreaterThanOrEqual(0);
   expect(showdownTableBox!.y + showdownTableBox!.height).toBeLessThanOrEqual(viewport.height);
   const tableCenterBox = await page.locator('.table-center.has-showdown').boundingBox();
-  const newDealBox = await page.getByTestId('table-new-deal').boundingBox();
+  const newDealBox = await page.getByTestId('showdown-new-deal').boundingBox();
   expect(tableCenterBox).toBeTruthy();
   expect(newDealBox).toBeTruthy();
   expect(Math.abs(

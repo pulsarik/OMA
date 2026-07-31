@@ -9,6 +9,52 @@ export const APP_SHELL_STYLES = `
   body { min-height: 100dvh; }
   .portrait-orientation-guard { display: none; }
 
+  @media (max-width: 560px) {
+    .lobby-page {
+      min-height: 100dvh !important;
+      padding:
+        max(10px, env(safe-area-inset-top))
+        max(10px, env(safe-area-inset-right))
+        max(14px, env(safe-area-inset-bottom))
+        max(10px, env(safe-area-inset-left)) !important;
+    }
+    .lobby-main { gap: 10px !important; }
+    .lobby-page header { align-items: flex-start !important; }
+    .lobby-page header h1 { font-size: 28px; }
+    .lobby-panel { gap: 10px !important; padding: 12px !important; }
+    .lobby-panel > div:first-child { padding: 12px !important; }
+    .lobby-table-scroll { overflow: visible !important; padding-bottom: 4px !important; }
+    .lobby-table-layout {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      width: 100% !important;
+      min-width: 0 !important;
+      height: auto !important;
+    }
+    .lobby-felt, .lobby-card-fan { display: none !important; }
+    .lobby-seat {
+      position: static !important;
+      width: auto !important;
+      min-width: 0;
+      transform: none !important;
+      justify-items: stretch !important;
+      align-content: start;
+    }
+    .lobby-seat-card { margin-top: 0 !important; }
+    .lobby-seat label { width: 100%; }
+    .lobby-seat select,
+    .lobby-seat button {
+      width: 100%;
+      max-width: none !important;
+      min-height: 44px !important;
+      font-size: 12px !important;
+    }
+    .lobby-host-actions input,
+    .lobby-host-actions button { min-height: 44px; }
+    .lobby-host-actions button:last-child { flex: 1 0 100%; }
+  }
+
   @media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) and (pointer: coarse) {
     body { overflow: hidden; }
     .portrait-orientation-guard {
@@ -245,8 +291,8 @@ export const PLAYER_PAGE_STYLES = `
     padding: 12px;
   }
   .table-center.has-showdown {
-    grid-template-columns: minmax(220px, 1fr) auto auto minmax(140px, 1fr);
-    grid-template-areas: "status board new-deal pot";
+    grid-template-columns: minmax(220px, 1fr) auto minmax(140px, 1fr);
+    grid-template-areas: "status board pot";
   }
   .table-showdown {
     grid-area: status;
@@ -259,8 +305,9 @@ export const PLAYER_PAGE_STYLES = `
   .table-center.has-showdown .table-stage { display: none; }
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
-  .table-new-deal { grid-area: new-deal; justify-self: start; margin-left: 10px; }
   .table-pot { grid-area: pot; justify-self: end; }
+  .showdown-new-deal { margin-top: 4px; }
+  .showdown-new-deal .action-button { min-height: 38px; padding: 6px 14px; }
   .pot-details { position: relative; }
   .pot-details > summary { list-style: none; }
   .pot-details > summary::-webkit-details-marker { display: none; }
@@ -499,11 +546,10 @@ export const PLAYER_PAGE_STYLES = `
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
         "status status"
-        "board new-deal"
+        "board board"
         "pot pot";
     }
     .table-showdown { justify-self: center; justify-content: center; }
-    .table-new-deal { margin-left: 8px; }
     .table-center.has-showdown .table-pot { justify-self: center; }
   }
   @media (min-width: 761px) and (max-height: 900px) {
@@ -587,11 +633,9 @@ export const PLAYER_PAGE_STYLES = `
       grid-template-areas:
         "status status"
         "board board"
-        "new-deal new-deal"
         "pot pot";
     }
     .table-showdown { justify-self: center; justify-content: center; }
-    .table-new-deal { justify-self: center; margin-left: 0; }
     .table-center.has-showdown .table-pot { justify-self: center; }
     .table-board { grid-column: 1 / -1; }
     .hero-zone {
@@ -622,6 +666,7 @@ export const PLAYER_PAGE_STYLES = `
       gap: 6px;
       padding: 7px 5px;
     }
+    .poker-table.is-showdown { gap: 4px; padding-block: 4px; }
     .opponents-row,
     .poker-table.is-crowded .opponents-row { gap: 7px 2px; }
     .opponents-row .player-seat-wrap {
@@ -645,20 +690,13 @@ export const PLAYER_PAGE_STYLES = `
       grid-template-areas:
         "status status"
         "board board"
-        "new-deal pot";
+        "pot pot";
       gap: 4px;
     }
-    .table-center.has-showdown .table-new-deal {
+    .table-center.has-showdown .table-pot {
       grid-column: 1 / -1;
       grid-row: 3;
       justify-self: center;
-      margin-left: 0;
-      z-index: 1;
-    }
-    .table-center.has-showdown .table-pot {
-      grid-column: 2;
-      grid-row: 3;
-      justify-self: end;
     }
     .table-showdown > div {
       min-width: 0 !important;

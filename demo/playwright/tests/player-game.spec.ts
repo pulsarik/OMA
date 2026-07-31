@@ -261,14 +261,14 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   await expect(newDealButton).toBeVisible({ timeout: 90_000 });
   const tableBoxAfterDeal = (await page.getByTestId('poker-table').boundingBox())!;
   expect(Math.abs(tableBoxAfterDeal.height - tableHeightDuringDeal)).toBeLessThanOrEqual(2);
-  const tableNewDeal = page.getByTestId('table-new-deal');
-  await expect(tableNewDeal).toBeVisible();
-  const boardBox = (await page.getByTestId('table-board').boundingBox())!;
-  const tableNewDealBox = (await tableNewDeal.boundingBox())!;
-  expect(tableNewDealBox.x).toBeGreaterThanOrEqual(boardBox.x + boardBox.width);
-  expect(tableNewDealBox.y).toBeGreaterThanOrEqual(tableBoxAfterDeal.y);
-  expect(tableNewDealBox.y + tableNewDealBox.height)
-    .toBeLessThanOrEqual(tableBoxAfterDeal.y + tableBoxAfterDeal.height);
+  const showdownNewDeal = page.getByTestId('showdown-new-deal');
+  await expect(showdownNewDeal).toBeVisible();
+  await expect(page.locator('.table-showdown').getByTestId('showdown-new-deal')).toBeVisible();
+  const showdownBox = (await page.locator('.table-showdown').boundingBox())!;
+  const showdownNewDealBox = (await showdownNewDeal.boundingBox())!;
+  expect(showdownNewDealBox.x).toBeGreaterThanOrEqual(showdownBox.x);
+  expect(showdownNewDealBox.x + showdownNewDealBox.width).toBeLessThanOrEqual(showdownBox.x + showdownBox.width);
+  expect(showdownNewDealBox.y + showdownNewDealBox.height).toBeLessThanOrEqual(showdownBox.y + showdownBox.height);
   const newDealBox = await newDealButton.boundingBox();
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);

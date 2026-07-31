@@ -1468,7 +1468,13 @@ function playerWinParts(summary: ShowdownSummary | undefined, playerId: string) 
   return parts;
 }
 
-function ShowdownStatus({ player }: { player: PlayerView }) {
+function ShowdownStatus({
+  player,
+  newDealAction,
+}: {
+  player: PlayerView;
+  newDealAction?: React.ReactNode;
+}) {
   const activePlayers = player.players.filter((seat) => !seat.folded);
   const foldedWinnerId = activePlayers.length === 1 ? activePlayers[0].id : undefined;
   const score = playerPoints(player.result, player.playerId);
@@ -1534,6 +1540,7 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
 
   return (
     <div
+      className="showdown-status"
       style={{
         display: 'inline-grid',
         gap: 4,
@@ -1557,6 +1564,11 @@ function ShowdownStatus({ player }: { player: PlayerView }) {
           {ui('Net', 'Итог')}: {net > 0 ? '+' : ''}{formatPoints(net)}
         </strong>
       </div>
+      {newDealAction ? (
+        <div className="showdown-new-deal" data-testid="showdown-new-deal">
+          {newDealAction}
+        </div>
+      ) : null}
       {payout > 0 && net <= 0 && winParts.length ? (
         <span style={{ fontSize: 12, opacity: 0.9 }}>
           {ui(`Won ${winParts.join(' + ')}, but finished with a net loss`, `Выиграна часть «${winParts.join(' + ')}», но итог раздачи отрицательный`)}
@@ -2416,7 +2428,7 @@ function PlayerPage({
       ) : null}
 
       <div
-        className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}`}
+        className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}${player.stage === 'showdown' ? ' is-showdown' : ''}`}
         data-testid="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}
@@ -2458,35 +2470,32 @@ function PlayerPage({
         >
           {player.stage === 'showdown' ? (
             <div className="table-showdown">
-              <ShowdownStatus player={player} />
+              <ShowdownStatus
+                player={player}
+                newDealAction={canContinue ? (
+                  <button
+                    className="action-button primary"
+                    disabled={isCreatingDeal}
+                    onClick={startNewDeal}
+                  >
+                    {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
+                  </button>
+                ) : player.nextPlayerLink ? (
+                  <button
+                    className="action-button primary"
+                    onClick={() => {
+                      if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
+                      else window.location.href = player.nextPlayerLink!.url;
+                    }}
+                  >
+                    {ui('New deal', 'Новая раздача')}
+                  </button>
+                ) : undefined}
+              />
             </div>
           ) : null}
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
-          {canContinue || player.nextPlayerLink ? (
-            <div className="table-new-deal" data-testid="table-new-deal">
-              {canContinue ? (
-                <button
-                  className="action-button primary"
-                  disabled={isCreatingDeal}
-                  onClick={startNewDeal}
-                >
-                  {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
-                </button>
-              ) : null}
-              {player.nextPlayerLink ? (
-                <button
-                  className="action-button primary"
-                  onClick={() => {
-                    if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
-                    else window.location.href = player.nextPlayerLink!.url;
-                  }}
-                >
-                  {ui('New deal', 'Новая раздача')}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
           <div className="table-pot" data-testid="table-pot">
             <PotDisplay
               value={player.potCoins}
@@ -2842,7 +2851,7 @@ function DebugPage() {
 
 function LobbyCardFan({ empty = false }: { empty?: boolean }) {
   return (
-    <div style={{ position: 'relative', width: 58, height: 42, opacity: empty ? 0.28 : 1 }}>
+    <div className="lobby-card-fan" style={{ position: 'relative', width: 58, height: 42, opacity: empty ? 0.28 : 1 }}>
       {[-18, 0, 18].map((rotation, index) => (
         <div
           key={rotation}
@@ -2893,8 +2902,9 @@ function LobbyTable({
   });
 
   return (
-    <div style={{ overflowX: 'auto', padding: '4px 0 10px' }}>
+    <div className="lobby-table-scroll" style={{ overflowX: 'auto', padding: '4px 0 10px' }}>
       <div
+        className="lobby-table-layout"
         data-testid="lobby-table"
         style={{
           position: 'relative',
@@ -2905,6 +2915,7 @@ function LobbyTable({
         }}
       >
         <div
+          className="lobby-felt"
           style={{
             position: 'absolute',
             inset: '58px 42px',
@@ -2950,6 +2961,7 @@ function LobbyTable({
 
           return (
             <div
+              className="lobby-seat"
               key={seat?.id ?? `empty-${index}`}
               data-lobby-seat={index + 1}
               data-physical-seat={physicalSeat + 1}
@@ -2967,6 +2979,7 @@ function LobbyTable({
             >
               <LobbyCardFan empty={!seat} />
               <div
+                className="lobby-seat-card"
                 style={{
                   width: '100%',
                   minHeight: 38,
@@ -3193,8 +3206,8 @@ function LobbyPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
-      <main style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
+    <div className="lobby-page" style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
+      <main className="lobby-main" style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <a href="/" style={{ color: '#047857', fontWeight: 800, textDecoration: 'none' }}>← {ui('Omaha Hi-Lo', 'Омаха хай-ло')}</a>
@@ -3262,7 +3275,7 @@ function LobbyPage() {
                 {ui('LOBBY', 'ЛОББИ')}
               </button>
             </nav>
-            <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
+            <section className="lobby-panel" style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
               <div style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
                 <strong style={{ display: 'block', color: '#526159', fontSize: 15 }}>
                   {ui('Tell your friends the table name and PIN', 'Сообщите друзьям название стола и PIN')}
@@ -3305,7 +3318,7 @@ function LobbyPage() {
               />
 
               {isHost && lobby.status === 'waiting' ? (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="lobby-host-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <input
                     aria-label={ui('Bot name', 'Имя бота')}
                     placeholder={ui('Bot name (optional)', 'Имя бота (необязательно)')}
@@ -4214,21 +4227,28 @@ function ReportProblemButton() {
         }}
         style={{
           position: 'fixed',
-          right: 18,
-          bottom: 18,
+          right: 'max(12px, env(safe-area-inset-right))',
+          bottom: 'max(12px, env(safe-area-inset-bottom))',
           zIndex: 1000,
-          padding: '10px 14px',
+          display: 'grid',
+          placeItems: 'center',
+          width: 48,
+          height: 48,
+          padding: 0,
           border: '1px solid #991b1b',
-          borderRadius: 999,
+          borderRadius: '50%',
           background: '#b91c1c',
           color: '#fff',
           boxShadow: '0 6px 18px rgba(15, 23, 42, 0.22)',
           fontFamily: 'system-ui, sans-serif',
+          fontSize: 26,
           fontWeight: 800,
+          lineHeight: 1,
           cursor: 'pointer',
         }}
+        title={ui('Report a problem', 'Сообщить о проблеме')}
       >
-        {ui('Report a problem', 'Сообщить о проблеме')}
+        <span aria-hidden="true">!</span>
       </button>
       {isOpen ? (
         <div
