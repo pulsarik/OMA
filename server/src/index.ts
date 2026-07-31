@@ -237,6 +237,13 @@ async function partyScore(hand: any) {
       })),
       points: result?.points ?? [],
       net: result ? netResultsAfterPayout(partyHand, startingStacks) : [],
+      wallets: result
+        ? [...stacksAfterPayout(partyHand).entries()].map(([id, total]) => ({ id, total }))
+        : [],
+      actions: (partyHand.actions ?? []).map((action: any) => ({
+        playerId: action.playerId,
+        move: action.move,
+      })),
     };
   });
 

@@ -60,6 +60,15 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   expect(tableBox!.x).toBeGreaterThanOrEqual(0);
   expect(tableBox!.x + tableBox!.width).toBeLessThanOrEqual(viewport.width);
   expect(tableBox!.y + tableBox!.height).toBeLessThanOrEqual(viewport.height);
+  const opponentNameBoxes = await page.locator('.opponents-row [data-testid^="player-name-"]')
+    .evaluateAll(names => names.map(name => {
+      const box = name.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom };
+    }));
+  for (const box of opponentNameBoxes) {
+    expect(box.top).toBeGreaterThanOrEqual(tableBox!.y);
+    expect(box.bottom).toBeLessThanOrEqual(tableBox!.y + tableBox!.height);
+  }
 
   for (const combo of await page.locator('.combo-side').all()) {
     const box = await combo.boundingBox();
@@ -128,9 +137,11 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
     await opponentCards.click();
     const expandedHand = page.getByTestId('opponent-hand-overlay');
     await expect(expandedHand).toBeVisible();
+    await expect(page.getByTestId('opponent-hand-name')).not.toHaveText('');
     await expect(opponentCards).toHaveAttribute('aria-expanded', 'true');
     const expandedFrames = expandedHand.locator('.opponent-hand-expanded-frame');
     await expect(expandedFrames).toHaveCount(4);
+    await expect(expandedFrames.first().locator('[data-testid^="card-face-"]')).toHaveCSS('opacity', '1');
     const expandedFrameBoxes = await expandedFrames.evaluateAll(frames => frames.map(frame => {
       const box = frame.getBoundingClientRect();
       return { left: box.left, right: box.right, top: box.top };

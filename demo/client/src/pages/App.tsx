@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { CityIcon } from '../components/CityIcon';
+import { WalletHistoryChart } from '../components/WalletHistoryChart';
+import { aggressiveHandPercent, buildWalletHistory } from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
 
@@ -126,6 +129,14 @@ type PartyScore = {
     net: Array<{
       id: string;
       total: number;
+    }>;
+    wallets?: Array<{
+      id: string;
+      total: number;
+    }>;
+    actions?: Array<{
+      playerId: string;
+      move: string;
     }>;
   }>;
 };
@@ -474,7 +485,7 @@ const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_SCALE = 0.35;
 const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
-const SIMPLE_CARD_BACK_BACKGROUND = 'repeating-linear-gradient(45deg, #065f46 0 8px, #047857 8px 16px)';
+const SIMPLE_CARD_BACK_BACKGROUND = 'url("/cards/card-back-qz.jpg") center / cover no-repeat, #f7f0dd';
 
 function rankNumber(rank: string) {
   if (rank === 'T') return 10;
@@ -535,22 +546,12 @@ function CardBack({ scale = CARD_SCALE, className }: { scale?: number; className
         transformOrigin: 'top left',
         borderRadius: 12,
         background: SIMPLE_CARD_BACK_BACKGROUND,
-        border: '4px solid #fff',
+        border: '1px solid rgba(15,23,42,.72)',
         boxShadow: '0 3px 9px rgba(0,0,0,0.22)',
         boxSizing: 'border-box',
         overflow: 'hidden',
       }}
-    >
-      <div
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 6,
-          border: '2px solid rgba(255,255,255,.75)',
-          borderRadius: 6,
-        }}
-      />
-    </div>
+    />
   );
 }
 
@@ -571,11 +572,13 @@ function CompactCardRow({
   testId,
   focal = false,
   expandable = false,
+  expandedTitle,
 }: {
   cards: string[];
   testId?: string;
   focal?: boolean;
   expandable?: boolean;
+  expandedTitle?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
@@ -606,7 +609,7 @@ function CompactCardRow({
           </div>
         ))}
       </div>
-      {expanded ? (
+      {expanded ? createPortal(
         <div
           className="opponent-hand-overlay"
           data-testid="opponent-hand-overlay"
@@ -617,7 +620,9 @@ function CompactCardRow({
             className="opponent-hand-dialog"
             role="dialog"
             aria-modal="true"
-            aria-label={ui('Opponent cards', 'Карты соперника')}
+            aria-label={expandedTitle
+              ? ui(`${expandedTitle}'s cards`, `Карты игрока ${expandedTitle}`)
+              : ui('Opponent cards', 'Карты соперника')}
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -628,6 +633,11 @@ function CompactCardRow({
             >
               ×
             </button>
+            {expandedTitle ? (
+              <strong className="opponent-hand-name" data-testid="opponent-hand-name">
+                {expandedTitle}
+              </strong>
+            ) : null}
             <div className="opponent-hand-expanded-row">
               {cards.map((card) => (
                 <div key={card} className="opponent-hand-expanded-frame">
@@ -636,7 +646,8 @@ function CompactCardRow({
               ))}
             </div>
           </section>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );
@@ -1233,6 +1244,7 @@ function PlayerSeat({
               testId={`player-cards-${id}`}
               focal={isYou}
               expandable={!isYou}
+              expandedTitle={!isYou ? tablePlayerName(name, id) : undefined}
             />
           ) : (
             <CardBackRow count={cardCount} compact={compact} focal={isYou} testId={`player-cards-${id}`} />
@@ -1705,6 +1717,8 @@ function PartyStatistics({ score, players }: {
   const completedHands = score.hands
     .filter((hand) => hand.stage === 'showdown')
     .sort((a, b) => b.handNumber - a.handNumber);
+  const chronologicalHands = [...completedHands].sort((a, b) => a.handNumber - b.handNumber);
+  const walletHistory = buildWalletHistory(players.map((player) => player.id), chronologicalHands);
   const percentage = (count: number, hands: number) => (
     hands ? `${Math.round((count / hands) * 100)}%` : '0%'
   );
@@ -1720,6 +1734,7 @@ function PartyStatistics({ score, players }: {
     return {
       ...player,
       hands: hands.length,
+      aggressivePercent: `${aggressiveHandPercent(player.id, hands)}%`,
       foldPercent: percentage(folds, hands.length),
       winPercent: percentage(wins, hands.length),
       lossPercent: percentage(losses, hands.length),
@@ -1743,12 +1758,24 @@ function PartyStatistics({ score, players }: {
         </strong>
       </div>
 
+      <WalletHistoryChart
+        series={walletHistory}
+        playerName={(playerId) => playerLabel(players, playerId)}
+        formatValue={formatPoints}
+        title={ui('Wallet history', 'История кошелька')}
+        handLabel={ui('Hand', 'Раздача')}
+        walletLabel={ui('Wallet', 'Кошелек')}
+      />
+
       <div className="party-metrics">
         <table className="result-points" data-testid="party-totals">
           <thead>
             <tr>
               <th style={{ textAlign: 'left' }}>{ui('Player', 'Игрок')}</th>
               <th>{ui('Hands', 'Раздачи')}</th>
+              <th title={ui('Hands with at least one bet or raise', 'Раздачи хотя бы с одной ставкой или рейзом')}>
+                {ui('Bet/Raise', 'Бет/рейз')}
+              </th>
               <th>{ui('Fold', 'Фолд')}</th>
               <th>{ui('Win', 'Победа')}</th>
               <th>{ui('Loss', 'Проигрыш')}</th>
@@ -1764,6 +1791,7 @@ function PartyStatistics({ score, players }: {
               <tr key={player.id} data-testid={`party-total-${player.id}`}>
                 <td style={{ fontWeight: 800 }}>{playerLabel(players, player.id)}</td>
                 <td data-testid={`party-hands-${player.id}`} style={{ textAlign: 'right' }}>{player.hands}</td>
+                <td data-testid={`party-aggression-${player.id}`} style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 800 }}>{player.aggressivePercent}</td>
                 <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
                 <td data-testid={`party-win-${player.id}`} style={{ textAlign: 'right', color: '#047857', fontWeight: 800 }}>{player.winPercent}</td>
                 <td data-testid={`party-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c', fontWeight: 800 }}>{player.lossPercent}</td>

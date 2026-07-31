@@ -451,8 +451,19 @@ export const PLAYER_PAGE_STYLES = `
     border: 1px solid rgba(255,255,255,.4);
     border-radius: 20px;
     background: rgba(3, 69, 47, .96);
-    padding: 28px 14px 16px;
+    padding: 14px 14px 16px;
     box-shadow: 0 24px 70px rgba(0,0,0,.42);
+  }
+  .opponent-hand-name {
+    display: block;
+    margin: 0 34px 12px;
+    overflow: hidden;
+    color: #fff;
+    font-size: 18px;
+    line-height: 1.15;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .opponent-hand-close {
     position: absolute;
@@ -532,7 +543,16 @@ export const PLAYER_PAGE_STYLES = `
     box-shadow: 0 6px 20px rgba(31,54,42,.08);
   }
   .party-metrics { margin-top: 12px; overflow-x: auto; }
-  .party-metrics .result-points { min-width: 920px; }
+  .party-metrics .result-points { min-width: 1000px; }
+  .wallet-history { margin-top: 14px; border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 12px; }
+  .wallet-history h3 { margin: 0 0 8px; }
+  .wallet-history-legend { display: flex; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 8px; color: #475569; font-size: 12px; font-weight: 800; }
+  .wallet-history-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .wallet-history-legend i { width: 18px; height: 4px; border-radius: 999px; }
+  .wallet-history-canvas { overflow-x: auto; }
+  .wallet-history svg { display: block; width: 100%; min-width: 620px; height: auto; color: #64748b; font: 12px Inter, ui-sans-serif, system-ui, sans-serif; }
+  .wallet-history .chart-grid { stroke: #dbe4df; stroke-width: 1; }
+  .wallet-history .chart-axis-title { fill: #334155; font-weight: 800; }
   .result-panel { margin-top: 12px; padding: clamp(10px, 2vw, 18px); }
   .winner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .winner-card { border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 10px; overflow: auto; }
@@ -668,7 +688,10 @@ export const PLAYER_PAGE_STYLES = `
     }
     .poker-table.is-showdown { gap: 4px; padding-block: 4px; }
     .opponents-row,
-    .poker-table.is-crowded .opponents-row { gap: 7px 2px; }
+    .poker-table.is-crowded .opponents-row {
+      gap: 7px 2px;
+      padding-top: 18px;
+    }
     .opponents-row .player-seat-wrap {
       flex: 0 1 104px;
       width: 104px;

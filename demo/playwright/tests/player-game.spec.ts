@@ -174,6 +174,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
     .toHaveAttribute('data-card-style', 'simple');
   await expect(page.getByTestId('card-back').first())
     .toHaveAttribute('data-card-style', 'simple');
+  await expect(page.getByTestId('card-back').first())
+    .toHaveCSS('background-image', /card-back-qz\.jpg/);
   await expect(page.getByTestId('player-score-P2'))
     .toHaveText(String(initialState.partyScore.totals.find((total: any) => total.id === 'P2').total));
   const opponentCardsBox = await page.getByTestId('player-cards-P2').boundingBox();
@@ -299,11 +301,15 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
       const folds = hands.filter((hand: any) => (
         hand.players.find((seat: any) => seat.id === player.id)?.folded
       )).length;
+      const aggressiveHands = hands.filter((hand: any) => hand.actions.some((action: any) => (
+        action.playerId === player.id && ['bet', 'raise'].includes(action.move)
+      ))).length;
       const wins = netResults.filter((net: number) => net > 0).length;
       const losses = netResults.filter((net: number) => net < 0).length;
       const net = netResults.reduce((total: number, result: number) => total + result, 0);
       const stack = state.partyScore.totals.find((total: any) => total.id === player.id)?.total ?? 0;
       await expect(page.getByTestId(`party-hands-${player.id}`)).toHaveText(String(hands.length));
+      await expect(page.getByTestId(`party-aggression-${player.id}`)).toHaveText(percentage(aggressiveHands, hands.length));
       await expect(page.getByTestId(`party-fold-${player.id}`)).toHaveText(percentage(folds, hands.length));
       await expect(page.getByTestId(`party-win-${player.id}`)).toHaveText(percentage(wins, hands.length));
       await expect(page.getByTestId(`party-loss-${player.id}`)).toHaveText(percentage(losses, hands.length));
@@ -315,6 +321,10 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
       await expect(page.getByTestId(`party-max-loss-${player.id}`))
         .toHaveText(formatPoints(Math.min(0, ...netResults)));
       await expect(page.getByTestId(`party-stack-${player.id}`)).toHaveText(formatPoints(stack));
+    }
+    await expect(page.getByTestId('wallet-history-chart')).toBeVisible();
+    for (const player of state.players) {
+      await expect(page.getByTestId(`wallet-series-${player.id}`)).toBeVisible();
     }
   };
   const href = await createDefaultHumanVsBotDeal(page);
