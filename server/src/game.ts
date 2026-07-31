@@ -32,6 +32,7 @@ const RANK_VALUE: Record<string, number> = {
 
 export type GameStage = typeof STAGES[number];
 export type PlayerMove = 'check' | 'bet' | 'call' | 'raise' | 'fold';
+export type BetSizePreset = 'blind' | 'quarter' | 'half' | 'pot';
 
 export type PlayerHand = {
   id: string;
@@ -43,6 +44,10 @@ export type PlayerHand = {
   stack: number;
 };
 
+export function isPlayerStillInParty(player: Pick<PlayerHand, 'stack'>) {
+  return player.stack > 0;
+}
+
 export type DealtHand = {
   id: string;
   partyId: string;
@@ -50,6 +55,7 @@ export type DealtHand = {
   handCode?: string;
   handNumber: number;
   revision?: number;
+  processedCommandIds?: string[];
   previousHandId?: string;
   enteredPlayerIds?: string[];
   replayOfHandId?: string;
@@ -77,6 +83,7 @@ export type DealtHand = {
     playerId: string;
     move: PlayerMove;
     amount?: number;
+    betSize?: BetSizePreset;
     stage: GameStage;
     at: number;
   }>;
@@ -171,6 +178,9 @@ export function normalizeHand(hand: DealtHand) {
   hand.partyId = hand.partyId ?? hand.id;
   hand.handNumber = hand.handNumber ?? 1;
   hand.revision = hand.revision ?? 0;
+  hand.processedCommandIds = Array.isArray(hand.processedCommandIds)
+    ? hand.processedCommandIds.filter(commandId => typeof commandId === 'string').slice(-100)
+    : [];
   hand.fullCommunity = hand.fullCommunity ?? hand.community ?? [];
   hand.stage = hand.stage ?? 'showdown';
   hand.community = visibleCommunity(hand);
@@ -453,7 +463,19 @@ function normalizedBetAmount(amount: unknown) {
   return typeof amount === 'number' && Number.isFinite(amount) ? Math.floor(amount) : undefined;
 }
 
-export function recordPlayerMove(hand: DealtHand, playerId: string, move: PlayerMove, amount?: number) {
+function normalizedBetSize(betSize: unknown): BetSizePreset | undefined {
+  return ['blind', 'quarter', 'half', 'pot'].includes(String(betSize))
+    ? betSize as BetSizePreset
+    : undefined;
+}
+
+export function recordPlayerMove(
+  hand: DealtHand,
+  playerId: string,
+  move: PlayerMove,
+  amount?: number,
+  betSize?: unknown,
+) {
   normalizeHand(hand);
 
   if (hand.stage === 'showdown') {
@@ -504,10 +526,14 @@ export function recordPlayerMove(hand: DealtHand, playerId: string, move: Player
     hand.raiseCount += 1;
   }
 
+  const selectedBetSize = ['bet', 'raise'].includes(move)
+    ? normalizedBetSize(betSize)
+    : undefined;
   hand.actions.push({
     playerId,
     move,
     amount: ['bet', 'call', 'raise'].includes(move) ? hand.roundBets[playerId] : undefined,
+    ...(selectedBetSize ? { betSize: selectedBetSize } : {}),
     stage: hand.stage,
     at: Date.now(),
   });

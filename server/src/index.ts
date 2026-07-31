@@ -26,6 +26,7 @@ import {
   dealHandFromCode,
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
+  isPlayerStillInParty,
   nextPartyHand,
   netResultsAfterPayout,
   normalizeHand,
@@ -42,6 +43,11 @@ const wss = new WebSocketServer({ server });
 const store = new HandStore(process.env.DATA_FILE || path.join(process.cwd(), 'data', 'hands.sqlite'));
 const continuationLocks = new Map<string, Promise<any>>();
 const botTurnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const playerMoveCommands = new Map<string, Promise<{
+  hand: any;
+  player: any;
+  duplicate: boolean;
+}>>();
 const lobbyConnections = new Map<WebSocket, { lobbyId: string; memberId: string }>();
 const playerConnections = new Map<WebSocket, {
   handId: string;
@@ -472,7 +478,11 @@ async function playerState(hand: any, player: any) {
     nextPlayerLink: await nextPlayerLink(hand, player),
     waitingForPlayers: hand.previousHandId
       ? hand.players
-        .filter((candidate: any) => !candidate.isBot && !enteredPlayerIds.has(candidate.id))
+        .filter((candidate: any) => (
+          !candidate.isBot
+          && isPlayerStillInParty(candidate)
+          && !enteredPlayerIds.has(candidate.id)
+        ))
         .map((candidate: any) => ({ id: candidate.id, name: candidate.name }))
       : [],
     earlyFinishRequest: hand.earlyFinishRequest,
@@ -1274,9 +1284,13 @@ if (staticDir) {
 wss.on('connection', (ws, req) => {
   // simple protocol: client sends JSON {action: "join", tableId, role: "player"|"admin"}
   ws.on('message', async (data) => {
+    let receivedCommandId: string | undefined;
     try {
       const msg = JSON.parse(data.toString());
-      if (msg.action === 'create_lobby') {
+      receivedCommandId = typeof msg.commandId === 'string' ? msg.commandId : undefined;
+      if (msg.action === 'client_ping') {
+        ws.send(JSON.stringify({ type: 'server_pong' }));
+      } else if (msg.action === 'create_lobby') {
         await createLobby(ws, msg);
       } else if (msg.action === 'list_open_lobbies') {
         ws.send(JSON.stringify({ type: 'open_lobbies', data: await listOpenLobbies() }));
@@ -1318,10 +1332,13 @@ wss.on('connection', (ws, req) => {
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
           const requestingPlayer = playerConnections.get(ws);
-          if (requestingPlayer) await markPlayerEntered(nextHand, requestingPlayer.playerId);
+          const entered = requestingPlayer
+            ? await markPlayerEntered(nextHand, requestingPlayer.playerId)
+            : false;
           await moveLobbyToHand(hand.id, nextHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
+          if (entered) broadcastHandUpdated(nextHand);
           sendDeal(ws, nextHand);
           broadcastPublicDeal(ws, nextHand);
           scheduleBotTurns(nextHand.id);
@@ -1343,10 +1360,13 @@ wss.on('connection', (ws, req) => {
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const replayHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'replay');
           const requestingPlayer = playerConnections.get(ws);
-          if (requestingPlayer) await markPlayerEntered(replayHand, requestingPlayer.playerId);
+          const entered = requestingPlayer
+            ? await markPlayerEntered(replayHand, requestingPlayer.playerId)
+            : false;
           await moveLobbyToHand(hand.id, replayHand);
           const updatedPreviousHand = await store.getHand(hand.id);
           if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
+          if (entered) broadcastHandUpdated(replayHand);
           sendDeal(ws, replayHand);
           broadcastPublicDeal(ws, replayHand);
           scheduleBotTurns(replayHand.id);
@@ -1369,20 +1389,66 @@ wss.on('connection', (ws, req) => {
         // player reconnecting to an unfinished hand must also wake the bot up.
         scheduleBotTurns(hand.id);
       } else if (msg.action === 'player_move') {
-        const hand = await getActiveHand(msg.handId);
-        if (!hand) throw new Error('hand not found');
-        normalizeHand(hand);
-        const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
-        if (!player) throw new Error('player not found');
-        if (!playerConnections.has(ws)) {
-          await recordPlayerConnection(ws, req, hand, player, msg.client);
+        if (receivedCommandId && receivedCommandId.length > 100) {
+          throw new Error('invalid command id');
         }
-        await recordBoundPlayerActivity(ws);
-        recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount);
-        await store.updateHand(hand);
-        ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
-        broadcastHandUpdated(hand);
-        scheduleBotTurns(hand.id);
+        const marker = receivedCommandId
+          ? `${msg.playerId}:${receivedCommandId}`
+          : undefined;
+        const commandKey = marker ? `${msg.handId}:${marker}` : undefined;
+
+        const applyMove = async () => {
+          const hand = await getActiveHand(msg.handId);
+          if (!hand) throw new Error('hand not found');
+          normalizeHand(hand);
+          const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
+          if (!player) throw new Error('player not found');
+
+          if (marker && hand.processedCommandIds?.includes(marker)) {
+            return { hand, player, duplicate: true };
+          }
+
+          if (!playerConnections.has(ws)) {
+            await recordPlayerConnection(ws, req, hand, player, msg.client);
+          }
+          await recordBoundPlayerActivity(ws);
+          recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount, msg.betSize);
+          if (marker) {
+            hand.processedCommandIds = [...(hand.processedCommandIds ?? []), marker].slice(-100);
+          }
+          await store.updateHand(hand);
+          return { hand, player, duplicate: false };
+        };
+
+        let result;
+        const inFlight = commandKey ? playerMoveCommands.get(commandKey) : undefined;
+        if (inFlight) {
+          result = await inFlight;
+        } else {
+          const command = applyMove();
+          if (commandKey) playerMoveCommands.set(commandKey, command);
+          try {
+            result = await command;
+          } finally {
+            if (commandKey && playerMoveCommands.get(commandKey) === command) {
+              playerMoveCommands.delete(commandKey);
+            }
+          }
+        }
+
+        ws.send(JSON.stringify({ type: 'player_state', data: await playerState(result.hand, result.player) }));
+        if (receivedCommandId) {
+          ws.send(JSON.stringify({
+            type: 'command_ack',
+            commandId: receivedCommandId,
+            duplicate: result.duplicate,
+            revision: result.hand.revision ?? 0,
+          }));
+        }
+        if (!result.duplicate && !inFlight) {
+          broadcastHandUpdated(result.hand);
+          scheduleBotTurns(result.hand.id);
+        }
       } else if (msg.action === 'player_activity') {
         await recordBoundPlayerActivity(ws);
       } else if (msg.action === 'replay' && msg.id) {
@@ -1391,7 +1457,11 @@ wss.on('connection', (ws, req) => {
         else ws.send(JSON.stringify({ type: 'error', message: 'not found' }));
       }
     } catch (e) {
-      ws.send(JSON.stringify({ type: 'error', message: e instanceof Error ? e.message : 'invalid' }));
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: e instanceof Error ? e.message : 'invalid',
+        commandId: receivedCommandId,
+      }));
     }
   });
   ws.on('close', () => {

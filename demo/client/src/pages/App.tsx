@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { callAction, isAllInWager } from '../callAction';
 import { CityIcon } from '../components/CityIcon';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
+import { useReliableWebSocket } from '../useReliableWebSocket';
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
@@ -73,6 +74,7 @@ type ActionLog = {
   playerId: string;
   move: string;
   amount?: number;
+  betSize?: BetSizeOption;
   stage: string;
   at: number;
 };
@@ -255,6 +257,21 @@ type PlayerCombo = {
 
 type PlayerMove = 'check' | 'bet' | 'call' | 'raise' | 'fold';
 type BetSizeOption = 'blind' | 'quarter' | 'half' | 'pot';
+type PendingPlayerCommand = {
+  action: 'player_move';
+  commandId: string;
+  handId: string;
+  playerId: string;
+  token: string;
+  move: PlayerMove;
+  amount?: number;
+  betSize?: BetSizeOption;
+};
+
+function newCommandId() {
+  return window.crypto.randomUUID?.()
+    ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 const BET_SIZE_OPTIONS: Array<{ value: BetSizeOption; label: string }> = [
   { value: 'blind', label: 'Blind' },
@@ -481,7 +498,7 @@ const COMBO_CARD_HEIGHT = 132 * COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_SCALE = 0.35;
 const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
 const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
-const CARD_IMAGE_MAX_RETRIES = 3;
+const SIMPLE_CARD_BACK_BACKGROUND = 'repeating-linear-gradient(45deg, #065f46 0 8px, #047857 8px 16px)';
 
 function rankNumber(rank: string) {
   if (rank === 'T') return 10;
@@ -495,78 +512,35 @@ function rankNumber(rank: string) {
 function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: number; className?: string }) {
   const rank = code.slice(0, -1).toUpperCase();
   const suit = code.slice(-1).toLowerCase();
-  const assetCode = `${rank}${suit.toUpperCase()}`;
-  const [attempt, setAttempt] = useState(0);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const retryTimer = React.useRef<ReturnType<typeof setTimeout>>();
   const suitSymbol: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
   const isRed = suit === 'h' || suit === 'd';
-
-  useEffect(() => {
-    setAttempt(0);
-    setImageLoaded(false);
-    return () => {
-      if (retryTimer.current) clearTimeout(retryTimer.current);
-    };
-  }, [assetCode]);
-
-  const retrySuffix = attempt ? `?retry=${attempt}` : '';
 
   return (
     <div
       title={code}
+      role="img"
+      aria-label={code}
+      data-testid={`card-face-${code}`}
+      data-card-style="simple"
       className={className}
       style={{
-        position: 'relative',
         width: 92,
         height: 132,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
         borderRadius: 12,
-        background: '#fff',
+        background: 'linear-gradient(145deg, #fff, #f1f5f9)',
+        color: isRed ? '#dc2626' : '#111827',
         boxShadow: '0 2px 4px rgba(0,0,0,0.28)',
         overflow: 'hidden',
+        display: 'grid',
+        alignContent: 'center',
+        justifyItems: 'center',
+        fontWeight: 900,
       }}
     >
-      <div
-        data-testid={`card-fallback-${code}`}
-        aria-hidden="true"
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'grid',
-          alignContent: 'center',
-          justifyItems: 'center',
-          background: 'linear-gradient(145deg, #fff, #f1f5f9)',
-          color: isRed ? '#dc2626' : '#111827',
-          fontWeight: 900,
-        }}
-      >
-        <span style={{ fontSize: 34, lineHeight: 1 }}>{rankLabels[rank] ?? rank}</span>
-        <span style={{ fontSize: 30, lineHeight: 1 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
-      </div>
-      <img
-        src={`/cards/revk/${assetCode}.svg${retrySuffix}`}
-        alt={code}
-        data-testid={`card-face-${code}`}
-        data-load-state={imageLoaded ? 'loaded' : 'loading'}
-        onLoad={() => setImageLoaded(true)}
-        onError={() => {
-          setImageLoaded(false);
-          if (attempt >= CARD_IMAGE_MAX_RETRIES) return;
-          if (retryTimer.current) clearTimeout(retryTimer.current);
-          retryTimer.current = setTimeout(() => {
-            setAttempt(current => current + 1);
-          }, 250 * (attempt + 1));
-        }}
-        style={{
-          position: 'relative',
-          display: 'block',
-          width: '100%',
-          height: '100%',
-          opacity: imageLoaded ? 1 : 0,
-        }}
-      />
+      <span style={{ fontSize: 34, lineHeight: 1 }}>{rankLabels[rank] ?? rank}</span>
+      <span style={{ fontSize: 30, lineHeight: 1 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
     </div>
   );
 }
@@ -575,22 +549,30 @@ function CardBack({ scale = CARD_SCALE, className }: { scale?: number; className
   return (
     <div
       data-testid="card-back"
+      data-card-style="simple"
       className={className}
       style={{
+        position: 'relative',
         width: 92,
         height: 132,
         transform: `scale(${scale})`,
         transformOrigin: 'top left',
         borderRadius: 12,
+        background: SIMPLE_CARD_BACK_BACKGROUND,
+        border: '4px solid #fff',
         boxShadow: '0 3px 9px rgba(0,0,0,0.22)',
+        boxSizing: 'border-box',
         overflow: 'hidden',
       }}
     >
-      <img
-        src="/cards/revk/BACK.svg"
-        alt=""
+      <div
         aria-hidden="true"
-        style={{ display: 'block', width: '100%', height: '100%' }}
+        style={{
+          position: 'absolute',
+          inset: 6,
+          border: '2px solid rgba(255,255,255,.75)',
+          borderRadius: 6,
+        }}
       />
     </div>
   );
@@ -1019,6 +1001,7 @@ function PlayerSeat({
   isHighWinner = false,
   isLowWinner = false,
   isCurrentTurn = false,
+  isWaitingForNextDeal = false,
   blindLabel,
 }: {
   id: string;
@@ -1035,16 +1018,22 @@ function PlayerSeat({
   isHighWinner?: boolean;
   isLowWinner?: boolean;
   isCurrentTurn?: boolean;
+  isWaitingForNextDeal?: boolean;
   blindLabel?: string;
 }) {
   const shouldShowCards = Boolean(hole?.length);
+  const actionBetSize = action?.betSize
+    ? BET_SIZE_OPTIONS.find((option) => option.value === action.betSize)
+    : undefined;
   const actionLabel = action
-    ? `${localizedMove(action.move).toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}`
+    ? `${localizedMove(action.move).toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}${actionBetSize ? ` (${localizedBetSize(actionBetSize)})` : ''}`
     : undefined;
   const isYourTurn = isCurrentTurn && isYou && !isBot;
-  const bubbleLabel = isCurrentTurn
-    ? isYourTurn ? ui('YOUR TURN', 'ВАШ ХОД') : ui('THINKING…', 'ДУМАЕТ…')
-    : actionLabel;
+  const bubbleLabel = isWaitingForNextDeal
+    ? ui('WAITING', 'ЖДЁМ')
+    : isCurrentTurn
+      ? isYourTurn ? ui('YOUR TURN', 'ВАШ ХОД') : ui('THINKING…', 'ДУМАЕТ…')
+      : actionLabel;
   const hasWinningHand = !folded && (isHighWinner || isLowWinner);
   const winnerBorder = isHighWinner && isLowWinner
     ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
@@ -1124,23 +1113,29 @@ function PlayerSeat({
         ) : null}
         {bubbleLabel ? (
           <div
-            title={isCurrentTurn
-              ? isYourTurn ? ui('Your turn', 'Ваш ход') : `${tablePlayerName(name, id)} ${ui('is thinking', 'думает')}`
-              : `${ui('Last action', 'Последнее действие')}: ${actionLabel}`}
+            data-testid={isWaitingForNextDeal ? `waiting-for-player-${id}` : undefined}
+            title={isWaitingForNextDeal
+              ? ui(
+                  `Waiting for ${tablePlayerName(name, id)} to start the new deal`,
+                  `Ждём, когда ${tablePlayerName(name, id)} начнёт новую раздачу`,
+                )
+              : isCurrentTurn
+                ? isYourTurn ? ui('Your turn', 'Ваш ход') : `${tablePlayerName(name, id)} ${ui('is thinking', 'думает')}`
+                : `${ui('Last action', 'Последнее действие')}: ${actionLabel}`}
             style={{
               position: 'absolute',
               top: -18,
               right: 8,
               zIndex: 2,
-              border: isCurrentTurn ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+              border: isCurrentTurn || isWaitingForNextDeal ? '2px solid #f59e0b' : '1px solid #cbd5e1',
               borderRadius: 8,
-              background: isCurrentTurn ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
-              color: isCurrentTurn ? '#422006' : action?.move === 'fold' ? '#7f1d1d' : '#0f172a',
+              background: isCurrentTurn || isWaitingForNextDeal ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
+              color: isCurrentTurn || isWaitingForNextDeal ? '#422006' : action?.move === 'fold' ? '#7f1d1d' : '#0f172a',
               padding: '5px 9px',
               fontSize: compact ? 13 : 14,
               fontWeight: 900,
               lineHeight: 1,
-              boxShadow: isCurrentTurn
+              boxShadow: isCurrentTurn || isWaitingForNextDeal
                 ? '0 3px 12px rgba(250,204,21,0.55)'
                 : '0 2px 7px rgba(15,23,42,0.2)',
               whiteSpace: 'nowrap',
@@ -1154,9 +1149,9 @@ function PlayerSeat({
                 bottom: -6,
                 width: 10,
                 height: 10,
-                borderRight: isCurrentTurn ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                borderBottom: isCurrentTurn ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                background: isCurrentTurn ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
+                borderRight: isCurrentTurn || isWaitingForNextDeal ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                borderBottom: isCurrentTurn || isWaitingForNextDeal ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+                background: isCurrentTurn || isWaitingForNextDeal ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
                 transform: 'rotate(45deg)',
               }}
             />
@@ -1963,8 +1958,6 @@ function PlayerPage({
 }: PlayerPageProps = {}) {
   const [player, setPlayer] = useState<PlayerView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [socketReady, setSocketReady] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
@@ -1973,7 +1966,21 @@ function PlayerPage({
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
+  const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
+  const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
+  const retryPendingAfterSyncRef = useRef(false);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
+  const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
+
+  function updatePendingCommand(command: PendingPlayerCommand | null) {
+    pendingCommandRef.current = command;
+    setPendingCommand(command);
+    if (command) {
+      window.sessionStorage.setItem(pendingCommandStorageKey, JSON.stringify(command));
+    } else {
+      window.sessionStorage.removeItem(pendingCommandStorageKey);
+    }
+  }
 
   function applySessionTiming(timing: PlayerView['session'] | undefined) {
     if (!timing) return;
@@ -1985,7 +1992,27 @@ function PlayerPage({
   useEffect(() => {
     setActiveView('table');
     setIsCreatingDeal(false);
-  }, [handId]);
+    const savedCommand = window.sessionStorage.getItem(pendingCommandStorageKey);
+    if (!savedCommand) {
+      updatePendingCommand(null);
+      return;
+    }
+    try {
+      const command = JSON.parse(savedCommand) as PendingPlayerCommand;
+      if (
+        command.action !== 'player_move'
+        || typeof command.commandId !== 'string'
+        || command.handId !== handId
+        || command.playerId !== playerId
+        || command.token !== token
+      ) {
+        throw new Error('invalid pending command');
+      }
+      updatePendingCommand(command);
+    } catch {
+      updatePendingCommand(null);
+    }
+  }, [handId, playerId, token, pendingCommandStorageKey]);
 
   useEffect(() => {
     if (player?.partyFinishedEarly) setActiveView('stats');
@@ -2019,50 +2046,22 @@ function PlayerPage({
         ));
       })
       .catch((err) => setError(err instanceof Error ? err.message : ui('Could not load hand', 'Не удалось загрузить раздачу')));
+  }, [handId, playerId, token]);
 
-    const socket = new WebSocket(WS_URL);
-    const client = {
-      platform: navigator.platform,
-      screenWidth: window.screen.width,
-      screenHeight: window.screen.height,
-      viewportWidth: window.innerWidth,
-      viewportHeight: window.innerHeight,
-      pixelRatio: window.devicePixelRatio,
-    };
-    let lastInteraction = Date.now();
-    let lastActivitySent = 0;
-    const sendActivity = () => {
-      const now = Date.now();
-      lastInteraction = now;
-      if (socket.readyState === WebSocket.OPEN && now - lastActivitySent >= 5_000) {
-        lastActivitySent = now;
-        socket.send(JSON.stringify({ action: 'player_activity' }));
-      }
-    };
-    const interactionEvents = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'scroll'] as const;
-    interactionEvents.forEach((eventName) => {
-      window.addEventListener(eventName, sendActivity, { passive: true });
-    });
-    const activityTimer = window.setInterval(() => {
-      const now = Date.now();
-      if (
-        document.visibilityState === 'visible'
-        && now - lastInteraction <= 30_000
-        && socket.readyState === WebSocket.OPEN
-      ) {
-        lastActivitySent = now;
-        socket.send(JSON.stringify({ action: 'player_activity' }));
-      }
-    }, 10_000);
-    socket.onopen = () => {
-      setSocketReady(true);
-      lastActivitySent = Date.now();
+  const { socket: ws, connected: socketReady } = useReliableWebSocket(WS_URL, {
+    onOpen: (socket) => {
+      const client = {
+        platform: navigator.platform,
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        pixelRatio: window.devicePixelRatio,
+      };
+      retryPendingAfterSyncRef.current = Boolean(pendingCommandRef.current);
       socket.send(JSON.stringify({ action: 'join_player', handId, playerId, token, client }));
-    };
-    socket.onclose = () => {
-      setSocketReady(false);
-    };
-    socket.onmessage = (event) => {
+    },
+    onMessage: (event, socket) => {
       const message = JSON.parse(event.data);
       if (message.type === 'player_state') {
         applySessionTiming(message.data.session);
@@ -2074,6 +2073,18 @@ function PlayerPage({
             : message.data
         ));
         setNotice(null);
+        if (
+          retryPendingAfterSyncRef.current
+          && pendingCommandRef.current
+          && socket.readyState === WebSocket.OPEN
+        ) {
+          retryPendingAfterSyncRef.current = false;
+          socket.send(JSON.stringify(pendingCommandRef.current));
+          setNotice(ui(
+            'Restoring confirmation of your last action…',
+            'Восстанавливаем подтверждение последнего действия…',
+          ));
+        }
       }
       if (message.type === 'session_activity') {
         applySessionTiming(message.data);
@@ -2099,31 +2110,87 @@ function PlayerPage({
       if (message.type === 'hand_updated' && message.data?.id === handId) {
         socket.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
       }
+      if (
+        message.type === 'command_ack'
+        && pendingCommandRef.current?.commandId === message.commandId
+      ) {
+        updatePendingCommand(null);
+        setNotice(ui('Action confirmed.', 'Действие подтверждено.'));
+      }
       if (message.type === 'error') {
         setIsCreatingDeal(false);
-        setError(localizedServerMessage(message.message));
+        if (message.commandId && pendingCommandRef.current?.commandId === message.commandId) {
+          updatePendingCommand(null);
+          setNotice(localizedServerMessage(message.message));
+        } else {
+          setError(localizedServerMessage(message.message));
+        }
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
+    }
+  }, [ws, handId, playerId, token]);
+
+  useEffect(() => {
+    if (!ws) return undefined;
+    let lastInteraction = Date.now();
+    let lastActivitySent = 0;
+    const sendActivity = () => {
+      const now = Date.now();
+      lastInteraction = now;
+      if (ws.readyState === WebSocket.OPEN && now - lastActivitySent >= 5_000) {
+        lastActivitySent = now;
+        ws.send(JSON.stringify({ action: 'player_activity' }));
       }
     };
-    setWs(socket);
+    const interactionEvents = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'scroll'] as const;
+    interactionEvents.forEach((eventName) => {
+      window.addEventListener(eventName, sendActivity, { passive: true });
+    });
+    const activityTimer = window.setInterval(() => {
+      const now = Date.now();
+      if (
+        document.visibilityState === 'visible'
+        && now - lastInteraction <= 30_000
+        && ws.readyState === WebSocket.OPEN
+      ) {
+        lastActivitySent = now;
+        ws.send(JSON.stringify({ action: 'player_activity' }));
+      }
+    }, 10_000);
 
     return () => {
-      setSocketReady(false);
       window.clearInterval(activityTimer);
       interactionEvents.forEach((eventName) => {
         window.removeEventListener(eventName, sendActivity);
       });
-      socket.close();
     };
-  }, [handId, playerId, token, onPlayerUrl]);
+  }, [ws]);
 
-  function sendMove(move: PlayerMove, amount?: number) {
+  function sendMove(move: PlayerMove, amount?: number, moveBetSize?: BetSizeOption) {
+    if (pendingCommandRef.current) return;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
 
-    setNotice(`${localizedMove(move)} — ${ui('sent', 'отправлено')}.`);
-    ws.send(JSON.stringify({ action: 'player_move', handId, playerId, token, move, amount }));
+    const command: PendingPlayerCommand = {
+      action: 'player_move',
+      commandId: newCommandId(),
+      handId,
+      playerId,
+      token,
+      move,
+      amount,
+      betSize: moveBetSize,
+    };
+    updatePendingCommand(command);
+    setNotice(`${localizedMove(move)} — ${ui('waiting for confirmation', 'ждём подтверждения')}.`);
+    ws.send(JSON.stringify(command));
   }
 
   function sendEarlyFinish(action: 'request_early_finish' | 'vote_early_finish', approve?: boolean) {
@@ -2185,7 +2252,8 @@ function PlayerPage({
   const sessionCountdown = sessionHours
     ? `${sessionHours}:${String(sessionMinutes).padStart(2, '0')}:${String(sessionSeconds).padStart(2, '0')}`
     : `${sessionMinutes}:${String(sessionSeconds).padStart(2, '0')}`;
-  const canAct = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
+  const isYourTurn = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
+  const canAct = isYourTurn && !pendingCommand;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
@@ -2233,7 +2301,7 @@ function PlayerPage({
     && !tournamentWinner
     && !player.partyFinishedEarly
     && !finishVotePending;
-  const showActionDock = canAct;
+  const showActionDock = isYourTurn;
   const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
@@ -2342,6 +2410,7 @@ function PlayerPage({
               isHighWinner={Boolean(player.cardsRevealed && player.showdownSummary?.highWinners.includes(seat.id))}
               isLowWinner={Boolean(player.cardsRevealed && player.showdownSummary?.lowWinners.includes(seat.id))}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
+              isWaitingForNextDeal={Boolean(player.waitingForPlayers?.some(candidate => candidate.id === seat.id))}
               blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
             />
           ))}
@@ -2359,22 +2428,6 @@ function PlayerPage({
             <div className="table-showdown">
               <ShowdownStatus player={player} />
             </div>
-          ) : null}
-          {player.waitingForPlayers?.length ? (
-            <p
-              data-testid="waiting-for-players"
-              style={{
-                margin: 0,
-                color: '#92400e',
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              {ui(
-                `Still viewing the previous deal: ${player.waitingForPlayers.map(candidate => candidate.name ?? candidate.id).join(', ')}`,
-                `Ещё рассматривают прошлую раздачу: ${player.waitingForPlayers.map(candidate => candidate.name ?? candidate.id).join(', ')}`,
-              )}
-            </p>
           ) : null}
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
@@ -2519,6 +2572,11 @@ function PlayerPage({
       ) : null}
 
       {showActionDock ? <div className="action-dock">
+        {pendingCommand ? (
+          <strong role="status">
+            {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
+          </strong>
+        ) : null}
         {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
           <div className="bet-sizes">
             <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
@@ -2539,12 +2597,12 @@ function PlayerPage({
           <>
             <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
             {currentBet === 0 ? (
-              <button className="action-button" onClick={() => sendMove('bet', betAmount)}>
+              <button className="action-button" onClick={() => sendMove('bet', betAmount, betSize)}>
                 {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(betAmount)}
               </button>
             ) : null}
             {currentBet > 0 && raiseCount < maxRaises ? (
-              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
+              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo, betSize)}>
                 {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
@@ -2562,7 +2620,7 @@ function PlayerPage({
               {call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')} {formatPoints(call.amount)}
             </button>
             {raiseCount < maxRaises ? (
-              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo)}>
+              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo, betSize)}>
                 {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
               </button>
             ) : null}
@@ -2761,10 +2819,9 @@ function LobbyCardFan({ empty = false }: { empty?: boolean }) {
   return (
     <div style={{ position: 'relative', width: 58, height: 42, opacity: empty ? 0.28 : 1 }}>
       {[-18, 0, 18].map((rotation, index) => (
-        <img
+        <div
           key={rotation}
-          src="/cards/revk/BACK.svg"
-          alt=""
+          aria-hidden="true"
           style={{
             position: 'absolute',
             left: 17 + index * 3,
@@ -2772,6 +2829,9 @@ function LobbyCardFan({ empty = false }: { empty?: boolean }) {
             width: 27,
             height: 39,
             borderRadius: 3,
+            background: SIMPLE_CARD_BACK_BACKGROUND,
+            border: '2px solid #fff',
+            boxSizing: 'border-box',
             boxShadow: '0 2px 5px rgba(15,23,42,.32)',
             transformOrigin: '50% 90%',
             transform: `rotate(${rotation}deg) translateY(${Math.abs(rotation) / 6}px)`,
@@ -2951,8 +3011,6 @@ function LobbyTable({
 function LobbyPage() {
   const [, , lobbyId] = window.location.pathname.split('/');
   const memberHint = new URLSearchParams(window.location.search).get('member');
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [socketReady, setSocketReady] = useState(false);
   const [lobby, setLobby] = useState<LobbyView | null>(null);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -2986,10 +3044,8 @@ function LobbyPage() {
     if (sessionDeadline !== null && sessionNow >= sessionDeadline) setLobbyExpired(true);
   }, [sessionDeadline, sessionNow]);
 
-  useEffect(() => {
-    const ws = new WebSocket(WS_URL);
-    ws.onopen = () => {
-      setSocketReady(true);
+  const { socket, connected: socketReady } = useReliableWebSocket(WS_URL, {
+    onOpen: (ws) => {
       const accessPin = window.sessionStorage.getItem(accessStorageKey) ?? undefined;
       const saved = window.sessionStorage.getItem(activeStorageKey)
         ?? window.localStorage.getItem(storageKey)
@@ -3006,9 +3062,8 @@ function LobbyPage() {
       } else {
         ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
       }
-    };
-    ws.onclose = () => setSocketReady(false);
-    ws.onmessage = (event) => {
+    },
+    onMessage: (event) => {
       const message = JSON.parse(event.data);
       if (message.type === 'lobby_joined') {
         const credentials = {
@@ -3041,10 +3096,8 @@ function LobbyPage() {
       } else if (message.type === 'session_expired') {
         setLobbyExpired(true);
       }
-    };
-    setSocket(ws);
-    return () => ws.close();
-  }, [accessStorageKey, activeStorageKey, lobbyId, playerStorageKey, storageKey]);
+    },
+  });
 
   useEffect(() => {
     if (!socket || !memberId) return undefined;
@@ -3271,8 +3324,6 @@ function LobbyPage() {
 }
 
 function HomePage() {
-  const [ws, setWs] = useState<WebSocket | null>(null);
-  const [homeSocketReady, setHomeSocketReady] = useState(false);
   const [homeTab, setHomeTab] = useState<'lobby' | 'quick'>('lobby');
   const [hostName, setHostName] = useState('Dima');
   const [lobbySeats, setLobbySeats] = useState(4);
@@ -3286,64 +3337,39 @@ function HomePage() {
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
 
-  useEffect(() => {
-    let stopped = false;
-    let reconnectTimer: number | undefined;
-    let socket: WebSocket;
-
-    function connect() {
-      socket = new WebSocket(WS_URL);
-      setWs(socket);
-      socket.onopen = () => {
-        setHomeSocketReady(true);
+  const { socket: ws, connected: homeSocketReady } = useReliableWebSocket(WS_URL, {
+    onOpen: () => {
+      setHomeNotice(null);
+    },
+    onMessage: (event) => {
+      const message = JSON.parse(event.data);
+      setMessages((current) => [...current, message]);
+      if (message.type === 'hand_dealt' && message.data?.playerLinks) {
         setHomeNotice(null);
-      };
-      socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        setMessages((current) => [...current, message]);
-        if (message.type === 'hand_dealt' && message.data?.playerLinks) {
-          setHomeNotice(null);
-          setHomeReplayError(null);
+        setHomeReplayError(null);
+      }
+      if (message.type === 'error') {
+        if (message.message === 'hand not found') {
+          setHomeReplayError('Hand not found.');
+        } else {
+          setHomeNotice(message.message);
         }
-        if (message.type === 'error') {
-          if (message.message === 'hand not found') {
-            setHomeReplayError('Hand not found.');
-          } else {
-            setHomeNotice(message.message);
-          }
-        }
-        if (message.type === 'lobby_joined') {
-          const lobbyId = message.data.lobby.id;
-          const memberId = message.data.memberId;
-          window.localStorage.setItem(`omaha-lobby-${lobbyId}-${memberId}`, JSON.stringify({
-            memberId: message.data.memberId,
-            token: message.data.token,
-          }));
-          window.localStorage.setItem(`omaha-lobby-${lobbyId}-active`, JSON.stringify({
-            memberId: message.data.memberId,
-            token: message.data.token,
-          }));
-          window.location.href = `/lobby/${lobbyId}`;
-        }
-      };
-      socket.onclose = () => {
-        setHomeSocketReady(false);
-        if (!stopped) {
-          reconnectTimer = window.setTimeout(connect, 1000);
-        }
-      };
-      socket.onerror = () => {
-        setHomeSocketReady(false);
-      };
-    }
-
-    connect();
-    return () => {
-      stopped = true;
-      if (reconnectTimer) window.clearTimeout(reconnectTimer);
-      socket?.close();
-    };
-  }, []);
+      }
+      if (message.type === 'lobby_joined') {
+        const lobbyId = message.data.lobby.id;
+        const memberId = message.data.memberId;
+        window.localStorage.setItem(`omaha-lobby-${lobbyId}-${memberId}`, JSON.stringify({
+          memberId: message.data.memberId,
+          token: message.data.token,
+        }));
+        window.localStorage.setItem(`omaha-lobby-${lobbyId}-active`, JSON.stringify({
+          memberId: message.data.memberId,
+          token: message.data.token,
+        }));
+        window.location.href = `/lobby/${lobbyId}`;
+      }
+    },
+  });
 
   useEffect(() => {
     setPlayerNames((current) => Array.from({ length: players }, (_, index) => (
@@ -3748,8 +3774,6 @@ const WELCOME_TEXT = {
 function WelcomePage() {
   const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-  const [connected, setConnected] = useState(false);
   const [hostName, setHostName] = useState('');
   const [seats, setSeats] = useState(4);
   const [pin, setPin] = useState('');
@@ -3767,51 +3791,30 @@ function WelcomePage() {
     document.documentElement.lang = language;
   }, [language]);
 
-  useEffect(() => {
-    let stopped = false;
-    let reconnectTimer: number | undefined;
-    let ws: WebSocket;
-
-    const connect = () => {
-      ws = new WebSocket(WS_URL);
-      setSocket(ws);
-      ws.onopen = () => {
-        setConnected(true);
-        setNotice(null);
-        ws.send(JSON.stringify({ action: 'list_open_lobbies' }));
-      };
-      ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.type === 'open_lobbies') setOpenLobbies(message.data);
-        if (message.type === 'lobby_found') {
-          window.sessionStorage.setItem(
-            `omaha-lobby-${message.data.lobbyId}-access-pin`,
-            pendingPinRef.current,
-          );
-          window.location.href = `/lobby/${message.data.lobbyId}`;
-        }
-        if (message.type === 'lobby_joined') {
-          const { lobby, memberId, token } = message.data;
-          window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
-          window.localStorage.setItem(`omaha-lobby-${lobby.id}-active`, JSON.stringify({ memberId, token }));
-          window.location.href = `/lobby/${lobby.id}`;
-        }
-        if (message.type === 'error') setNotice(localizedServerMessage(message.message));
-      };
-      ws.onclose = () => {
-        setConnected(false);
-        if (!stopped) reconnectTimer = window.setTimeout(connect, 1000);
-      };
-      ws.onerror = () => setConnected(false);
-    };
-
-    connect();
-    return () => {
-      stopped = true;
-      if (reconnectTimer) window.clearTimeout(reconnectTimer);
-      ws?.close();
-    };
-  }, []);
+  const { socket, connected } = useReliableWebSocket(WS_URL, {
+    onOpen: (ws) => {
+      setNotice(null);
+      ws.send(JSON.stringify({ action: 'list_open_lobbies' }));
+    },
+    onMessage: (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'open_lobbies') setOpenLobbies(message.data);
+      if (message.type === 'lobby_found') {
+        window.sessionStorage.setItem(
+          `omaha-lobby-${message.data.lobbyId}-access-pin`,
+          pendingPinRef.current,
+        );
+        window.location.href = `/lobby/${message.data.lobbyId}`;
+      }
+      if (message.type === 'lobby_joined') {
+        const { lobby, memberId, token } = message.data;
+        window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
+        window.localStorage.setItem(`omaha-lobby-${lobby.id}-active`, JSON.stringify({ memberId, token }));
+        window.location.href = `/lobby/${lobby.id}`;
+      }
+      if (message.type === 'error') setNotice(localizedServerMessage(message.message));
+    },
+  });
 
   useEffect(() => {
     fetch(`${SERVER_URL}/api/version`)

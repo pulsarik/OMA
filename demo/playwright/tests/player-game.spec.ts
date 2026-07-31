@@ -53,6 +53,15 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   const potAfterCall = state.potCoins + callAmount;
   await expect(page.getByTestId('bet-size-explanation'))
     .toContainText(`Pot after call: ${potAfterCall} · 1/2 pot = ${Math.ceil(potAfterCall / 2)} · Raise to`);
+
+  await page.getByRole('button', { name: '1/4 pot' }).click();
+  await page.getByRole('button', { name: /^Raise/ }).click();
+  await expect.poll(async () => {
+    const updated = await (await request.get(apiUrlForPlayerLink(href))).json();
+    return updated.actions.find((action: { playerId: string }) => (
+      action.playerId === state.playerId
+    ))?.betSize;
+  }).toBe('quarter');
 });
 
 test('opponent rows stay stable as seat content changes at every table size', async ({ page }) => {
@@ -168,9 +177,9 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const initialResponse = await request.get(apiUrl);
   const initialState = await initialResponse.json();
   await expect(page.getByTestId(`card-face-${initialState.hole[0]}`))
-    .toHaveAttribute('src', /\/cards\/revk\/[2-9TJQKA][CDHS]\.svg$/);
-  await expect(page.getByTestId('card-back').first().locator('img'))
-    .toHaveAttribute('src', '/cards/revk/BACK.svg');
+    .toHaveAttribute('data-card-style', 'simple');
+  await expect(page.getByTestId('card-back').first())
+    .toHaveAttribute('data-card-style', 'simple');
   await expect(page.getByTestId('player-score-P2'))
     .toHaveText(String(initialState.partyScore.totals.find((total: any) => total.id === 'P2').total));
   const opponentCardsBox = await page.getByTestId('player-cards-P2').boundingBox();
@@ -219,31 +228,17 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   }
 });
 
-test('a failed card image request retries without a page refresh', async ({ page, request }) => {
+test('cards use the simplified deck without loading RevK images', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   const stateResponse = await request.get(apiUrlForPlayerLink(href));
   const state = await stateResponse.json();
   const cardCode = state.hole[0] as string;
-  const assetCode = `${cardCode.slice(0, -1).toUpperCase()}${cardCode.slice(-1).toUpperCase()}`;
-  let failedRequests = 0;
-
-  await page.route(`**/cards/revk/${assetCode}.svg*`, async route => {
-    if (failedRequests === 0) {
-      failedRequests += 1;
-      await route.abort('failed');
-      return;
-    }
-    await route.continue();
-  });
 
   await page.goto(href);
-  const cardImage = page.getByTestId(`card-face-${cardCode}`).first();
-  await expect(cardImage).toHaveAttribute('data-load-state', 'loaded');
-  await expect(cardImage).toHaveAttribute('src', /\?retry=1$/);
-  await expect.poll(() => cardImage.evaluate(image => (
-    (image as HTMLImageElement).naturalWidth
-  ))).toBeGreaterThan(0);
-  expect(failedRequests).toBe(1);
+  const card = page.getByTestId(`card-face-${cardCode}`).first();
+  await expect(card).toHaveAttribute('data-card-style', 'simple');
+  await expect(card).toContainText(cardCode.slice(0, -1) === 'T' ? '10' : cardCode.slice(0, -1));
+  await expect(page.locator('img[src*="/cards/revk/"]')).toHaveCount(0);
 });
 
 test('all action buttons fit in the viewport at a seven-player table', async ({ page }) => {
@@ -343,11 +338,9 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const lowHintBox = (await page.getByTestId('low-combo-side').boundingBox())!;
   expect(highHintBox.x + highHintBox.width).toBeLessThanOrEqual(heroCardsBox.x);
   expect(lowHintBox.x).toBeGreaterThanOrEqual(heroCardsBox.x + heroCardsBox.width);
-  const comboImages = page.locator('[data-testid$="-combo-side"] img[data-testid^="card-face-"]');
-  await expect.poll(async () => comboImages.evaluateAll(images => (
-    images.length > 0
-    && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0)
-  ))).toBe(true);
+  const comboCards = page.locator('[data-testid$="-combo-side"] [data-testid^="card-face-"]');
+  await expect(comboCards.first()).toHaveAttribute('data-card-style', 'simple');
+  expect(await comboCards.count()).toBeGreaterThan(0);
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
   const contribution = showdownState.totalContributions.P1;

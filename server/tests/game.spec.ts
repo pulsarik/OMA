@@ -6,6 +6,7 @@ import {
   dealHandFromCode,
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
+  isPlayerStillInParty,
   nextPartyHand,
   netResultsAfterPayout,
   recordPlayerMove,
@@ -639,6 +640,27 @@ test('bet and raise accept pot-limit target amounts', () => {
   expect(hand.currentPlayerId).toBe('P2');
 });
 
+test('bet actions preserve a valid selected pot-size preset for other players', () => {
+  const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
+
+  recordPlayerMove(hand, 'P2', 'bet', 4, 'quarter');
+  expect(hand.actions.at(-1)).toMatchObject({
+    playerId: 'P2',
+    move: 'bet',
+    amount: 4,
+    betSize: 'quarter',
+  });
+});
+
+test('bet actions discard an unknown pot-size preset', () => {
+  const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
+
+  recordPlayerMove(hand, 'P2', 'bet', 4, 'four');
+  expect(hand.actions.at(-1)).not.toHaveProperty('betSize');
+});
+
 test('player must call after opponent raises a custom amount', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
@@ -1059,6 +1081,11 @@ test('carries side-pot payouts into the next hand without losing chips', () => {
   const next = nextPartyHand(hand);
   expect(next.players.map(player => player.stack)).toEqual([1005, 1003, 986]);
   expect(next.players.reduce((sum, player) => sum + player.stack, next.potCoins)).toBe(3000);
+});
+
+test('a player with no chips does not continue in the party', () => {
+  expect(isPlayerStillInParty({ stack: 1 })).toBe(true);
+  expect(isPlayerStillInParty({ stack: 0 })).toBe(false);
 });
 
 test('shows a compact live pot breakdown only after an all-in', () => {

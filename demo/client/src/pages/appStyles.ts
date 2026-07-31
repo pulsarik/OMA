@@ -573,26 +573,84 @@ export const PLAYER_PAGE_STYLES = `
     .view-tab { padding-inline: 11px; letter-spacing: .025em; }
     .poker-table,
     .poker-table.is-crowded {
-      gap: 8px;
-      padding: 9px 6px;
+      gap: 6px;
+      padding: 7px 5px;
     }
     .opponents-row,
-    .poker-table.is-crowded .opponents-row { gap: 8px 4px; }
-    .player-seat-wrap { flex-basis: min(288px, 100%); }
+    .poker-table.is-crowded .opponents-row { gap: 7px 2px; }
+    .opponents-row .player-seat-wrap {
+      flex: 0 1 104px;
+      width: 104px;
+    }
+    .opponents-row .player-seat { padding: 4px !important; }
+    .opponents-row .compact-card-row { gap: 0; }
+    .opponents-row .opponent-card-frame {
+      width: 33.12px;
+      height: 47.52px;
+    }
+    .opponents-row .opponent-card { transform: scale(.36) !important; }
+    .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: -21px; }
     .table-center,
-    .poker-table.is-crowded .table-center { padding: 8px 5px; }
-    .hero-zone {
-      grid-template-columns: minmax(0, 1fr);
+    .poker-table.is-crowded .table-center {
+      min-height: 0;
+      padding: 5px 4px;
+    }
+    .table-center.has-showdown {
       grid-template-areas:
-        "high"
-        "low"
-        "hero";
+        "status status"
+        "board board"
+        "new-deal pot";
+      gap: 4px;
+    }
+    .table-center.has-showdown .table-new-deal {
+      justify-self: start;
+      margin-left: 0;
+    }
+    .table-center.has-showdown .table-pot { justify-self: end; }
+    .table-showdown > div {
+      min-width: 0 !important;
+      gap: 2px !important;
+      padding: 6px 8px !important;
+    }
+    .table-showdown > div > strong { font-size: 19px !important; }
+    .table-center .board-row { gap: 4px; }
+    .table-center .focal-card-frame {
+      width: 33.12px;
+      height: 47.52px;
+    }
+    .table-center .focal-card { transform: scale(.36) !important; }
+    .hero-zone {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas:
+        "high low"
+        "hero hero";
+      row-gap: 5px;
+      column-gap: 5px;
       width: 100%;
     }
     .combo-side {
-      width: min(184px, 100%);
+      width: 100%;
+      max-width: 158px;
+      padding: 4px;
       justify-self: center;
     }
+    .combo-side-title {
+      gap: 4px;
+      margin-bottom: 3px;
+      font-size: 10px;
+    }
+    .combo-side-rank { font-size: 11px; }
+    .side-combo-cards { gap: 2px; }
+    .side-combo-card {
+      width: 20.24px !important;
+      height: 29.04px !important;
+    }
+    .side-combo-card > div { transform: scale(.22) !important; }
+    .hero-seat .focal-card-frame {
+      width: 40.48px;
+      height: 58.08px;
+    }
+    .hero-seat .focal-card { transform: scale(.44) !important; }
     .action-dock {
       gap: 7px;
       padding: 8px 6px;

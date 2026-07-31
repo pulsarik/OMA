@@ -45,7 +45,8 @@ test('players enter a new deal independently', async ({ page, browser }) => {
   ));
   await page.getByRole('button', { name: 'New deal' }).click();
   await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible();
-  await expect(page.getByTestId('waiting-for-players')).toContainText('Anna');
+  await expect(page.getByTestId(/waiting-for-player-/)).toHaveText('WAITING');
+  await expect(page.locator('[data-player-seat]').filter({ hasText: 'Anna' }).getByText('WAITING')).toBeVisible();
 
   // Anna must remain on the completed deal until she presses her own button.
   await expect.poll(() => guest.evaluate(() => (
@@ -57,7 +58,7 @@ test('players enter a new deal independently', async ({ page, browser }) => {
 
   await guest.getByRole('button', { name: 'New deal' }).click();
   await expect(guest.getByText('preflop', { exact: true }).first()).toBeVisible();
-  await expect(page.getByTestId('waiting-for-players')).toHaveCount(0);
+  await expect(page.getByTestId(/waiting-for-player-/)).toHaveCount(0);
 
   await guestContext.close();
 });
