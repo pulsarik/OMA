@@ -111,6 +111,19 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   await expect(expandableOpponentHands).toHaveCount(await revealedOpponentHands.count());
   if (await expandableOpponentHands.count()) {
     const opponentCards = expandableOpponentHands.first();
+    const compactFrames = opponentCards.locator('.opponent-card-frame');
+    const firstCompactFrameBox = await compactFrames.nth(0).boundingBox();
+    const secondCompactFrameBox = await compactFrames.nth(1).boundingBox();
+    const firstRankBox = await compactFrames.nth(0).locator('.card-rank').boundingBox();
+    const firstSuitBox = await compactFrames.nth(0).locator('.card-suit').boundingBox();
+    expect(firstCompactFrameBox).toBeTruthy();
+    expect(secondCompactFrameBox).toBeTruthy();
+    expect(firstRankBox).toBeTruthy();
+    expect(firstSuitBox).toBeTruthy();
+    expect(firstRankBox!.x).toBeGreaterThanOrEqual(firstCompactFrameBox!.x);
+    expect(firstSuitBox!.x).toBeGreaterThanOrEqual(firstCompactFrameBox!.x);
+    expect(firstRankBox!.x + firstRankBox!.width).toBeLessThanOrEqual(secondCompactFrameBox!.x);
+    expect(firstSuitBox!.x + firstSuitBox!.width).toBeLessThanOrEqual(secondCompactFrameBox!.x);
     await expect(opponentCards).toHaveAttribute('aria-expanded', 'false');
     await opponentCards.click();
     const expandedHand = page.getByTestId('opponent-hand-overlay');

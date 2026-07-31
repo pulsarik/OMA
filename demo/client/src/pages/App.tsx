@@ -515,8 +515,8 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
         fontWeight: 900,
       }}
     >
-      <span style={{ fontSize: 48, lineHeight: 0.95 }}>{rankLabels[rank] ?? rank}</span>
-      <span style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
+      <span className="card-rank" style={{ fontSize: 48, lineHeight: 0.95 }}>{rankLabels[rank] ?? rank}</span>
+      <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
     </div>
   );
 }

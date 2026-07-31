@@ -680,6 +680,24 @@ export const PLAYER_PAGE_STYLES = `
       height: 47.52px;
     }
     .opponents-row .opponent-card { transform: scale(.36) !important; }
+    .opponents-row .opponent-card {
+      position: relative !important;
+      display: block !important;
+    }
+    .opponents-row .opponent-card .card-rank,
+    .opponents-row .opponent-card .card-suit {
+      position: absolute;
+      left: 6px;
+      line-height: .9 !important;
+    }
+    .opponents-row .opponent-card .card-rank {
+      top: 5px;
+      font-size: 30px !important;
+    }
+    .opponents-row .opponent-card .card-suit {
+      top: 34px;
+      font-size: 26px !important;
+    }
     .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: -21px; }
     .table-center,
     .poker-table.is-crowded .table-center {
