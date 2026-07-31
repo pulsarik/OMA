@@ -167,15 +167,6 @@ export const PLAYER_PAGE_STYLES = `
     font-weight: 800;
     text-align: center;
   }
-  .deal-chip {
-    border: 1px solid #cbd5cf;
-    border-radius: 999px;
-    background: rgba(255,255,255,.78);
-    color: #526159;
-    padding: 4px 9px;
-    font: 700 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
-  }
-  .deal-footer { margin: 12px 4px 2px; text-align: center; }
   .poker-table {
     position: relative;
     overflow: hidden;
@@ -385,6 +376,61 @@ export const PLAYER_PAGE_STYLES = `
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .compact-card-row { display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center; }
+  .compact-card-row.is-expandable {
+    border-radius: 8px;
+    cursor: zoom-in;
+    outline: none;
+  }
+  .compact-card-row.is-expandable:focus-visible {
+    box-shadow: 0 0 0 3px #fbbf24;
+  }
+  .opponent-hand-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: grid;
+    place-items: center;
+    padding:
+      max(18px, env(safe-area-inset-top))
+      max(18px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
+    background: rgba(2, 20, 14, .74);
+    backdrop-filter: blur(7px);
+  }
+  .opponent-hand-dialog {
+    position: relative;
+    width: min(100%, 340px);
+    border: 1px solid rgba(255,255,255,.4);
+    border-radius: 20px;
+    background: rgba(3, 69, 47, .96);
+    padding: 28px 14px 16px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.42);
+  }
+  .opponent-hand-close {
+    position: absolute;
+    top: 5px;
+    right: 7px;
+    min-width: 30px;
+    min-height: 30px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,.16);
+    color: #fff;
+    padding: 0;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .opponent-hand-expanded-row {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+  .opponent-hand-expanded-frame {
+    width: 64.4px;
+    height: 92.4px;
+    flex: 0 0 auto;
+  }
   .opponent-card-frame { width: ${OPPONENT_CARD_WIDTH}px; height: ${OPPONENT_CARD_HEIGHT}px; }
   .focal-card-frame { width: ${FOCAL_CARD_WIDTH}px; height: ${FOCAL_CARD_HEIGHT}px; }
   .board-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -603,10 +649,17 @@ export const PLAYER_PAGE_STYLES = `
       gap: 4px;
     }
     .table-center.has-showdown .table-new-deal {
-      justify-self: start;
+      grid-column: 1 / -1;
+      grid-row: 3;
+      justify-self: center;
       margin-left: 0;
+      z-index: 1;
     }
-    .table-center.has-showdown .table-pot { justify-self: end; }
+    .table-center.has-showdown .table-pot {
+      grid-column: 2;
+      grid-row: 3;
+      justify-self: end;
+    }
     .table-showdown > div {
       min-width: 0 !important;
       gap: 2px !important;
@@ -652,11 +705,52 @@ export const PLAYER_PAGE_STYLES = `
     }
     .hero-seat .focal-card { transform: scale(.44) !important; }
     .action-dock {
-      gap: 7px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      width: 100%;
+      gap: 6px;
+      margin-top: 6px;
       padding: 8px 6px;
     }
-    .main-actions { width: 100%; }
-    .main-actions .action-button { min-width: 0; padding-inline: 8px; }
+    .bet-sizes {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      width: 100%;
+      gap: 4px;
+      overflow: visible;
+      padding: 0;
+    }
+    .bet-sizes > span { display: none; }
+    .bet-size-button {
+      width: 100%;
+      min-width: 0;
+      min-height: 30px;
+      padding: 3px 1px;
+      overflow: hidden;
+      font-size: 11px;
+      line-height: 1.05;
+      text-overflow: clip;
+      white-space: nowrap;
+    }
+    .main-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      width: 100%;
+      gap: 6px;
+    }
+    .main-actions .action-button {
+      width: 100%;
+      min-width: 0;
+      min-height: 40px;
+      padding: 3px 2px;
+      font-size: 12px;
+      line-height: 1.08;
+      overflow-wrap: anywhere;
+    }
+    .bet-size-explanation {
+      font-size: 10px;
+      line-height: 1.2;
+    }
     .pot-popover {
       position: fixed;
       right: max(8px, env(safe-area-inset-right));

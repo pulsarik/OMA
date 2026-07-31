@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test';
 
 test('a tester can submit a problem and retrieve it by numeric ID', async ({ page, request }) => {
   await page.goto('/');
-  await page.getByLabel('Язык').selectOption('en');
 
   const reportButton = page.getByRole('button', { name: 'Report a problem' });
   await expect(reportButton).toBeVisible();
@@ -36,7 +35,6 @@ test('a tester can submit a problem and retrieve it by numeric ID', async ({ pag
 
 test('Cancel closes the problem dialog without sending a report', async ({ page }) => {
   await page.goto('/');
-  await page.getByLabel('Язык').selectOption('en');
   await page.getByRole('button', { name: 'Report a problem' }).click();
   const dialog = page.getByRole('dialog', { name: 'Report a problem' });
   await dialog.getByLabel('Description').fill('Do not send this');

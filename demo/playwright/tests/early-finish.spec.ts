@@ -2,7 +2,6 @@ import { expect, test } from '@playwright/test';
 
 test('host can end a completed table only after every player confirms', async ({ page, browser }) => {
   await page.goto('/');
-  await page.getByLabel('Язык').selectOption('en');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('2');
@@ -14,7 +13,6 @@ test('host can end a completed table only after every player confirms', async ({
   const guest = await guestContext.newPage();
 
   await guest.goto('/');
-  await guest.getByLabel('Язык').selectOption('en');
   await guest.getByRole('button', { name: 'Join an open table' }).click();
   await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);

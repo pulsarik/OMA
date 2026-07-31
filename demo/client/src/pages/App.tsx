@@ -13,7 +13,7 @@ const WS_URL = isLocalVite
 type UiLanguage = 'en' | 'ru';
 
 function storedLanguage(): UiLanguage {
-  return window.localStorage.getItem('omaha-language') === 'en' ? 'en' : 'ru';
+  return 'en';
 }
 
 function ui(en: string, ru: string) {
@@ -44,30 +44,6 @@ function localizedServerMessage(message: string) {
     'table is no longer on this deal': 'Стол уже перешёл к другой раздаче.',
   };
   return messages[message] ?? message;
-}
-
-function LanguageSelect({ light = false }: { light?: boolean }) {
-  return (
-    <select
-      aria-label={ui('Language', 'Язык')}
-      defaultValue={storedLanguage()}
-      onChange={(event) => {
-        window.localStorage.setItem('omaha-language', event.target.value);
-        window.location.reload();
-      }}
-      style={{
-        border: `1px solid ${light ? 'rgba(255,255,255,.5)' : '#cbd5e1'}`,
-        borderRadius: 999,
-        background: '#fff',
-        padding: '5px 9px',
-        color: '#17211b',
-        fontWeight: 800,
-      }}
-    >
-      <option value="ru">Русский</option>
-      <option value="en">English</option>
-    </select>
-  );
 }
 
 type ActionLog = {
@@ -539,8 +515,8 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
         fontWeight: 900,
       }}
     >
-      <span style={{ fontSize: 34, lineHeight: 1 }}>{rankLabels[rank] ?? rank}</span>
-      <span style={{ fontSize: 30, lineHeight: 1 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
+      <span style={{ fontSize: 48, lineHeight: 0.95 }}>{rankLabels[rank] ?? rank}</span>
+      <span style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
     </div>
   );
 }
@@ -594,23 +570,75 @@ function CompactCardRow({
   cards,
   testId,
   focal = false,
+  expandable = false,
 }: {
   cards: string[];
   testId?: string;
   focal?: boolean;
+  expandable?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
   const cardClass = focal ? 'focal-card' : 'opponent-card';
   const scale = focal ? FOCAL_CARD_SCALE : OPPONENT_CARD_SCALE;
+  const expansionLabel = ui('Show opponent cards larger', 'Показать карты соперника крупнее');
 
   return (
-    <div data-testid={testId} className="compact-card-row">
-      {cards.map((card) => (
-        <div key={card} className={frameClass}>
-          <Card code={card} scale={scale} className={cardClass} />
+    <>
+      <div
+        data-testid={testId}
+        className={`compact-card-row${expandable ? ' is-expandable' : ''}`}
+        role={expandable ? 'button' : undefined}
+        tabIndex={expandable ? 0 : undefined}
+        aria-label={expandable ? expansionLabel : undefined}
+        aria-expanded={expandable ? expanded : undefined}
+        onClick={expandable ? () => setExpanded(true) : undefined}
+        onKeyDown={expandable ? (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            setExpanded(true);
+          }
+        } : undefined}
+      >
+        {cards.map((card) => (
+          <div key={card} className={frameClass}>
+            <Card code={card} scale={scale} className={cardClass} />
+          </div>
+        ))}
+      </div>
+      {expanded ? (
+        <div
+          className="opponent-hand-overlay"
+          data-testid="opponent-hand-overlay"
+          role="presentation"
+          onClick={() => setExpanded(false)}
+        >
+          <section
+            className="opponent-hand-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={ui('Opponent cards', 'Карты соперника')}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="opponent-hand-close"
+              aria-label={ui('Close enlarged cards', 'Закрыть увеличенные карты')}
+              onClick={() => setExpanded(false)}
+            >
+              ×
+            </button>
+            <div className="opponent-hand-expanded-row">
+              {cards.map((card) => (
+                <div key={card} className="opponent-hand-expanded-frame">
+                  <Card code={card} scale={0.7} />
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
-      ))}
-    </div>
+      ) : null}
+    </>
   );
 }
 
@@ -1200,7 +1228,12 @@ function PlayerSeat({
           }}
         >
           {shouldShowCards ? (
-            <CompactCardRow cards={hole ?? []} testId={`player-cards-${id}`} focal={isYou} />
+            <CompactCardRow
+              cards={hole ?? []}
+              testId={`player-cards-${id}`}
+              focal={isYou}
+              expandable={!isYou}
+            />
           ) : (
             <CardBackRow count={cardCount} compact={compact} focal={isYou} testId={`player-cards-${id}`} />
           )}
@@ -1292,7 +1325,7 @@ function PlayerSeat({
           className={`player-meta${isCurrentTurn ? ' is-thinking' : ''}`}
           style={{ display: 'grid', gap: 4, justifyItems: 'center', alignSelf: 'stretch', alignContent: 'end' }}
         >
-          <CoinStack value={score} />
+          <CoinStack value={score} compact />
           <span
             data-testid={`player-name-${id}`}
             title={tablePlayerName(name, id)}
@@ -2327,7 +2360,6 @@ function PlayerPage({
     <div className="poker-page">
       <style>{PLAYER_PAGE_STYLES}</style>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
-        <LanguageSelect />
       </div>
       <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
         <button
@@ -2742,12 +2774,6 @@ function PlayerPage({
       />
       </section> : null}
 
-      {player.dealCode ? (
-        <footer className="deal-footer" data-testid="deal-footer">
-          <span className="deal-chip">{ui('DEAL', 'РАЗДАЧА')} {player.dealCode}</span>
-        </footer>
-      ) : null}
-
     </div>
   );
 }
@@ -2774,7 +2800,6 @@ function DebugPage() {
   return (
     <div style={{ padding: 20, fontFamily: 'system-ui, sans-serif' }}>
       <style>{PLAYER_PAGE_STYLES}</style>
-      <LanguageSelect />
       <h1>{ui('Debug hand', 'Отладка раздачи')}</h1>
       <p title={hand.id}>{ui('Hand', 'Раздача')}: {handLabel(hand.handCode, hand.handNumber, hand.id)}</p>
       <p title={hand.partyId}>{ui('Party', 'Партия')}: {partyLabel(hand.partyCode, hand.partyId)}</p>
@@ -3176,7 +3201,6 @@ function LobbyPage() {
             <h1 style={{ margin: '5px 0 0' }}>{ui('Table lobby', 'Лобби стола')}</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <LanguageSelect />
             <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
               {socketReady ? ui('connected', 'подключено') : ui('connecting…', 'подключение…')}
             </span>
@@ -3668,7 +3692,6 @@ function HomePage() {
                 {partyLabel(latestDeal.data.partyCode, latestDeal.data.partyId)}
                 {' / '}
                 {handLabel(latestDeal.data.handCode, latestDeal.data.handNumber, latestDeal.data.id)}
-                {latestDeal.data.dealCode ? ` / ${latestDeal.data.dealCode}` : ''}
               </span>
               <button
                 onClick={replayLatestDeal}
@@ -3772,7 +3795,6 @@ const WELCOME_TEXT = {
 } as const;
 
 function WelcomePage() {
-  const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
   const [hostName, setHostName] = useState('');
   const [seats, setSeats] = useState(4);
@@ -3783,13 +3805,8 @@ function WelcomePage() {
   const [version, setVersion] = useState<VersionInfo | null>(null);
   const pendingPinRef = useRef('');
   const pinInputRef = useRef<HTMLInputElement>(null);
-  const t = WELCOME_TEXT[language];
+  const t = WELCOME_TEXT.en;
   const selectedLobby = openLobbies.find(lobby => lobby.id === selectedLobbyId);
-
-  useEffect(() => {
-    window.localStorage.setItem('omaha-language', language);
-    document.documentElement.lang = language;
-  }, [language]);
 
   const { socket, connected } = useReliableWebSocket(WS_URL, {
     onOpen: (ws) => {
@@ -3844,11 +3861,11 @@ function WelcomePage() {
 
   function findByPin() {
     if (!selectedLobbyId) {
-      setNotice(language === 'ru' ? 'Сначала выберите стол.' : 'Choose a table first.');
+      setNotice('Choose a table first.');
       return;
     }
     if (pin.length !== 4) {
-      setNotice(language === 'ru' ? 'Введите PIN из 4 цифр.' : 'Enter a 4-digit PIN.');
+      setNotice('Enter a 4-digit PIN.');
       return;
     }
     pendingPinRef.current = pin;
@@ -3884,23 +3901,6 @@ function WelcomePage() {
       <main style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
           <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 800 }}>
-            {t.language}
-            <select
-              aria-label={t.language}
-              value={language}
-              onChange={event => {
-                const nextLanguage = event.target.value as UiLanguage;
-                window.localStorage.setItem('omaha-language', nextLanguage);
-                setLanguage(nextLanguage);
-                window.dispatchEvent(new Event('omaha-language-change'));
-              }}
-              style={{ border: '1px solid rgba(255,255,255,.5)', borderRadius: 999, background: '#fff', padding: '6px 10px' }}
-            >
-              <option value="ru">Русский</option>
-              <option value="en">English</option>
-            </select>
-          </label>
         </header>
 
         <section style={cardStyle}>
@@ -4034,14 +4034,14 @@ function WelcomePage() {
                   <CityIcon city={selectedLobby.tableName} />
                   <div>
                     <small style={{ display: 'block', color: '#65736a', fontWeight: 800 }}>
-                      {language === 'ru' ? 'Выбранный стол' : 'Selected table'}
+                      Selected table
                     </small>
                     <strong style={{ display: 'block', marginTop: 2, fontSize: 24 }}>{selectedLobby.tableName}</strong>
                   </div>
                 </div>
                 <button
                   type="button"
-                  aria-label={language === 'ru' ? 'Закрыть' : 'Close'}
+                  aria-label="Close"
                   onClick={() => {
                     setSelectedLobbyId(null);
                     setPin('');
@@ -4053,12 +4053,10 @@ function WelcomePage() {
                 </button>
               </div>
               <h2 id="table-pin-title" style={{ margin: '24px 0 6px', fontSize: 22 }}>
-                {language === 'ru' ? 'Введите PIN стола' : 'Enter the table PIN'}
+                Enter the table PIN
               </h2>
               <p style={{ margin: '0 0 16px', color: '#65736a' }}>
-                {language === 'ru'
-                  ? 'Попросите четырёхзначный PIN у создателя стола.'
-                  : 'Ask the table creator for the four-digit PIN.'}
+                Ask the table creator for the four-digit PIN.
               </p>
               <input
                 ref={pinInputRef}
@@ -4334,15 +4332,9 @@ function PortraitOrientationGuard() {
 }
 
 export default function App() {
-  const [, setLanguageRevision] = useState(0);
   useEffect(() => {
-    const refreshLanguage = () => {
-      document.documentElement.lang = storedLanguage();
-      setLanguageRevision(revision => revision + 1);
-    };
-    document.documentElement.lang = storedLanguage();
-    window.addEventListener('omaha-language-change', refreshLanguage);
-    return () => window.removeEventListener('omaha-language-change', refreshLanguage);
+    window.localStorage.setItem('omaha-language', 'en');
+    document.documentElement.lang = 'en';
   }, []);
 
   let page: React.ReactNode;

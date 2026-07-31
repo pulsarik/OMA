@@ -17,7 +17,6 @@ test('lobby restores its authenticated WebSocket after a disconnect', async ({ p
   });
 
   await page.goto('/');
-  await page.getByLabel('Язык').selectOption('en');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Reconnect host');
   await page.getByRole('button', { name: 'Create table' }).click();
@@ -69,7 +68,6 @@ test('a player command survives refresh without applying twice', async ({ page }
   });
 
   await page.goto('/');
-  await page.getByLabel('Язык').selectOption('en');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Reliable player');
   await page.getByRole('button', { name: 'Create table' }).click();

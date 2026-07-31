@@ -2,8 +2,6 @@ import { expect, Page, test } from '@playwright/test';
 
 async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await page.goto('/');
-  const language = page.locator('select[aria-label="Language"], select[aria-label="Язык"]');
-  if (await language.inputValue() !== 'en') await language.selectOption('en');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(playerCount));
@@ -124,8 +122,6 @@ test('opponent rows stay stable as seat content changes at every table size', as
 test('the table keeps its height in a compact desktop viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-  const language = page.locator('select').first();
-  if (await language.inputValue() !== 'en') await language.selectOption('en');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('2');
@@ -142,7 +138,8 @@ test('the table keeps its height in a compact desktop viewport', async ({ page }
 test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   await page.goto(href);
-  await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
+  await expect(page.getByTestId('deal-footer')).toHaveCount(0);
+  await expect(page.getByText(/^DEAL OMA1-/)).toHaveCount(0);
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
   await expect(page.getByTestId('game-tile')).toBeVisible();
   await expect(page.getByTestId('stats-tile')).toHaveCount(0);
@@ -162,13 +159,10 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const tableBox = await page.getByTestId('poker-table').boundingBox();
   const actionDock = page.locator('.action-dock');
   const actionDockBox = await actionDock.boundingBox();
-  const dealFooterBox = await page.getByTestId('deal-footer').boundingBox();
   expect(tableBox).toBeTruthy();
   expect(actionDockBox).toBeTruthy();
-  expect(dealFooterBox).toBeTruthy();
   await expect(actionDock).toHaveCSS('position', 'static');
   expect(actionDockBox!.y).toBeGreaterThanOrEqual(tableBox!.y + tableBox!.height);
-  expect(dealFooterBox!.y).toBeGreaterThan(tableBox!.y + tableBox!.height);
   const yourSeat = page.locator('[data-player-seat="P1"]');
   await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toBeVisible();
   await expect(page.locator('.action-dock').getByText('YOUR TURN', { exact: true })).toHaveCount(0);
@@ -324,7 +318,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
     }
   };
   const href = await createDefaultHumanVsBotDeal(page);
-  await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
+  await expect(page.getByText(/^DEAL OMA1-/)).toHaveCount(0);
   await expect(page.getByText('connected', { exact: true })).toHaveCount(0);
   const firstStateResponse = await request.get(apiUrlForPlayerLink(href));
   const firstState = await firstStateResponse.json();
@@ -384,7 +378,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await page.getByRole('button', { name: 'New deal' }).click();
   await expect(page).toHaveURL(oldUrl);
   await expect.poll(() => currentPlayerUrl(page)).not.toBe(oldPlayerUrl);
-  await expect(page.getByText(/^DEAL OMA1-/)).toBeVisible();
+  await expect(page.getByText(/^DEAL OMA1-/)).toHaveCount(0);
   await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible();
   const nextStateResponse = await request.get(apiUrlForPlayerLink(await currentPlayerUrl(page)));
   const nextState = await nextStateResponse.json();
