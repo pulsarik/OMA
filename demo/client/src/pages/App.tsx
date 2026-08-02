@@ -1298,7 +1298,7 @@ function PlayerSeat({
             </div>
           ) : null}
         </div>
-        {resultPlayer ? (
+        {resultPlayer && (!isYou || folded) ? (
           <div
             data-testid={`player-result-${id}`}
             style={{
@@ -1328,8 +1328,12 @@ function PlayerSeat({
                 {ui('FOLDED — NOT ELIGIBLE', 'ФОЛД — НЕ УЧАСТВУЕТ')}
               </span>
             ) : null}
-            <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank) ?? '-'}</span>
-            <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank) ?? ui('none', 'нет')}</span>
+            {!isYou ? (
+              <>
+                <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank) ?? '-'}</span>
+                <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank) ?? ui('none', 'нет')}</span>
+              </>
+            ) : null}
           </div>
         ) : null}
       </section>

@@ -362,8 +362,8 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   }
   await expect(page.getByRole('button', { name: 'Show cards' })).toHaveCount(0);
   const foldedTableResult = page.getByTestId('player-result-P1');
-  await expect(foldedTableResult.getByText(/^High: /)).toBeVisible();
-  await expect(foldedTableResult.getByText(/^Low: /)).toBeVisible();
+  await expect(foldedTableResult.getByText(/^High: /)).toHaveCount(0);
+  await expect(foldedTableResult.getByText(/^Low: /)).toHaveCount(0);
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await expect(page.getByTestId('stats-tile')).toBeVisible();
   await expect(page.getByTestId('result-net-P1')).toHaveText(formatResultPoints(net));

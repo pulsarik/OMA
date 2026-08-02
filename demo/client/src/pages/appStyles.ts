@@ -264,6 +264,7 @@ export const PLAYER_PAGE_STYLES = `
     justify-content: center;
     align-items: flex-start;
     gap: 20px 8px;
+    padding-top: 4px;
   }
   .player-seat-wrap { flex: 0 1 288px; min-width: 0; }
   .player-seat {
@@ -277,7 +278,6 @@ export const PLAYER_PAGE_STYLES = `
     border-radius: 12px;
     padding: 4px 6px;
   }
-  .player-meta.is-thinking { background: rgba(69, 43, 4, .62); }
   .player-name { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
   .table-center {
     grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
@@ -307,7 +307,36 @@ export const PLAYER_PAGE_STYLES = `
   .table-board { grid-area: board; justify-self: center; }
   .table-pot { grid-area: pot; justify-self: end; }
   .showdown-new-deal { margin-top: 4px; }
-  .showdown-new-deal .action-button { min-height: 38px; padding: 6px 14px; }
+  .showdown-new-deal .action-button.primary {
+    min-height: 38px;
+    border-color: #fef3c7;
+    background: linear-gradient(180deg, #fff7d6 0%, #fbbf24 58%, #f59e0b 100%);
+    padding: 6px 16px;
+    color: #4a2604;
+    text-shadow: 0 1px 0 rgba(255,255,255,.55);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.85),
+      0 3px 0 #9a5007,
+      0 7px 14px rgba(42,24,5,.3);
+    cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  .showdown-new-deal .action-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.9),
+      0 4px 0 #9a5007,
+      0 9px 16px rgba(42,24,5,.34);
+  }
+  .showdown-new-deal .action-button:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.7),
+      0 1px 0 #9a5007,
+      0 4px 8px rgba(42,24,5,.28);
+  }
+  .showdown-new-deal .action-button:disabled { cursor: wait; }
   .pot-details { position: relative; }
   .pot-details > summary { list-style: none; }
   .pot-details > summary::-webkit-details-marker { display: none; }
@@ -614,8 +643,14 @@ export const PLAYER_PAGE_STYLES = `
       grid-template-columns: 170px auto 170px;
       column-gap: 24px;
     }
-    .combo-side { width: 170px; padding: 5px; }
+    .combo-side { width: 170px; padding: 5px 4px; }
     .combo-side-title { margin-bottom: 4px; }
+    .side-combo-cards { gap: 2px; }
+    .side-combo-card {
+      width: 30.36px !important;
+      height: 43.56px !important;
+    }
+    .side-combo-card > div { transform: scale(.33) !important; }
   }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
