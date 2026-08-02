@@ -99,12 +99,29 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   await fold.click();
   await expect(page.getByTestId('high-combo-side')).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('low-combo-side')).toBeVisible();
+  await expect(page.locator('.table-center.has-showdown')).toBeVisible({ timeout: 15_000 });
   await page.evaluate(() => window.scrollTo(0, 0));
 
   const showdownTableBox = await table.boundingBox();
   expect(showdownTableBox).toBeTruthy();
+  expect(
+    Math.abs(showdownTableBox!.height - tableBox!.height),
+    `table height changed from ${tableBox!.height}px to ${showdownTableBox!.height}px`,
+  ).toBeLessThanOrEqual(2);
   expect(showdownTableBox!.y).toBeGreaterThanOrEqual(0);
   expect(showdownTableBox!.y + showdownTableBox!.height).toBeLessThanOrEqual(viewport.height);
+  const resultBoxes = await page.locator('[data-testid^="player-result-"]').evaluateAll(results => (
+    results.map(result => {
+      const box = result.getBoundingClientRect();
+      return { top: box.top, right: box.right, bottom: box.bottom, left: box.left };
+    })
+  ));
+  for (const box of resultBoxes) {
+    expect(box.left).toBeGreaterThanOrEqual(showdownTableBox!.x);
+    expect(box.right).toBeLessThanOrEqual(showdownTableBox!.x + showdownTableBox!.width);
+    expect(box.top).toBeGreaterThanOrEqual(showdownTableBox!.y);
+    expect(box.bottom).toBeLessThanOrEqual(showdownTableBox!.y + showdownTableBox!.height);
+  }
   const tableCenterBox = await page.locator('.table-center.has-showdown').boundingBox();
   const newDealBox = await page.getByTestId('showdown-new-deal').boundingBox();
   expect(tableCenterBox).toBeTruthy();

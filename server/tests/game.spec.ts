@@ -461,6 +461,39 @@ test('a player without enough chips cannot use raise as a short call', () => {
   expect(() => recordPlayerMove(hand, 'P1', 'raise', 5)).toThrow('insufficient chips to raise');
 });
 
+test('a short all-in raise waits for the call before revealing the final hand', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'river';
+  hand.community = [...hand.fullCommunity];
+  hand.currentPlayerId = 'P1';
+  hand.currentBet = 2;
+  hand.roundBets = { P1: 2, P2: 2 };
+  hand.totalContributions = { P1: 20, P2: 20 };
+  hand.potCoins = 40;
+  hand.players[0].stack = 3;
+  hand.players[1].stack = 980;
+  hand.actions = [{
+    playerId: 'P2',
+    move: 'bet',
+    amount: 2,
+    stage: 'river',
+    at: 1,
+  }];
+
+  recordPlayerMove(hand, 'P1', 'raise', 5);
+
+  expect(hand.stage).toBe('river');
+  expect(hand.currentPlayerId).toBe('P2');
+  expect(hand.cardsRevealed).toBe(false);
+
+  recordPlayerMove(hand, 'P2', 'call');
+
+  expect(hand.stage).toBe('showdown');
+  expect(hand.currentPlayerId).toBeUndefined();
+  expect(hand.cardsRevealed).toBe(true);
+  expect(hand.revealVotes).toEqual(['P1', 'P2']);
+});
+
 test('short all-in returns the uncalled chips and awards the pot to the real winner', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'river';

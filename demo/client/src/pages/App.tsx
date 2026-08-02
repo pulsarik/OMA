@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
+import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import { aggressiveHandPercent, buildWalletHistory } from '../partyStatistics';
@@ -2346,11 +2347,11 @@ function PlayerPage({
   const canCall = canAct && yourRoundBet < currentBet;
   const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises && call.canRaise;
   const hasContinuation = Boolean(player.nextHandId || player.nextReplayHandId);
-  const remainingPlayers = player.players.filter((seat) => {
-    const settledStack = player.partyScore?.totals.find((total) => total.id === seat.id)?.total;
-    return (settledStack ?? seat.stack ?? 0) > 0;
-  });
-  const tournamentWinner = remainingPlayers.length === 1 ? remainingPlayers[0] : undefined;
+  const tournamentWinner = findTournamentWinner(
+    player.stage,
+    player.players,
+    player.partyScore?.totals,
+  );
   const finishRequest = player.earlyFinishRequest;
   const finishVotePending = finishRequest?.status === 'pending';
   const hasApprovedFinish = Boolean(finishRequest?.approvals.includes(player.playerId));

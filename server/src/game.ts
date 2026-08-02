@@ -692,6 +692,30 @@ export function evaluatePlayerCombo(hole: string[], board: string[]): PlayerComb
   };
 }
 
+export type OmahaHandComparison = {
+  /** Positive when the first hand wins high, negative when the second wins. */
+  high: number;
+  /** Positive when the first hand wins low; absent when neither hand qualifies. */
+  low?: number;
+};
+
+/**
+ * Compare two Omaha Hi-Lo hands on a complete board. Keeping the score details
+ * private prevents callers (including bots) from reimplementing game rules.
+ */
+export function compareOmahaHands(firstHole: string[], secondHole: string[], board: string[]): OmahaHandComparison {
+  const first = bestOmahaHands(firstHole, board);
+  const second = bestOmahaHands(secondHole, board);
+  const high = compareScore(first.high?.score ?? [], second.high?.score ?? []);
+
+  if (!first.low && !second.low) return { high };
+  if (first.low && !second.low) return { high, low: 1 };
+  if (!first.low && second.low) return { high, low: -1 };
+
+  // A lower low-hand score is better, hence the reversed operands.
+  return { high, low: compareScore(second.low!.score, first.low!.score) };
+}
+
 export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
   normalizeHand(hand);
   if (hand.fullCommunity.length < 5) return undefined;

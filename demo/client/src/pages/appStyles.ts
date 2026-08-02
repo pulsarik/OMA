@@ -218,7 +218,7 @@ export const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     display: grid;
     gap: clamp(10px, 1.5vw, 20px);
-    min-height: 780px;
+    height: 780px;
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
@@ -546,12 +546,14 @@ export const PLAYER_PAGE_STYLES = `
   .party-metrics .result-points { min-width: 1000px; }
   .wallet-history { margin-top: 14px; border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 12px; }
   .wallet-history h3 { margin: 0 0 8px; }
-  .wallet-history-legend { display: flex; gap: 8px 16px; flex-wrap: wrap; margin-bottom: 8px; color: #475569; font-size: 12px; font-weight: 800; }
+  .wallet-history-legend { display: flex; gap: 10px 18px; flex-wrap: wrap; margin-bottom: 10px; color: #334155; font-size: 12px; font-weight: 850; }
   .wallet-history-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .wallet-history-legend i { width: 18px; height: 4px; border-radius: 999px; }
+  .wallet-history-key { width: 30px; height: 14px; flex: 0 0 30px; overflow: visible; }
   .wallet-history-canvas { overflow-x: auto; }
-  .wallet-history svg { display: block; width: 100%; min-width: 620px; height: auto; color: #64748b; font: 12px Inter, ui-sans-serif, system-ui, sans-serif; }
-  .wallet-history .chart-grid { stroke: #dbe4df; stroke-width: 1; }
+  .wallet-history-canvas > svg { display: block; width: 100%; min-width: 620px; height: auto; color: #475569; font: 12px Inter, ui-sans-serif, system-ui, sans-serif; }
+  .wallet-history .chart-grid { stroke: #cbd5d1; stroke-width: 1; }
+  .wallet-history .chart-line-halo { stroke: #fff; stroke-width: 8; opacity: .9; }
+  .wallet-history .chart-line { stroke-width: 4; }
   .wallet-history .chart-axis-title { fill: #334155; font-weight: 800; }
   .result-panel { margin-top: 12px; padding: clamp(10px, 2vw, 18px); }
   .winner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -561,7 +563,6 @@ export const PLAYER_PAGE_STYLES = `
   .all-hands { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
   .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
   @media (max-width: 900px) {
-    .poker-table { min-height: 0; }
     .table-center.has-showdown {
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
@@ -579,8 +580,8 @@ export const PLAYER_PAGE_STYLES = `
     .game-tile { border-radius: 20px; padding: 4px; }
     .poker-table,
     .poker-table.is-crowded {
-      min-height: clamp(560px, calc(100vh - 150px), 750px);
-      min-height: clamp(560px, calc(100dvh - 150px), 750px);
+      height: clamp(560px, calc(100vh - 150px), 750px);
+      height: clamp(560px, calc(100dvh - 150px), 750px);
       gap: 8px;
       border-width: 3px;
       border-radius: 34px;
@@ -622,7 +623,13 @@ export const PLAYER_PAGE_STYLES = `
     .view-tab { min-height: 36px; padding: 7px 13px; }
     .game-tile { border-radius: 22px; padding: 5px; }
     .stats-tile { border-radius: 18px; padding: 10px; }
-    .poker-table { min-height: 0; border-width: 3px; border-radius: 28px; padding: 12px 8px; }
+    .poker-table {
+      height: clamp(360px, calc(100vh - 210px), 570px);
+      height: clamp(360px, calc(100dvh - 210px), 570px);
+      border-width: 3px;
+      border-radius: 28px;
+      padding: 12px 8px;
+    }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { border-radius: 14px; }
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
@@ -686,7 +693,6 @@ export const PLAYER_PAGE_STYLES = `
       gap: 6px;
       padding: 7px 5px;
     }
-    .poker-table.is-showdown { gap: 4px; padding-block: 4px; }
     .opponents-row,
     .poker-table.is-crowded .opponents-row {
       gap: 7px 2px;
@@ -724,20 +730,21 @@ export const PLAYER_PAGE_STYLES = `
     .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: -21px; }
     .table-center,
     .poker-table.is-crowded .table-center {
-      min-height: 0;
+      height: 142px;
+      min-height: 142px;
       padding: 5px 4px;
     }
     .table-center.has-showdown {
+      grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
         "status status"
-        "board board"
-        "pot pot";
+        "board pot";
       gap: 4px;
     }
     .table-center.has-showdown .table-pot {
-      grid-column: 1 / -1;
-      grid-row: 3;
-      justify-self: center;
+      grid-column: 2;
+      grid-row: 2;
+      justify-self: end;
     }
     .table-showdown > div {
       min-width: 0 !important;
@@ -745,6 +752,27 @@ export const PLAYER_PAGE_STYLES = `
       padding: 6px 8px !important;
     }
     .table-showdown > div > strong { font-size: 19px !important; }
+    .opponents-row [data-testid^="player-result-"],
+    .hero-seat [data-testid^="player-result-"] {
+      position: absolute;
+      z-index: 5;
+      width: 120px;
+      max-width: calc(100vw - 24px);
+      border: 1px solid rgba(255,255,255,.7);
+      border-radius: 8px;
+      background: rgba(255,255,255,.94);
+      padding: 3px 5px;
+      box-shadow: 0 3px 10px rgba(0,0,0,.25);
+    }
+    .opponents-row [data-testid^="player-result-"] {
+      top: calc(100% + 3px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    .hero-seat [data-testid^="player-result-"] {
+      right: 0;
+      bottom: calc(100% + 3px);
+    }
     .table-center .board-row { gap: 4px; }
     .table-center .focal-card-frame {
       width: 33.12px;

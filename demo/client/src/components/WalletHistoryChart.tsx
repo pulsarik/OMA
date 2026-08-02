@@ -1,10 +1,51 @@
 import React from 'react';
 import type { WalletHistorySeries } from '../partyStatistics';
 
-const COLORS = [
-  '#047857', '#2563eb', '#dc2626', '#7c3aed', '#d97706',
-  '#0891b2', '#db2777', '#4d7c0f', '#9333ea', '#475569',
-];
+// The dash and marker patterns make the series identifiable without relying on
+// colour alone. This also keeps overlapping lines legible on small screens.
+const SERIES_STYLES = [
+  { color: '#007A5E', dash: undefined, marker: 'circle' },
+  { color: '#005FCC', dash: '14 6', marker: 'square' },
+  { color: '#C73232', dash: '3 6', marker: 'diamond' },
+  { color: '#6D3FC0', dash: '14 5 3 5', marker: 'triangle' },
+  { color: '#B05A00', dash: '8 5', marker: 'triangle-down' },
+  { color: '#007C91', dash: '2 5', marker: 'circle' },
+  { color: '#C2185B', dash: '12 4 2 4', marker: 'square' },
+  { color: '#4F6B00', dash: '6 4 2 4', marker: 'diamond' },
+  { color: '#8A288F', dash: '16 5', marker: 'triangle' },
+  { color: '#344054', dash: '5 5', marker: 'triangle-down' },
+] as const;
+
+type SeriesStyle = (typeof SERIES_STYLES)[number];
+
+function SeriesMarker({ x, y, style, title }: {
+  x: number;
+  y: number;
+  style: SeriesStyle;
+  title?: string;
+}) {
+  const common = { fill: style.color, stroke: '#fff', strokeWidth: 2 };
+  let shape: React.ReactNode;
+
+  switch (style.marker) {
+    case 'square':
+      shape = <rect x={x - 5} y={y - 5} width="10" height="10" rx="1" {...common} />;
+      break;
+    case 'diamond':
+      shape = <path d={`M ${x} ${y - 6} L ${x + 6} ${y} L ${x} ${y + 6} L ${x - 6} ${y} Z`} {...common} />;
+      break;
+    case 'triangle':
+      shape = <path d={`M ${x} ${y - 6} L ${x + 6} ${y + 5} L ${x - 6} ${y + 5} Z`} {...common} />;
+      break;
+    case 'triangle-down':
+      shape = <path d={`M ${x - 6} ${y - 5} L ${x + 6} ${y - 5} L ${x} ${y + 6} Z`} {...common} />;
+      break;
+    default:
+      shape = <circle cx={x} cy={y} r="5" {...common} />;
+  }
+
+  return <g>{title ? <title>{title}</title> : null}{shape}</g>;
+}
 
 type Props = {
   series: WalletHistorySeries[];
@@ -61,7 +102,19 @@ export function WalletHistoryChart({
       <div className="wallet-history-legend" aria-label={title}>
         {series.map((item, index) => (
           <span key={item.playerId}>
-            <i style={{ background: COLORS[index % COLORS.length] }} />
+            <svg className="wallet-history-key" viewBox="0 0 30 14" aria-hidden="true">
+              <line
+                x1="1"
+                x2="29"
+                y1="7"
+                y2="7"
+                stroke={SERIES_STYLES[index % SERIES_STYLES.length].color}
+                strokeWidth="4"
+                strokeDasharray={SERIES_STYLES[index % SERIES_STYLES.length].dash}
+                strokeLinecap="round"
+              />
+              <SeriesMarker x={15} y={7} style={SERIES_STYLES[index % SERIES_STYLES.length]} />
+            </svg>
             {playerName(item.playerId)}
           </span>
         ))}
@@ -83,17 +136,37 @@ export function WalletHistoryChart({
           <text className="chart-axis-title" x={margin.left + plotWidth / 2} y={height - 8} textAnchor="middle">{handLabel}</text>
           <text className="chart-axis-title" transform={`translate(17 ${margin.top + plotHeight / 2}) rotate(-90)`} textAnchor="middle">{walletLabel}</text>
           {series.map((item, index) => {
-            const color = COLORS[index % COLORS.length];
+            const style = SERIES_STYLES[index % SERIES_STYLES.length];
             const path = item.points.map((point, pointIndex) => (
               `${pointIndex ? 'L' : 'M'} ${x(point.handNumber)} ${y(point.wallet)}`
             )).join(' ');
             return (
               <g key={item.playerId} data-testid={`wallet-series-${item.playerId}`}>
-                <path d={path} fill="none" stroke={color} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+                <path
+                  d={path}
+                  className="chart-line-halo"
+                  fill="none"
+                  strokeDasharray={style.dash}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+                <path
+                  d={path}
+                  className="chart-line"
+                  fill="none"
+                  stroke={style.color}
+                  strokeDasharray={style.dash}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
                 {item.points.map((point) => (
-                  <circle key={point.handNumber} cx={x(point.handNumber)} cy={y(point.wallet)} r="4" fill={color}>
-                    <title>{`${playerName(item.playerId)} - ${handLabel} ${point.handNumber} - ${walletLabel} ${formatValue(point.wallet)}`}</title>
-                  </circle>
+                  <SeriesMarker
+                    key={point.handNumber}
+                    x={x(point.handNumber)}
+                    y={y(point.wallet)}
+                    style={style}
+                    title={`${playerName(item.playerId)} - ${handLabel} ${point.handNumber} - ${walletLabel} ${formatValue(point.wallet)}`}
+                  />
                 ))}
               </g>
             );
