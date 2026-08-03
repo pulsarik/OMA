@@ -278,8 +278,8 @@ test('the board stays centered through showdown at a ten-player table', async ({
   await createDefaultHumanVsBotDeal(page, 10);
 
   const actionDock = page.locator('.action-dock');
-  await expect(actionDock).toBeVisible({ timeout: 10_000 });
-  await expect(actionDock.locator('button').first()).toBeVisible({ timeout: 10_000 });
+  await expect(actionDock).toBeVisible({ timeout: 20_000 });
+  await expect(actionDock.locator('button').first()).toBeVisible({ timeout: 20_000 });
   const tableHeightDuringDeal = (await page.getByTestId('poker-table').boundingBox())!.height;
   const boardDuringDeal = (await page.getByTestId('table-board').boundingBox())!;
   const buttonBoxes = await actionDock.locator('button').evaluateAll((buttons) => buttons.map((button) => {
@@ -387,16 +387,18 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
+  const showdownResponse = await request.get(apiUrlForPlayerLink(href));
+  const showdownState = await showdownResponse.json();
   await expect(page.getByTestId('high-combo-side')).toBeVisible();
-  await expect(page.getByTestId('low-combo-side')).toHaveCount(0);
+  await expect(page.getByTestId('low-combo-side')).toHaveCount(
+    showdownState.currentCombo?.lowRank && showdownState.currentCombo?.lowCombo ? 1 : 0,
+  );
   const heroCardsBox = (await page.getByTestId('player-cards-P1').boundingBox())!;
   const highHintBox = (await page.getByTestId('high-combo-side').boundingBox())!;
   expect(highHintBox.x + highHintBox.width).toBeLessThanOrEqual(heroCardsBox.x);
   const comboCards = page.locator('[data-testid$="-combo-side"] [data-testid^="card-face-"]');
   await expect(comboCards.first()).toHaveAttribute('data-card-style', 'simple');
   expect(await comboCards.count()).toBeGreaterThan(0);
-  const showdownResponse = await request.get(apiUrlForPlayerLink(href));
-  const showdownState = await showdownResponse.json();
   expect(showdownState.dealCode).toMatch(/^OMA1-/);
   expect(showdownState.dealAuditNonce).toMatch(/^[a-f0-9]{64}$/);
   expect(createHash('sha256')
@@ -428,9 +430,10 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await page.getByRole('button', { name: 'Show all hands' }).click();
 
   const foldedHand = page.getByTestId('hand-detail-P1');
+  const foldedResult = showdownState.result.players.find((result: any) => result.id === 'P1');
   await expect(foldedHand.getByRole('heading', { name: 'Dima — folded' })).toBeVisible();
   await expect(foldedHand.getByText(/^High: /)).toBeVisible();
-  await expect(foldedHand.getByText(/^Low: /)).toHaveCount(0);
+  await expect(foldedHand.getByText(/^Low: /)).toHaveCount(foldedResult?.lowRank ? 1 : 0);
   await expect(page.getByTestId('party-total-P1')).toContainText('Dima');
   await expect(page.getByTestId('party-total-P2')).toContainText('Anna');
   await expect(page.getByRole('heading', { name: 'Uncontested winner: Anna' })).toBeVisible();

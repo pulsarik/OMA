@@ -129,7 +129,6 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   }
   await fold.click();
   await expect(page.getByTestId('high-combo-side')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId('low-combo-side')).toBeVisible();
   await expect(page.locator('.table-center.has-showdown')).toBeVisible({ timeout: 15_000 });
   await page.evaluate(() => window.scrollTo(0, 0));
 

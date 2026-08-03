@@ -947,7 +947,7 @@ export const PLAYER_PAGE_STYLES = `
     }
     .opponents-row .opponent-card .card-rank {
       top: 5px;
-      font-size: 30px !important;
+      font-size: 27px !important;
     }
     .opponents-row .opponent-card .card-suit {
       top: 34px;

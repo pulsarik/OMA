@@ -2116,6 +2116,7 @@ function PlayerPage({
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
   const retryPendingAfterSyncRef = useRef(false);
+  const joinedPlayerSocketRef = useRef<WebSocket | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
 
@@ -2198,6 +2199,7 @@ function PlayerPage({
 
   const { socket: ws, connected: socketReady } = useReliableWebSocket(WS_URL, {
     onOpen: (socket) => {
+      joinedPlayerSocketRef.current = null;
       const client = {
         platform: navigator.platform,
         screenWidth: window.screen.width,
@@ -2212,6 +2214,7 @@ function PlayerPage({
     onMessage: (event, socket) => {
       const message = JSON.parse(event.data);
       if (message.type === 'player_state') {
+        joinedPlayerSocketRef.current = socket;
         applySessionTiming(message.data.session);
         const localizedPlayer = withLocalTurnDeadline(message.data);
         setPlayer((currentPlayer) => (
@@ -2257,6 +2260,7 @@ function PlayerPage({
         }
       }
       if (message.type === 'hand_updated' && message.data?.id === handId) {
+        joinedPlayerSocketRef.current = null;
         socket.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
       }
       if (
@@ -2280,6 +2284,7 @@ function PlayerPage({
 
   useEffect(() => {
     if (ws?.readyState === WebSocket.OPEN) {
+      joinedPlayerSocketRef.current = null;
       ws.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
     }
   }, [ws, handId, playerId, token]);
@@ -2291,7 +2296,11 @@ function PlayerPage({
     const sendActivity = () => {
       const now = Date.now();
       lastInteraction = now;
-      if (ws.readyState === WebSocket.OPEN && now - lastActivitySent >= 5_000) {
+      if (
+        joinedPlayerSocketRef.current === ws
+        && ws.readyState === WebSocket.OPEN
+        && now - lastActivitySent >= 5_000
+      ) {
         lastActivitySent = now;
         ws.send(JSON.stringify({ action: 'player_activity' }));
       }
@@ -2305,6 +2314,7 @@ function PlayerPage({
       if (
         document.visibilityState === 'visible'
         && now - lastInteraction <= 30_000
+        && joinedPlayerSocketRef.current === ws
         && ws.readyState === WebSocket.OPEN
       ) {
         lastActivitySent = now;

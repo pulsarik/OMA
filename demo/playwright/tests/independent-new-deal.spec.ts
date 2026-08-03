@@ -51,7 +51,7 @@ test('players enter a new deal independently', async ({ page, browser }) => {
     Object.entries(window.sessionStorage)
       .find(([key]) => key.endsWith('-player-url'))?.[1]
   ))).toBe(guestDealUrl);
-  await expect(guest.getByTestId('table-stage')).toContainText('showdown');
+  await expect(guest.locator('.table-center.has-showdown')).toBeVisible();
   await expect(guest.getByRole('button', { name: 'New deal' })).toBeVisible();
 
   await guest.getByRole('button', { name: 'New deal' }).click();

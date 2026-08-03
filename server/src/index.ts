@@ -1691,7 +1691,7 @@ wss.on('connection', (ws, req) => {
           void scheduleTurnTimers(result.hand.id);
         }
       } else if (msg.action === 'player_activity') {
-        await recordBoundPlayerActivity(ws);
+        if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
       } else if (msg.action === 'replay' && msg.id) {
         const h = await store.getHand(msg.id);
         if (h) {
