@@ -2509,7 +2509,7 @@ function PlayerPage({
       ) : null}
 
       <div
-        className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}${player.stage === 'showdown' ? ' is-showdown' : ''}`}
+        className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}${otherPlayers.length >= 6 ? ' is-oval' : ''}${player.stage === 'showdown' ? ' is-showdown' : ''}`}
         data-testid="poker-table"
       >
         {player.replayOfHandId ? <HandBanner player={player} /> : null}

@@ -298,10 +298,17 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   await expect(showdownNewDeal).toBeVisible();
   await expect(page.locator('.table-showdown').getByTestId('showdown-new-deal')).toBeVisible();
   const showdownBox = (await page.locator('.table-showdown').boundingBox())!;
+  const showdownCenterBox = (await page.locator('.table-center.has-showdown').boundingBox())!;
   const showdownNewDealBox = (await showdownNewDeal.boundingBox())!;
   expect(showdownNewDealBox.x).toBeGreaterThanOrEqual(showdownBox.x);
   expect(showdownNewDealBox.x + showdownNewDealBox.width).toBeLessThanOrEqual(showdownBox.x + showdownBox.width);
   expect(showdownNewDealBox.y + showdownNewDealBox.height).toBeLessThanOrEqual(showdownBox.y + showdownBox.height);
+  expect(Math.abs(
+    (showdownBox.x + showdownBox.width / 2) - (showdownCenterBox.x + showdownCenterBox.width / 2),
+  )).toBeLessThanOrEqual(2);
+  const peripheralResults = page.locator('.poker-table.is-oval .opponents-row [data-testid^="player-result-"]');
+  await expect(peripheralResults).toHaveCount(6);
+  await expect(peripheralResults.first()).toBeHidden();
   const newDealBox = await newDealButton.boundingBox();
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);

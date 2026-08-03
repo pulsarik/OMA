@@ -290,7 +290,7 @@ export const PLAYER_PAGE_STYLES = `
       position: relative;
       display: block;
       box-sizing: border-box;
-      height: clamp(330px, 38vh, 360px);
+      height: clamp(275px, 31vh, 300px);
       padding: 0;
     }
     .opponents-row:is(
@@ -303,36 +303,37 @@ export const PLAYER_PAGE_STYLES = `
       width: clamp(150px, 16vw, 205px);
       transform: translateX(-50%);
     }
-    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(1) { left: 10%; top: 220px; }
-    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(2) { left: 20%; top: 105px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(1) { left: 10%; top: 180px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(2) { left: 20%; top: 88px; }
     .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(3) { left: 40%; top: 0; }
     .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(4) { left: 60%; top: 0; }
-    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(5) { left: 80%; top: 105px; }
-    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(6) { left: 90%; top: 220px; }
-    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1) { left: 10%; top: 220px; }
-    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2) { left: 18%; top: 105px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(5) { left: 80%; top: 88px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(6) { left: 90%; top: 180px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1) { left: 10%; top: 180px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2) { left: 18%; top: 88px; }
     .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3) { left: 30%; top: 0; }
     .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(4) { left: 50%; top: 0; }
     .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5) { left: 70%; top: 0; }
-    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6) { left: 82%; top: 105px; }
-    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7) { left: 90%; top: 220px; }
-    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1) { left: 10%; top: 220px; }
-    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2) { left: 12%; top: 105px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6) { left: 82%; top: 88px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7) { left: 90%; top: 180px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1) { left: 10%; top: 180px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2) { left: 12%; top: 88px; }
     .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3) { left: 20%; top: 0; }
     .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(4) { left: 40%; top: 0; }
     .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(5) { left: 60%; top: 0; }
     .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6) { left: 80%; top: 0; }
-    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { left: 88%; top: 105px; }
-    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { left: 90%; top: 220px; }
-    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1) { left: 10%; top: 220px; }
-    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2) { left: 10%; top: 105px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { left: 88%; top: 88px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { left: 90%; top: 180px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1) { left: 10%; top: 180px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2) { left: 10%; top: 88px; }
     .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3) { left: 10%; top: 0; }
     .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4) { left: 30%; top: 0; }
     .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(5) { left: 50%; top: 0; }
     .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { left: 70%; top: 0; }
     .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { left: 90%; top: 0; }
-    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { left: 90%; top: 105px; }
-    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { left: 90%; top: 220px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { left: 90%; top: 88px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { left: 90%; top: 180px; }
+    .poker-table.is-oval.is-showdown .opponents-row [data-testid^="player-result-"] { display: none !important; }
   }
   .player-seat-wrap { flex: 0 1 288px; min-width: 0; }
   .player-seat {
@@ -395,15 +396,15 @@ export const PLAYER_PAGE_STYLES = `
     padding: 12px;
   }
   .table-center.has-showdown {
-    grid-template-columns: minmax(220px, 1fr) auto minmax(140px, 1fr);
-    grid-template-areas: "status board pot";
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "board status pot";
   }
   .table-showdown {
     grid-area: status;
     display: flex;
     align-items: center;
-    justify-content: flex-start;
-    justify-self: start;
+    justify-content: center;
+    justify-self: center;
     gap: 10px;
   }
   .table-center.has-showdown .table-stage { display: none; }
@@ -718,6 +719,10 @@ export const PLAYER_PAGE_STYLES = `
         "status status"
         "board board"
         "pot pot";
+    }
+    .poker-table.is-oval .table-center.has-showdown {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      grid-template-areas: "board status pot";
     }
     .table-showdown { justify-self: center; justify-content: center; }
     .table-center.has-showdown .table-pot { justify-self: center; }
