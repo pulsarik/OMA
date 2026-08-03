@@ -188,9 +188,11 @@ export function VoiceChat({
         {error ? <span role="alert" style={{ color: '#b91c1c' }}>{error}</span> : null}
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {status === 'connecting' ? (
-          <button type="button" disabled>{labels.joining}</button>
-        ) : status === 'connected' ? (
+        {status !== 'connected' ? (
+          <button type="button" onClick={join} disabled={status !== 'idle'}>
+            {status === 'idle' ? labels.join : labels.joining}
+          </button>
+        ) : (
           <>
             <button
               type="button"
@@ -204,8 +206,6 @@ export function VoiceChat({
             </button>
             <button type="button" onClick={() => void leave()}>{labels.leave}</button>
           </>
-        ) : (
-          <button type="button" disabled>{labels.joining}</button>
         )}
       </div>
       <div ref={audioContainerRef} hidden aria-hidden="true" />
