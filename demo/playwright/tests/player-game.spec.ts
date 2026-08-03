@@ -40,12 +40,10 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   expect(state.dealAuditNonce).toBeUndefined();
   expect(state.dealCommitment).toMatch(/^[a-f0-9]{64}$/);
 
-  await expect(page.getByTestId('omaha-guide')).toContainText('exactly 2 hole + 3 board cards');
-  await expect(page.getByTestId('turn-status')).toBeVisible();
-  const customWager = page.getByTestId('custom-wager-input');
-  await expect(customWager).toBeVisible();
-  await expect(customWager).toHaveAttribute('min', /\d+/);
-  await expect(customWager).toHaveAttribute('max', /\d+/);
+  await expect(page.getByTestId('omaha-guide')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Pot limit' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Max', exact: true })).toHaveCount(0);
+  await expect(page.getByTestId('custom-wager-input')).toHaveCount(0);
 
   const contributions = page.getByTestId('pot-contributions');
   await expect(contributions).toBeHidden();
@@ -227,7 +225,14 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
 
   const thinkingSeat = page.getByTestId('active-player-P2');
   await expect(thinkingSeat).toBeVisible();
-  await expect(thinkingSeat.getByText('THINKING…', { exact: true })).toBeVisible();
+  const thinkingBubble = thinkingSeat.getByText('THINKING…', { exact: true });
+  await expect(thinkingBubble).toBeVisible();
+  const thinkingBox = (await thinkingBubble.boundingBox())!;
+  const thinkingTableBox = (await page.getByTestId('poker-table').boundingBox())!;
+  expect(thinkingBox.x).toBeGreaterThanOrEqual(thinkingTableBox.x);
+  expect(thinkingBox.y).toBeGreaterThanOrEqual(thinkingTableBox.y);
+  expect(thinkingBox.x + thinkingBox.width).toBeLessThanOrEqual(thinkingTableBox.x + thinkingTableBox.width);
+  expect(thinkingBox.y + thinkingBox.height).toBeLessThanOrEqual(thinkingTableBox.y + thinkingTableBox.height);
   await expect(page.getByText('Anna — THINKING…', { exact: true })).toHaveCount(0);
 
   await expect.poll(async () => {
@@ -267,15 +272,16 @@ test('cards use the simplified deck without loading RevK images', async ({ page,
   await expect(page.locator('img[src*="/cards/revk/"]')).toHaveCount(0);
 });
 
-test('all action buttons fit in the viewport at a seven-player table', async ({ page }) => {
+test('the board stays centered through showdown at a ten-player table', async ({ page }) => {
   test.setTimeout(120_000);
-  await page.setViewportSize({ width: 1920, height: 1080 });
-  await createDefaultHumanVsBotDeal(page, 7);
+  await page.setViewportSize({ width: 1558, height: 1037 });
+  await createDefaultHumanVsBotDeal(page, 10);
 
   const actionDock = page.locator('.action-dock');
   await expect(actionDock).toBeVisible({ timeout: 10_000 });
   await expect(actionDock.locator('button').first()).toBeVisible({ timeout: 10_000 });
   const tableHeightDuringDeal = (await page.getByTestId('poker-table').boundingBox())!.height;
+  const boardDuringDeal = (await page.getByTestId('table-board').boundingBox())!;
   const buttonBoxes = await actionDock.locator('button').evaluateAll((buttons) => buttons.map((button) => {
     const box = button.getBoundingClientRect();
     return { top: box.top, right: box.right, bottom: box.bottom, left: box.left };
@@ -293,7 +299,14 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
   const newDealButton = page.getByRole('button', { name: 'New deal' });
   await expect(newDealButton).toBeVisible({ timeout: 90_000 });
   const tableBoxAfterDeal = (await page.getByTestId('poker-table').boundingBox())!;
+  const boardAfterDeal = (await page.getByTestId('table-board').boundingBox())!;
   expect(Math.abs(tableBoxAfterDeal.height - tableHeightDuringDeal)).toBeLessThanOrEqual(2);
+  expect(Math.abs(
+    (boardAfterDeal.x + boardAfterDeal.width / 2) - (boardDuringDeal.x + boardDuringDeal.width / 2),
+  )).toBeLessThanOrEqual(2);
+  expect(Math.abs(
+    (boardAfterDeal.y + boardAfterDeal.height / 2) - (boardDuringDeal.y + boardDuringDeal.height / 2),
+  )).toBeLessThanOrEqual(2);
   const showdownNewDeal = page.getByTestId('showdown-new-deal');
   await expect(showdownNewDeal).toBeVisible();
   await expect(page.locator('.table-showdown').getByTestId('showdown-new-deal')).toBeVisible();
@@ -307,8 +320,9 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
     (showdownBox.x + showdownBox.width / 2) - (showdownCenterBox.x + showdownCenterBox.width / 2),
   )).toBeLessThanOrEqual(2);
   const peripheralResults = page.locator('.poker-table.is-oval .opponents-row [data-testid^="player-result-"]');
-  await expect(peripheralResults).toHaveCount(6);
-  await expect(peripheralResults.first()).toBeHidden();
+  await expect(peripheralResults).toHaveCount(9);
+  await expect(peripheralResults.first()).toBeVisible();
+  await expect(page.getByTestId('player-result-P5')).toContainText('High:');
   const newDealBox = await newDealButton.boundingBox();
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);

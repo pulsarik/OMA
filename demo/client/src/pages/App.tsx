@@ -266,7 +266,7 @@ const BET_SIZE_OPTIONS: Array<{ value: BetSizeOption; label: string }> = [
   { value: 'blind', label: 'Blind' },
   { value: 'quarter', label: '1/4 pot' },
   { value: 'half', label: '1/2 pot' },
-  { value: 'pot', label: 'Pot' },
+  { value: 'pot', label: 'Pot limit' },
 ];
 
 function localizedBetSize(option: { value: BetSizeOption; label: string }) {
@@ -274,7 +274,7 @@ function localizedBetSize(option: { value: BetSizeOption; label: string }) {
   if (option.value === 'blind') return 'Блайнд';
   if (option.value === 'quarter') return '1/4 банка';
   if (option.value === 'half') return '1/2 банка';
-  return 'Банк';
+  return 'Пот-лимит';
 }
 
 const MAX_PLAYERS = 10;
@@ -1049,6 +1049,113 @@ function StreetBadge({ stage }: { stage: string }) {
   );
 }
 
+type SeatBubblePlacement = 'top' | 'right' | 'bottom' | 'left';
+
+function AdaptiveSeatBubble({
+  label,
+  title,
+  emphasized,
+  foldedAction,
+  compact,
+  testId,
+}: {
+  label: string;
+  title: string;
+  emphasized: boolean;
+  foldedAction: boolean;
+  compact: boolean;
+  testId?: string;
+}) {
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [layout, setLayout] = useState<{ left: number; top: number; placement: SeatBubblePlacement }>();
+
+  useEffect(() => {
+    const bubble = bubbleRef.current;
+    const seat = bubble?.closest<HTMLElement>('.player-seat');
+    const table = bubble?.closest<HTMLElement>('.poker-table');
+    if (!bubble || !seat || !table) return;
+
+    const placeBubble = () => {
+      const tableBox = table.getBoundingClientRect();
+      const seatBox = seat.getBoundingClientRect();
+      const bubbleWidth = bubble.offsetWidth;
+      const bubbleHeight = bubble.offsetHeight;
+      const gap = 8;
+      const padding = 6;
+      const candidates: Array<{ placement: SeatBubblePlacement; left: number; top: number }> = [
+        { placement: 'top', left: seatBox.left + (seatBox.width - bubbleWidth) / 2, top: seatBox.top - bubbleHeight - gap },
+        { placement: 'right', left: seatBox.right + gap, top: seatBox.top + (seatBox.height - bubbleHeight) / 2 },
+        { placement: 'bottom', left: seatBox.left + (seatBox.width - bubbleWidth) / 2, top: seatBox.bottom + gap },
+        { placement: 'left', left: seatBox.left - bubbleWidth - gap, top: seatBox.top + (seatBox.height - bubbleHeight) / 2 },
+      ];
+      const obstacles = [
+        seat,
+        ...Array.from(table.querySelectorAll<HTMLElement>('.player-seat')).filter(candidate => candidate !== seat),
+        ...Array.from(table.querySelectorAll<HTMLElement>('.table-center')),
+      ].map(element => element.getBoundingClientRect());
+      const overlapArea = (a: DOMRect, b: DOMRect) => (
+        Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+        * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top))
+      );
+
+      const ranked = candidates.map((candidate, preference) => {
+        const left = Math.min(
+          Math.max(candidate.left, tableBox.left + padding),
+          tableBox.right - padding - bubbleWidth,
+        );
+        const top = Math.min(
+          Math.max(candidate.top, tableBox.top + padding),
+          tableBox.bottom - padding - bubbleHeight,
+        );
+        const rect = new DOMRect(left, top, bubbleWidth, bubbleHeight);
+        const clampedDistance = Math.abs(left - candidate.left) + Math.abs(top - candidate.top);
+        const collisions = obstacles.reduce((total, obstacle) => total + overlapArea(rect, obstacle), 0);
+        return { ...candidate, left, top, score: clampedDistance * 1000 + collisions + preference };
+      }).sort((a, b) => a.score - b.score);
+      const best = ranked[0];
+      setLayout({
+        placement: best.placement,
+        left: best.left - seatBox.left,
+        top: best.top - seatBox.top,
+      });
+    };
+
+    placeBubble();
+    const resizeObserver = new ResizeObserver(placeBubble);
+    resizeObserver.observe(table);
+    resizeObserver.observe(seat);
+    window.addEventListener('resize', placeBubble);
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', placeBubble);
+    };
+  }, [label]);
+
+  return (
+    <div
+      ref={bubbleRef}
+      className={`seat-action-bubble placement-${layout?.placement ?? 'top'}`}
+      data-testid={testId}
+      title={title}
+      style={{
+        left: layout?.left ?? 0,
+        top: layout?.top ?? 0,
+        visibility: layout ? 'visible' : 'hidden',
+        border: emphasized ? '2px solid #f59e0b' : '1px solid #cbd5e1',
+        background: emphasized ? '#facc15' : foldedAction ? '#fee2e2' : '#fff',
+        color: emphasized ? '#422006' : foldedAction ? '#7f1d1d' : '#0f172a',
+        fontSize: compact ? 13 : 14,
+        boxShadow: emphasized
+          ? '0 3px 12px rgba(250,204,21,0.55)'
+          : '0 2px 7px rgba(15,23,42,0.2)',
+      }}
+    >
+      {label}
+      <span className="seat-action-tail" aria-hidden="true" />
+    </div>
+  );
+}
+
 function PlayerSeat({
   id,
   name,
@@ -1067,8 +1174,6 @@ function PlayerSeat({
   isWaitingForNextDeal = false,
   blindLabel,
   isDealer = false,
-  stack,
-  roundBet = 0,
   disconnected = false,
   turnSeconds,
 }: {
@@ -1089,8 +1194,6 @@ function PlayerSeat({
   isWaitingForNextDeal?: boolean;
   blindLabel?: string;
   isDealer?: boolean;
-  stack?: number;
-  roundBet?: number;
   disconnected?: boolean;
   turnSeconds?: number;
 }) {
@@ -1134,7 +1237,8 @@ function PlayerSeat({
           background: compact && !isYou
             ? 'transparent'
             : folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
-          opacity: folded ? 0.62 : 1,
+          opacity: folded ? 0.38 : 1,
+          filter: folded ? 'grayscale(1)' : undefined,
           width: compact ? 'fit-content' : undefined,
           minWidth: compact ? undefined : 180,
           margin: '0 auto',
@@ -1145,8 +1249,10 @@ function PlayerSeat({
         }}
       >
         {compact && !isYou ? (
-          <span
-            className="seat-name-score"
+          <div className="seat-topline">
+            {isBot ? <span className="bot-badge">{ui('BOT', 'БОТ')}</span> : null}
+            <span
+              className="seat-name-score"
             title={`${tablePlayerName(name, id)}: ${formatPoints(score)} ${ui('coins', 'фишек')}`}
             style={{
               position: 'relative',
@@ -1164,16 +1270,26 @@ function PlayerSeat({
               gap: 6,
               alignItems: 'center',
               width: 'fit-content',
-              margin: '0 auto 5px',
+              margin: '0 0 5px',
               whiteSpace: 'nowrap',
             }}
           >
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(score)}</strong>
-          </span>
+            </span>
+            <div className="seat-inline-positions" aria-label={ui('Table positions', 'Позиции за столом')}>
+              {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+              {blindLabel ? (
+                <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
+                  {blindLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
         ) : null}
-        {isBot ? (
+        {isBot && (!compact || isYou) ? (
           <span
+            className="bot-badge"
             style={{
               position: 'absolute',
               top: 4,
@@ -1191,20 +1307,24 @@ function PlayerSeat({
             {ui('BOT', 'БОТ')}
           </span>
         ) : null}
-        <div className="seat-position-badges" aria-label={ui('Table positions', 'Позиции за столом')}>
+        {(!compact || isYou) ? <div className="seat-position-badges" aria-label={ui('Table positions', 'Позиции за столом')}>
           {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
           {blindLabel ? (
             <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
               {blindLabel}
             </span>
           ) : null}
-        </div>
+        </div> : null}
         {isCurrentTurn && typeof turnSeconds === 'number' ? (
           <span className="turn-countdown" data-testid={`turn-countdown-${id}`}>{turnSeconds}s</span>
         ) : null}
         {bubbleLabel ? (
-          <div
-            data-testid={isWaitingForNextDeal ? `waiting-for-player-${id}` : undefined}
+          <AdaptiveSeatBubble
+            label={bubbleLabel}
+            compact={compact}
+            emphasized={isCurrentTurn || isWaitingForNextDeal}
+            foldedAction={action?.move === 'fold'}
+            testId={isWaitingForNextDeal ? `waiting-for-player-${id}` : undefined}
             title={isWaitingForNextDeal
               ? ui(
                   `Waiting for ${tablePlayerName(name, id)} to start the new deal`,
@@ -1213,40 +1333,7 @@ function PlayerSeat({
               : isCurrentTurn
                 ? isYourTurn ? ui('Your turn', 'Ваш ход') : `${tablePlayerName(name, id)} ${ui('is thinking', 'думает')}`
                 : `${ui('Last action', 'Последнее действие')}: ${actionLabel}`}
-            style={{
-              position: 'absolute',
-              top: -18,
-              right: 8,
-              zIndex: 2,
-              border: isCurrentTurn || isWaitingForNextDeal ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-              borderRadius: 8,
-              background: isCurrentTurn || isWaitingForNextDeal ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
-              color: isCurrentTurn || isWaitingForNextDeal ? '#422006' : action?.move === 'fold' ? '#7f1d1d' : '#0f172a',
-              padding: '5px 9px',
-              fontSize: compact ? 13 : 14,
-              fontWeight: 900,
-              lineHeight: 1,
-              boxShadow: isCurrentTurn || isWaitingForNextDeal
-                ? '0 3px 12px rgba(250,204,21,0.55)'
-                : '0 2px 7px rgba(15,23,42,0.2)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {bubbleLabel}
-            <span
-              style={{
-                position: 'absolute',
-                right: 10,
-                bottom: -6,
-                width: 10,
-                height: 10,
-                borderRight: isCurrentTurn || isWaitingForNextDeal ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                borderBottom: isCurrentTurn || isWaitingForNextDeal ? '2px solid #f59e0b' : '1px solid #cbd5e1',
-                background: isCurrentTurn || isWaitingForNextDeal ? '#facc15' : action?.move === 'fold' ? '#fee2e2' : '#fff',
-                transform: 'rotate(45deg)',
-              }}
-            />
-          </div>
+          />
         ) : null}
         <div
           style={{
@@ -1324,10 +1411,6 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-        </div>
-        <div className="seat-chipline">
-          <span data-testid={`player-stack-${id}`}>{ui('Stack', 'Стек')} <strong>{formatPoints(stack)}</strong></span>
-          <span data-testid={`player-round-bet-${id}`}>{ui('Street', 'Улица')} <strong>{formatPoints(roundBet)}</strong></span>
         </div>
         {resultPlayer && (!isYou || folded) ? (
           <div
@@ -1544,10 +1627,10 @@ function ShowdownStatus({
   const title = hasResult || hasSummary || knownFoldResult
     ? net > 0
       ? sharedWin
-        ? `${ui('You tied', 'Ничья')}${winParts.length ? `: ${winParts.join(' + ')}` : ''}`
+        ? `${ui('You tied', 'Ничья')} · ${ui('payout', 'выплата')} ${formatPoints(payout)}${winParts.length ? ` · ${winParts.join(' + ')}` : ''}`
         : winParts.length
-        ? `${isSplitPot ? `${ui('Split pot', 'Раздел банка')}: ` : ''}${ui('You won', 'Вы выиграли')} ${winParts.join(' + ')}`
-        : ui('You won', 'Вы выиграли')
+        ? `${isSplitPot ? `${ui('Split pot', 'Раздел банка')}: ` : ''}${ui('You won', 'Вы выиграли')} ${formatPoints(payout)} · ${winParts.join(' + ')}`
+        : `${ui('You won', 'Вы выиграли')} ${formatPoints(payout)}`
       : net < 0
         ? ui('You lost', 'Вы проиграли')
         : ui('Break even', 'Без прибыли и убытка')
@@ -2051,7 +2134,6 @@ function PlayerPage({
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
-  const [customTarget, setCustomTarget] = useState('');
   const [activeView, setActiveView] = useState<'table' | 'stats'>('table');
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
@@ -2358,17 +2440,7 @@ function PlayerPage({
   const call = callAction(callAmount, player.stack);
   const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
   const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, minimumRaiseIncrement, player.stack);
-  const maximumTarget = currentBet > 0
-    ? Math.min(yourRoundBet + player.stack, currentBet + player.potCoins + callAmount)
-    : player.stack;
-  const minimumTarget = currentBet > 0
-    ? Math.min(currentBet + minimumRaiseIncrement, maximumTarget)
-    : Math.min(bigBlind, maximumTarget);
-  const parsedCustomTarget = Number(customTarget);
-  const hasCustomTarget = customTarget !== '' && Number.isFinite(parsedCustomTarget);
-  const wagerTarget = hasCustomTarget
-    ? Math.min(maximumTarget, Math.max(minimumTarget, Math.round(parsedCustomTarget)))
-    : currentBet > 0 ? raiseTo : betAmount;
+  const wagerTarget = currentBet > 0 ? raiseTo : betAmount;
   const betSizeFraction = betSizeFactor(betSize);
   const potAfterCall = player.potCoins + callAmount;
   const nominalRaiseSize = Math.ceil(potAfterCall * betSizeFraction);
@@ -2409,7 +2481,7 @@ function PlayerPage({
     && !tournamentWinner
     && !player.partyFinishedEarly
     && !finishVotePending;
-  const showActionDock = player.stage !== 'showdown';
+  const showActionDock = isYourTurn;
   const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
@@ -2438,7 +2510,7 @@ function PlayerPage({
       `Confirm all-in to ${formatPoints(wagerTarget)}?`,
       `Подтвердить олл-ин до ${formatPoints(wagerTarget)}?`,
     ))) return;
-    sendMove(move, wagerTarget, hasCustomTarget ? undefined : betSize);
+    sendMove(move, wagerTarget, betSize);
   };
   const statusPillStyle: React.CSSProperties = {
     border: '1px solid #d1d5db',
@@ -2538,8 +2610,6 @@ function PlayerPage({
               isWaitingForNextDeal={Boolean(player.waitingForPlayers?.some(candidate => candidate.id === seat.id))}
               blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
               isDealer={seat.id === dealerPlayerId}
-              stack={seat.stack}
-              roundBet={player.roundBets?.[seat.id] ?? 0}
               disconnected={seat.disconnected === true || seat.connected === false}
               turnSeconds={player.currentPlayerId === seat.id ? turnSeconds : undefined}
             />
@@ -2555,33 +2625,39 @@ function PlayerPage({
           }}
         >
           {player.stage === 'showdown' ? (
-            <div className="table-showdown">
-              <ShowdownStatus
-                player={player}
-                newDealAction={canContinue ? (
-                  <button
-                    className="action-button primary"
-                    disabled={isCreatingDeal}
-                    onClick={startNewDeal}
-                  >
-                    {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
-                  </button>
-                ) : player.nextPlayerLink ? (
-                  <button
-                    className="action-button primary"
-                    onClick={() => {
-                      if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
-                      else window.location.href = player.nextPlayerLink!.url;
-                    }}
-                  >
-                    {ui('New deal', 'Новая раздача')}
-                  </button>
-                ) : undefined}
-              />
+            <div className="table-showdown-center">
+              <div className="table-showdown">
+                <ShowdownStatus
+                  player={player}
+                  newDealAction={canContinue ? (
+                    <button
+                      className="action-button primary"
+                      disabled={isCreatingDeal}
+                      onClick={startNewDeal}
+                    >
+                      {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
+                    </button>
+                  ) : player.nextPlayerLink ? (
+                    <button
+                      className="action-button primary"
+                      onClick={() => {
+                        if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
+                        else window.location.href = player.nextPlayerLink!.url;
+                      }}
+                    >
+                      {ui('New deal', 'Новая раздача')}
+                    </button>
+                  ) : undefined}
+                />
+              </div>
+              <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
             </div>
-          ) : null}
-          <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
-          <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
+          ) : (
+            <>
+              <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
+              <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
+            </>
+          )}
           <div className="table-pot" data-testid="table-pot">
             <PotDisplay
               value={player.potCoins}
@@ -2618,8 +2694,6 @@ function PlayerPage({
               blindLabel={playerBlindLabel(player.blinds, player.playerId, player.stage)}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
               isDealer={player.playerId === dealerPlayerId}
-              stack={player.stack}
-              roundBet={yourRoundBet}
               disconnected={!socketReady}
               turnSeconds={player.currentPlayerId === player.playerId ? turnSeconds : undefined}
             />
@@ -2627,12 +2701,6 @@ function PlayerPage({
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
-      <aside className="omaha-guide" data-testid="omaha-guide">
-        <strong>{ui('Omaha Hi-Lo: exactly 2 hole + 3 board cards', 'Omaha Hi-Lo: ровно 2 карманные + 3 общие карты')}</strong>
-        <span>{player.currentCombo?.lowCombo?.length
-          ? ui('Qualifying low is available', 'Есть подходящая комбинация Low')
-          : ui('No qualifying low yet (five different cards, 8 or lower)', 'Low пока нет: нужны пять разных карт не старше 8')}</span>
-      </aside>
       {finishVotePending ? (
         <section
           data-testid="early-finish-vote"
@@ -2710,13 +2778,6 @@ function PlayerPage({
       ) : null}
 
       {showActionDock ? <div className="action-dock">
-        <div className="action-dock-status" role="status" data-testid="turn-status">
-          {!socketReady
-            ? ui('Connection lost — actions are paused', 'Соединение потеряно — действия приостановлены')
-            : isYourTurn
-              ? `${ui('Your turn', 'Ваш ход')}${typeof turnSeconds === 'number' ? ` · ${turnSeconds}s` : ''}`
-              : `${ui('Waiting for', 'Ждём ход')}: ${playerLabel(player.players, player.currentPlayerId)}`}
-        </div>
         {pendingCommand ? (
           <strong role="status">
             {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
@@ -2729,29 +2790,12 @@ function PlayerPage({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => { setBetSize(option.value); setCustomTarget(''); }}
-                className={`bet-size-button${!hasCustomTarget && betSize === option.value ? ' is-selected' : ''}`}
+                onClick={() => setBetSize(option.value)}
+                className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
               >
                 {localizedBetSize(option)}
               </button>
             ))}
-            <label className="custom-wager">
-              <span>{currentBet > 0 ? ui('Raise to', 'Рейз до') : ui('Bet', 'Ставка')}</span>
-              <input
-                data-testid="custom-wager-input"
-                type="number"
-                inputMode="numeric"
-                min={minimumTarget}
-                max={maximumTarget}
-                step="1"
-                value={customTarget}
-                placeholder={formatPoints(currentBet > 0 ? raiseTo : betAmount)}
-                onChange={(event) => setCustomTarget(event.target.value)}
-              />
-            </label>
-            <button type="button" className="bet-size-button" onClick={() => setCustomTarget(String(maximumTarget))}>
-              {ui('Max', 'Макс')}
-            </button>
           </div>
         ) : null}
         <div className="main-actions">
