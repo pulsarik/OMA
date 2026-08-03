@@ -5,6 +5,8 @@ export default defineConfig({
   testIgnore: '**/*.timer.spec.ts',
   timeout: 30_000,
   expect: { timeout: 5_000 },
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI ? [['github'], ['list']] : 'list',
   fullyParallel: false,
   // All scenarios share one in-memory game server. Serial execution prevents
   // unrelated lobbies and reconnect tests from starving each other's sockets.
