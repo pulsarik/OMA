@@ -22,7 +22,7 @@ function callBlindsToFlop(hand: ReturnType<typeof dealHand>) {
 
 test('an aggressive bot raises instead of betting after everyone matched an open bet', () => {
   expect(aggressiveMoveForMatchedBet(4, 0)).toBe('raise');
-  expect(aggressiveMoveForMatchedBet(4, 3)).toBe('raise');
+  expect(aggressiveMoveForMatchedBet(4, 3)).toBe('check');
   expect(aggressiveMoveForMatchedBet(0, 0)).toBe('bet');
 });
 
@@ -715,7 +715,7 @@ test('player must call after opponent raises a custom amount', () => {
   expect(hand.stage).toBe('turn');
 });
 
-test('pot-limit betting allows more than three raises per street', () => {
+test('raise count is limited to three per street', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
@@ -723,11 +723,11 @@ test('pot-limit betting allows more than three raises per street', () => {
   recordPlayerMove(hand, 'P1', 'raise');
   recordPlayerMove(hand, 'P2', 'raise');
   recordPlayerMove(hand, 'P1', 'raise');
-  recordPlayerMove(hand, 'P2', 'raise');
 
-  expect(hand.raiseCount).toBe(4);
+  expect(hand.raiseCount).toBe(3);
+  expect(() => recordPlayerMove(hand, 'P2', 'raise')).toThrow('raise limit reached');
 
-  recordPlayerMove(hand, 'P1', 'call');
+  recordPlayerMove(hand, 'P2', 'call');
   expect(hand.stage).toBe('turn');
 });
 

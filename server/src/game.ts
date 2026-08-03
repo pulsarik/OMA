@@ -10,8 +10,7 @@ export const STARTING_STACK = 1000;
 export const BLIND_LEVEL_HANDS = 8;
 export const INITIAL_SMALL_BLIND = 2;
 export const INITIAL_BIG_BLIND = 4;
-/** @deprecated Pot-limit games do not cap the number of raises per street. */
-export const MAX_RAISES_PER_STREET = Number.MAX_SAFE_INTEGER;
+export const MAX_RAISES_PER_STREET = 3;
 export const POT_COINS = INITIAL_SMALL_BLIND + INITIAL_BIG_BLIND;
 export const SHUFFLE_VERSION = 'OMA1';
 const STAGES = ['preflop', 'flop', 'turn', 'river', 'showdown'] as const;
@@ -536,6 +535,7 @@ export function recordPlayerMove(
     if (hand.currentBet === 0) throw new Error('raise requires an open bet');
     const callAmount = Math.max(hand.currentBet - playerBet, 0);
     if (actingPlayer.stack <= callAmount) throw new Error('insufficient chips to raise');
+    if (hand.raiseCount >= MAX_RAISES_PER_STREET) throw new Error('raise limit reached');
     if (hand.actedSinceLastFullRaise?.includes(playerId)) throw new Error('betting is not reopened');
     const maxRaiseTo = Math.min(playerBet + actingPlayer.stack, hand.currentBet + hand.potCoins + callAmount);
     const lastFullRaise = hand.lastFullRaise ?? betUnit;

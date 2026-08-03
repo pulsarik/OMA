@@ -1,5 +1,6 @@
 import {
   PlayerMove,
+  MAX_RAISES_PER_STREET,
   compareOmahaHands,
   normalizeHand,
   visibleCommunity,
@@ -167,6 +168,7 @@ function potRaiseTo(hand: any, player: any, fraction: number) {
 
 export function aggressiveMoveForMatchedBet(currentBet: number, raiseCount: number): PlayerMove {
   if (currentBet === 0) return 'bet';
+  if (raiseCount >= MAX_RAISES_PER_STREET) return 'check';
   return 'raise';
 }
 
@@ -209,7 +211,7 @@ export function botMove(hand: any, player: any): BotDecision {
     if (player.stack <= callAmount) {
       return { move: 'call' };
     }
-    if (!hand.actedSinceLastFullRaise?.includes(player.id)) {
+    if (!hand.actedSinceLastFullRaise?.includes(player.id) && hand.raiseCount < MAX_RAISES_PER_STREET) {
       return { move: 'raise', amount: potRaiseTo(hand, player, equity >= 0.78 || scoopRate >= 0.65 ? 1 : 0.5) };
     }
     return { move: 'call' };
