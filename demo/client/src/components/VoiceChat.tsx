@@ -37,10 +37,8 @@ export function VoiceChat({
   const roomRef = useRef<Room | null>(null);
   const audioContainerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(true);
-  const soundEnabledRef = useRef(true);
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [participantCount, setParticipantCount] = useState(0);
   const [speakers, setSpeakers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -58,10 +56,8 @@ export function VoiceChat({
     }
     audioContainerRef.current?.replaceChildren();
     if (!mountedRef.current) return;
-    soundEnabledRef.current = true;
     setStatus('idle');
     setMicrophoneEnabled(false);
-    setSoundEnabled(true);
     setParticipantCount(0);
     setSpeakers([]);
   }
@@ -99,7 +95,7 @@ export function VoiceChat({
         if (mountedRef.current) setParticipantCount(room.remoteParticipants.size + 1);
       };
       room.on(RoomEvent.ParticipantConnected, (participant) => {
-        participant.setVolume(soundEnabledRef.current ? 1 : 0);
+        participant.setVolume(1);
         updateParticipantCount();
       });
       room.on(RoomEvent.ParticipantDisconnected, updateParticipantCount);
@@ -129,8 +125,11 @@ export function VoiceChat({
         await room.disconnect();
         return;
       }
+      await room.localParticipant.setMicrophoneEnabled(false);
+      room.remoteParticipants.forEach(participant => participant.setVolume(1));
       setParticipantCount(room.remoteParticipants.size + 1);
       setStatus('connected');
+      setMicrophoneEnabled(room.localParticipant.isMicrophoneEnabled);
     } catch (caught) {
       const failedRoom = roomRef.current;
       roomRef.current = null;
@@ -157,15 +156,6 @@ export function VoiceChat({
         setError(caught instanceof Error ? caught.message : labels.genericError);
       }
     }
-  }
-
-  function toggleSound() {
-    const room = roomRef.current;
-    if (!room) return;
-    const enabled = !soundEnabled;
-    soundEnabledRef.current = enabled;
-    room.remoteParticipants.forEach(participant => participant.setVolume(enabled ? 1 : 0));
-    setSoundEnabled(enabled);
   }
 
   const participantLabel = participantCount === 1 ? labels.participant : labels.participants;
@@ -198,20 +188,24 @@ export function VoiceChat({
         {error ? <span role="alert" style={{ color: '#b91c1c' }}>{error}</span> : null}
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {status === 'idle' ? (
-          <button type="button" onClick={join}>{labels.join}</button>
-        ) : status === 'connecting' ? (
+        {status === 'connecting' ? (
           <button type="button" disabled>{labels.joining}</button>
-        ) : (
+        ) : status === 'connected' ? (
           <>
-            <button type="button" aria-pressed={microphoneEnabled} onClick={toggleMicrophone}>
-              {microphoneEnabled ? labels.microphoneOn : labels.microphoneOff}
-            </button>
-            <button type="button" aria-pressed={!soundEnabled} onClick={toggleSound}>
-              {soundEnabled ? labels.soundOn : labels.soundOff}
+            <button
+              type="button"
+              aria-pressed={microphoneEnabled}
+              aria-label={microphoneEnabled ? labels.microphoneOn : labels.microphoneOff}
+              title={microphoneEnabled ? labels.microphoneOn : labels.microphoneOff}
+              onClick={toggleMicrophone}
+              style={{ padding: '8px 10px', fontSize: 16 }}
+            >
+              {microphoneEnabled ? '🎙️' : '🔇'}
             </button>
             <button type="button" onClick={() => void leave()}>{labels.leave}</button>
           </>
+        ) : (
+          <button type="button" disabled>{labels.joining}</button>
         )}
       </div>
       <div ref={audioContainerRef} hidden aria-hidden="true" />
