@@ -1,16 +1,19 @@
 import { expect, Page, test } from '@playwright/test';
+import { createHash } from 'node:crypto';
 
-async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
+async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2, addNamedBot = true) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(playerCount));
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
-  await page.getByLabel('Bot name').fill('Anna');
-  await page.getByRole('button', { name: 'Add bot' }).click();
-  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true }))
-    .toBeVisible({ timeout: 15_000 });
+  if (addNamedBot) {
+    await page.getByLabel('Bot name').fill('Anna');
+    await page.getByRole('button', { name: 'Add bot' }).click();
+    await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true }))
+      .toBeVisible({ timeout: 15_000 });
+  }
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
   return currentPlayerUrl(page);
@@ -32,6 +35,17 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   const href = await createDefaultHumanVsBotDeal(page);
   const response = await request.get(apiUrlForPlayerLink(href));
   const state = await response.json();
+
+  expect(state.dealCode).toBeUndefined();
+  expect(state.dealAuditNonce).toBeUndefined();
+  expect(state.dealCommitment).toMatch(/^[a-f0-9]{64}$/);
+
+  await expect(page.getByTestId('omaha-guide')).toContainText('exactly 2 hole + 3 board cards');
+  await expect(page.getByTestId('turn-status')).toBeVisible();
+  const customWager = page.getByTestId('custom-wager-input');
+  await expect(customWager).toBeVisible();
+  await expect(customWager).toHaveAttribute('min', /\d+/);
+  await expect(customWager).toHaveAttribute('max', /\d+/);
 
   const contributions = page.getByTestId('pot-contributions');
   await expect(contributions).toBeHidden();
@@ -62,14 +76,14 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   }).toBe('quarter');
 });
 
-test('opponent rows stay stable as seat content changes at every table size', async ({ page }) => {
+test('opponent seats form a stable arc as content changes at every table size', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   const rowSizes = async () => {
     const positions = await page.getByTestId('opponents-grid').locator('[data-player-seat]')
       .evaluateAll((seats) => seats.map((seat) => ({
-        top: (seat as HTMLElement).offsetTop,
-        left: (seat as HTMLElement).offsetLeft,
+        top: seat.getBoundingClientRect().top,
+        left: seat.getBoundingClientRect().left,
       })));
     return positions.reduce((rows, position) => {
       const row = rows.find((item) => Math.abs(item.top - position.top) < 2);
@@ -81,10 +95,10 @@ test('opponent rows stay stable as seat content changes at every table size', as
   };
 
   for (let playerCount = 2; playerCount <= 10; playerCount += 1) {
-    await createDefaultHumanVsBotDeal(page, playerCount);
+    await createDefaultHumanVsBotDeal(page, playerCount, false);
 
     const opponentsGrid = page.getByTestId('opponents-grid');
-    await expect(opponentsGrid).toHaveCSS('display', 'flex');
+    await expect(opponentsGrid).toHaveCSS('display', 'grid');
     await expect(opponentsGrid.locator('[data-player-seat]')).toHaveCount(playerCount - 1);
     if (playerCount === 2) {
       const gridBox = (await opponentsGrid.boundingBox())!;
@@ -95,7 +109,7 @@ test('opponent rows stay stable as seat content changes at every table size', as
     }
     const rowsBeforeContentChange = await rowSizes();
     if (playerCount === 5) {
-      expect(rowsBeforeContentChange, 'four opponents should fit on a landscape tablet').toEqual([4]);
+      expect(rowsBeforeContentChange, 'four opponents should form a balanced arc').toEqual([2, 2]);
     }
 
     await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {
@@ -182,15 +196,17 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const opponentScoreBox = await page.getByTestId('player-score-P2').boundingBox();
   expect(opponentCardsBox).toBeTruthy();
   expect(opponentScoreBox).toBeTruthy();
-  expect(opponentScoreBox!.x).toBeLessThan(opponentCardsBox!.x + opponentCardsBox!.width / 2);
+  expect(opponentScoreBox!.x).toBeGreaterThanOrEqual(tableBox!.x);
+  expect(opponentScoreBox!.x + opponentScoreBox!.width).toBeLessThanOrEqual(tableBox!.x + tableBox!.width);
   await expect(page.getByTestId(`player-blind-${initialState.blinds.smallBlindPlayerId}`))
-    .toHaveText(`1× BLIND ${initialState.blinds.small}`);
+    .toHaveText(`SB ${initialState.blinds.small}`);
   await expect(page.getByTestId(`player-blind-${initialState.blinds.bigBlindPlayerId}`))
-    .toHaveText(`2× BLIND ${initialState.blinds.big}`);
+    .toHaveText(`BB ${initialState.blinds.big}`);
+  await expect(page.locator('[data-testid^="player-dealer-"]')).toHaveCount(1);
 
   const opponentBlindBox = await page.getByTestId('player-blind-P2').boundingBox();
   expect(opponentBlindBox).toBeTruthy();
-  expect(opponentBlindBox!.x).toBeGreaterThan(opponentCardsBox!.x + opponentCardsBox!.width / 2);
+  expect(opponentBlindBox!.y).toBeLessThan(opponentCardsBox!.y + opponentCardsBox!.height / 2);
 
   await page.getByRole('button', { name: /^Call / }).click();
   await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toHaveCount(0);
@@ -244,6 +260,7 @@ test('all action buttons fit in the viewport at a seven-player table', async ({ 
 
   const actionDock = page.locator('.action-dock');
   await expect(actionDock).toBeVisible({ timeout: 10_000 });
+  await expect(actionDock.locator('button').first()).toBeVisible({ timeout: 10_000 });
   const tableHeightDuringDeal = (await page.getByTestId('poker-table').boundingBox())!.height;
   const buttonBoxes = await actionDock.locator('button').evaluateAll((buttons) => buttons.map((button) => {
     const box = button.getBoundingClientRect();
@@ -347,6 +364,11 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   expect(await comboCards.count()).toBeGreaterThan(0);
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
+  expect(showdownState.dealCode).toMatch(/^OMA1-/);
+  expect(showdownState.dealAuditNonce).toMatch(/^[a-f0-9]{64}$/);
+  expect(createHash('sha256')
+    .update(`${showdownState.dealCode}:${showdownState.dealAuditNonce}`)
+    .digest('hex')).toBe(showdownState.dealCommitment);
   const contribution = showdownState.totalContributions.P1;
   const payout = showdownState.showdownSummary.points.find((score: any) => score.id === 'P1').total;
   const net = payout - contribution;
@@ -395,9 +417,9 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   expect(nextState.blinds.smallBlindPlayerId).not.toBe(firstState.blinds.smallBlindPlayerId);
   expect(nextState.blinds.bigBlindPlayerId).not.toBe(firstState.blinds.bigBlindPlayerId);
   await expect(page.getByTestId(`player-blind-${nextState.blinds.smallBlindPlayerId}`))
-    .toHaveText(`1× BLIND ${nextState.blinds.small}`);
+    .toHaveText(`SB ${nextState.blinds.small}`);
   await expect(page.getByTestId(`player-blind-${nextState.blinds.bigBlindPlayerId}`))
-    .toHaveText(`2× BLIND ${nextState.blinds.big}`);
+    .toHaveText(`BB ${nextState.blinds.big}`);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled();

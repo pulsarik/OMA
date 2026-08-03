@@ -19,13 +19,18 @@ test('host can end a completed table only after every player confirms', async ({
   await guest.getByRole('button', { name: 'Enter table' }).click();
   await guest.getByLabel('Your name').fill('Anna');
   await guest.getByRole('button', { name: 'Take a seat' }).click();
+  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Start game' }).click();
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible({ timeout: 15_000 });
+  await expect(guest.getByRole('tab', { name: 'TABLE' })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('button', { name: 'End table early and calculate results' })).toHaveCount(0);
 
   const hostFold = page.getByRole('button', { name: 'Fold' });
-  if (await hostFold.isEnabled()) await hostFold.click();
-  else await guest.getByRole('button', { name: 'Fold' }).click();
+  const guestFold = guest.getByRole('button', { name: 'Fold' });
+  await expect.poll(async () => (await hostFold.count()) + (await guestFold.count())).toBeGreaterThan(0);
+  if (await hostFold.isVisible()) await hostFold.click();
+  else await guestFold.click();
 
   const finishButton = page.getByRole('button', { name: 'End table early and calculate results' });
   await expect(finishButton).toBeVisible();

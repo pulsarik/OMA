@@ -2,12 +2,10 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './playwright/tests',
-  testIgnore: '**/*.timer.spec.ts',
-  timeout: 30_000,
-  expect: { timeout: 5_000 },
+  testMatch: '**/*.timer.spec.ts',
+  timeout: 25_000,
+  expect: { timeout: 10_000 },
   fullyParallel: false,
-  // All scenarios share one in-memory game server. Serial execution prevents
-  // unrelated lobbies and reconnect tests from starving each other's sockets.
   workers: 1,
   use: { headless: true, baseURL: 'http://localhost:5173' },
   webServer: [
@@ -16,7 +14,11 @@ export default defineConfig({
       url: 'http://localhost:4000/api/version',
       timeout: 120_000,
       reuseExistingServer: false,
-      env: { DATA_FILE: ':memory:' },
+      env: {
+        DATA_FILE: ':memory:',
+        HUMAN_TURN_MS: '3000',
+        BOT_THINK_MS: '25',
+      },
     },
     {
       command: 'node client/node_modules/vite/bin/vite.js client --host localhost',

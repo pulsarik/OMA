@@ -22,11 +22,11 @@ function callBlindsToFlop(hand: ReturnType<typeof dealHand>) {
 
 test('an aggressive bot raises instead of betting after everyone matched an open bet', () => {
   expect(aggressiveMoveForMatchedBet(4, 0)).toBe('raise');
-  expect(aggressiveMoveForMatchedBet(4, 3)).toBe('check');
+  expect(aggressiveMoveForMatchedBet(4, 3)).toBe('raise');
   expect(aggressiveMoveForMatchedBet(0, 0)).toBe('bet');
 });
 
-test('a bot does not fold a made flush when the raise cap is reached', () => {
+test('a bot calls a made flush when a short all-in has not reopened betting', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'river';
   hand.fullCommunity = ['Qh', 'Jh', '9h', '4s', '5c'];
@@ -34,6 +34,7 @@ test('a bot does not fold a made flush when the raise cap is reached', () => {
   hand.currentBet = 100;
   hand.roundBets = { P1: 0, P2: 100 };
   hand.raiseCount = 3;
+  hand.actedSinceLastFullRaise = ['P1'];
   hand.potCoins = 150;
   hand.currentPlayerId = 'P1';
   hand.players[0].hole = ['Ah', 'Kh', '2c', '3d'];
@@ -81,7 +82,7 @@ test('problem 1000: a strong bot calls all-in when its stack cannot cover the ca
   expect(hand.potCoins).toBe(2869);
 });
 
-test('a bot does not fold a full house made on the turn', () => {
+test('a bot calls a full house when betting has not reopened', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'turn';
   hand.fullCommunity = ['As', 'Kh', 'Kd', '2c', '3d'];
@@ -92,13 +93,14 @@ test('a bot does not fold a full house made on the turn', () => {
   hand.currentBet = 100;
   hand.roundBets = { P1: 0, P2: 100 };
   hand.raiseCount = 3;
+  hand.actedSinceLastFullRaise = ['P1'];
   hand.potCoins = 200;
 
   expect(evaluatePlayerCombo(hand.players[0].hole, hand.community)?.highRank).toBe('full house');
   expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
 });
 
-test('a bot does not fold a strong made low when the raise cap is reached', () => {
+test('a bot calls a strong made low when betting has not reopened', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'river';
   hand.fullCommunity = ['3s', '4h', '6d', 'Kc', 'Qc'];
@@ -106,6 +108,7 @@ test('a bot does not fold a strong made low when the raise cap is reached', () =
   hand.currentBet = 100;
   hand.roundBets = { P1: 0, P2: 100 };
   hand.raiseCount = 3;
+  hand.actedSinceLastFullRaise = ['P1'];
   hand.potCoins = 150;
   hand.currentPlayerId = 'P1';
   hand.players[0].hole = ['As', '2h', 'Jd', 'Td'];
@@ -113,7 +116,7 @@ test('a bot does not fold a strong made low when the raise cap is reached', () =
   expect(botMove(hand, hand.players[0])).toEqual({ move: 'call' });
 });
 
-test('a bot still folds a weak hand against an expensive capped bet', () => {
+test('a bot still folds a weak hand against an expensive bet', () => {
   const hand = dealHand(2, 12345);
   hand.stage = 'river';
   hand.fullCommunity = ['As', 'Kh', '9d', '7c', '4s'];
@@ -712,7 +715,7 @@ test('player must call after opponent raises a custom amount', () => {
   expect(hand.stage).toBe('turn');
 });
 
-test('raise is capped at three raises per street', () => {
+test('pot-limit betting allows more than three raises per street', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
 
@@ -720,12 +723,41 @@ test('raise is capped at three raises per street', () => {
   recordPlayerMove(hand, 'P1', 'raise');
   recordPlayerMove(hand, 'P2', 'raise');
   recordPlayerMove(hand, 'P1', 'raise');
+  recordPlayerMove(hand, 'P2', 'raise');
 
-  expect(hand.raiseCount).toBe(3);
-  expect(() => recordPlayerMove(hand, 'P2', 'raise')).toThrow('raise cap reached');
+  expect(hand.raiseCount).toBe(4);
 
-  recordPlayerMove(hand, 'P2', 'call');
+  recordPlayerMove(hand, 'P1', 'call');
   expect(hand.stage).toBe('turn');
+});
+
+test('minimum raise uses the previous full raise increment', () => {
+  const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
+
+  recordPlayerMove(hand, 'P2', 'bet', 8);
+  recordPlayerMove(hand, 'P1', 'raise', 20);
+  expect(hand.lastFullRaise).toBe(12);
+
+  // A requested raise to 24 is below the minimum of 32 and is normalized up.
+  recordPlayerMove(hand, 'P2', 'raise', 24);
+  expect(hand.currentBet).toBe(32);
+  expect(hand.lastFullRaise).toBe(12);
+});
+
+test('a short all-in raise neither lowers the minimum nor reopens betting', () => {
+  const hand = dealHand(2, 12345);
+  callBlindsToFlop(hand);
+  hand.players[0].stack = 12;
+
+  recordPlayerMove(hand, 'P2', 'bet', 8);
+  recordPlayerMove(hand, 'P1', 'raise', 12);
+
+  expect(hand.currentBet).toBe(12);
+  expect(hand.lastFullRaise).toBe(8);
+  expect(() => recordPlayerMove(hand, 'P2', 'raise', 20)).toThrow('betting is not reopened');
+  recordPlayerMove(hand, 'P2', 'call');
+  expect(hand.stage).toBe('showdown');
 });
 
 test('deal rejects actions from players out of turn', () => {
@@ -981,6 +1013,32 @@ test('splits tied high and low shares inside a side pot', () => {
     net: 0,
   });
   expect(result?.points.reduce((sum, score) => sum + score.total, 0)).toBe(70);
+});
+
+test('awards odd chips as integers clockwise from the dealer, with HIGH first', () => {
+  const hand = dealHand(3, 12345);
+  hand.stage = 'showdown';
+  hand.blinds.dealerPlayerId = 'P1';
+  hand.fullCommunity = ['2s', '3h', '4d', '9c', 'Kd'];
+  hand.players[0].hole = ['As', '5c', 'Kh', 'Qh'];
+  hand.players[1].hole = ['Ah', '5d', 'Ks', 'Qs'];
+  hand.players[2].hole = ['Ac', '5h', 'Kc', 'Qd'];
+  hand.totalContributions = { P1: 5, P2: 5, P3: 5 };
+  hand.potCoins = 15;
+
+  const result = evaluateOmahaHiLo(hand);
+
+  expect(result?.points).toEqual([
+    { id: 'P1', high: 2, low: 2, total: 4 },
+    { id: 'P2', high: 3, low: 3, total: 6 },
+    { id: 'P3', high: 3, low: 2, total: 5 },
+  ]);
+  expect(result?.sidePots[0].players.every(player => (
+    Number.isInteger(player.high)
+    && Number.isInteger(player.low)
+    && Number.isInteger(player.payout)
+  ))).toBe(true);
+  expect(result?.points.reduce((sum, score) => sum + score.total, 0)).toBe(15);
 });
 
 test('includes folded chips in settlement without making the folder eligible', () => {

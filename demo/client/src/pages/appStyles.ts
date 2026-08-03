@@ -218,7 +218,7 @@ export const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     display: grid;
     gap: clamp(10px, 1.5vw, 20px);
-    height: 780px;
+    height: clamp(560px, calc(100dvh - 190px), 780px);
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
@@ -259,13 +259,29 @@ export const PLAYER_PAGE_STYLES = `
     padding: 8px;
   }
   .opponents-row {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     justify-content: center;
     align-items: flex-start;
     gap: 20px 8px;
-    padding-top: 4px;
+    padding: 4px clamp(4px, 3vw, 42px) 0;
   }
+  .opponents-row .player-seat-wrap { width: 100%; }
+  .opponents-row[data-opponent-count="1"] { grid-template-columns: minmax(0, 240px); }
+  .opponents-row[data-opponent-count="2"] { grid-template-columns: repeat(2, minmax(0, 240px)); }
+  .opponents-row[data-opponent-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .opponents-row[data-opponent-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .opponents-row[data-opponent-count="2"] .player-seat-wrap { transform: translateY(20px); }
+  .opponents-row[data-opponent-count="3"] .player-seat-wrap:first-child,
+  .opponents-row[data-opponent-count="3"] .player-seat-wrap:last-child { transform: translateY(26px); }
+  .opponents-row[data-opponent-count="4"] .player-seat-wrap:first-child,
+  .opponents-row[data-opponent-count="4"] .player-seat-wrap:last-child,
+  .opponents-row[data-opponent-count="5"] .player-seat-wrap:first-child,
+  .opponents-row[data-opponent-count="5"] .player-seat-wrap:last-child { transform: translateY(34px); }
+  .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2),
+  .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3),
+  .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2),
+  .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4) { transform: translateY(12px); }
   .player-seat-wrap { flex: 0 1 288px; min-width: 0; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
@@ -279,6 +295,40 @@ export const PLAYER_PAGE_STYLES = `
     padding: 4px 6px;
   }
   .player-name { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
+  .seat-position-badges {
+    position: absolute;
+    top: -12px;
+    left: 5px;
+    z-index: 6;
+    display: flex;
+    gap: 4px;
+  }
+  .position-badge, .turn-countdown {
+    border: 2px solid rgba(255,255,255,.9);
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #fff;
+    padding: 3px 7px;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    white-space: nowrap;
+  }
+  .position-badge.dealer { background: #fff; color: #0f172a; }
+  .position-badge.big-blind { background: #b91c1c; }
+  .turn-countdown { position: absolute; right: 5px; bottom: -11px; z-index: 7; background: #172033; }
+  .seat-chipline {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+    color: #475569;
+    font-size: 10px;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+  .seat-chipline strong { color: #0f172a; }
   .table-center {
     grid-template-columns: minmax(90px, 1fr) auto minmax(90px, 1fr);
     grid-template-areas: "stage board pot";
@@ -534,8 +584,24 @@ export const PLAYER_PAGE_STYLES = `
     padding: 10px;
     box-shadow: 0 10px 30px rgba(15,23,42,.18);
     backdrop-filter: blur(12px);
+    min-height: 94px;
   }
+  .action-dock-status { flex: 1 0 100%; color: #334155; font-size: 13px; font-weight: 900; text-align: center; }
   .bet-sizes, .main-actions { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .custom-wager { display: flex; align-items: center; gap: 5px; color: #475569; font-size: 11px; font-weight: 850; }
+  .custom-wager input { box-sizing: border-box; width: 82px; min-height: 34px; border: 1px solid #94a3b8; border-radius: 9px; padding: 5px 7px; font: inherit; }
+  .custom-wager input:focus { border-color: #087443; outline: 2px solid rgba(8,116,67,.18); }
+  .omaha-guide {
+    display: flex;
+    justify-content: center;
+    gap: 6px 16px;
+    flex-wrap: wrap;
+    margin: 8px auto 0;
+    color: #526159;
+    font-size: 12px;
+    text-align: center;
+  }
+  .omaha-guide strong { color: #065f46; }
   .bet-size-button, .action-button {
     border: 1px solid #cbd5e1;
     border-radius: 10px;
@@ -667,6 +733,19 @@ export const PLAYER_PAGE_STYLES = `
     }
     .winner-grid { grid-template-columns: 1fr; }
     .action-dock { border-radius: 14px; }
+    .opponents-row { padding-inline: 2px; }
+    .opponents-row[data-opponent-count="1"] { grid-template-columns: minmax(0, 104px); }
+    .opponents-row[data-opponent-count="2"] { grid-template-columns: repeat(2, minmax(0, 104px)); }
+    .opponents-row[data-opponent-count="3"],
+    .opponents-row[data-opponent-count="4"],
+    .opponents-row[data-opponent-count="5"],
+    .opponents-row[data-opponent-count="6"],
+    .opponents-row[data-opponent-count="7"],
+    .opponents-row[data-opponent-count="8"],
+    .opponents-row[data-opponent-count="9"] {
+      grid-template-columns: repeat(3, minmax(0, 104px));
+    }
+    .opponents-row .player-seat-wrap:nth-child(n) { transform: none; }
     .bet-sizes { flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; padding-bottom: 2px; }
     .bet-size-button { flex: 0 0 auto; }
     .main-actions .action-button { flex: 1 1 90px; }
@@ -847,22 +926,30 @@ export const PLAYER_PAGE_STYLES = `
     }
     .hero-seat .focal-card { transform: scale(.44) !important; }
     .action-dock {
+      position: fixed;
+      z-index: 80;
+      bottom: max(4px, env(safe-area-inset-bottom));
+      right: max(5px, env(safe-area-inset-right));
+      left: max(5px, env(safe-area-inset-left));
       display: grid;
       grid-template-columns: minmax(0, 1fr);
-      width: 100%;
+      width: auto;
       gap: 6px;
       margin-top: 6px;
       padding: 8px 6px;
+      box-shadow: 0 -8px 28px rgba(15,23,42,.22);
     }
     .bet-sizes {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       width: 100%;
       gap: 4px;
       overflow: visible;
       padding: 0;
     }
     .bet-sizes > span { display: none; }
+    .custom-wager { grid-column: 1 / -1; justify-content: center; }
+    .custom-wager input { width: min(150px, 45vw); }
     .bet-size-button {
       width: 100%;
       min-width: 0;

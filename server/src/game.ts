@@ -10,7 +10,8 @@ export const STARTING_STACK = 1000;
 export const BLIND_LEVEL_HANDS = 8;
 export const INITIAL_SMALL_BLIND = 2;
 export const INITIAL_BIG_BLIND = 4;
-export const MAX_RAISES_PER_STREET = 3;
+/** @deprecated Pot-limit games do not cap the number of raises per street. */
+export const MAX_RAISES_PER_STREET = Number.MAX_SAFE_INTEGER;
 export const POT_COINS = INITIAL_SMALL_BLIND + INITIAL_BIG_BLIND;
 export const SHUFFLE_VERSION = 'OMA1';
 const STAGES = ['preflop', 'flop', 'turn', 'river', 'showdown'] as const;
@@ -69,6 +70,10 @@ export type DealtHand = {
   roundBets: Record<string, number>;
   totalContributions: Record<string, number>;
   raiseCount: number;
+  /** Size of the most recent full bet or raise increment on this street. */
+  lastFullRaise?: number;
+  /** Players whose action has not been reopened by a subsequent full raise. */
+  actedSinceLastFullRaise?: string[];
   blinds: {
     level: number;
     small: number;
@@ -193,6 +198,13 @@ export function normalizeHand(hand: DealtHand) {
   hand.totalContributions = hand.totalContributions ?? legacyContributions(hand);
   hand.raiseCount = hand.raiseCount ?? 0;
   hand.blinds = hand.blinds ?? { ...blindLevelForHand(hand.handNumber) };
+  hand.lastFullRaise = Math.max(
+    1,
+    Math.floor(hand.lastFullRaise ?? hand.blinds.big ?? INITIAL_BIG_BLIND),
+  );
+  hand.actedSinceLastFullRaise = Array.isArray(hand.actedSinceLastFullRaise)
+    ? hand.actedSinceLastFullRaise.filter(playerId => hand.players.some(player => player.id === playerId))
+    : [];
   hand.dealSeed = normalizeSeed(hand.dealSeed ?? hand.rngSeed);
   hand.dealCode = hand.dealCode ?? dealCodeFor(hand.players?.length ?? 0, hand.dealSeed);
   hand.players.forEach((player, index) => {
@@ -389,6 +401,8 @@ function resetBettingRound(hand: DealtHand) {
   hand.currentBet = 0;
   hand.roundBets = {};
   hand.raiseCount = 0;
+  hand.lastFullRaise = hand.blinds.big;
+  hand.actedSinceLastFullRaise = [];
 }
 
 function returnUncalledBet(hand: DealtHand) {
@@ -492,6 +506,7 @@ export function recordPlayerMove(
   const playerBet = hand.roundBets[playerId] ?? 0;
   const betUnit = hand.blinds?.big ?? INITIAL_BIG_BLIND;
   const requestedBet = normalizedBetAmount(amount);
+  let fullBetOrRaise = false;
 
   function addToPot(amount: number) {
     const paid = Math.min(amount, actingPlayer.stack);
@@ -510,20 +525,36 @@ export function recordPlayerMove(
     const targetBet = Math.min(Math.max(requestedBet ?? betUnit, Math.min(betUnit, actingPlayer.stack)), maxBet);
     const paid = addToPot(targetBet);
     hand.currentBet = playerBet + paid;
+    if (paid >= betUnit) {
+      hand.lastFullRaise = paid;
+      fullBetOrRaise = true;
+    }
   } else if (move === 'call') {
     if (playerBet >= hand.currentBet) throw new Error('nothing to call');
     addToPot(hand.currentBet - playerBet);
   } else if (move === 'raise') {
     if (hand.currentBet === 0) throw new Error('raise requires an open bet');
-    if (hand.raiseCount >= MAX_RAISES_PER_STREET) throw new Error('raise cap reached');
     const callAmount = Math.max(hand.currentBet - playerBet, 0);
     if (actingPlayer.stack <= callAmount) throw new Error('insufficient chips to raise');
+    if (hand.actedSinceLastFullRaise?.includes(playerId)) throw new Error('betting is not reopened');
     const maxRaiseTo = Math.min(playerBet + actingPlayer.stack, hand.currentBet + hand.potCoins + callAmount);
-    const minRaiseTo = Math.min(hand.currentBet + betUnit, maxRaiseTo);
+    const lastFullRaise = hand.lastFullRaise ?? betUnit;
+    const fullRaiseTo = hand.currentBet < lastFullRaise
+      ? lastFullRaise
+      : hand.currentBet + lastFullRaise;
+    const minRaiseTo = Math.min(fullRaiseTo, maxRaiseTo);
     const nextBet = Math.min(Math.max(requestedBet ?? minRaiseTo, minRaiseTo), maxRaiseTo);
     addToPot(nextBet - playerBet);
+    fullBetOrRaise = nextBet >= fullRaiseTo;
+    if (fullBetOrRaise) hand.lastFullRaise = nextBet - hand.currentBet;
     hand.currentBet = nextBet;
     hand.raiseCount += 1;
+  }
+
+  if (fullBetOrRaise) {
+    hand.actedSinceLastFullRaise = [playerId];
+  } else if (!hand.actedSinceLastFullRaise?.includes(playerId)) {
+    hand.actedSinceLastFullRaise = [...(hand.actedSinceLastFullRaise ?? []), playerId];
   }
 
   const selectedBetSize = ['bet', 'raise'].includes(move)
@@ -716,6 +747,29 @@ export function compareOmahaHands(firstHole: string[], secondHole: string[], boa
   return { high, low: compareScore(second.low!.score, first.low!.score) };
 }
 
+function winnersInOddChipOrder(hand: DealtHand, winnerIds: string[]) {
+  const winners = new Set(winnerIds);
+  const dealerIndex = hand.players.findIndex(player => player.id === hand.blinds.dealerPlayerId);
+  const firstIndex = dealerIndex >= 0 ? (dealerIndex + 1) % hand.players.length : 0;
+  return hand.players
+    .map((_, offset) => hand.players[(firstIndex + offset) % hand.players.length].id)
+    .filter(playerId => winners.has(playerId));
+}
+
+function splitIntegerPool(hand: DealtHand, amount: number, winnerIds: string[]) {
+  const payouts = new Map<string, number>();
+  if (!winnerIds.length || amount <= 0) return payouts;
+
+  const orderedWinners = winnersInOddChipOrder(hand, winnerIds);
+  const share = Math.floor(amount / orderedWinners.length);
+  let oddChips = amount % orderedWinners.length;
+  orderedWinners.forEach(playerId => {
+    payouts.set(playerId, share + (oddChips > 0 ? 1 : 0));
+    oddChips = Math.max(oddChips - 1, 0);
+  });
+  return payouts;
+}
+
 export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
   normalizeHand(hand);
   if (hand.fullCommunity.length < 5) return undefined;
@@ -793,17 +847,19 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
       ? eligibleResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
       : [];
     const noLow = !bestLowScore;
-    const highPool = noLow ? amount : amount / 2;
-    const lowPool = noLow ? 0 : amount / 2;
-    const highShare = highWinners.length ? highPool / highWinners.length : 0;
-    const lowShare = lowWinners.length ? lowPool / lowWinners.length : 0;
+    // The odd chip from an indivisible high/low split belongs to HIGH. Any
+    // remainder from a tie is awarded clockwise from the seat left of dealer.
+    const highPool = noLow ? amount : Math.ceil(amount / 2);
+    const lowPool = noLow ? 0 : Math.floor(amount / 2);
+    const highPayouts = splitIntegerPool(hand, highPool, highWinners);
+    const lowPayouts = splitIntegerPool(hand, lowPool, lowWinners);
     highWinners.forEach(id => {
       const points = pointTotals.get(id);
-      if (points) points.high += highShare;
+      if (points) points.high += highPayouts.get(id) ?? 0;
     });
     lowWinners.forEach(id => {
       const points = pointTotals.get(id);
-      if (points) points.low += lowShare;
+      if (points) points.low += lowPayouts.get(id) ?? 0;
     });
     return {
       amount,
@@ -813,8 +869,8 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
       noLow,
       players: hand.players.map(player => {
         const contributed = layer.contributions[player.id] ?? 0;
-        const high = highWinners.includes(player.id) ? highShare : 0;
-        const low = lowWinners.includes(player.id) ? lowShare : 0;
+        const high = highPayouts.get(player.id) ?? 0;
+        const low = lowPayouts.get(player.id) ?? 0;
         const payout = high + low;
         return {
           id: player.id,
@@ -869,9 +925,12 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
         ? activeResults.filter(result => result.lowScore && compareScore(result.lowScore, bestLowScore) === 0).map(result => result.id)
         : [];
       const noLow = !bestLowScore;
-      const highPool = noLow ? remainder : remainder / 2;
-      highWinners.forEach(id => pointTotals.get(id)!.high += highPool / highWinners.length);
-      lowWinners.forEach(id => pointTotals.get(id)!.low += (remainder / 2) / lowWinners.length);
+      const highPool = noLow ? remainder : Math.ceil(remainder / 2);
+      const lowPool = noLow ? 0 : Math.floor(remainder / 2);
+      const highPayouts = splitIntegerPool(hand, highPool, highWinners);
+      const lowPayouts = splitIntegerPool(hand, lowPool, lowWinners);
+      highWinners.forEach(id => pointTotals.get(id)!.high += highPayouts.get(id) ?? 0);
+      lowWinners.forEach(id => pointTotals.get(id)!.low += lowPayouts.get(id) ?? 0);
       sidePots.push({
         amount: remainder,
         eligiblePlayerIds: activeResults.map(result => result.id),
@@ -879,8 +938,8 @@ export function evaluateOmahaHiLo(hand: DealtHand): HiLoResult | undefined {
         lowWinners,
         noLow,
         players: hand.players.map(player => {
-          const high = highWinners.includes(player.id) ? highPool / highWinners.length : 0;
-          const low = lowWinners.includes(player.id) ? (remainder / 2) / lowWinners.length : 0;
+          const high = highPayouts.get(player.id) ?? 0;
+          const low = lowPayouts.get(player.id) ?? 0;
           return {
             id: player.id,
             high,
@@ -980,6 +1039,8 @@ function applyBlinds(hand: DealtHand) {
   hand.totalContributions = {};
   hand.currentBet = 0;
   hand.raiseCount = 0;
+  hand.lastFullRaise = blindInfo.big;
+  hand.actedSinceLastFullRaise = [];
 
   if (livePlayers.length >= 2) {
     const smallBlindIndex = (hand.handNumber - 1) % livePlayers.length;

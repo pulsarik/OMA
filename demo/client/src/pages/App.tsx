@@ -146,6 +146,7 @@ type BlindInfo = {
   level: number;
   small: number;
   big: number;
+  dealerPlayerId?: string;
   smallBlindPlayerId?: string;
   bigBlindPlayerId?: string;
 };
@@ -182,8 +183,8 @@ function playerLabel(players: Array<{ id: string; name?: string }> | undefined, 
 
 function playerBlindLabel(blinds: BlindInfo | undefined, playerId: string, stage: string) {
   if (!blinds || stage !== 'preflop') return undefined;
-  if (blinds.smallBlindPlayerId === playerId) return `1× ${ui('BLIND', 'БЛАЙНД')} ${formatPoints(blinds.small)}`;
-  if (blinds.bigBlindPlayerId === playerId) return `2× ${ui('BLIND', 'БЛАЙНД')} ${formatPoints(blinds.big)}`;
+  if (blinds.smallBlindPlayerId === playerId) return `SB ${formatPoints(blinds.small)}`;
+  if (blinds.bigBlindPlayerId === playerId) return `BB ${formatPoints(blinds.big)}`;
   return undefined;
 }
 
@@ -308,7 +309,11 @@ type PlayerView = {
   currentBet: number;
   roundBets: Record<string, number>;
   raiseCount: number;
-  maxRaises: number;
+  maxRaises?: number;
+  lastFullRaise?: number;
+  actedSinceLastFullRaise?: string[];
+  turnDeadline?: number;
+  turnDurationMs?: number;
   blinds?: BlindInfo;
   hole: string[];
   folded: boolean;
@@ -317,6 +322,8 @@ type PlayerView = {
     name?: string;
     isBot?: boolean;
     stack?: number;
+    connected?: boolean;
+    disconnected?: boolean;
     folded: boolean;
     cardCount: number;
     hole?: string[];
@@ -356,6 +363,18 @@ type PlayerView = {
   };
 };
 
+function withLocalTurnDeadline(nextPlayer: PlayerView): PlayerView {
+  if (
+    typeof nextPlayer.turnDeadline !== 'number'
+    || typeof nextPlayer.session?.serverNow !== 'number'
+  ) return nextPlayer;
+
+  return {
+    ...nextPlayer,
+    turnDeadline: Date.now() + Math.max(0, nextPlayer.turnDeadline - nextPlayer.session.serverNow),
+  };
+}
+
 type FullHandView = {
   id: string;
   partyId?: string;
@@ -370,6 +389,10 @@ type FullHandView = {
   roundBets?: Record<string, number>;
   raiseCount?: number;
   maxRaises?: number;
+  lastFullRaise?: number;
+  actedSinceLastFullRaise?: string[];
+  turnDeadline?: number;
+  turnDurationMs?: number;
   blinds?: BlindInfo;
   players: Array<{
     id: string;
@@ -1043,6 +1066,11 @@ function PlayerSeat({
   isCurrentTurn = false,
   isWaitingForNextDeal = false,
   blindLabel,
+  isDealer = false,
+  stack,
+  roundBet = 0,
+  disconnected = false,
+  turnSeconds,
 }: {
   id: string;
   name?: string;
@@ -1060,6 +1088,11 @@ function PlayerSeat({
   isCurrentTurn?: boolean;
   isWaitingForNextDeal?: boolean;
   blindLabel?: string;
+  isDealer?: boolean;
+  stack?: number;
+  roundBet?: number;
+  disconnected?: boolean;
+  turnSeconds?: number;
 }) {
   const shouldShowCards = Boolean(hole?.length);
   const actionBetSize = action?.betSize
@@ -1071,9 +1104,11 @@ function PlayerSeat({
   const isYourTurn = isCurrentTurn && isYou && !isBot;
   const bubbleLabel = isWaitingForNextDeal
     ? ui('WAITING', 'ЖДЁМ')
-    : isCurrentTurn
-      ? isYourTurn ? ui('YOUR TURN', 'ВАШ ХОД') : ui('THINKING…', 'ДУМАЕТ…')
-      : actionLabel;
+    : disconnected
+      ? ui('OFFLINE', 'НЕ В СЕТИ')
+      : isCurrentTurn
+        ? isYourTurn ? ui('YOUR TURN', 'ВАШ ХОД') : ui('THINKING…', 'ДУМАЕТ…')
+        : actionLabel;
   const hasWinningHand = !folded && (isHighWinner || isLowWinner);
   const winnerBorder = isHighWinner && isLowWinner
     ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
@@ -1107,11 +1142,10 @@ function PlayerSeat({
       >
         {compact && !isYou ? (
           <span
+            className="seat-name-score"
             title={`${tablePlayerName(name, id)}: ${formatPoints(score)} ${ui('coins', 'фишек')}`}
             style={{
-              position: 'absolute',
-              top: -18,
-              left: 8,
+              position: 'relative',
               zIndex: 3,
               border: '1px solid #fbbf24',
               borderRadius: 999,
@@ -1125,6 +1159,8 @@ function PlayerSeat({
               display: 'flex',
               gap: 6,
               alignItems: 'center',
+              width: 'fit-content',
+              margin: '0 auto 5px',
               whiteSpace: 'nowrap',
             }}
           >
@@ -1150,6 +1186,17 @@ function PlayerSeat({
           >
             {ui('BOT', 'БОТ')}
           </span>
+        ) : null}
+        <div className="seat-position-badges" aria-label={ui('Table positions', 'Позиции за столом')}>
+          {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+          {blindLabel ? (
+            <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
+              {blindLabel}
+            </span>
+          ) : null}
+        </div>
+        {isCurrentTurn && typeof turnSeconds === 'number' ? (
+          <span className="turn-countdown" data-testid={`turn-countdown-${id}`}>{turnSeconds}s</span>
         ) : null}
         {bubbleLabel ? (
           <div
@@ -1196,30 +1243,6 @@ function PlayerSeat({
               }}
             />
           </div>
-        ) : null}
-        {blindLabel && !isYou ? (
-          <span
-            data-testid={`player-blind-${id}`}
-            style={{
-              position: 'absolute',
-              top: bubbleLabel ? 18 : -18,
-              right: 8,
-              zIndex: 3,
-              border: `2px solid ${blindLabel.startsWith('2Ã—') ? '#fca5a5' : '#fde68a'}`,
-              borderRadius: 999,
-              background: blindLabel.startsWith('2Ã—') ? '#b91c1c' : '#f59e0b',
-              color: '#fff',
-              padding: '4px 8px',
-              fontSize: 11,
-              fontWeight: 900,
-              lineHeight: 1,
-              boxShadow: '0 2px 7px rgba(0,0,0,.28)',
-              textShadow: '0 1px 2px rgba(0,0,0,.45)',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {blindLabel}
-          </span>
         ) : null}
         <div
           style={{
@@ -1298,6 +1321,10 @@ function PlayerSeat({
             </div>
           ) : null}
         </div>
+        <div className="seat-chipline">
+          <span data-testid={`player-stack-${id}`}>{ui('Stack', 'Стек')} <strong>{formatPoints(stack)}</strong></span>
+          <span data-testid={`player-round-bet-${id}`}>{ui('Street', 'Улица')} <strong>{formatPoints(roundBet)}</strong></span>
+        </div>
         {resultPlayer && (!isYou || folded) ? (
           <div
             data-testid={`player-result-${id}`}
@@ -1361,26 +1388,6 @@ function PlayerSeat({
           >
             {tablePlayerName(name, id)}{isYou ? ` (${ui('you', 'вы')})` : ''}
           </span>
-          {blindLabel ? (
-            <span
-              data-testid={`player-blind-${id}`}
-              style={{
-                border: `2px solid ${blindLabel.startsWith('2×') ? '#fca5a5' : '#fde68a'}`,
-                borderRadius: 999,
-                background: blindLabel.startsWith('2×') ? '#b91c1c' : '#f59e0b',
-                color: '#fff',
-                padding: '4px 8px',
-                fontSize: 12,
-                fontWeight: 900,
-                lineHeight: 1.15,
-                boxShadow: '0 2px 7px rgba(0,0,0,.28)',
-                textShadow: '0 1px 2px rgba(0,0,0,.45)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {blindLabel}
-            </span>
-          ) : null}
         </div>
       ) : null}
     </div>
@@ -1439,12 +1446,12 @@ function raiseTargetAmount(
   pot: number,
   currentBet: number,
   playerBet: number,
-  bigBlind: number,
+  minimumRaiseIncrement: number,
   stack: number,
 ) {
   const callAmount = Math.max(currentBet - playerBet, 0);
   const maxRaiseTo = Math.min(playerBet + stack, currentBet + pot + callAmount);
-  const minRaiseTo = Math.min(currentBet + bigBlind, maxRaiseTo);
+  const minRaiseTo = Math.min(currentBet + minimumRaiseIncrement, maxRaiseTo);
   if (size === 'blind') return minRaiseTo;
 
   const raiseSize = Math.ceil((pot + callAmount) * betSizeFactor(size));
@@ -2040,6 +2047,7 @@ function PlayerPage({
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
+  const [customTarget, setCustomTarget] = useState('');
   const [activeView, setActiveView] = useState<'table' | 'stats'>('table');
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
@@ -2115,12 +2123,13 @@ function PlayerPage({
       })
       .then((nextPlayer) => {
         applySessionTiming(nextPlayer.session);
+        const localizedPlayer = withLocalTurnDeadline(nextPlayer);
         setPlayer((currentPlayer) => (
           currentPlayer
-          && currentPlayer.handId === nextPlayer.handId
-          && currentPlayer.revision > nextPlayer.revision
+          && currentPlayer.handId === localizedPlayer.handId
+          && currentPlayer.revision > localizedPlayer.revision
             ? currentPlayer
-            : nextPlayer
+            : localizedPlayer
         ));
       })
       .catch((err) => setError(err instanceof Error ? err.message : ui('Could not load hand', 'Не удалось загрузить раздачу')));
@@ -2143,12 +2152,13 @@ function PlayerPage({
       const message = JSON.parse(event.data);
       if (message.type === 'player_state') {
         applySessionTiming(message.data.session);
+        const localizedPlayer = withLocalTurnDeadline(message.data);
         setPlayer((currentPlayer) => (
           currentPlayer
-          && currentPlayer.handId === message.data.handId
-          && currentPlayer.revision > message.data.revision
+          && currentPlayer.handId === localizedPlayer.handId
+          && currentPlayer.revision > localizedPlayer.revision
             ? currentPlayer
-            : message.data
+            : localizedPlayer
         ));
         setNotice(null);
         if (
@@ -2336,20 +2346,36 @@ function PlayerPage({
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
   const raiseCount = player.raiseCount ?? 0;
-  const maxRaises = player.maxRaises ?? 3;
+  const maxRaises = typeof player.maxRaises === 'number' && player.maxRaises < 1_000
+    ? player.maxRaises
+    : undefined;
+  const minimumRaiseIncrement = player.lastFullRaise ?? bigBlind;
   const callAmount = Math.max(currentBet - yourRoundBet, 0);
   const call = callAction(callAmount, player.stack);
   const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
-  const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, bigBlind, player.stack);
+  const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, minimumRaiseIncrement, player.stack);
+  const maximumTarget = currentBet > 0
+    ? Math.min(yourRoundBet + player.stack, currentBet + player.potCoins + callAmount)
+    : player.stack;
+  const minimumTarget = currentBet > 0
+    ? Math.min(currentBet + minimumRaiseIncrement, maximumTarget)
+    : Math.min(bigBlind, maximumTarget);
+  const parsedCustomTarget = Number(customTarget);
+  const hasCustomTarget = customTarget !== '' && Number.isFinite(parsedCustomTarget);
+  const wagerTarget = hasCustomTarget
+    ? Math.min(maximumTarget, Math.max(minimumTarget, Math.round(parsedCustomTarget)))
+    : currentBet > 0 ? raiseTo : betAmount;
   const betSizeFraction = betSizeFactor(betSize);
   const potAfterCall = player.potCoins + callAmount;
   const nominalRaiseSize = Math.ceil(potAfterCall * betSizeFraction);
   const selectedBetSize = BET_SIZE_OPTIONS.find((option) => option.value === betSize);
   const selectedBetSizeLabel = selectedBetSize ? localizedBetSize(selectedBetSize) : '';
-  const betIsAllIn = isAllInWager(betAmount, yourRoundBet, player.stack);
-  const raiseIsAllIn = isAllInWager(raiseTo, yourRoundBet, player.stack);
+  const betIsAllIn = isAllInWager(wagerTarget, yourRoundBet, player.stack);
+  const raiseIsAllIn = isAllInWager(wagerTarget, yourRoundBet, player.stack);
   const canCall = canAct && yourRoundBet < currentBet;
-  const canRaise = canAct && currentBet > 0 && raiseCount < maxRaises && call.canRaise;
+  const raiseCapAvailable = maxRaises === undefined || raiseCount < maxRaises;
+  const bettingReopened = !player.actedSinceLastFullRaise?.includes(player.playerId);
+  const canRaise = canAct && currentBet > 0 && raiseCapAvailable && bettingReopened && call.canRaise;
   const hasContinuation = Boolean(player.nextHandId || player.nextReplayHandId);
   const tournamentWinner = findTournamentWinner(
     player.stage,
@@ -2379,7 +2405,7 @@ function PlayerPage({
     && !tournamentWinner
     && !player.partyFinishedEarly
     && !finishVotePending;
-  const showActionDock = isYourTurn;
+  const showActionDock = player.stage !== 'showdown';
   const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
@@ -2392,6 +2418,24 @@ function PlayerPage({
         ...player.players.slice(playerSeatIndex + 1),
         ...player.players.slice(0, playerSeatIndex),
       ];
+  const smallBlindIndex = player.players.findIndex(seat => seat.id === player.blinds?.smallBlindPlayerId);
+  const inferredDealerId = smallBlindIndex >= 0
+    ? player.players.length === 2
+      ? player.blinds?.smallBlindPlayerId
+      : player.players[(smallBlindIndex - 1 + player.players.length) % player.players.length]?.id
+    : undefined;
+  const dealerPlayerId = player.blinds?.dealerPlayerId ?? inferredDealerId;
+  const turnSeconds = typeof player.turnDeadline === 'number'
+    ? Math.max(0, Math.ceil((player.turnDeadline - sessionNow) / 1_000))
+    : undefined;
+  const submitWager = (move: 'bet' | 'raise') => {
+    const allIn = isAllInWager(wagerTarget, yourRoundBet, player.stack);
+    if (allIn && !window.confirm(ui(
+      `Confirm all-in to ${formatPoints(wagerTarget)}?`,
+      `Подтвердить олл-ин до ${formatPoints(wagerTarget)}?`,
+    ))) return;
+    sendMove(move, wagerTarget, hasCustomTarget ? undefined : betSize);
+  };
   const statusPillStyle: React.CSSProperties = {
     border: '1px solid #d1d5db',
     borderRadius: 999,
@@ -2489,6 +2533,11 @@ function PlayerPage({
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
               isWaitingForNextDeal={Boolean(player.waitingForPlayers?.some(candidate => candidate.id === seat.id))}
               blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
+              isDealer={seat.id === dealerPlayerId}
+              stack={seat.stack}
+              roundBet={player.roundBets?.[seat.id] ?? 0}
+              disconnected={seat.disconnected === true || seat.connected === false}
+              turnSeconds={player.currentPlayerId === seat.id ? turnSeconds : undefined}
             />
           ))}
         </div>
@@ -2564,11 +2613,22 @@ function PlayerPage({
               )}
               blindLabel={playerBlindLabel(player.blinds, player.playerId, player.stage)}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
+              isDealer={player.playerId === dealerPlayerId}
+              stack={player.stack}
+              roundBet={yourRoundBet}
+              disconnected={!socketReady}
+              turnSeconds={player.currentPlayerId === player.playerId ? turnSeconds : undefined}
             />
           </div>
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
       </div>
+      <aside className="omaha-guide" data-testid="omaha-guide">
+        <strong>{ui('Omaha Hi-Lo: exactly 2 hole + 3 board cards', 'Omaha Hi-Lo: ровно 2 карманные + 3 общие карты')}</strong>
+        <span>{player.currentCombo?.lowCombo?.length
+          ? ui('Qualifying low is available', 'Есть подходящая комбинация Low')
+          : ui('No qualifying low yet (five different cards, 8 or lower)', 'Low пока нет: нужны пять разных карт не старше 8')}</span>
+      </aside>
       {finishVotePending ? (
         <section
           data-testid="early-finish-vote"
@@ -2646,24 +2706,48 @@ function PlayerPage({
       ) : null}
 
       {showActionDock ? <div className="action-dock">
+        <div className="action-dock-status" role="status" data-testid="turn-status">
+          {!socketReady
+            ? ui('Connection lost — actions are paused', 'Соединение потеряно — действия приостановлены')
+            : isYourTurn
+              ? `${ui('Your turn', 'Ваш ход')}${typeof turnSeconds === 'number' ? ` · ${turnSeconds}s` : ''}`
+              : `${ui('Waiting for', 'Ждём ход')}: ${playerLabel(player.players, player.currentPlayerId)}`}
+        </div>
         {pendingCommand ? (
           <strong role="status">
             {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
           </strong>
         ) : null}
-        {canAct && (currentBet === 0 || raiseCount < maxRaises) ? (
+        {canAct && (currentBet === 0 || raiseCapAvailable) ? (
           <div className="bet-sizes">
             <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
             {BET_SIZE_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 type="button"
-                onClick={() => setBetSize(option.value)}
-                className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
+                onClick={() => { setBetSize(option.value); setCustomTarget(''); }}
+                className={`bet-size-button${!hasCustomTarget && betSize === option.value ? ' is-selected' : ''}`}
               >
                 {localizedBetSize(option)}
               </button>
             ))}
+            <label className="custom-wager">
+              <span>{currentBet > 0 ? ui('Raise to', 'Рейз до') : ui('Bet', 'Ставка')}</span>
+              <input
+                data-testid="custom-wager-input"
+                type="number"
+                inputMode="numeric"
+                min={minimumTarget}
+                max={maximumTarget}
+                step="1"
+                value={customTarget}
+                placeholder={formatPoints(currentBet > 0 ? raiseTo : betAmount)}
+                onChange={(event) => setCustomTarget(event.target.value)}
+              />
+            </label>
+            <button type="button" className="bet-size-button" onClick={() => setCustomTarget(String(maximumTarget))}>
+              {ui('Max', 'Макс')}
+            </button>
           </div>
         ) : null}
         <div className="main-actions">
@@ -2671,13 +2755,13 @@ function PlayerPage({
           <>
             <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
             {currentBet === 0 ? (
-              <button className="action-button" onClick={() => sendMove('bet', betAmount, betSize)}>
-                {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(betAmount)}
+              <button className="action-button" onClick={() => submitWager('bet')}>
+                {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(wagerTarget)}
               </button>
             ) : null}
-            {currentBet > 0 && raiseCount < maxRaises ? (
-              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo, betSize)}>
-                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
+            {currentBet > 0 && raiseCapAvailable ? (
+              <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
+                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
               </button>
             ) : null}
             <button
@@ -2693,9 +2777,9 @@ function PlayerPage({
             <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
               {call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')} {formatPoints(call.amount)}
             </button>
-            {raiseCount < maxRaises ? (
-              <button className="action-button" disabled={!canRaise} onClick={() => sendMove('raise', raiseTo, betSize)}>
-                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(raiseTo)} ({raiseCount}/{maxRaises})
+            {raiseCapAvailable ? (
+              <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
+                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
               </button>
             ) : null}
             <button
@@ -3516,7 +3600,11 @@ function HomePage() {
     }
 
     setHomeNotice('Creating replay deal.');
-    ws.send(JSON.stringify({ action: 'replay_deal', handId: latestDeal.data.id }));
+    ws.send(JSON.stringify({
+      action: 'replay_deal',
+      handId: latestDeal.data.id,
+      adminToken: window.sessionStorage.getItem('omaha-admin-token') ?? undefined,
+    }));
   }
 
   function replayDealByQuery() {
@@ -3532,7 +3620,11 @@ function HomePage() {
 
     setHomeReplayError(null);
     setHomeNotice('Looking up replay deal.');
-    ws.send(JSON.stringify({ action: 'replay_deal', handQuery }));
+    ws.send(JSON.stringify({
+      action: 'replay_deal',
+      handQuery,
+      adminToken: window.sessionStorage.getItem('omaha-admin-token') ?? undefined,
+    }));
   }
 
   return (

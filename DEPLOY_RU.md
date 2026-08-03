@@ -136,6 +136,8 @@ Free web service может остановиться после 15 минут б
 | `DATA_FILE` | Путь к SQLite | `data/hands.sqlite` |
 | `STATIC_DIR` | Путь к собранному клиенту | автоматический поиск `demo/client/dist` |
 | `BOT_THINK_MS` | Задержка встроенного бота | `1000` мс |
+| `HUMAN_TURN_MS` | Время на ход человека; затем auto-check/auto-fold | `45000` мс |
+| `ADMIN_API_TOKEN` | Bearer-токен для `/admin/*`; обязателен в публичном окружении | не задан |
 | `COMMIT_SHA` | Commit для `/api/version` | build-info или `dev` |
 | `BUILD_TIME_GMT` | Время для `/api/version` | build-info или время старта |
 

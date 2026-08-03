@@ -6,10 +6,25 @@ import path from 'path';
 
 export default class HandStore {
   private db?: Database<sqlite3.Database, sqlite3.Statement>;
+  private initializing?: Promise<void>;
   private saveQueue: Promise<void> = Promise.resolve();
   constructor(public filename: string) {}
 
   async init() {
+    if (this.initializing) return this.initializing;
+    if (this.db) return;
+    this.initializing = this.initialize();
+    try {
+      await this.initializing;
+    } catch (error) {
+      this.db = undefined;
+      throw error;
+    } finally {
+      this.initializing = undefined;
+    }
+  }
+
+  private async initialize() {
     await fs.mkdir(path.dirname(this.filename), { recursive: true });
     this.db = await open({ filename: this.filename, driver: sqlite3.Database });
     await this.db.run(`CREATE TABLE IF NOT EXISTS hands (
@@ -126,7 +141,8 @@ export default class HandStore {
   }
 
   private async getDb() {
-    if (!this.db) await this.init();
+    if (this.initializing) await this.initializing;
+    else if (!this.db) await this.init();
     return this.db!;
   }
 

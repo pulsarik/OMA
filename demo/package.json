@@ -10,8 +10,9 @@
     "test:server": "npm --prefix ../server test",
     "test:client": "jest --config jest.config.js",
     "e2e": "npm --prefix ../server run build && playwright test --config=playwright.config.ts",
+    "e2e:timer": "npm --prefix ../server run build && playwright test --config=playwright.timer.config.ts",
     "e2e:bots": "npm --prefix ../server run build && playwright test --config=playwright.bots.config.ts",
-    "ci": "npm test && npm --prefix ../server run build && npm --prefix client run build && npm run e2e"
+    "ci": "npm test && npm --prefix ../server run build && npm --prefix client run build && npm run e2e && npm run e2e:timer"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

@@ -1,5 +1,4 @@
 import {
-  MAX_RAISES_PER_STREET,
   PlayerMove,
   compareOmahaHands,
   normalizeHand,
@@ -157,18 +156,18 @@ function potBetAmount(hand: any, player: any, fraction: number) {
 function potRaiseTo(hand: any, player: any, fraction: number) {
   const playerBet = hand.roundBets?.[player.id] ?? 0;
   const currentBet = hand.currentBet ?? 0;
-  const bigBlind = hand.blinds?.big ?? 4;
+  const lastFullRaise = hand.lastFullRaise ?? hand.blinds?.big ?? 4;
   const callAmount = Math.max(currentBet - playerBet, 0);
   const maxRaiseTo = Math.min(playerBet + player.stack, currentBet + (hand.potCoins ?? 0) + callAmount);
-  const minRaiseTo = Math.min(currentBet + bigBlind, maxRaiseTo);
+  const fullRaiseTo = currentBet < lastFullRaise ? lastFullRaise : currentBet + lastFullRaise;
+  const minRaiseTo = Math.min(fullRaiseTo, maxRaiseTo);
   const raiseSize = Math.ceil(((hand.potCoins ?? 0) + callAmount) * fraction);
   return Math.min(Math.max(currentBet + raiseSize, minRaiseTo), maxRaiseTo);
 }
 
 export function aggressiveMoveForMatchedBet(currentBet: number, raiseCount: number): PlayerMove {
   if (currentBet === 0) return 'bet';
-  if (raiseCount < MAX_RAISES_PER_STREET) return 'raise';
-  return 'check';
+  return 'raise';
 }
 
 export function botMove(hand: any, player: any): BotDecision {
@@ -210,7 +209,7 @@ export function botMove(hand: any, player: any): BotDecision {
     if (player.stack <= callAmount) {
       return { move: 'call' };
     }
-    if (hand.raiseCount < MAX_RAISES_PER_STREET) {
+    if (!hand.actedSinceLastFullRaise?.includes(player.id)) {
       return { move: 'raise', amount: potRaiseTo(hand, player, equity >= 0.78 || scoopRate >= 0.65 ? 1 : 0.5) };
     }
     return { move: 'call' };

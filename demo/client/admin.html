@@ -25,14 +25,15 @@
       gap: 16px;
       margin-bottom: 20px;
     }
-    button {
+    button, input {
       border: 1px solid #9ca3af;
       border-radius: 8px;
       background: #fff;
       padding: 8px 12px;
-      cursor: pointer;
       font: inherit;
     }
+    button { cursor: pointer; }
+    .admin-auth { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .muted { color: #6b7280; font-size: 13px; }
     .cards {
       display: grid;
@@ -93,7 +94,10 @@
         <h1>Общая статистика игр</h1>
         <p id="updated" class="muted">Загрузка…</p>
       </div>
-      <button onclick="loadStats()">Обновить</button>
+      <div class="admin-auth">
+        <input id="admin-token" type="password" autocomplete="current-password" placeholder="ADMIN_API_TOKEN" aria-label="ADMIN_API_TOKEN">
+        <button onclick="saveTokenAndLoad()">Открыть / обновить</button>
+      </div>
     </div>
 
     <section id="cards" class="cards"></section>
@@ -113,6 +117,15 @@
   <script>
     const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
     const API_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
+    const tokenInput = document.getElementById('admin-token');
+    tokenInput.value = window.sessionStorage.getItem('omaha-admin-token') || '';
+
+    function saveTokenAndLoad() {
+      const token = tokenInput.value.trim();
+      if (token) window.sessionStorage.setItem('omaha-admin-token', token);
+      else window.sessionStorage.removeItem('omaha-admin-token');
+      void loadStats().catch(showError);
+    }
 
     function escapeHtml(value) {
       return String(value ?? '-')
@@ -155,7 +168,10 @@
     }
 
     async function loadStats() {
-      const response = await fetch(`${API_URL}/admin/stats`);
+      const token = window.sessionStorage.getItem('omaha-admin-token');
+      const response = await fetch(`${API_URL}/admin/stats`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!response.ok) throw new Error(await response.text());
       const stats = await response.json();
       const totals = stats.totals || {};

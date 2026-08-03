@@ -3,7 +3,7 @@ services:
     name: omaha-hi-lo-beta
     runtime: node
     plan: free
-    branch: beta/lobby
+    branch: deploy/all-changes
     autoDeployTrigger: checksPass
     buildCommand: npm --prefix server ci --include=dev && npm --prefix demo/client ci --include=dev && node server/scripts/write-build-info.cjs && npm --prefix server run build && npm --prefix demo/client run build
     startCommand: node server/dist/index.js
@@ -13,3 +13,7 @@ services:
         value: production
       - key: DATA_FILE
         value: data/beta-hands.sqlite
+      - key: ADMIN_API_TOKEN
+        generateValue: true
+      - key: HUMAN_TURN_MS
+        value: "45000"

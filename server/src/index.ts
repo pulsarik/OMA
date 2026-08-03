@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import fs from 'fs';
 import http from 'http';
 import path from 'path';
@@ -18,7 +19,6 @@ import {
 } from './lobby';
 import {
   PlayerMove,
-  MAX_RAISES_PER_STREET,
   POT_COINS,
   currentPotBreakdown,
   STARTING_STACK,
@@ -43,6 +43,8 @@ const wss = new WebSocketServer({ server });
 const store = new HandStore(process.env.DATA_FILE || path.join(process.cwd(), 'data', 'hands.sqlite'));
 const continuationLocks = new Map<string, Promise<any>>();
 const botTurnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const humanTurnTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const handTurnLocks = new Map<string, Promise<void>>();
 const playerMoveCommands = new Map<string, Promise<{
   hand: any;
   player: any;
@@ -57,12 +59,14 @@ const playerConnections = new Map<WebSocket, {
 }>();
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
+const HUMAN_TURN_MS = Math.max(1_000, Number(process.env.HUMAN_TURN_MS) || 45_000);
 const SESSION_EXPIRE_MS = Math.max(60_000, Number(process.env.SESSION_EXPIRE_MS) || 2 * 60 * 60_000);
 const SESSION_WARNING_MS = Math.min(
   SESSION_EXPIRE_MS - 1,
   Math.max(0, Number(process.env.SESSION_WARNING_MS) || 60 * 60_000),
 );
 const SESSION_CLEANUP_MS = Math.max(10_000, Number(process.env.SESSION_CLEANUP_MS) || 60_000);
+const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN;
 const MAX_FAILED_PIN_ATTEMPTS = 5;
 const staticDir = [
   process.env.STATIC_DIR,
@@ -99,8 +103,91 @@ app.use((req, res, next) => {
   next();
 });
 
+function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!ADMIN_API_TOKEN || req.get('authorization') === `Bearer ${ADMIN_API_TOKEN}`) {
+    next();
+    return;
+  }
+  res.status(401).json({ error: 'Unauthorized' });
+}
+
+function requireContinuationAccess(ws: WebSocket, hand: any, message: any) {
+  const connection = playerConnections.get(ws);
+  if (connection?.partyId === (hand.partyId ?? hand.id)) return;
+  if (!ADMIN_API_TOKEN || message.adminToken === ADMIN_API_TOKEN) return;
+  throw new Error('unauthorized continuation');
+}
+
 if (staticDir) {
   app.use(express.static(staticDir));
+}
+
+async function withHandTurnLock<T>(handId: string, operation: () => Promise<T>) {
+  const previous = handTurnLocks.get(handId) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const queued = previous.catch(() => undefined).then(() => gate);
+  handTurnLocks.set(handId, queued);
+  await previous.catch(() => undefined);
+
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (handTurnLocks.get(handId) === queued) handTurnLocks.delete(handId);
+  }
+}
+
+function prepareHumanTurnClock(hand: any, reset = false) {
+  const previousDeadline = hand.turnDeadline;
+  const previousPlayerId = hand.turnDeadlinePlayerId;
+  const previousDuration = hand.turnDurationMs;
+  hand.turnDurationMs = HUMAN_TURN_MS;
+
+  const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
+  if (hand.stage === 'showdown' || !current || current.isBot) {
+    delete hand.turnDeadline;
+    delete hand.turnDeadlinePlayerId;
+  } else if (
+    reset
+    || hand.turnDeadlinePlayerId !== current.id
+    || !Number.isFinite(hand.turnDeadline)
+  ) {
+    hand.turnDeadline = Date.now() + HUMAN_TURN_MS;
+    hand.turnDeadlinePlayerId = current.id;
+  }
+
+  return previousDeadline !== hand.turnDeadline
+    || previousPlayerId !== hand.turnDeadlinePlayerId
+    || previousDuration !== hand.turnDurationMs;
+}
+
+function prepareDealAudit(hand: any) {
+  let changed = false;
+  if (typeof hand.dealAuditNonce !== 'string' || !hand.dealAuditNonce) {
+    hand.dealAuditNonce = crypto.randomBytes(32).toString('hex');
+    changed = true;
+  }
+  const commitment = crypto.createHash('sha256')
+    .update(`${hand.dealCode}:${hand.dealAuditNonce}`)
+    .digest('hex');
+  if (hand.dealCommitment !== commitment) {
+    hand.dealCommitment = commitment;
+    changed = true;
+  }
+  return changed;
+}
+
+function clearBotTurnTimer(handId: string) {
+  const timer = botTurnTimers.get(handId);
+  if (timer) clearTimeout(timer);
+  botTurnTimers.delete(handId);
+}
+
+function clearHumanTurnTimer(handId: string) {
+  const timer = humanTurnTimers.get(handId);
+  if (timer) clearTimeout(timer);
+  humanTurnTimers.delete(handId);
 }
 
 function scheduleBotTurns(handId: string) {
@@ -109,23 +196,27 @@ function scheduleBotTurns(handId: string) {
   const timer = setTimeout(async () => {
     let shouldScheduleNext = false;
     try {
-      const hand = await store.getHand(handId);
-      if (!hand) return;
-      normalizeHand(hand);
-      if (hand.stage === 'showdown') {
+      await withHandTurnLock(handId, async () => {
+        const hand = await store.getHand(handId);
+        if (!hand) return;
+        normalizeHand(hand);
+        if (hand.stage === 'showdown') {
+          prepareHumanTurnClock(hand);
+          await store.updateHand(hand);
+          broadcastHandUpdated(hand);
+          return;
+        }
+
+        const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
+        if (!current?.isBot || current.folded || current.stack <= 0) return;
+
+        const decision = botMove(hand, current);
+        recordPlayerMove(hand, current.id, decision.move, decision.amount);
+        prepareHumanTurnClock(hand, true);
         await store.updateHand(hand);
         broadcastHandUpdated(hand);
-        return;
-      }
-
-      const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
-      if (!current?.isBot || current.folded || current.stack <= 0) return;
-
-      const decision = botMove(hand, current);
-      recordPlayerMove(hand, current.id, decision.move, decision.amount);
-      await store.updateHand(hand);
-      broadcastHandUpdated(hand);
-      shouldScheduleNext = hand.stage !== 'showdown';
+        shouldScheduleNext = hand.stage !== 'showdown';
+      });
     } catch (error) {
       console.error('bot turn failed', error);
       shouldScheduleNext = true;
@@ -133,21 +224,111 @@ function scheduleBotTurns(handId: string) {
       if (botTurnTimers.get(handId) === timer) {
         botTurnTimers.delete(handId);
       }
-      if (shouldScheduleNext) scheduleBotTurns(handId);
+      if (shouldScheduleNext) void scheduleTurnTimers(handId);
     }
   }, BOT_THINK_MS);
 
+  timer.unref();
   botTurnTimers.set(handId, timer);
+}
+
+function scheduleHumanTurn(hand: any) {
+  const handId = hand.id;
+  if (humanTurnTimers.has(handId)) return;
+  const expectedDeadline = hand.turnDeadline;
+  const expectedPlayerId = hand.turnDeadlinePlayerId;
+  if (!Number.isFinite(expectedDeadline) || !expectedPlayerId) return;
+
+  const delay = Math.min(Math.max(expectedDeadline - Date.now(), 0), 2_147_483_647);
+  const timer = setTimeout(async () => {
+    try {
+      await withHandTurnLock(handId, async () => {
+        const latest = await store.getHand(handId);
+        if (!latest) return;
+        normalizeHand(latest);
+        const current = latest.players.find((player: any) => player.id === latest.currentPlayerId);
+        if (
+          latest.stage === 'showdown'
+          || !current
+          || current?.isBot
+          || latest.turnDeadline !== expectedDeadline
+          || latest.turnDeadlinePlayerId !== expectedPlayerId
+          || Date.now() < expectedDeadline
+        ) return;
+
+        const canCheck = (latest.roundBets?.[current.id] ?? 0) >= (latest.currentBet ?? 0);
+        recordPlayerMove(latest, current.id, canCheck ? 'check' : 'fold');
+        prepareHumanTurnClock(latest, true);
+        await store.updateHand(latest);
+        broadcastHandUpdated(latest);
+      });
+    } catch (error) {
+      console.error('human turn timeout failed', error);
+    } finally {
+      if (humanTurnTimers.get(handId) === timer) humanTurnTimers.delete(handId);
+      void scheduleTurnTimers(handId);
+    }
+  }, delay);
+  timer.unref();
+  humanTurnTimers.set(handId, timer);
+}
+
+async function scheduleTurnTimers(handId: string) {
+  const hand = await store.getHand(handId);
+  if (!hand) {
+    clearBotTurnTimer(handId);
+    clearHumanTurnTimer(handId);
+    return;
+  }
+  normalizeHand(hand);
+  const auditChanged = prepareDealAudit(hand);
+  const clockChanged = prepareHumanTurnClock(hand);
+  if (auditChanged || clockChanged) {
+    await store.updateHand(hand);
+    broadcastHandUpdated(hand);
+  }
+
+  const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
+  if (hand.stage === 'showdown' || !current) {
+    clearBotTurnTimer(handId);
+    clearHumanTurnTimer(handId);
+  } else if (current.isBot) {
+    clearHumanTurnTimer(handId);
+    scheduleBotTurns(handId);
+  } else {
+    clearBotTurnTimer(handId);
+    scheduleHumanTurn(hand);
+  }
+}
+
+async function recoverTurnTimers() {
+  const hands = await store.listAllHands();
+  await Promise.all(hands
+    .filter((hand: any) => hand.stage !== 'showdown')
+    .map((hand: any) => scheduleTurnTimers(hand.id)));
+}
+
+function connectedPlayerIds(handId: string) {
+  const connected = new Set<string>();
+  playerConnections.forEach((connection, client) => {
+    if (connection.handId === handId && client.readyState === WebSocket.OPEN) {
+      connected.add(connection.playerId);
+    }
+  });
+  return connected;
 }
 
 function publicHandState(hand: any) {
   normalizeHand(hand);
+  const connectedPlayers = connectedPlayerIds(hand.id);
   return {
     id: hand.id,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
     handCode: hand.handCode,
-    dealCode: hand.dealCode,
+    dealCommitment: hand.dealCommitment,
+    dealCode: hand.stage === 'showdown' ? hand.dealCode : undefined,
+    dealAuditNonce: hand.stage === 'showdown' ? hand.dealAuditNonce : undefined,
     handNumber: hand.handNumber,
     revision: hand.revision ?? 0,
     replayOfHandId: hand.replayOfHandId,
@@ -157,15 +338,19 @@ function publicHandState(hand: any) {
     currentBet: hand.currentBet ?? 0,
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
-    maxRaises: MAX_RAISES_PER_STREET,
+    lastFullRaise: hand.lastFullRaise,
+    actedSinceLastFullRaise: hand.actedSinceLastFullRaise ?? [],
     blinds: hand.blinds,
     stage: hand.stage ?? 'showdown',
     currentPlayerId: hand.currentPlayerId,
+    turnDeadline: hand.turnDeadline,
+    turnDurationMs: hand.turnDurationMs,
     community: visibleCommunity(hand),
     players: hand.players.map((p: any) => ({
       id: p.id,
       name: p.name,
       isBot: Boolean(p.isBot),
+      connected: p.isBot ? undefined : connectedPlayers.has(p.id),
       stack: p.stack,
       folded: Boolean(p.folded),
       public: true,
@@ -352,9 +537,8 @@ async function cleanupInactiveSessions() {
     lobbyConnections.delete(client);
   });
   expired.handIds.forEach((handId) => {
-    const timer = botTurnTimers.get(handId);
-    if (timer) clearTimeout(timer);
-    botTurnTimers.delete(handId);
+    clearBotTurnTimer(handId);
+    clearHumanTurnTimer(handId);
   });
   return expired;
 }
@@ -393,7 +577,9 @@ function diagnosticHandSnapshot(hand: any) {
     handNumber: hand.handNumber,
     revision: hand.revision ?? 0,
     replayOfHandId: hand.replayOfHandId,
+    dealCommitment: hand.dealCommitment,
     dealCode: hand.dealCode,
+    dealAuditNonce: hand.dealAuditNonce,
     dealSeed: hand.dealSeed,
     rngSeed: hand.rngSeed,
     players: hand.players.map((player: any) => ({
@@ -408,6 +594,8 @@ function diagnosticHandSnapshot(hand: any) {
     fullCommunity: hand.fullCommunity,
     stage: hand.stage,
     currentPlayerId: hand.currentPlayerId,
+    turnDeadline: hand.turnDeadline,
+    turnDurationMs: hand.turnDurationMs,
     currentBet: hand.currentBet,
     roundBets: hand.roundBets,
     totalContributions: hand.totalContributions,
@@ -444,12 +632,15 @@ async function playerState(hand: any, player: any) {
   normalizeHand(hand);
   const community = visibleCommunity(hand);
   const enteredPlayerIds = new Set<string>(hand.enteredPlayerIds ?? []);
+  const connectedPlayers = connectedPlayerIds(hand.id);
   return {
     handId: hand.id,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
     handCode: hand.handCode,
-    dealCode: hand.dealCode,
+    dealCommitment: hand.dealCommitment,
+    dealCode: hand.stage === 'showdown' ? hand.dealCode : undefined,
+    dealAuditNonce: hand.stage === 'showdown' ? hand.dealAuditNonce : undefined,
     handNumber: hand.handNumber,
     revision: hand.revision ?? 0,
     replayOfHandId: hand.replayOfHandId,
@@ -463,7 +654,8 @@ async function playerState(hand: any, player: any) {
     currentBet: hand.currentBet ?? 0,
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
-    maxRaises: MAX_RAISES_PER_STREET,
+    lastFullRaise: hand.lastFullRaise,
+    actedSinceLastFullRaise: hand.actedSinceLastFullRaise ?? [],
     blinds: hand.blinds,
     hole: player.hole,
     folded: Boolean(player.folded),
@@ -471,6 +663,7 @@ async function playerState(hand: any, player: any) {
       id: p.id,
       name: p.name,
       isBot: Boolean(p.isBot),
+      connected: p.isBot ? undefined : connectedPlayers.has(p.id),
       stack: p.stack,
       folded: Boolean(p.folded),
       cardCount: p.hole.length,
@@ -478,6 +671,8 @@ async function playerState(hand: any, player: any) {
     })),
     stage: hand.stage ?? 'showdown',
     currentPlayerId: hand.currentPlayerId,
+    turnDeadline: hand.turnDeadline,
+    turnDurationMs: hand.turnDurationMs,
     revealVotes: hand.revealVotes ?? [],
     cardsRevealed: Boolean(hand.cardsRevealed),
     nextHandId: hand.nextHandId,
@@ -517,10 +712,12 @@ function broadcastHandUpdated(hand: any) {
 
 async function createAndSendDeal(ws: WebSocket, players: number, playerNames: string[] = [], playerBots: boolean[] = []) {
   const hand = dealHand(players, undefined, playerNames, playerBots);
+  prepareDealAudit(hand);
+  prepareHumanTurnClock(hand, true);
   await store.saveHand(hand);
   sendDeal(ws, hand);
   broadcastPublicDeal(ws, hand);
-  scheduleBotTurns(hand.id);
+  void scheduleTurnTimers(hand.id);
 
   return hand;
 }
@@ -947,6 +1144,8 @@ async function startLobby(ws: WebSocket, message: any) {
       seatedMembers.map(candidate => candidate.name),
       seatedMembers.map(candidate => candidate.isBot),
     );
+    prepareDealAudit(hand);
+    prepareHumanTurnClock(hand, true);
     await store.saveHand(hand);
     seatedMembers.forEach((candidate, index) => {
       candidate.playerId = hand.players[index].id;
@@ -959,7 +1158,7 @@ async function startLobby(ws: WebSocket, message: any) {
     await broadcastOpenLobbies();
 
     await sendStartedLobbyToMembers(lobby);
-    scheduleBotTurns(hand.id);
+    void scheduleTurnTimers(hand.id);
   });
 }
 
@@ -987,6 +1186,8 @@ async function restartLobby(ws: WebSocket, message: any) {
       seatedMembers.map(candidate => candidate.name),
       seatedMembers.map(candidate => candidate.isBot),
     );
+    prepareDealAudit(hand);
+    prepareHumanTurnClock(hand, true);
     await store.saveHand(hand);
     seatedMembers.forEach((candidate, index) => {
       candidate.playerId = hand.players[index].id;
@@ -996,7 +1197,7 @@ async function restartLobby(ws: WebSocket, message: any) {
     await store.updateLobby(lobby);
     broadcastLobby(lobby);
     await sendStartedLobbyToMembers(lobby);
-    scheduleBotTurns(hand.id);
+    void scheduleTurnTimers(hand.id);
   });
 }
 
@@ -1102,6 +1303,7 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
   const pending = (async () => {
     const latestHand = await store.getHand(hand.id) ?? hand;
     normalizeHand(latestHand);
+    if (latestHand.stage !== 'showdown') throw new Error('hand is still in progress');
     if (latestHand.partyFinishedEarly) throw new Error('table already finished');
     if (latestHand.earlyFinishRequest?.status === 'pending') {
       throw new Error('finish vote in progress');
@@ -1123,6 +1325,8 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
     const nextHand = mode === 'replay' && latestHand.players?.length
       ? replayHandLayout(latestHand)
       : nextPartyHand(latestHand.players?.length ? latestHand : dealHand(fallbackPlayers));
+    prepareDealAudit(nextHand);
+    prepareHumanTurnClock(nextHand, true);
     await store.saveHand(nextHand);
     latestHand.nextHandId = nextHand.id;
     if (mode === 'replay') {
@@ -1169,7 +1373,7 @@ async function findHandByQuery(query: string) {
   }
 }
 
-app.get('/admin/hands', async (req, res) => {
+app.get('/admin/hands', requireAdmin, async (req, res) => {
   const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
   const offset = Math.max(Number(req.query.offset) || 0, 0);
   const [hands, total] = await Promise.all([
@@ -1179,10 +1383,10 @@ app.get('/admin/hands', async (req, res) => {
 
   res.json({ hands, total, limit, offset });
 });
-app.get('/admin/stats', async (_req, res) => {
+app.get('/admin/stats', requireAdmin, async (_req, res) => {
   res.json(await store.getAnalyticsStats());
 });
-app.get('/admin/hands/:id', async (req, res) => {
+app.get('/admin/hands/:id', requireAdmin, async (req, res) => {
   const h = await store.getHand(req.params.id);
   if (!h) return res.status(404).send('Not found');
   normalizeHand(h);
@@ -1336,6 +1540,7 @@ wss.on('connection', (ws, req) => {
       } else if (msg.action === 'new_deal') {
         const hand = msg.handId ? await getActiveHand(msg.handId) : null;
         if (hand) {
+          requireContinuationAccess(ws, hand, msg);
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
           const requestingPlayer = playerConnections.get(ws);
@@ -1348,7 +1553,7 @@ wss.on('connection', (ws, req) => {
           if (entered) broadcastHandUpdated(nextHand);
           sendDeal(ws, nextHand);
           broadcastPublicDeal(ws, nextHand);
-          scheduleBotTurns(nextHand.id);
+          void scheduleTurnTimers(nextHand.id);
         } else {
           await createAndSendDeal(
             ws,
@@ -1364,6 +1569,7 @@ wss.on('connection', (ws, req) => {
             ? await findHandByQuery(msg.handQuery)
             : null;
         if (hand) {
+          requireContinuationAccess(ws, hand, msg);
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const replayHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'replay');
           const requestingPlayer = playerConnections.get(ws);
@@ -1376,7 +1582,7 @@ wss.on('connection', (ws, req) => {
           if (entered) broadcastHandUpdated(replayHand);
           sendDeal(ws, replayHand);
           broadcastPublicDeal(ws, replayHand);
-          scheduleBotTurns(replayHand.id);
+          void scheduleTurnTimers(replayHand.id);
         } else {
           throw new Error('hand not found');
         }
@@ -1388,13 +1594,14 @@ wss.on('connection', (ws, req) => {
         normalizeHand(hand);
         const player = hand.players.find((p: any) => p.id === msg.playerId && p.token === msg.token);
         if (!player) throw new Error('player not found');
+        const wasConnected = connectedPlayerIds(hand.id).has(player.id);
         await recordPlayerConnection(ws, req, hand, player, msg.client);
         const entered = await markPlayerEntered(hand, player.id);
         ws.send(JSON.stringify({ type: 'player_state', data: await playerState(hand, player) }));
-        if (entered) broadcastHandUpdated(hand);
+        if (entered || !wasConnected) broadcastHandUpdated(hand);
         // Bot timers live in memory and disappear when the server restarts. A
         // player reconnecting to an unfinished hand must also wake the bot up.
-        scheduleBotTurns(hand.id);
+        void scheduleTurnTimers(hand.id);
       } else if (msg.action === 'player_move') {
         if (receivedCommandId && receivedCommandId.length > 100) {
           throw new Error('invalid command id');
@@ -1404,7 +1611,7 @@ wss.on('connection', (ws, req) => {
           : undefined;
         const commandKey = marker ? `${msg.handId}:${marker}` : undefined;
 
-        const applyMove = async () => {
+        const applyMove = () => withHandTurnLock(msg.handId, async () => {
           const hand = await getActiveHand(msg.handId);
           if (!hand) throw new Error('hand not found');
           normalizeHand(hand);
@@ -1420,12 +1627,13 @@ wss.on('connection', (ws, req) => {
           }
           await recordBoundPlayerActivity(ws);
           recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount, msg.betSize);
+          prepareHumanTurnClock(hand, true);
           if (marker) {
             hand.processedCommandIds = [...(hand.processedCommandIds ?? []), marker].slice(-100);
           }
           await store.updateHand(hand);
           return { hand, player, duplicate: false };
-        };
+        });
 
         let result;
         const inFlight = commandKey ? playerMoveCommands.get(commandKey) : undefined;
@@ -1453,14 +1661,25 @@ wss.on('connection', (ws, req) => {
           }));
         }
         if (!result.duplicate && !inFlight) {
+          clearHumanTurnTimer(result.hand.id);
           broadcastHandUpdated(result.hand);
-          scheduleBotTurns(result.hand.id);
+          void scheduleTurnTimers(result.hand.id);
         }
       } else if (msg.action === 'player_activity') {
         await recordBoundPlayerActivity(ws);
       } else if (msg.action === 'replay' && msg.id) {
         const h = await store.getHand(msg.id);
-        if (h) ws.send(JSON.stringify({ type: 'hand_full', data: h }));
+        if (h) {
+          normalizeHand(h);
+          const replayState = publicHandState(h);
+          if (h.stage === 'showdown') {
+            replayState.players = replayState.players.map((player: any) => ({
+              ...player,
+              hole: h.players.find((candidate: any) => candidate.id === player.id)?.hole,
+            }));
+          }
+          ws.send(JSON.stringify({ type: 'hand_full', data: replayState }));
+        }
         else ws.send(JSON.stringify({ type: 'error', message: 'not found' }));
       }
     } catch (e) {
@@ -1472,8 +1691,17 @@ wss.on('connection', (ws, req) => {
     }
   });
   ws.on('close', () => {
+    const playerConnection = playerConnections.get(ws);
     lobbyConnections.delete(ws);
     playerConnections.delete(ws);
+    if (
+      playerConnection
+      && !connectedPlayerIds(playerConnection.handId).has(playerConnection.playerId)
+    ) {
+      void store.getHand(playerConnection.handId)
+        .then((hand) => { if (hand) broadcastHandUpdated(hand); })
+        .catch(error => console.error('player disconnect broadcast failed', error));
+    }
   });
 });
 
@@ -1483,6 +1711,7 @@ server.listen(PORT, () => {
 });
 
 void cleanupInactiveSessions().catch(error => console.error('session cleanup failed', error));
+void recoverTurnTimers().catch(error => console.error('turn timer recovery failed', error));
 const sessionCleanupTimer = setInterval(() => {
   void cleanupInactiveSessions().catch(error => console.error('session cleanup failed', error));
 }, SESSION_CLEANUP_MS);

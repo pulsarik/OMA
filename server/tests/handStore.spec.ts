@@ -1,5 +1,15 @@
 import HandStore from '../src/handStore';
 
+test('concurrent first reads wait for the database schema to finish initializing', async () => {
+  const store = new HandStore(':memory:');
+
+  await expect(Promise.all([
+    store.listAllHands(),
+    store.deleteExpiredParties(0),
+    store.getAnalyticsStats(),
+  ])).resolves.toBeDefined();
+});
+
 test('problem IDs start at 1000 and saved reports can be read back', async () => {
   const store = new HandStore(':memory:');
 
