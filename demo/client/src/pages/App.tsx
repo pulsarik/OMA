@@ -1250,7 +1250,6 @@ function PlayerSeat({
       >
         {compact && !isYou ? (
           <div className="seat-topline">
-            {isBot ? <span className="bot-badge">{ui('BOT', 'БОТ')}</span> : null}
             <span
               className="seat-name-score"
             title={`${tablePlayerName(name, id)}: ${formatPoints(score)} ${ui('coins', 'фишек')}`}
@@ -1286,26 +1285,6 @@ function PlayerSeat({
               ) : null}
             </div>
           </div>
-        ) : null}
-        {isBot && (!compact || isYou) ? (
-          <span
-            className="bot-badge"
-            style={{
-              position: 'absolute',
-              top: 4,
-              left: 4,
-              border: '1px solid #bbf7d0',
-              borderRadius: 999,
-              background: '#dcfce7',
-              color: '#166534',
-              padding: '2px 6px',
-              fontSize: 11,
-              fontWeight: 800,
-              lineHeight: 1.1,
-            }}
-          >
-            {ui('BOT', 'БОТ')}
-          </span>
         ) : null}
         {(!compact || isYou) ? <div className="seat-position-badges" aria-label={ui('Table positions', 'Позиции за столом')}>
           {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
@@ -3160,11 +3139,11 @@ function LobbyTable({
                 }}
               >
                 <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {seat ? tablePlayerName(seat.name, seat.id) : ui('BOT ON START', 'БОТ ПРИ СТАРТЕ')}
+                  {seat ? tablePlayerName(seat.name, seat.id) : ui('OPEN SEAT', 'СВОБОДНОЕ МЕСТО')}
                 </strong>
                 <span style={{ fontSize: 10, fontWeight: 800, color: seat ? '#64748b' : '#cbd5e1' }}>
                   {seat
-                    ? `${seat.isHost ? `${ui('HOST', 'ВЕДУЩИЙ')} · ` : ''}${seat.isBot ? ui('BOT', 'БОТ') : isYou ? ui('YOU', 'ВЫ') : ui('READY', 'ГОТОВ')}`
+                    ? `${seat.isHost ? `${ui('HOST', 'ВЕДУЩИЙ')} · ` : ''}${isYou ? ui('YOU', 'ВЫ') : ui('READY', 'ГОТОВ')}`
                     : `${ui('SEAT', 'МЕСТО')} ${physicalSeat + 1}`}
                 </span>
               </div>
@@ -3909,7 +3888,7 @@ function HomePage() {
                 >
                   <strong>{link.name ?? link.id}</strong>
                   <span style={{ color: link.isBot ? '#166534' : '#2563eb' }}>
-                    {link.isBot ? 'Bot' : 'Open'}
+                    Open
                   </span>
                 </a>
               ))}

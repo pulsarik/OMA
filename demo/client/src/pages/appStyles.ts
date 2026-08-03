@@ -357,17 +357,6 @@ export const PLAYER_PAGE_STYLES = `
     margin-bottom: 5px;
   }
   .seat-topline .seat-name-score { justify-self: center; margin: 0 !important; }
-  .bot-badge {
-    border: 1px solid #bbf7d0;
-    border-radius: 999px;
-    background: #dcfce7;
-    color: #166534;
-    padding: 2px 6px;
-    font-size: 11px;
-    font-weight: 800;
-    line-height: 1.1;
-    white-space: nowrap;
-  }
   .seat-inline-positions { display: flex; justify-content: flex-end; gap: 3px; }
   .seat-inline-positions:empty { min-width: 24px; }
   .seat-action-bubble {
