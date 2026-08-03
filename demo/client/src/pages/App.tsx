@@ -1124,18 +1124,22 @@ function PlayerSeat({
       style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
     >
       <section
-        className={`player-seat${isCurrentTurn ? ' is-thinking' : ''}`}
+        className={`player-seat${compact && !isYou ? ' is-opponent' : ''}${isCurrentTurn ? ' is-thinking' : ''}`}
         style={{
-          border: isCurrentTurn ? '3px solid #facc15' : isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
+          border: compact && !isYou
+            ? 'none'
+            : isCurrentTurn ? '3px solid #facc15' : isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
           borderRadius: 8,
-          padding: compact ? 6 : 10,
-          background: folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
+          padding: compact && !isYou ? 0 : compact ? 6 : 10,
+          background: compact && !isYou
+            ? 'transparent'
+            : folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
           opacity: folded ? 0.62 : 1,
           width: compact ? 'fit-content' : undefined,
           minWidth: compact ? undefined : 180,
           margin: '0 auto',
           position: 'relative',
-          boxShadow: isCurrentTurn
+          boxShadow: isCurrentTurn && (isYou || !compact)
             ? '0 0 0 4px rgba(250,204,21,0.35), 0 0 22px rgba(250,204,21,0.95)'
             : undefined,
         }}

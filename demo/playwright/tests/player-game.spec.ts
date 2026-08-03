@@ -98,7 +98,7 @@ test('opponent seats form a stable arc as content changes at every table size', 
     await createDefaultHumanVsBotDeal(page, playerCount, false);
 
     const opponentsGrid = page.getByTestId('opponents-grid');
-    await expect(opponentsGrid).toHaveCSS('display', 'grid');
+    await expect(opponentsGrid).toHaveCSS('display', playerCount >= 7 ? 'block' : 'grid');
     await expect(opponentsGrid.locator('[data-player-seat]')).toHaveCount(playerCount - 1);
     if (playerCount === 2) {
       const gridBox = (await opponentsGrid.boundingBox())!;
@@ -110,6 +110,20 @@ test('opponent seats form a stable arc as content changes at every table size', 
     const rowsBeforeContentChange = await rowSizes();
     if (playerCount === 5) {
       expect(rowsBeforeContentChange, 'four opponents should form a balanced arc').toEqual([2, 2]);
+    }
+    if (playerCount >= 7) {
+      const seats = await opponentsGrid.locator('[data-player-seat]').evaluateAll((items) => (
+        items.map((item) => {
+          const box = item.getBoundingClientRect();
+          return { centerX: box.x + box.width / 2, top: box.top };
+        })
+      ));
+      const gridBox = (await opponentsGrid.boundingBox())!;
+      const highestSeatTop = Math.min(...seats.map((seat) => seat.top));
+      expect(seats[0].top, `${playerCount}-player left seat follows the oval`).toBeGreaterThan(highestSeatTop + 80);
+      expect(seats.at(-1)!.top, `${playerCount}-player right seat follows the oval`).toBeGreaterThan(highestSeatTop + 80);
+      expect(seats[0].centerX).toBeLessThan(gridBox.x + gridBox.width / 2);
+      expect(seats.at(-1)!.centerX).toBeGreaterThan(gridBox.x + gridBox.width / 2);
     }
 
     await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {
