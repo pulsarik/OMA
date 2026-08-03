@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
 import { botMove } from './bot';
+import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
 import {
   Lobby,
   LobbyMember,
@@ -67,6 +68,7 @@ const SESSION_WARNING_MS = Math.min(
 );
 const SESSION_CLEANUP_MS = Math.max(10_000, Number(process.env.SESSION_CLEANUP_MS) || 60_000);
 const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN;
+const voiceConfig = voiceConfigFromEnv();
 const MAX_FAILED_PIN_ATTEMPTS = 5;
 const staticDir = [
   process.env.STATIC_DIR,
@@ -647,6 +649,7 @@ async function playerState(hand: any, player: any) {
     playerId: player.id,
     playerName: player.name,
     isBot: Boolean(player.isBot),
+    voiceEnabled: Boolean(voiceConfig) && !player.isBot,
     stack: player.stack,
     potCoins: hand.potCoins ?? POT_COINS,
     potBreakdown: currentPotBreakdown(hand),
@@ -1479,6 +1482,28 @@ app.get('/api/player/:handId/:playerId/:token', async (req, res) => {
   if (!player) return res.status(403).send('Forbidden');
 
   res.json(await playerState(hand, player));
+});
+app.post('/api/voice/token', async (req, res) => {
+  if (!voiceConfig) return res.status(503).json({ error: 'Voice chat is not configured' });
+
+  const { handId, playerId, token } = req.body ?? {};
+  if (![handId, playerId, token].every(value => typeof value === 'string')) {
+    return res.status(400).json({ error: 'Invalid voice credentials' });
+  }
+
+  const hand = await getActiveHand(handId);
+  if (!hand) return res.status(404).json({ error: 'Table not found' });
+  normalizeHand(hand);
+  const player = hand.players.find((candidate: any) => (
+    candidate.id === playerId && candidate.token === token && !candidate.isBot
+  ));
+  if (!player) return res.status(403).json({ error: 'Forbidden' });
+
+  res.json(await createVoiceJoinToken(voiceConfig, {
+    partyId: hand.partyId ?? hand.id,
+    playerId: player.id,
+    playerName: player.name ?? player.id,
+  }));
 });
 
 if (staticDir) {

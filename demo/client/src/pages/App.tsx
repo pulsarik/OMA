@@ -13,6 +13,9 @@ const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origi
 const WS_URL = isLocalVite
   ? 'ws://localhost:4000'
   : `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
+const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module => ({
+  default: module.VoiceChat,
+})));
 
 type UiLanguage = 'en' | 'ru';
 
@@ -302,6 +305,7 @@ type PlayerView = {
   playerId: string;
   playerName?: string;
   isBot?: boolean;
+  voiceEnabled?: boolean;
   stack: number;
   potCoins: number;
   potBreakdown: PotBreakdown[];
@@ -1391,7 +1395,7 @@ function PlayerSeat({
             </div>
           ) : null}
         </div>
-        {resultPlayer && (!isYou || folded) ? (
+        {resultPlayer && !isYou && (resultPlayer.highRank || resultPlayer.lowRank) ? (
           <div
             data-testid={`player-result-${id}`}
             style={{
@@ -1405,27 +1409,11 @@ function PlayerSeat({
               textAlign: 'center',
             }}
           >
-            {folded ? (
-              <span
-                data-testid={`player-ineligible-${id}`}
-                style={{
-                  borderRadius: 999,
-                  background: '#e5e7eb',
-                  color: '#7f1d1d',
-                  padding: '3px 7px',
-                  marginBottom: 2,
-                  fontSize: 10,
-                  fontWeight: 900,
-                }}
-              >
-                {ui('FOLDED — NOT ELIGIBLE', 'ФОЛД — НЕ УЧАСТВУЕТ')}
-              </span>
+            {resultPlayer.highRank ? (
+              <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank)}</span>
             ) : null}
-            {!isYou ? (
-              <>
-                <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank) ?? '-'}</span>
-                <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank) ?? ui('none', 'нет')}</span>
-              </>
+            {resultPlayer.lowRank ? (
+              <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank)}</span>
             ) : null}
           </div>
         ) : null}
@@ -1615,11 +1603,12 @@ function ShowdownStatus({
         : ui('Break even', 'Без прибыли и убытка')
     : ui('Showdown', 'Шоудаун');
   const winners = player.showdownSummary
-    ? `${ui('High', 'Хай')}: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')} | ${ui('Low', 'Лоу')}: ${
+    ? [
+      `${ui('High', 'Хай')}: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')}`,
       player.showdownSummary.noLow
-        ? ui('none', 'нет')
-        : player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')
-    }`
+        ? undefined
+        : `${ui('Low', 'Лоу')}: ${player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')}`,
+    ].filter(Boolean).join(' | ')
     : undefined;
   const personalPots = player.showdownSummary?.sidePots
     .filter(isContestedPot)
@@ -1707,18 +1696,17 @@ function PlayerComboSide({ combo, kind }: { combo?: PlayerCombo; kind: 'high' | 
   const isHigh = kind === 'high';
   const rank = isHigh ? combo.highRank : combo.lowRank;
   const cards = isHigh ? combo.highCombo : combo.lowCombo;
+  if (!rank || !cards) return null;
 
   return (
     <aside className={`combo-side ${kind}`} data-testid={`${kind}-combo-side`}>
       <div className="combo-side-title">
         <span>{isHigh ? ui('HI', 'ХАЙ') : ui('LO', 'ЛОУ')}</span>
-        <span className="combo-side-rank">{localizedRank(rank) ?? ui('none', 'нет')}</span>
+        <span className="combo-side-rank">{localizedRank(rank)}</span>
       </div>
-      {cards ? (
-        <div className="combo-side-cards">
-          <SideComboCards combo={cards} />
-        </div>
-      ) : null}
+      <div className="combo-side-cards">
+        <SideComboCards combo={cards} />
+      </div>
     </aside>
   );
 }
@@ -1926,7 +1914,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
         </strong>
       </div>
 
-      <div className="winner-grid">
+      <div className="winner-grid" style={result.noLow ? { gridTemplateColumns: '1fr' } : undefined}>
         <section className="winner-card">
           {!highWinnerResults.length && uncontestedWinnerIds.length ? (
             <h3 style={{ margin: 0, color: '#991b1b' }}>
@@ -1943,18 +1931,18 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
           ))}
         </section>
 
-        <section className="winner-card">
-          {result.noLow ? (
-            <h3 style={{ margin: 0, color: '#047857' }}>{ui('Low winner: No qualifying low', 'Лоу: нет подходящей комбинации')}</h3>
-          ) : lowWinnerResults.map((winner) => (
+        {!result.noLow ? (
+          <section className="winner-card">
+            {lowWinnerResults.map((winner) => (
             <div key={winner.id}>
               <h3 style={{ margin: '0 0 6px', color: '#047857' }}>
                 {ui('Low winner', 'Победитель лоу')}: {displayName(winner.id)} — {localizedRank(winner.lowRank)}
               </h3>
               {winner.lowCombo ? <ComboCardRow combo={winner.lowCombo} tone="low" /> : null}
             </div>
-          ))}
-        </section>
+            ))}
+          </section>
+        ) : null}
       </div>
 
       {contestedPots.length > 1 ? (
@@ -2088,10 +2076,18 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
           {result.players.map((player) => (
             <section className="hand-detail" data-testid={`hand-detail-${player.id}`} key={player.id}>
               <h3 style={{ margin: '0 0 5px' }}>{displayName(player.id)}{player.folded ? ` — ${ui('folded', 'фолд')}` : ''}</h3>
-              <p style={{ margin: '0 0 4px' }}>{ui('High', 'Хай')}: {localizedRank(player.highRank)}</p>
-              {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
-              <p style={{ margin: '0 0 4px' }}>{ui('Low', 'Лоу')}: {localizedRank(player.lowRank) ?? ui('no low', 'нет лоу')}</p>
-              {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
+              {player.highRank ? (
+                <>
+                  <p style={{ margin: '0 0 4px' }}>{ui('High', 'Хай')}: {localizedRank(player.highRank)}</p>
+                  {player.highCombo ? <ComboCardRow combo={player.highCombo} tone="high" /> : null}
+                </>
+              ) : null}
+              {player.lowRank ? (
+                <>
+                  <p style={{ margin: '0 0 4px' }}>{ui('Low', 'Лоу')}: {localizedRank(player.lowRank)}</p>
+                  {player.lowCombo ? <ComboCardRow combo={player.lowCombo} tone="low" /> : null}
+                </>
+              ) : null}
             </section>
           ))}
         </div>
@@ -2557,6 +2553,32 @@ function PlayerPage({
             {ui('disconnected', 'нет соединения')}
           </span>
         </div>
+      ) : null}
+
+      {player.voiceEnabled && (sessionDeadline === null || sessionNow < sessionDeadline) ? (
+        <React.Suspense fallback={null}>
+          <VoiceChat
+            endpoint={`${SERVER_URL}/api/voice/token`}
+            handId={handId}
+            playerId={playerId}
+            playerToken={token}
+            labels={{
+              title: ui('Voice chat', 'Голосовой чат'),
+              join: ui('Join voice', 'Войти в голос'),
+              joining: ui('Connecting…', 'Подключение…'),
+              leave: ui('Leave', 'Выйти'),
+              microphoneOn: ui('Mic on', 'Микрофон включён'),
+              microphoneOff: ui('Mic off', 'Микрофон выключен'),
+              soundOn: ui('Sound on', 'Звук включён'),
+              soundOff: ui('Sound off', 'Звук выключен'),
+              connected: ui('Connected', 'Подключено'),
+              participant: ui('participant', 'участник'),
+              participants: ui('participants', 'участников'),
+              speaking: ui('Speaking', 'Говорит'),
+              genericError: ui('Could not connect to voice chat', 'Не удалось подключиться к голосовому чату'),
+            }}
+          />
+        </React.Suspense>
       ) : null}
 
       <div

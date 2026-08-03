@@ -388,12 +388,10 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
   await expect(page.getByTestId('high-combo-side')).toBeVisible();
-  await expect(page.getByTestId('low-combo-side')).toBeVisible();
+  await expect(page.getByTestId('low-combo-side')).toHaveCount(0);
   const heroCardsBox = (await page.getByTestId('player-cards-P1').boundingBox())!;
   const highHintBox = (await page.getByTestId('high-combo-side').boundingBox())!;
-  const lowHintBox = (await page.getByTestId('low-combo-side').boundingBox())!;
   expect(highHintBox.x + highHintBox.width).toBeLessThanOrEqual(heroCardsBox.x);
-  expect(lowHintBox.x).toBeGreaterThanOrEqual(heroCardsBox.x + heroCardsBox.width);
   const comboCards = page.locator('[data-testid$="-combo-side"] [data-testid^="card-face-"]');
   await expect(comboCards.first()).toHaveAttribute('data-card-style', 'simple');
   expect(await comboCards.count()).toBeGreaterThan(0);
@@ -410,7 +408,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId('showdown-contributed')).toHaveText(`Contributed: ${formatResultPoints(contribution)}`);
   await expect(page.getByTestId('showdown-payout')).toHaveText(`Payout: ${formatResultPoints(payout)}`);
   await expect(page.getByTestId('showdown-net')).toHaveText(`Net: ${formatResultPoints(net)}`);
-  await expect(page.getByTestId('player-ineligible-P1')).toHaveText('FOLDED — NOT ELIGIBLE');
+  await expect(page.getByTestId('player-ineligible-P1')).toHaveCount(0);
   for (const winnerId of showdownState.showdownSummary.highWinners) {
     await expect(page.getByTestId(`winner-high-${winnerId}`)).toHaveText('★ HIGH');
   }
@@ -432,7 +430,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const foldedHand = page.getByTestId('hand-detail-P1');
   await expect(foldedHand.getByRole('heading', { name: 'Dima — folded' })).toBeVisible();
   await expect(foldedHand.getByText(/^High: /)).toBeVisible();
-  await expect(foldedHand.getByText(/^Low: /)).toBeVisible();
+  await expect(foldedHand.getByText(/^Low: /)).toHaveCount(0);
   await expect(page.getByTestId('party-total-P1')).toContainText('Dima');
   await expect(page.getByTestId('party-total-P2')).toContainText('Anna');
   await expect(page.getByRole('heading', { name: 'Uncontested winner: Anna' })).toBeVisible();
