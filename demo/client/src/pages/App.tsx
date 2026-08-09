@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
+import { CityInfo } from '../components/CityInfo';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import { aggressiveHandPercent, buildWalletHistory } from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
@@ -3459,14 +3460,17 @@ function LobbyPage() {
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 12, flexWrap: 'wrap', marginTop: 11 }}>
                   <div style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 13, borderRadius: 13, background: '#08734d', padding: '11px 16px', color: '#fff' }}>
                     <CityIcon city={lobby.tableName} size={52} />
-                    <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em', opacity: .75 }}>{ui('TABLE', 'СТОЛ')}</span>
-                      <output
-                        aria-label={ui('Table name', 'Название стола')}
-                        style={{ display: 'block', marginTop: 2, overflowWrap: 'anywhere', fontSize: 'clamp(27px, 5vw, 40px)', fontWeight: 900, lineHeight: 1.05 }}
-                      >
-                        {lobby.tableName}
-                      </output>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <output
+                          aria-label={ui('Table name', 'Название стола')}
+                          style={{ display: 'block', minWidth: 0, marginTop: 2, overflowWrap: 'anywhere', fontSize: 'clamp(27px, 5vw, 40px)', fontWeight: 900, lineHeight: 1.05 }}
+                        >
+                          {lobby.tableName}
+                        </output>
+                        <CityInfo city={lobby.tableName} language={storedLanguage()} />
+                      </div>
                     </div>
                   </div>
                   <div style={{ flex: '0 1 190px', border: '2px solid #6ee7b7', borderRadius: 13, background: '#fff', padding: '9px 16px', color: '#065f46' }}>
