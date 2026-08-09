@@ -1,7 +1,9 @@
 import { access, readFile } from 'node:fs/promises';
 
 const dataset = JSON.parse(await readFile(new URL('./data/cards.json', import.meta.url), 'utf8'));
+const landmarks = JSON.parse(await readFile(new URL('./data/landmarks.ru.json', import.meta.url), 'utf8'));
 const required = ['slug','city','country','iso2','iso3','flagEmoji','population','populationLabel','coordinates','gdp','religions','mapPath','capital','fact','sources'];
+const landmarkKinds = new Set(['gate','eiffel','tower','monument','temple','clock','theatre','mosque','cathedral','palace','modern','arch','statue','government','dome','obelisk','bridge','fortress','pagoda','museum','pyramid']);
 const errors = [];
 const slugs = new Set();
 
@@ -17,6 +19,12 @@ for (const card of dataset.cards) {
 }
 
 if (dataset.count !== dataset.cards.length) errors.push(`count=${dataset.count}, записей=${dataset.cards.length}`);
+if (Object.keys(landmarks).length !== dataset.cards.length) errors.push(`достопримечательностей=${Object.keys(landmarks).length}, карточек=${dataset.cards.length}`);
+for (const card of dataset.cards) {
+  const city = Object.keys(landmarks).find(name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') === card.slug);
+  if (!city || !landmarks[city].landmark || !landmarks[city].landmarkName) errors.push(`${card.city}: нет достопримечательности`);
+  else if (!landmarkKinds.has(landmarks[city].landmark)) errors.push(`${card.city}: неизвестный тип ${landmarks[city].landmark}`);
+}
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exitCode = 1;

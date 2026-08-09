@@ -4,11 +4,19 @@ import { renderCard } from './template.mjs';
 const output = new URL('./output/', import.meta.url);
 const publicOutput = new URL('../../demo/client/public/city-cards/', import.meta.url);
 const dataset = JSON.parse(await readFile(new URL('./data/cards.json', import.meta.url), 'utf8'));
-const cities = dataset.cards.map(card => ({
-  ...card,
-  population: card.populationLabel,
-  religions: card.religions.map(item => [item.label, item.value, item.color, item.icon]),
-  ports: card.ports.map(port => [port.type, port.point[0], port.point[1]]),
+const landmarkEntries = JSON.parse(await readFile(new URL('./data/landmarks.ru.json', import.meta.url), 'utf8'));
+const visualOverrides = Object.fromEntries(Object.entries(landmarkEntries).map(([city, value]) => [city.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), value]));
+if (Object.keys(visualOverrides).length !== dataset.cards.length) throw new Error(`Достопримечательностей ${Object.keys(visualOverrides).length}, карточек ${dataset.cards.length}`);
+const cities = await Promise.all(dataset.cards.map(async card => {
+  const flagSvg = await readFile(new URL(`./flags/${card.iso2.toLowerCase()}.svg`, import.meta.url), 'utf8');
+  return {
+    ...card,
+    ...(visualOverrides[card.slug] ?? {}),
+    flagDataUri: `data:image/svg+xml;base64,${Buffer.from(flagSvg).toString('base64')}`,
+    population: card.populationLabel,
+    religions: card.religions.map(item => [item.label, item.value, item.color, item.icon]),
+    ports: card.ports.map(port => [port.type, port.point[0], port.point[1]]),
+  };
 }));
 await mkdir(output, { recursive: true });
 await mkdir(publicOutput, { recursive: true });

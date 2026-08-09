@@ -89,8 +89,8 @@ export function CityInfo({ city, language = 'en' }: { city: string; language?: '
               style={{
                 position: 'absolute',
                 zIndex: 1,
-                top: 14,
-                right: 14,
+                top: -14,
+                right: -14,
                 display: 'grid',
                 placeItems: 'center',
                 width: 38,

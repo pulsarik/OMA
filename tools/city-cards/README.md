@@ -8,6 +8,8 @@ node tools/city-cards/generate.mjs
 
 - `data/cards.json` — полный сохранённый набор данных для воспроизводимой генерации.
 - `data/facts.ru.json` — отдельный обязательный справочник уникальных русских фактов.
+- `data/landmarks.ru.json` — обязательный справочник главных достопримечательностей всех столиц.
+- `flags/` — локальные SVG-флаги, используемые в углу и как полупрозрачный фон.
 - `build-data.mjs` — сборщик/нормализатор исходных открытых наборов при обновлении данных.
 - `template.mjs` — единая композиция и визуальная система серии.
 - `output/` — готовые масштабируемые SVG.
@@ -17,6 +19,7 @@ node tools/city-cards/generate.mjs
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/city-cards/fetch-sources.ps1
+node tools/city-cards/fetch-flags.mjs
 node tools/city-cards/build-data.mjs
 node tools/city-cards/apply-facts.mjs
 node tools/city-cards/generate.mjs
