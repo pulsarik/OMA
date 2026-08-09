@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const CITY_CARDS: Record<string, string> = {
+const CITY_CARD_ALIASES: Record<string, string> = {
   berlin: '/city-cards/berlin.svg',
   'берлин': '/city-cards/berlin.svg',
   paris: '/city-cards/paris.svg',
@@ -10,7 +10,9 @@ const CITY_CARDS: Record<string, string> = {
 };
 
 export function cityCardUrl(city: string) {
-  return CITY_CARDS[city.trim().toLocaleLowerCase()] ?? null;
+  const normalized = city.trim().toLocaleLowerCase();
+  const slug = normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return CITY_CARD_ALIASES[normalized] ?? (slug ? `/city-cards/${slug}.svg` : null);
 }
 
 export function CityInfo({ city, language = 'en' }: { city: string; language?: 'en' | 'ru' }) {
