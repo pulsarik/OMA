@@ -13,6 +13,7 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   const tableName = (await page.getByLabel('Table name').textContent())?.trim() ?? '';
   expect(pin).toMatch(/^\d{4}$/);
   expect(tableName).not.toBe('');
+  await expect(page.getByRole('button', { name: `Information about ${tableName}` })).toBeVisible();
   await expect(page.getByText('Tell your friends the table name and PIN')).toBeVisible();
   await expect(page.getByLabel('Table name')).not.toBeEmpty();
   await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');

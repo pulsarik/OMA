@@ -8,6 +8,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
 import { botMove } from './bot';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
+import { ILLUSTRATED_CAPITAL_SLUGS } from './generated/illustratedCapitals';
 import {
   Lobby,
   LobbyMember,
@@ -817,7 +818,11 @@ async function newLobbyTableName() {
     (await store.listLobbies() as Lobby[])
       .map(lobby => lobby.tableName),
   );
-  const availableCapitals = WORLD_CAPITALS.filter(city => !usedNames.has(city));
+  const illustratedCapitalSlugs = new Set<string>(ILLUSTRATED_CAPITAL_SLUGS);
+  const availableCapitals = WORLD_CAPITALS.filter((city) => {
+    const slug = city.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return illustratedCapitalSlugs.has(slug) && !usedNames.has(city);
+  });
   if (!availableCapitals.length) throw new Error('server overloaded: no table names available');
   return availableCapitals[Math.floor(Math.random() * availableCapitals.length)];
 }
