@@ -819,12 +819,14 @@ async function newLobbyTableName() {
       .map(lobby => lobby.tableName),
   );
   const illustratedCapitalSlugs = new Set<string>(ILLUSTRATED_CAPITAL_SLUGS);
-  const availableCapitals = WORLD_CAPITALS.filter((city) => {
+  const illustratedCapitals = WORLD_CAPITALS.filter((city) => {
     const slug = city.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    return illustratedCapitalSlugs.has(slug) && !usedNames.has(city);
+    return illustratedCapitalSlugs.has(slug);
   });
-  if (!availableCapitals.length) throw new Error('server overloaded: no table names available');
-  return availableCapitals[Math.floor(Math.random() * availableCapitals.length)];
+  const availableCapitals = illustratedCapitals.filter(city => !usedNames.has(city));
+  const candidates = availableCapitals.length ? availableCapitals : illustratedCapitals;
+  if (!candidates.length) throw new Error('server misconfigured: no illustrated table names available');
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 function broadcastLobby(lobby: Lobby) {
