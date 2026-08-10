@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { ILLUSTRATED_CITY_SLUGS } from '../generated/illustratedCities';
+
+const ILLUSTRATED_CITIES = new Set<string>(ILLUSTRATED_CITY_SLUGS);
 
 const CITY_CARD_ALIASES: Record<string, string> = {
   berlin: '/city-cards/berlin.svg',
@@ -12,7 +15,8 @@ const CITY_CARD_ALIASES: Record<string, string> = {
 export function cityCardUrl(city: string) {
   const normalized = city.trim().toLocaleLowerCase();
   const slug = normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-  return CITY_CARD_ALIASES[normalized] ?? (slug ? `/city-cards/${slug}.svg` : null);
+  const cardUrl = CITY_CARD_ALIASES[normalized] ?? (slug ? `/city-cards/${slug}.svg` : null);
+  return slug && ILLUSTRATED_CITIES.has(slug) ? cardUrl : null;
 }
 
 export function CityInfo({ city, language = 'en' }: { city: string; language?: 'en' | 'ru' }) {

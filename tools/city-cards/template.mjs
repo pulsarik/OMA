@@ -8,7 +8,7 @@ const landmarks = {
   gate: `<path d="M20 105h260M35 102V44h230v58M28 43h244l-14-20H42zM62 43v59m39-59v59m39-59v59m39-59v59m39-59v59M58 23l18-15h128l18 15"/><path d="M118 8c12-14 52-14 64 0"/>`,
   eiffel: `<path d="M45 107h210M150 5 78 107m72-102 72 102M94 83h112M112 57h76M130 30h40M81 107c18-27 40-39 69-39s51 12 69 39"/>`,
   tower: `<path d="M42 107h216M150 4l-43 103m43-103 43 103M121 74h58M130 50h40M139 27h22M150 4V0M110 107c10-20 24-30 40-30s30 10 40 30"/><path d="M90 107h120"/>`,
-  monument: `<path d="M42 107h216M72 107V94h156v13M92 94V82h116v12M113 82l22-60h30l22 60M150 22V4m-8 8h16M132 82h36M143 56h14"/>`,
+  monument: `<path d="M42 107h216M72 107V94h156v13M94 94V82h112v12M118 82l24-62h16l24 62M142 20l8-14 8 14M132 82h36M138 58h24"/>`,
   temple: `<path d="M30 107h240M48 94h204v13M68 94V48h164v46M54 48h192L150 8zM90 53v41m40-41v41m40-41v41m40-41v41"/>`,
   clock: `<path d="M80 107h140M105 107V36h90v71M95 36h110L185 12h-70zM150 12V0"/><circle cx="150" cy="58" r="22"/><path d="M150 58v-13m0 13 12 8"/>`,
   theatre: `<path d="M25 107h250M42 107V94h216v13M58 94V48h184v46M46 48h208L150 10zM78 54v40m36-40v40m36-40v40m36-40v40m36-40v40M126 33h48M138 24h24"/>`,
@@ -26,6 +26,7 @@ const landmarks = {
   pagoda: `<path d="M50 107h200M78 92h144v15H78M58 92h184l-35-23H93zM96 69h108V55H96M78 55h144l-31-20h-82zM116 35h68V22h-68M100 22h100L150 4z"/>`,
   museum: `<path d="M25 107h250M42 107V94h216v13M58 94V50h184v44M42 50h216L150 14zM80 56v38m35-38v38m35-38v38m35-38v38m35-38v38"/>`,
   pyramid: `<path d="M25 107h250L165 14 85 107M165 14l58 93M108 81h98M124 61h67"/>`,
+  pavilion: `<path d="M25 107h250M42 107V94h216v13M58 94V50h184v44M45 50h210M65 50c8-25 35-39 85-39s77 14 85 39M82 57v37m34-37v37m34-37v37m34-37v37m34-37v37M136 11V3m28 8V3"/>`,
 };
 
 const esc = (value) => String(value).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -49,17 +50,14 @@ function flag(city) {
 }
 
 function backgroundFlag(city) {
-  if (city.flagDataUri) return `<image href="${city.flagDataUri}" x="0" y="55" width="1024" height="370" preserveAspectRatio="xMidYMid slice" opacity=".075"/>`;
+  if (city.flagDataUri) return `<clipPath id="flag-waves">
+    <path d="M-80 45Q210 5 470 92T1100 82V168Q770 212 480 124T-80 145Z"/>
+    <path d="M-80 154Q210 112 500 205T1100 190V292Q780 332 482 242T-80 255Z"/>
+    <path d="M-80 270Q205 220 500 318T1100 302V430Q770 470 475 372T-80 390Z"/>
+  </clipPath><image href="${city.flagDataUri}" x="-80" y="20" width="1180" height="430" preserveAspectRatio="none" opacity=".105" clip-path="url(#flag-waves)"/>`;
   if (city.flagEmoji) return `<path d="M0 190Q280 80 560 170T1024 145V370Q760 410 520 315T0 350Z" fill="#ba2626" opacity=".055"/>`;
   if (city.flagDisc) return `<circle cx="150" cy="290" r="210" fill="${city.flagDisc}" opacity=".055"/>`;
   return city.flag.map((c, i) => `<path d="M0 ${80+i*115} Q300 ${10+i*105} 560 ${105+i*105}T1024 ${90+i*115}V${190+i*115}Q760 ${235+i*100} 520 ${145+i*110}T0 ${190+i*115}Z" fill="${c}" opacity=".065"/>`).join('');
-}
-
-function ports(city) {
-  return city.ports.map(([type, x, y]) => {
-    const px = 675 + x * 2.35, py = 337 + y * 2.25;
-    return `<g transform="translate(${px} ${py})" class="port ${type}"><circle r="15"/><path d="M0-10v18m-6-12h12M-11 3c2 8 20 8 22 0"/>${type === 'sea' ? '<path d="M-12 14q6-5 12 0t12 0M-11 19q5-4 11 0t11 0"/>' : '<path d="M-10 15q5-4 10 0t10 0"/>'}</g>`;
-  }).join('');
 }
 
 function bar(values, colors, x, y, width, height) {
@@ -84,10 +82,12 @@ text{font-family:Arial,'Segoe UI',sans-serif;fill:#12191b}.title{font-size:118px
 ${flag(c)}
 <text x="512" y="260" text-anchor="middle" class="title" style="font-size:${titleSize}px">${esc(c.city)}</text>
 <text x="512" y="315" text-anchor="middle" class="country">${esc(c.country)}</text>
-<g class="landmark" transform="translate(35 360) scale(1.8)">${landmarks[c.landmark]}</g>
+${c.landmarkImageDataUri
+  ? `<image href="${c.landmarkImageDataUri}" x="35" y="350" width="540" height="270" preserveAspectRatio="xMidYMid meet"/>`
+  : `<g class="landmark" transform="translate(35 360) scale(1.8)">${landmarks[c.landmark]}</g>`}
 ${c.landmarkName ? `<text x="305" y="628" text-anchor="middle" class="small" font-weight="700">${esc(c.landmarkName)}</text>` : ''}
 <g transform="translate(660 325) scale(2.7)"><path class="map" fill-rule="evenodd" d="${c.mapPath ?? maps[c.map]}"/></g>
-${ports(c)}<circle class="capital" cx="${675+c.capital[0]*2.35}" cy="${337+c.capital[1]*2.25}" r="10"/>
+<circle class="capital" cx="${675+c.capital[0]*2.35}" cy="${337+c.capital[1]*2.25}" r="10"/>
 
 <rect class="panel" x="35" y="670" width="395" height="220" rx="24"/><rect class="panel" x="445" y="670" width="544" height="220" rx="24"/>
 <rect class="panel" x="35" y="905" width="455" height="320" rx="24"/><rect class="panel" x="505" y="905" width="484" height="320" rx="24"/>
