@@ -77,6 +77,8 @@ const voiceConfig = voiceConfigFromEnv();
 const problemEmailDeliveryConfig = problemEmailConfig(process.env);
 if (process.env.PROBLEM_EMAIL_TO && !problemEmailDeliveryConfig) {
   console.warn('Problem email delivery is disabled: Gmail credentials are not configured');
+} else if (problemEmailDeliveryConfig) {
+  console.info('Problem email delivery is configured');
 }
 const MAX_FAILED_PIN_ATTEMPTS = 5;
 const staticDir = [
@@ -1534,10 +1536,15 @@ app.post('/api/problems', async (req, res) => {
     hand: handSnapshot,
   };
   const saved = await store.saveProblem(description, problemData);
+  console.info(`problem #${saved.id} saved`);
 
   if (problemEmailDeliveryConfig) {
+    console.info(`problem #${saved.id} email delivery started`);
     void emailProblem(problemEmailDeliveryConfig, { ...saved, description, ...problemData })
+      .then(() => console.info(`problem #${saved.id} email delivery succeeded`))
       .catch(error => console.error(`problem #${saved.id} email delivery failed`, error));
+  } else {
+    console.info(`problem #${saved.id} email delivery skipped`);
   }
 
   res.status(201).json(saved);
