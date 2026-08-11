@@ -119,16 +119,17 @@ Content-Type: application/json
 ## Резервная копия по электронной почте
 
 Чтобы жалобы не исчезали вместе с эфемерной SQLite-базой, сервер может после
-сохранения отправлять полную JSON-копию жалобы через Resend. В копию входят
+сохранения отправлять полную JSON-копию жалобы через Gmail SMTP. В копию входят
 контекст, snapshot раздачи, seed и действия, необходимые для воспроизведения;
 токены доступа игроков туда не попадают.
 
 ```text
 PROBLEM_EMAIL_TO=pulsarik@gmail.com
-RESEND_API_KEY=re_...
-PROBLEM_EMAIL_FROM=Omaha problem reports <onboarding@resend.dev>
+GMAIL_USER=pulsarik@gmail.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
 
-`RESEND_API_KEY` задаётся только как secret в окружении Render и не добавляется
-в Git. Если почтовая доставка временно не работает, жалоба всё равно сохраняется
+`GMAIL_APP_PASSWORD` — это отдельный пароль приложения Google, а не пароль от
+аккаунта. Он задаётся только как secret в окружении Render и не добавляется в
+Git. Если почтовая доставка временно не работает, жалоба всё равно сохраняется
 в SQLite, а ошибка отправки записывается в лог сервера.

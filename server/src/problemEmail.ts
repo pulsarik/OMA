@@ -1,40 +1,37 @@
+import nodemailer from 'nodemailer';
+
 export type ProblemEmailConfig = {
-  apiKey: string;
+  user: string;
+  appPassword: string;
   to: string;
-  from: string;
 };
 
 export function problemEmailConfig(env: NodeJS.ProcessEnv): ProblemEmailConfig | undefined {
-  const apiKey = env.RESEND_API_KEY?.trim();
-  const to = env.PROBLEM_EMAIL_TO?.trim();
-  if (!apiKey || !to) return undefined;
+  const user = env.GMAIL_USER?.trim();
+  const appPassword = env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '');
+  if (!user || !appPassword) return undefined;
   return {
-    apiKey,
-    to,
-    from: env.PROBLEM_EMAIL_FROM?.trim() || 'Omaha problem reports <onboarding@resend.dev>',
+    user,
+    appPassword,
+    to: env.PROBLEM_EMAIL_TO?.trim() || user,
   };
 }
 
 export async function emailProblem(
   config: ProblemEmailConfig,
   problem: Record<string, unknown>,
-  fetcher: typeof fetch = fetch,
+  sendMail?: (message: nodemailer.SendMailOptions) => Promise<unknown>,
 ) {
   const id = problem.id;
-  const response = await fetcher('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: config.from,
-      to: [config.to],
-      subject: `Omaha problem #${id}`,
-      text: JSON.stringify(problem, null, 2),
-    }),
+  const transport = sendMail ? undefined : nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: config.user, pass: config.appPassword },
   });
-  if (!response.ok) {
-    throw new Error(`problem email failed with status ${response.status}`);
-  }
+  const deliver = sendMail ?? transport!.sendMail.bind(transport);
+  await deliver({
+    from: `Omaha problem reports <${config.user}>`,
+    to: config.to,
+    subject: `Omaha problem #${id}`,
+    text: JSON.stringify(problem, null, 2),
+  });
 }

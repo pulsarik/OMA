@@ -4401,6 +4401,19 @@ function ReportProblemButton() {
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!status) return undefined;
+    const dismiss = () => setStatus(null);
+    window.addEventListener('pointerdown', dismiss, { capture: true, once: true });
+    window.addEventListener('keydown', dismiss, { capture: true, once: true });
+    window.addEventListener('scroll', dismiss, { capture: true, once: true });
+    return () => {
+      window.removeEventListener('pointerdown', dismiss, { capture: true });
+      window.removeEventListener('keydown', dismiss, { capture: true });
+      window.removeEventListener('scroll', dismiss, { capture: true });
+    };
+  }, [status]);
+
   function close() {
     if (isSaving) return;
     setIsOpen(false);

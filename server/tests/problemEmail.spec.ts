@@ -1,27 +1,26 @@
 import { emailProblem, problemEmailConfig } from '../src/problemEmail';
 
-test('email delivery is disabled unless both destination and API key are configured', () => {
-  expect(problemEmailConfig({ PROBLEM_EMAIL_TO: 'pulsarik@gmail.com' })).toBeUndefined();
-  expect(problemEmailConfig({ RESEND_API_KEY: 'secret' })).toBeUndefined();
+test('email delivery is disabled unless Gmail credentials are configured', () => {
+  expect(problemEmailConfig({ GMAIL_USER: 'pulsarik@gmail.com' })).toBeUndefined();
+  expect(problemEmailConfig({ GMAIL_APP_PASSWORD: 'secret' })).toBeUndefined();
 });
 
-test('sends the complete reproducible report without exposing the API key in the body', async () => {
-  const fetcher = jest.fn().mockResolvedValue({ ok: true, status: 200 });
+test('sends the complete reproducible report without exposing the app password', async () => {
+  const sendMail = jest.fn().mockResolvedValue({ messageId: 'sent' });
   const problem = { id: 1000, description: 'Raise failed', hand: { actions: [] } };
 
   await emailProblem({
-    apiKey: 'secret',
+    user: 'pulsarik@gmail.com',
+    appPassword: 'secret',
     to: 'pulsarik@gmail.com',
-    from: 'reports@example.com',
-  }, problem, fetcher as unknown as typeof fetch);
+  }, problem, sendMail);
 
-  expect(fetcher).toHaveBeenCalledWith('https://api.resend.com/emails', expect.objectContaining({
-    method: 'POST',
+  expect(sendMail).toHaveBeenCalledWith(expect.objectContaining({
+    from: 'Omaha problem reports <pulsarik@gmail.com>',
+    to: 'pulsarik@gmail.com',
+    subject: 'Omaha problem #1000',
   }));
-  const request = fetcher.mock.calls[0][1];
-  const body = JSON.parse(request.body);
-  expect(body.to).toEqual(['pulsarik@gmail.com']);
-  expect(body.subject).toBe('Omaha problem #1000');
-  expect(body.text).toContain('Raise failed');
-  expect(body.text).not.toContain('secret');
+  const message = sendMail.mock.calls[0][0];
+  expect(message.text).toContain('Raise failed');
+  expect(message.text).not.toContain('secret');
 });

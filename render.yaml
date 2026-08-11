@@ -19,7 +19,7 @@ services:
         value: "45000"
       - key: PROBLEM_EMAIL_TO
         value: pulsarik@gmail.com
-      - key: RESEND_API_KEY
+      - key: GMAIL_USER
+        value: pulsarik@gmail.com
+      - key: GMAIL_APP_PASSWORD
         sync: false
-      - key: PROBLEM_EMAIL_FROM
-        value: Omaha problem reports <onboarding@resend.dev>
