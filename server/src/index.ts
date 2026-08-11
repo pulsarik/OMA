@@ -1542,7 +1542,13 @@ app.post('/api/problems', async (req, res) => {
     console.info(`problem #${saved.id} email delivery started`);
     void emailProblem(problemEmailDeliveryConfig, { ...saved, description, ...problemData })
       .then(() => console.info(`problem #${saved.id} email delivery succeeded`))
-      .catch(error => console.error(`problem #${saved.id} email delivery failed`, error));
+      .catch(error => console.error(`problem #${saved.id} email delivery failed`, {
+        name: error instanceof Error ? error.name : undefined,
+        message: error instanceof Error ? error.message : String(error),
+        code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+        command: error && typeof error === 'object' && 'command' in error ? error.command : undefined,
+        response: error && typeof error === 'object' && 'response' in error ? error.response : undefined,
+      }));
   } else {
     console.info(`problem #${saved.id} email delivery skipped`);
   }

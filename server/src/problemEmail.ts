@@ -26,6 +26,9 @@ export async function emailProblem(
   const transport = sendMail ? undefined : nodemailer.createTransport({
     service: 'gmail',
     auth: { user: config.user, pass: config.appPassword },
+    connectionTimeout: 15_000,
+    greetingTimeout: 15_000,
+    socketTimeout: 30_000,
   });
   const deliver = sendMail ?? transport!.sendMail.bind(transport);
   await deliver({
