@@ -8,6 +8,7 @@ import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import { aggressiveHandPercent, buildWalletHistory } from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
+import { problemContext } from '../problemContext';
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
@@ -4322,38 +4323,6 @@ function WelcomePage() {
   );
 }
 
-function currentProblemContext() {
-  const parts = window.location.pathname.split('/').filter(Boolean);
-  const viewport = {
-    width: window.innerWidth,
-    height: window.innerHeight,
-  };
-
-  if (parts[0] === 'player') {
-    return {
-      page: 'player',
-      handId: parts[1],
-      playerId: parts[2],
-      viewport,
-    };
-  }
-  if (parts[0] === 'debug') {
-    return {
-      page: 'debug',
-      handId: parts[1],
-      viewport,
-    };
-  }
-  if (parts[0] === 'lobby') {
-    return {
-      page: 'lobby',
-      lobbyId: parts[1],
-      viewport,
-    };
-  }
-  return { page: 'home', viewport };
-}
-
 function ReportProblemButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [description, setDescription] = useState('');
@@ -4379,7 +4348,7 @@ function ReportProblemButton() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           description: normalizedDescription,
-          ...currentProblemContext(),
+          ...problemContext(window),
         }),
       });
       const result = await response.json().catch(() => ({}));

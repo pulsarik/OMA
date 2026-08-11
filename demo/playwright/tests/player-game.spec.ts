@@ -36,6 +36,7 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   const response = await request.get(apiUrlForPlayerLink(href));
   const state = await response.json();
 
+  expect(state.maxRaises).toBe(3);
   expect(state.dealCode).toBeUndefined();
   expect(state.dealAuditNonce).toBeUndefined();
   expect(state.dealCommitment).toMatch(/^[a-f0-9]{64}$/);

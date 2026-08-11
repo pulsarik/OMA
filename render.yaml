@@ -17,3 +17,9 @@ services:
         generateValue: true
       - key: HUMAN_TURN_MS
         value: "45000"
+      - key: PROBLEM_EMAIL_TO
+        value: pulsarik@gmail.com
+      - key: RESEND_API_KEY
+        sync: false
+      - key: PROBLEM_EMAIL_FROM
+        value: Omaha problem reports <onboarding@resend.dev>

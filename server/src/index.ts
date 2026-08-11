@@ -8,6 +8,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
 import { botMove } from './bot';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
+import { emailProblem, problemEmailConfig } from './problemEmail';
 import { ILLUSTRATED_CAPITAL_SLUGS } from './generated/illustratedCapitals';
 import {
   Lobby,
@@ -20,6 +21,7 @@ import {
   seatedLobbyMembers,
 } from './lobby';
 import {
+  MAX_RAISES_PER_STREET,
   PlayerMove,
   POT_COINS,
   currentPotBreakdown,
@@ -603,6 +605,7 @@ function diagnosticHandSnapshot(hand: any) {
     roundBets: hand.roundBets,
     totalContributions: hand.totalContributions,
     raiseCount: hand.raiseCount,
+    maxRaises: MAX_RAISES_PER_STREET,
     blinds: hand.blinds,
     potCoins: hand.potCoins,
     revealVotes: hand.revealVotes,
@@ -658,6 +661,7 @@ async function playerState(hand: any, player: any) {
     currentBet: hand.currentBet ?? 0,
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
+    maxRaises: MAX_RAISES_PER_STREET,
     lastFullRaise: hand.lastFullRaise,
     actedSinceLastFullRaise: hand.actedSinceLastFullRaise ?? [],
     blinds: hand.blinds,
@@ -1448,7 +1452,7 @@ app.post('/api/problems', async (req, res) => {
     : undefined;
 
   const handSnapshot = hand ? diagnosticHandSnapshot(hand) : undefined;
-  const saved = await store.saveProblem(description, {
+  const problemData = {
     build: {
       commit: commitSha,
       buildTimeGmt,
@@ -1462,7 +1466,14 @@ app.post('/api/problems', async (req, res) => {
       userAgent: req.get('user-agent')?.slice(0, 500),
     },
     hand: handSnapshot,
-  });
+  };
+  const saved = await store.saveProblem(description, problemData);
+
+  const emailConfig = problemEmailConfig(process.env);
+  if (emailConfig) {
+    void emailProblem(emailConfig, { ...saved, description, ...problemData })
+      .catch(error => console.error(`problem #${saved.id} email delivery failed`, error));
+  }
 
   res.status(201).json(saved);
 });
