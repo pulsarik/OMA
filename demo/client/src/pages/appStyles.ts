@@ -296,30 +296,32 @@ export const PLAYER_PAGE_STYLES = `
     z-index: 8;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    color: rgba(254, 202, 202, .92);
-    font-size: 10px;
+    gap: 7px;
+    color: #fff1f2;
+    font-size: 16px;
     font-weight: 900;
     letter-spacing: .08em;
     line-height: 1;
     text-transform: uppercase;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, .7), 0 0 8px rgba(248, 113, 113, .34);
     white-space: nowrap;
   }
   .replay-indicator__dot {
-    color: #ef4444;
-    font-size: 11px;
+    color: #ff3b30;
+    font-size: 17px;
     line-height: 1;
+    text-shadow: 0 0 7px rgba(255, 59, 48, .9);
     animation: replay-recording 1.35s ease-in-out infinite;
   }
   .replay-indicator__icon {
-    color: #f87171;
-    font-size: 14px;
+    color: #ff8a8a;
+    font-size: 21px;
     line-height: 1;
   }
   .replay-indicator__code {
-    color: rgba(254, 226, 226, .78);
+    color: #ffe4e6;
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 14px;
     letter-spacing: .04em;
   }
   @keyframes replay-recording {
