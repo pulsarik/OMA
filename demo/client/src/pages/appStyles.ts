@@ -187,6 +187,7 @@ export const PLAYER_PAGE_STYLES = `
     padding: clamp(18px, 4vw, 46px);
     box-shadow: 0 12px 32px rgba(31,54,42,.09);
   }
+  .voice-panel[hidden] { display: none; }
   .voice-chat {
     display: flex;
     width: min(100%, 560px);
@@ -287,6 +288,46 @@ export const PLAYER_PAGE_STYLES = `
     mix-blend-mode: soft-light;
     opacity: .34;
     pointer-events: none;
+  }
+  .replay-indicator {
+    position: absolute;
+    top: 11px;
+    right: 18px;
+    z-index: 8;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: rgba(254, 202, 202, .92);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    line-height: 1;
+    text-transform: uppercase;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, .45);
+    white-space: nowrap;
+  }
+  .replay-indicator__dot {
+    color: #ef4444;
+    font-size: 11px;
+    line-height: 1;
+    animation: replay-recording 1.35s ease-in-out infinite;
+  }
+  .replay-indicator__icon {
+    color: #f87171;
+    font-size: 14px;
+    line-height: 1;
+  }
+  .replay-indicator__code {
+    color: rgba(254, 226, 226, .78);
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    letter-spacing: .04em;
+  }
+  @keyframes replay-recording {
+    0%, 100% { opacity: .42; }
+    50% { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .replay-indicator__dot { animation: none; }
   }
   .poker-table.is-crowded {
     gap: 10px;

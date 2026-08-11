@@ -1173,11 +1173,15 @@ async function setLobbyReplay(ws: WebSocket, message: any) {
     if (member.id !== lobby.hostMemberId) throw new Error('host only');
     if (lobby.status !== 'waiting') throw new Error('game already started');
 
-    const enabled = message.enabled === true;
-    lobby.isReplay = enabled;
-    lobby.replayCode = enabled
-      ? normalizeReplayCode(typeof message.replayCode === 'string' ? message.replayCode : '')
-      : undefined;
+    const requestedCode = typeof message.replayCode === 'string' ? message.replayCode : '';
+    let replayCode: string | undefined;
+    try {
+      replayCode = normalizeReplayCode(requestedCode);
+    } catch {
+      replayCode = undefined;
+    }
+    lobby.isReplay = Boolean(replayCode);
+    lobby.replayCode = replayCode;
     lobby.lastActivity = Date.now();
     await store.updateLobby(lobby);
     broadcastLobby(lobby);

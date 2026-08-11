@@ -1474,28 +1474,18 @@ function PlayerSeat({
 
 function HandBanner({ player }: { player: PlayerView }) {
   const replaySource = sourceHandLabel(player.partyScore, player.replayOfHandId);
-  const isReplay = Boolean(player.isReplay || player.replayOfHandId);
+  const replayCode = player.replayCode ?? replaySource ?? '?';
 
   return (
     <div
-      style={{
-        border: `1px solid ${isReplay ? '#f59e0b' : 'rgba(255,255,255,0.45)'}`,
-        borderRadius: 8,
-        background: isReplay ? 'rgba(245, 158, 11, 0.9)' : 'rgba(15, 23, 42, 0.28)',
-        color: '#fff',
-        padding: '5px 10px',
-        textAlign: 'center',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.14)',
-      }}
+      className="replay-indicator"
+      role="status"
+      aria-label={ui(`Replay party ${replayCode}`, `Повтор партии ${replayCode}`)}
     >
-      <strong style={{ display: 'block', fontSize: 14, lineHeight: 1.1 }}>
-        {ui('Party hand', 'Раздача партии')} {handLabel(player.handCode, player.handNumber, player.handId)}
-      </strong>
-      {isReplay ? (
-        <span style={{ display: 'block', marginTop: 2, fontSize: 12 }}>
-          {ui('REPLAY', 'ПОВТОР')} {player.replayCode ?? replaySource ?? '?'}
-        </span>
-      ) : null}
+      <span className="replay-indicator__dot" aria-hidden="true">●</span>
+      <span className="replay-indicator__icon" aria-hidden="true">↺</span>
+      <span>{ui('REPLAY', 'ПОВТОР')}</span>
+      <span className="replay-indicator__code">· {replayCode}</span>
     </div>
   );
 }
@@ -3289,7 +3279,6 @@ function LobbyPage() {
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [botName, setBotName] = useState('');
-  const [replayEnabled, setReplayEnabled] = useState(false);
   const [replayCodeInput, setReplayCodeInput] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
@@ -3322,7 +3311,6 @@ function LobbyPage() {
 
   useEffect(() => {
     if (!lobby) return;
-    setReplayEnabled(Boolean(lobby.isReplay));
     if (lobby.replayCode) setReplayCodeInput(lobby.replayCode);
   }, [lobby?.id, lobby?.isReplay, lobby?.replayCode]);
 
@@ -3564,54 +3552,35 @@ function LobbyPage() {
                 })}
               />
 
-              {lobby.replayCode ? (
-                <div
-                  data-testid="lobby-replay-code"
-                  style={{
-                    border: `1px solid ${lobby.isReplay ? '#f59e0b' : '#a7f3d0'}`,
-                    borderRadius: 10,
-                    background: lobby.isReplay ? '#fffbeb' : '#f0fdf4',
-                    color: lobby.isReplay ? '#92400e' : '#166534',
-                    padding: '9px 12px',
-                    fontWeight: 800,
-                  }}
-                >
-                  {lobby.isReplay ? ui('REPLAY', 'ПОВТОР') : ui('Replay code', 'Код повтора')}: <code>{lobby.replayCode}</code>
-                </div>
-              ) : null}
-
               {isHost && lobby.status === 'waiting' ? (
                 <div style={{ display: 'grid', gap: 8, padding: 10, border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
                   <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800 }}>
                     <input
                       type="checkbox"
-                      checked={replayEnabled}
-                      onChange={(event) => setReplayEnabled(event.target.checked)}
+                      checked={/^[A-Za-z]{3}[0-9]{3}$/.test(replayCodeInput.trim())}
+                      disabled
+                      readOnly
                     />
                     {ui('Replay party', 'Переиграть партию')}
                   </label>
-                  {replayEnabled ? (
-                    <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
-                      {ui('Replay code', 'Код повтора')}
-                      <input
-                        aria-label="Replay code"
-                        placeholder="ABC123"
-                        maxLength={6}
-                        value={replayCodeInput}
-                        onChange={(event) => setReplayCodeInput(event.target.value.toUpperCase())}
-                        style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontFamily: 'ui-monospace, monospace', letterSpacing: '.12em' }}
-                      />
-                      <small style={{ color: '#64748b', fontWeight: 500 }}>
-                        {ui('Use the same number of seats as the original party.', 'Используйте столько же мест, сколько было в исходной партии.')}
-                      </small>
-                    </label>
-                  ) : null}
-                  <button
-                    onClick={() => send('lobby_set_replay', { enabled: replayEnabled, replayCode: replayCodeInput.trim() })}
-                    style={{ justifySelf: 'start', padding: '7px 11px', fontWeight: 800 }}
-                  >
-                    {ui('Apply replay setting', 'Применить настройку повтора')}
-                  </button>
+                  <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
+                    {ui('Replay code', 'Код повтора')}
+                    <input
+                      aria-label="Replay code"
+                      placeholder="ABC123"
+                      maxLength={6}
+                      value={replayCodeInput}
+                      onChange={(event) => {
+                        const nextCode = event.target.value.toUpperCase();
+                        setReplayCodeInput(nextCode);
+                        send('lobby_set_replay', { replayCode: nextCode.trim() });
+                      }}
+                      style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontFamily: 'ui-monospace, monospace', letterSpacing: '.12em' }}
+                    />
+                    <small style={{ color: '#64748b', fontWeight: 500 }}>
+                      {ui('Replay turns on automatically for ABC123. Use the same number of seats as the original party.', 'Повтор включается автоматически для ABC123. Используйте столько же мест, сколько было в исходной партии.')}
+                    </small>
+                  </label>
                 </div>
               ) : null}
 
