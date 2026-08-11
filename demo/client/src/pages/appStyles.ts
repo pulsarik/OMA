@@ -342,6 +342,29 @@ export const PLAYER_PAGE_STYLES = `
   .player-seat.is-thinking {
     transform: translateY(-3px);
   }
+  .player-seat.is-eliminated {
+    box-shadow: inset 0 0 0 2px rgba(220,38,38,.72), 0 3px 12px rgba(15,23,42,.3);
+  }
+  .eliminated-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 11;
+    transform: translate(-50%, -50%) rotate(-7deg);
+    border: 2px solid #fff;
+    border-radius: 5px;
+    background: #b91c1c;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 950;
+    line-height: 1;
+    letter-spacing: .08em;
+    box-shadow: 0 3px 10px rgba(0,0,0,.48);
+    text-shadow: 0 1px 2px rgba(0,0,0,.45);
+    white-space: nowrap;
+    pointer-events: none;
+  }
   .player-meta {
     min-width: 70px;
     border-radius: 12px;
@@ -954,6 +977,29 @@ export const PLAYER_PAGE_STYLES = `
       font-size: 26px !important;
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: -21px; }
+    .opponents-row .seat-action-bubble {
+      top: auto !important;
+      right: auto !important;
+      bottom: -9px !important;
+      left: 50% !important;
+      max-width: 92px;
+      transform: translateX(-50%);
+      overflow: hidden;
+      padding: 4px 7px;
+      font-size: 11px !important;
+      text-overflow: ellipsis;
+    }
+    .hero-seat .seat-action-bubble {
+      top: -24px !important;
+      right: auto !important;
+      bottom: auto !important;
+      left: 50% !important;
+      transform: translateX(-50%);
+    }
+    .opponents-row .seat-action-tail,
+    .hero-seat .seat-action-tail {
+      display: none;
+    }
     .table-center,
     .poker-table.is-crowded .table-center {
       height: 142px;
@@ -971,6 +1017,18 @@ export const PLAYER_PAGE_STYLES = `
       grid-column: 2;
       grid-row: 2;
       justify-self: end;
+    }
+    .poker-table.is-showdown .opponents-row [data-testid^="player-result-"] {
+      display: none !important;
+    }
+    .showdown-status {
+      width: min(246px, calc(100vw - 44px));
+      box-sizing: border-box;
+    }
+    .showdown-extra-result,
+    .showdown-personal-pots,
+    .showdown-winners {
+      display: none !important;
     }
     .table-showdown > div {
       min-width: 0 !important;
@@ -1008,8 +1066,8 @@ export const PLAYER_PAGE_STYLES = `
     .hero-zone {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-template-areas:
-        "high low"
-        "hero hero";
+        "hero hero"
+        "high low";
       row-gap: 5px;
       column-gap: 5px;
       width: 100%;

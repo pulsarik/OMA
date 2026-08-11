@@ -113,9 +113,26 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   const actionDockBox = await page.locator('.action-dock').boundingBox();
   expect(actionDockBox).toBeTruthy();
   expect(actionDockBox!.y + actionDockBox!.height).toBeLessThanOrEqual(viewport.height);
+  const heroSeatBox = await page.locator('.hero-seat').boundingBox();
+  expect(heroSeatBox).toBeTruthy();
+  expect(heroSeatBox!.y + heroSeatBox!.height).toBeLessThanOrEqual(actionDockBox!.y);
   const playerCoinStackBox = await page.locator('.hero-seat [data-testid="coin-stack"]').boundingBox();
   expect(playerCoinStackBox).toBeTruthy();
   expect(playerCoinStackBox!.height).toBeLessThanOrEqual(60);
+  const opponentActionBoxes = await page.locator('.opponents-row .seat-action-bubble:visible').evaluateAll(actions => (
+    actions.map(action => {
+      const box = action.getBoundingClientRect();
+      return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    })
+  ));
+  for (let first = 0; first < opponentActionBoxes.length; first += 1) {
+    for (let second = first + 1; second < opponentActionBoxes.length; second += 1) {
+      const a = opponentActionBoxes[first];
+      const b = opponentActionBoxes[second];
+      const overlaps = a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      expect(overlaps, `opponent actions ${first} and ${second} overlap`).toBe(false);
+    }
+  }
   const actionButtonBoxes = await page.locator('.action-dock button').evaluateAll(buttons => (
     buttons.map(button => {
       const box = button.getBoundingClientRect();
@@ -140,7 +157,7 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   ).toBeLessThanOrEqual(2);
   expect(showdownTableBox!.y).toBeGreaterThanOrEqual(0);
   expect(showdownTableBox!.y + showdownTableBox!.height).toBeLessThanOrEqual(viewport.height);
-  const resultBoxes = await page.locator('[data-testid^="player-result-"]').evaluateAll(results => (
+  const resultBoxes = await page.locator('[data-testid^="player-result-"]:visible').evaluateAll(results => (
     results.map(result => {
       const box = result.getBoundingClientRect();
       return { top: box.top, right: box.right, bottom: box.bottom, left: box.left };
@@ -154,11 +171,17 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
   }
   const tableCenterBox = await page.locator('.table-center.has-showdown').boundingBox();
   const newDealBox = await page.getByTestId('showdown-new-deal').boundingBox();
+  const showdownStatusBox = await page.locator('.showdown-status').boundingBox();
+  const showdownBoardBox = await page.getByTestId('table-board').boundingBox();
   expect(tableCenterBox).toBeTruthy();
   expect(newDealBox).toBeTruthy();
+  expect(showdownStatusBox).toBeTruthy();
+  expect(showdownBoardBox).toBeTruthy();
   expect(Math.abs(
     (newDealBox!.x + newDealBox!.width / 2) - (tableCenterBox!.x + tableCenterBox!.width / 2),
   )).toBeLessThanOrEqual(2);
+  expect(showdownStatusBox!.y + showdownStatusBox!.height).toBeLessThanOrEqual(showdownBoardBox!.y);
+  await expect(page.locator('.opponents-row [data-testid^="player-result-"]:visible')).toHaveCount(0);
 
   const revealedOpponentHands = page.locator('.opponents-row .compact-card-row').filter({
     has: page.locator('[data-testid^="card-face-"]'),

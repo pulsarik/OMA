@@ -1181,6 +1181,7 @@ function PlayerSeat({
   isDealer = false,
   disconnected = false,
   turnSeconds,
+  eliminated = false,
 }: {
   id: string;
   name?: string;
@@ -1201,6 +1202,7 @@ function PlayerSeat({
   isDealer?: boolean;
   disconnected?: boolean;
   turnSeconds?: number;
+  eliminated?: boolean;
 }) {
   const shouldShowCards = Boolean(hole?.length);
   const actionBetSize = action?.betSize
@@ -1232,7 +1234,7 @@ function PlayerSeat({
       style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
     >
       <section
-        className={`player-seat${compact && !isYou ? ' is-opponent' : ''}${isCurrentTurn ? ' is-thinking' : ''}`}
+        className={`player-seat${compact && !isYou ? ' is-opponent' : ''}${isCurrentTurn ? ' is-thinking' : ''}${eliminated ? ' is-eliminated' : ''}`}
         style={{
           border: compact && !isYou
             ? 'none'
@@ -1242,8 +1244,8 @@ function PlayerSeat({
           background: compact && !isYou
             ? 'transparent'
             : folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
-          opacity: folded ? 0.38 : 1,
-          filter: folded ? 'grayscale(1)' : undefined,
+          opacity: eliminated ? 0.82 : folded ? 0.38 : 1,
+          filter: eliminated ? 'grayscale(.35)' : folded ? 'grayscale(1)' : undefined,
           width: compact ? 'fit-content' : undefined,
           minWidth: compact ? undefined : 180,
           margin: '0 auto',
@@ -1301,6 +1303,15 @@ function PlayerSeat({
         </div> : null}
         {isCurrentTurn && typeof turnSeconds === 'number' ? (
           <span className="turn-countdown" data-testid={`turn-countdown-${id}`}>{turnSeconds}s</span>
+        ) : null}
+        {eliminated ? (
+          <span
+            className="eliminated-badge"
+            data-testid={`player-eliminated-${id}`}
+            title={ui('This player is out of chips', 'У этого игрока закончились фишки')}
+          >
+            {ui('OUT', 'ВЫБЫЛ')}
+          </span>
         ) : null}
         {bubbleLabel ? (
           <AdaptiveSeatBubble
@@ -1650,12 +1661,13 @@ function ShowdownStatus({
         </div>
       ) : null}
       {payout > 0 && net <= 0 && winParts.length ? (
-        <span style={{ fontSize: 12, opacity: 0.9 }}>
+        <span className="showdown-extra-result" style={{ fontSize: 12, opacity: 0.9 }}>
           {ui(`Won ${winParts.join(' + ')}, but finished with a net loss`, `Выиграна часть «${winParts.join(' + ')}», но итог раздачи отрицательный`)}
         </span>
       ) : null}
       {personalPots.length > 1 ? (
         <div
+          className="showdown-personal-pots"
           data-testid="personal-pot-results"
           style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center', marginTop: 2 }}
         >
@@ -1684,7 +1696,7 @@ function ShowdownStatus({
         </div>
       ) : null}
       {winners ? (
-        <span style={{ fontSize: 13, opacity: 0.9 }}>
+        <span className="showdown-winners" style={{ fontSize: 13, opacity: 0.9 }}>
           {winners}
         </span>
       ) : null}
@@ -2624,6 +2636,7 @@ function PlayerPage({
               isDealer={seat.id === dealerPlayerId}
               disconnected={seat.disconnected === true || seat.connected === false}
               turnSeconds={player.currentPlayerId === seat.id ? turnSeconds : undefined}
+              eliminated={Boolean(player.partyScore && totalScore(player.partyScore, seat.id) <= 0)}
             />
           ))}
         </div>
@@ -2708,6 +2721,7 @@ function PlayerPage({
               isDealer={player.playerId === dealerPlayerId}
               disconnected={!socketReady}
               turnSeconds={player.currentPlayerId === player.playerId ? turnSeconds : undefined}
+              eliminated={Boolean(player.partyScore && totalScore(player.partyScore, player.playerId) <= 0)}
             />
           </div>
           <PlayerComboSide combo={player.currentCombo} kind="low" />
