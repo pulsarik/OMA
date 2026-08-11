@@ -33,8 +33,10 @@ import {
   isPlayerStillInParty,
   nextPartyHand,
   netResultsAfterPayout,
+  normalizeReplayCode,
   normalizeHand,
   recordPlayerMove,
+  replayHandSeed,
   replayHandLayout,
   stacksAfterPayout,
   visibleCommunity,
@@ -78,6 +80,15 @@ const staticDir = [
   path.resolve(process.cwd(), 'demo/client/dist'),
   path.resolve(__dirname, '../../demo/client/dist'),
 ].find((candidate): candidate is string => Boolean(candidate && fs.existsSync(candidate)));
+
+const REPLAY_CODE_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function randomReplayCode() {
+  const letters = Array.from({ length: 3 }, () => (
+    REPLAY_CODE_LETTERS[crypto.randomInt(REPLAY_CODE_LETTERS.length)]
+  )).join('');
+  return `${letters}${String(crypto.randomInt(1000)).padStart(3, '0')}`;
+}
 
 type BuildInfo = {
   commit?: string;
@@ -330,6 +341,8 @@ function publicHandState(hand: any) {
     id: hand.id,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
+    replayCode: hand.replayCode,
+    isReplay: Boolean(hand.isReplay),
     handCode: hand.handCode,
     dealCommitment: hand.dealCommitment,
     dealCode: hand.stage === 'showdown' ? hand.dealCode : undefined,
@@ -440,6 +453,8 @@ async function partyScore(hand: any) {
   return {
     partyId: hand.partyId,
     partyCode: hand.partyCode,
+    replayCode: hand.replayCode,
+    isReplay: Boolean(hand.isReplay),
     hands: handScores,
     totals: [...totals.entries()].map(([id, total]) => ({ id, total })),
   };
@@ -578,6 +593,8 @@ function diagnosticHandSnapshot(hand: any) {
     id: hand.id,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
+    replayCode: hand.replayCode,
+    isReplay: Boolean(hand.isReplay),
     handCode: hand.handCode,
     handNumber: hand.handNumber,
     revision: hand.revision ?? 0,
@@ -643,6 +660,8 @@ async function playerState(hand: any, player: any) {
     handId: hand.id,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
+    replayCode: hand.replayCode,
+    isReplay: Boolean(hand.isReplay),
     handCode: hand.handCode,
     dealCommitment: hand.dealCommitment,
     dealCode: hand.stage === 'showdown' ? hand.dealCode : undefined,
@@ -719,7 +738,14 @@ function broadcastHandUpdated(hand: any) {
 }
 
 async function createAndSendDeal(ws: WebSocket, players: number, playerNames: string[] = [], playerBots: boolean[] = []) {
-  const hand = dealHand(players, undefined, playerNames, playerBots);
+  const replayCode = randomReplayCode();
+  const hand = dealHand(
+    players,
+    replayHandSeed(replayCode, 1, players),
+    playerNames,
+    playerBots,
+    replayCode,
+  );
   prepareDealAudit(hand);
   prepareHumanTurnClock(hand, true);
   await store.saveHand(hand);
@@ -761,6 +787,8 @@ function lobbyState(lobby: Lobby) {
     hostMemberId: lobby.hostMemberId,
     maxPlayers: lobby.maxPlayers,
     status: lobby.status,
+    replayCode: lobby.replayCode,
+    isReplay: Boolean(lobby.isReplay),
     handId: lobby.handId,
     session: {
       lastActivity: lobby.lastActivity ?? lobby.created,
@@ -960,6 +988,9 @@ async function markPlayerEntered(hand: any, playerId: string) {
 async function createLobby(ws: WebSocket, message: any) {
   return withLobbyLock('__create__', async () => {
     await cleanupInactiveSessions();
+    const requestedReplayCode = typeof message.replayCode === 'string' && message.replayCode.trim()
+      ? normalizeReplayCode(message.replayCode)
+      : undefined;
     const member: LobbyMember = {
       id: uuidv4(),
       token: uuidv4(),
@@ -976,6 +1007,8 @@ async function createLobby(ws: WebSocket, message: any) {
       maxPlayers: Math.min(Math.max(Number(message.maxPlayers) || 2, 2), 10),
       status: 'waiting',
       members: [member],
+      replayCode: requestedReplayCode,
+      isReplay: Boolean(requestedReplayCode),
       created: Date.now(),
       lastActivity: Date.now(),
     };
@@ -1134,6 +1167,23 @@ async function moveLobbyMember(ws: WebSocket, message: any) {
   });
 }
 
+async function setLobbyReplay(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'waiting') throw new Error('game already started');
+
+    const enabled = message.enabled === true;
+    lobby.isReplay = enabled;
+    lobby.replayCode = enabled
+      ? normalizeReplayCode(typeof message.replayCode === 'string' ? message.replayCode : '')
+      : undefined;
+    lobby.lastActivity = Date.now();
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+  });
+}
+
 async function startLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
     const { lobby, member } = await authenticatedLobby(ws, message);
@@ -1152,11 +1202,14 @@ async function startLobby(ws: WebSocket, message: any) {
     }
 
     const seatedMembers = seatedLobbyMembers(lobby);
+    const replayCode = lobby.replayCode ?? randomReplayCode();
     const hand = dealHand(
       seatedMembers.length,
-      undefined,
+      replayHandSeed(replayCode, 1, seatedMembers.length),
       seatedMembers.map(candidate => candidate.name),
       seatedMembers.map(candidate => candidate.isBot),
+      replayCode,
+      Boolean(lobby.isReplay),
     );
     prepareDealAudit(hand);
     prepareHumanTurnClock(hand, true);
@@ -1165,6 +1218,7 @@ async function startLobby(ws: WebSocket, message: any) {
       candidate.playerId = hand.players[index].id;
     });
     lobby.status = 'started';
+    lobby.replayCode = replayCode;
     lobby.handId = hand.id;
     lobby.lastActivity = Date.now();
     await store.updateLobby(lobby);
@@ -1194,11 +1248,13 @@ async function restartLobby(ws: WebSocket, message: any) {
     }
 
     const seatedMembers = seatedLobbyMembers(lobby);
+    const replayCode = randomReplayCode();
     const hand = dealHand(
       seatedMembers.length,
-      undefined,
+      replayHandSeed(replayCode, 1, seatedMembers.length),
       seatedMembers.map(candidate => candidate.name),
       seatedMembers.map(candidate => candidate.isBot),
+      replayCode,
     );
     prepareDealAudit(hand);
     prepareHumanTurnClock(hand, true);
@@ -1207,6 +1263,8 @@ async function restartLobby(ws: WebSocket, message: any) {
       candidate.playerId = hand.players[index].id;
     });
     lobby.handId = hand.id;
+    lobby.replayCode = replayCode;
+    lobby.isReplay = false;
     lobby.lastActivity = Date.now();
     await store.updateLobby(lobby);
     broadcastLobby(lobby);
@@ -1560,6 +1618,8 @@ wss.on('connection', (ws, req) => {
         await removeLobbyBot(ws, msg);
       } else if (msg.action === 'lobby_move_member') {
         await moveLobbyMember(ws, msg);
+      } else if (msg.action === 'lobby_set_replay') {
+        await setLobbyReplay(ws, msg);
       } else if (msg.action === 'lobby_start') {
         await startLobby(ws, msg);
       } else if (msg.action === 'lobby_restart') {

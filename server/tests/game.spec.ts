@@ -11,6 +11,7 @@ import {
   netResultsAfterPayout,
   recordPlayerMove,
   replayHandLayout,
+  replayHandSeed,
   stacksAfterPayout,
 } from '../src/game';
 import { aggressiveMoveForMatchedBet, botMove } from '../src/bot';
@@ -173,6 +174,30 @@ test('deal deterministic with seed', () => {
   const b = dealHand(2, 12345);
   expect(a.fullCommunity).toEqual(b.fullCommunity);
   expect(a.players.map(p => p.hole)).toEqual(b.players.map(p => p.hole));
+});
+
+test('replay code deterministically reproduces every party hand', () => {
+  const replayCode = 'BOB321';
+  const first = dealHand(2, replayHandSeed(replayCode, 1, 2), [], [], replayCode, true);
+  const second = dealHand(2, replayHandSeed('bob321', 1, 2), [], [], 'bob321', true);
+
+  expect(first.replayCode).toBe(replayCode);
+  expect(first.isReplay).toBe(true);
+  expect(first.fullCommunity).toEqual(second.fullCommunity);
+  expect(first.players.map(player => player.hole)).toEqual(second.players.map(player => player.hole));
+
+  first.stage = 'showdown';
+  second.stage = 'showdown';
+  const firstNext = nextPartyHand(first);
+  const secondNext = nextPartyHand(second);
+
+  expect(firstNext.handNumber).toBe(2);
+  expect(firstNext.replayCode).toBe(replayCode);
+  expect(firstNext.isReplay).toBe(true);
+  expect(firstNext.dealSeed).toBe(replayHandSeed(replayCode, 2, 2));
+  expect(firstNext.fullCommunity).toEqual(secondNext.fullCommunity);
+  expect(firstNext.players.map(player => player.hole)).toEqual(secondNext.players.map(player => player.hole));
+  expect(firstNext.dealSeed).not.toBe(first.dealSeed);
 });
 
 test('deal code rebuilds the same card layout', () => {

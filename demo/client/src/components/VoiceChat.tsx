@@ -161,50 +161,36 @@ export function VoiceChat({
   const participantLabel = participantCount === 1 ? labels.participant : labels.participants;
 
   return (
-    <aside
-      data-testid="voice-chat"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: 8,
-        flexWrap: 'wrap',
-        margin: '8px 0',
-        padding: '8px 10px',
-        border: '1px solid #cbd5e1',
-        borderRadius: 12,
-        background: '#f8fafc',
-        fontSize: 12,
-      }}
-    >
-      <div style={{ display: 'grid', gap: 2 }}>
-        <strong>{labels.title}</strong>
+    <aside className="voice-chat" data-testid="voice-chat">
+      <div className="voice-chat__info">
+        <strong className="voice-chat__title"><span aria-hidden="true">🎙</span>{labels.title}</strong>
         {status === 'connected' ? (
-          <span>
+          <span className="voice-chat__status">
+            <span className="voice-chat__status-dot" aria-hidden="true" />
             {labels.connected} · {participantCount} {participantLabel}
             {speakers.length ? ` · ${labels.speaking}: ${speakers.join(', ')}` : ''}
           </span>
         ) : null}
-        {error ? <span role="alert" style={{ color: '#b91c1c' }}>{error}</span> : null}
+        {error ? <span className="voice-chat__error" role="alert">{error}</span> : null}
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div className="voice-chat__actions">
         {status !== 'connected' ? (
-          <button type="button" onClick={join} disabled={status !== 'idle'}>
+          <button className="voice-chat__button voice-chat__button--primary" type="button" onClick={join} disabled={status !== 'idle'}>
             {status === 'idle' ? labels.join : labels.joining}
           </button>
         ) : (
           <>
             <button
+              className="voice-chat__button voice-chat__button--icon"
               type="button"
               aria-pressed={microphoneEnabled}
               aria-label={microphoneEnabled ? labels.microphoneOn : labels.microphoneOff}
               title={microphoneEnabled ? labels.microphoneOn : labels.microphoneOff}
               onClick={toggleMicrophone}
-              style={{ padding: '8px 10px', fontSize: 16 }}
             >
-              {microphoneEnabled ? '🎙️' : '🔇'}
+              <span aria-hidden="true">{microphoneEnabled ? '🎙' : '🔇'}</span>
             </button>
-            <button type="button" onClick={() => void leave()}>{labels.leave}</button>
+            <button className="voice-chat__button" type="button" onClick={() => void leave()}>{labels.leave}</button>
           </>
         )}
       </div>

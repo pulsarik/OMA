@@ -13,6 +13,7 @@ export const INITIAL_BIG_BLIND = 4;
 export const MAX_RAISES_PER_STREET = 3;
 export const POT_COINS = INITIAL_SMALL_BLIND + INITIAL_BIG_BLIND;
 export const SHUFFLE_VERSION = 'OMA1';
+export const REPLAY_CODE_PATTERN = /^[A-Z]{3}[0-9]{3}$/;
 const STAGES = ['preflop', 'flop', 'turn', 'river', 'showdown'] as const;
 const RANK_VALUE: Record<string, number> = {
   '2': 2,
@@ -59,6 +60,8 @@ export type DealtHand = {
   previousHandId?: string;
   enteredPlayerIds?: string[];
   replayOfHandId?: string;
+  replayCode?: string;
+  isReplay?: boolean;
   nextReplayHandId?: string;
   players: PlayerHand[];
   community: string[];
@@ -206,6 +209,10 @@ export function normalizeHand(hand: DealtHand) {
     : [];
   hand.dealSeed = normalizeSeed(hand.dealSeed ?? hand.rngSeed);
   hand.dealCode = hand.dealCode ?? dealCodeFor(hand.players?.length ?? 0, hand.dealSeed);
+  if (hand.replayCode !== undefined) {
+    hand.replayCode = normalizeReplayCode(hand.replayCode);
+  }
+  hand.isReplay = Boolean(hand.isReplay);
   hand.players.forEach((player, index) => {
     player.folded = Boolean(player.folded);
     player.isBot = Boolean(player.isBot);
@@ -992,6 +999,36 @@ export function createDeck() {
   return deck;
 }
 
+export function normalizeReplayCode(code: string) {
+  const normalized = code.trim().toUpperCase();
+  if (!REPLAY_CODE_PATTERN.test(normalized)) throw new Error('invalid replay code');
+  return normalized;
+}
+
+export function replayCodeSeed(code: string) {
+  const normalized = normalizeReplayCode(code);
+  let letters = 0;
+  for (const letter of normalized.slice(0, 3)) {
+    letters = letters * 26 + letter.charCodeAt(0) - 65;
+  }
+  return letters * 1000 + Number(normalized.slice(3));
+}
+
+function hash32(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function replayHandSeed(code: string, handNumber: number, players: number) {
+  if (!Number.isInteger(handNumber) || handNumber < 1) throw new Error('invalid replay hand number');
+  if (!Number.isInteger(players) || players < 1) throw new Error('invalid replay player count');
+  return hash32(`${SHUFFLE_VERSION}:${replayCodeSeed(code)}:${handNumber}:${players}`);
+}
+
 function normalizeSeed(seed?: number) {
   return (seed ?? Date.now()) >>> 0;
 }
@@ -1090,7 +1127,14 @@ export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<strin
   }));
 }
 
-export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = [], playerBots: boolean[] = []): DealtHand {
+export function dealHand(
+  players = 2,
+  rngSeed?: number,
+  playerNames: string[] = [],
+  playerBots: boolean[] = [],
+  replayCode?: string,
+  isReplay = false,
+): DealtHand {
   if (!Number.isInteger(players) || players < 1) {
     throw new Error('players must be a positive integer');
   }
@@ -1101,7 +1145,10 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
     throw new Error('too many players for one deck');
   }
 
-  const dealSeed = normalizeSeed(rngSeed);
+  const normalizedReplayCode = replayCode === undefined ? undefined : normalizeReplayCode(replayCode);
+  const dealSeed = normalizeSeed(
+    rngSeed ?? (normalizedReplayCode ? replayHandSeed(normalizedReplayCode, 1, players) : undefined),
+  );
   const deck = createDeck();
   const rand = shuffle(dealSeed);
   for (let i = deck.length - 1; i > 0; i--) {
@@ -1143,6 +1190,8 @@ export function dealHand(players = 2, rngSeed?: number, playerNames: string[] = 
     rngSeed: dealSeed,
     dealSeed,
     dealCode: dealCodeFor(players, dealSeed),
+    replayCode: normalizedReplayCode,
+    isReplay: Boolean(isReplay),
     potCoins: 0,
     created: Date.now(),
   };
@@ -1157,15 +1206,19 @@ export function dealHandFromCode(dealCode: string, playerNames: string[] = []) {
 
 export function nextPartyHand(previous: DealtHand): DealtHand {
   normalizeHand(previous);
+  const nextHandNumber = previous.handNumber + 1;
+  const nextReplayCode = previous.replayCode;
   const hand = dealHand(
     previous.players.length,
-    undefined,
+    nextReplayCode ? replayHandSeed(nextReplayCode, nextHandNumber, previous.players.length) : undefined,
     previous.players.map(player => player.name ?? ''),
     previous.players.map(player => Boolean(player.isBot)),
+    nextReplayCode,
+    Boolean(previous.isReplay),
   );
   hand.partyId = previous.partyId;
   hand.partyCode = previous.partyCode;
-  hand.handNumber = previous.handNumber + 1;
+  hand.handNumber = nextHandNumber;
   hand.previousHandId = previous.id;
   hand.blinds = { ...blindLevelForHand(hand.handNumber) };
   const stacks = stacksAfterPayout(previous);
@@ -1189,6 +1242,8 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   hand.handNumber = source.handNumber + 1;
   hand.previousHandId = source.id;
   hand.replayOfHandId = source.id;
+  hand.replayCode = source.replayCode;
+  hand.isReplay = true;
   hand.players = source.players.map((player) => ({
     id: player.id,
     name: player.name,

@@ -177,6 +177,45 @@ export const PLAYER_PAGE_STYLES = `
     cursor: not-allowed;
     opacity: .45;
   }
+  .voice-panel {
+    display: grid;
+    min-height: 180px;
+    place-items: center;
+    border: 1px solid #d8e2dc;
+    border-radius: clamp(20px, 3vw, 30px);
+    background: linear-gradient(145deg, #ffffff, #f1f7f3);
+    padding: clamp(18px, 4vw, 46px);
+    box-shadow: 0 12px 32px rgba(31,54,42,.09);
+  }
+  .voice-chat {
+    display: flex;
+    width: min(100%, 560px);
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 18px;
+    border: 1px solid #cfe0d5;
+    border-radius: 18px;
+    background: rgba(255,255,255,.88);
+    box-shadow: 0 8px 24px rgba(31,54,42,.1);
+    color: var(--ink);
+  }
+  .voice-chat__info { display: grid; min-width: 0; gap: 5px; }
+  .voice-chat__title { display: flex; align-items: center; gap: 7px; font-size: 16px; }
+  .voice-chat__status { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .voice-chat__status-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: #16a34a; }
+  .voice-chat__error { color: #b91c1c; font-size: 12px; }
+  .voice-chat__actions { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+  .voice-chat__button { min-height: 34px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; color: #334155; padding: 6px 11px; font-size: 12px; font-weight: 800; }
+  .voice-chat__button:hover { border-color: #94a3b8; background: #f8fafc; }
+  .voice-chat__button--primary { border-color: #087344; background: #087344; color: #fff; }
+  .voice-chat__button--primary:hover { border-color: #065f46; background: #065f46; }
+  .voice-chat__button--icon { width: 36px; padding: 4px; font-size: 16px; line-height: 1; }
+  @media (max-width: 560px) {
+    .voice-panel { min-height: 150px; padding: 12px; }
+    .voice-chat { align-items: stretch; flex-direction: column; gap: 12px; padding: 14px; }
+    .voice-chat__actions { justify-content: flex-end; }
+  }
   .game-tile {
     border-radius: clamp(24px, 3vw, 36px);
     padding: clamp(7px, 1vw, 12px);

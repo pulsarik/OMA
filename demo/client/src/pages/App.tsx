@@ -32,6 +32,7 @@ function ui(en: string, ru: string) {
 function localizedServerMessage(message: string) {
   if (storedLanguage() !== 'ru') return message;
   const messages: Record<string, string> = {
+    'invalid replay code': 'Введите код повтора в формате ABC123.',
     'server overloaded: no table names available': 'Сервер перегружен: сейчас нет свободных названий столов. Попробуйте позже.',
     'enter a 4-digit PIN': 'Введите PIN из 4 цифр.',
     'table not found': 'Стол не найден.',
@@ -110,6 +111,8 @@ type ShowdownSummary = Pick<HiLoResult, 'potCoins' | 'highWinners' | 'lowWinners
 type PartyScore = {
   partyId: string;
   partyCode?: string;
+  replayCode?: string;
+  isReplay?: boolean;
   totals: Array<{
     id: string;
     total: number;
@@ -299,6 +302,8 @@ type PlayerView = {
   handId: string;
   partyId: string;
   partyCode?: string;
+  replayCode?: string;
+  isReplay?: boolean;
   handCode?: string;
   dealCode?: string;
   handNumber: number;
@@ -385,6 +390,8 @@ type FullHandView = {
   id: string;
   partyId?: string;
   partyCode?: string;
+  replayCode?: string;
+  isReplay?: boolean;
   handCode?: string;
   dealCode?: string;
   handNumber?: number;
@@ -427,6 +434,8 @@ type DealMessage = {
     id: string;
     partyId?: string;
     partyCode?: string;
+    replayCode?: string;
+    isReplay?: boolean;
     handCode?: string;
     dealCode?: string;
     handNumber?: number;
@@ -467,6 +476,8 @@ type LobbyView = {
   hostMemberId: string;
   maxPlayers: number;
   status: 'waiting' | 'started';
+  replayCode?: string;
+  isReplay?: boolean;
   handId?: string;
   session: {
     lastActivity: number;
@@ -1463,7 +1474,7 @@ function PlayerSeat({
 
 function HandBanner({ player }: { player: PlayerView }) {
   const replaySource = sourceHandLabel(player.partyScore, player.replayOfHandId);
-  const isReplay = Boolean(player.replayOfHandId);
+  const isReplay = Boolean(player.isReplay || player.replayOfHandId);
 
   return (
     <div
@@ -1482,7 +1493,7 @@ function HandBanner({ player }: { player: PlayerView }) {
       </strong>
       {isReplay ? (
         <span style={{ display: 'block', marginTop: 2, fontSize: 12 }}>
-          {ui('Replay of', 'Повтор')} {replaySource ?? '?'}
+          {ui('REPLAY', 'ПОВТОР')} {player.replayCode ?? replaySource ?? '?'}
         </span>
       ) : null}
     </div>
@@ -1829,7 +1840,14 @@ function PartyStatistics({ score, players }: {
   return (
     <section className="party-summary" data-testid="party-statistics">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0 }}>{ui('Cumulative statistics', 'Общая статистика')}</h2>
+        <div>
+          <h2 style={{ margin: 0 }}>{ui('Cumulative statistics', 'Общая статистика')}</h2>
+          {score.replayCode ? (
+            <div data-testid="replay-code" style={{ marginTop: 5, color: score.isReplay ? '#b45309' : '#475569', fontWeight: 800 }}>
+              {score.isReplay ? ui('REPLAY', 'ПОВТОР') : ui('Replay code', 'Код повтора')}: <code>{score.replayCode}</code>
+            </div>
+          ) : null}
+        </div>
         <strong
           data-testid="completed-hand-count"
           style={{ borderRadius: 999, background: '#ecfdf5', color: '#065f46', padding: '6px 10px' }}
@@ -2123,7 +2141,7 @@ function PlayerPage({
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
-  const [activeView, setActiveView] = useState<'table' | 'stats'>('table');
+  const [activeView, setActiveView] = useState<'table' | 'voice' | 'stats'>('table');
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
@@ -2485,7 +2503,12 @@ function PlayerPage({
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
   );
+  const voiceAvailable = Boolean(
+    player.voiceEnabled && (sessionDeadline === null || sessionNow < sessionDeadline)
+  );
+  const isVoiceView = activeView === 'voice' && voiceAvailable;
   const isStatsView = activeView === 'stats' && showStatsTile;
+  const isTableView = !isVoiceView && !isStatsView;
   const playerSeatIndex = player.players.findIndex(seat => seat.id === player.playerId);
   const otherPlayers = playerSeatIndex < 0
     ? player.players.filter(seat => seat.id !== player.playerId)
@@ -2531,12 +2554,25 @@ function PlayerPage({
           type="button"
           role="tab"
           aria-controls="table-panel"
-          aria-selected={!isStatsView}
-          className={`view-tab${!isStatsView ? ' is-active' : ''}`}
+          aria-selected={isTableView}
+          className={`view-tab${isTableView ? ' is-active' : ''}`}
           onClick={() => setActiveView('table')}
         >
           {ui('TABLE', 'СТОЛ')}
         </button>
+        {voiceAvailable ? (
+          <button
+            id="voice-tab"
+            type="button"
+            role="tab"
+            aria-controls="voice-panel"
+            aria-selected={isVoiceView}
+            className={`view-tab${isVoiceView ? ' is-active' : ''}`}
+            onClick={() => setActiveView('voice')}
+          >
+            {ui('VOICE', 'ГОЛОС')}
+          </button>
+        ) : null}
         <button
           id="stats-tab"
           type="button"
@@ -2551,7 +2587,7 @@ function PlayerPage({
         </button>
       </nav>
 
-      {!isStatsView ? <section
+      {isTableView ? <section
         id="table-panel"
         role="tabpanel"
         aria-labelledby="table-tab"
@@ -2579,37 +2615,11 @@ function PlayerPage({
         </div>
       ) : null}
 
-      {player.voiceEnabled && (sessionDeadline === null || sessionNow < sessionDeadline) ? (
-        <React.Suspense fallback={null}>
-          <VoiceChat
-            endpoint={`${SERVER_URL}/api/voice/token`}
-            handId={handId}
-            playerId={playerId}
-            playerToken={token}
-            labels={{
-              title: ui('Voice chat', 'Голосовой чат'),
-              join: ui('Join voice', 'Войти в голос'),
-              joining: ui('Connecting…', 'Подключение…'),
-              leave: ui('Leave', 'Выйти'),
-              microphoneOn: ui('Mic on', 'Микрофон включён'),
-              microphoneOff: ui('Mic off', 'Микрофон выключен'),
-              soundOn: ui('Sound on', 'Звук включён'),
-              soundOff: ui('Sound off', 'Звук выключен'),
-              connected: ui('Connected', 'Подключено'),
-              participant: ui('participant', 'участник'),
-              participants: ui('participants', 'участников'),
-              speaking: ui('Speaking', 'Говорит'),
-              genericError: ui('Could not connect to voice chat', 'Не удалось подключиться к голосовому чату'),
-            }}
-          />
-        </React.Suspense>
-      ) : null}
-
       <div
         className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}${otherPlayers.length >= 6 ? ' is-oval' : ''}${player.stage === 'showdown' ? ' is-showdown' : ''}`}
         data-testid="poker-table"
       >
-        {player.replayOfHandId ? <HandBanner player={player} /> : null}
+        {player.isReplay || player.replayOfHandId ? <HandBanner player={player} /> : null}
         <div
           className="opponents-row"
           data-testid="opponents-grid"
@@ -2889,6 +2899,40 @@ function PlayerPage({
         </p>
       ) : null}
       </section> : null}
+
+      {voiceAvailable ? (
+        <section
+          id="voice-panel"
+          role="tabpanel"
+          aria-labelledby="voice-tab"
+          className="voice-panel"
+          hidden={!isVoiceView}
+        >
+          <React.Suspense fallback={null}>
+            <VoiceChat
+              endpoint={`${SERVER_URL}/api/voice/token`}
+              handId={handId}
+              playerId={playerId}
+              playerToken={token}
+              labels={{
+                title: ui('Voice chat', 'Голосовой чат'),
+                join: ui('Join voice', 'Войти в голос'),
+                joining: ui('Connecting…', 'Подключение…'),
+                leave: ui('Leave', 'Выйти'),
+                microphoneOn: ui('Mic on', 'Микрофон включён'),
+                microphoneOff: ui('Mic off', 'Микрофон выключен'),
+                soundOn: ui('Sound on', 'Звук включён'),
+                soundOff: ui('Sound off', 'Звук выключен'),
+                connected: ui('Connected', 'Подключено'),
+                participant: ui('participant', 'участник'),
+                participants: ui('participants', 'участников'),
+                speaking: ui('Speaking', 'Говорит'),
+                genericError: ui('Could not connect to voice chat', 'Не удалось подключиться к голосовому чату'),
+              }}
+            />
+          </React.Suspense>
+        </section>
+      ) : null}
 
       {isStatsView ? <section
         id="stats-panel"
@@ -3245,6 +3289,8 @@ function LobbyPage() {
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [botName, setBotName] = useState('');
+  const [replayEnabled, setReplayEnabled] = useState(false);
+  const [replayCodeInput, setReplayCodeInput] = useState('');
   const [notice, setNotice] = useState<string | null>(null);
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
@@ -3273,6 +3319,12 @@ function LobbyPage() {
   useEffect(() => {
     if (sessionDeadline !== null && sessionNow >= sessionDeadline) setLobbyExpired(true);
   }, [sessionDeadline, sessionNow]);
+
+  useEffect(() => {
+    if (!lobby) return;
+    setReplayEnabled(Boolean(lobby.isReplay));
+    if (lobby.replayCode) setReplayCodeInput(lobby.replayCode);
+  }, [lobby?.id, lobby?.isReplay, lobby?.replayCode]);
 
   const { socket, connected: socketReady } = useReliableWebSocket(WS_URL, {
     onOpen: (ws) => {
@@ -3511,6 +3563,57 @@ function LobbyPage() {
                   seat,
                 })}
               />
+
+              {lobby.replayCode ? (
+                <div
+                  data-testid="lobby-replay-code"
+                  style={{
+                    border: `1px solid ${lobby.isReplay ? '#f59e0b' : '#a7f3d0'}`,
+                    borderRadius: 10,
+                    background: lobby.isReplay ? '#fffbeb' : '#f0fdf4',
+                    color: lobby.isReplay ? '#92400e' : '#166534',
+                    padding: '9px 12px',
+                    fontWeight: 800,
+                  }}
+                >
+                  {lobby.isReplay ? ui('REPLAY', 'ПОВТОР') : ui('Replay code', 'Код повтора')}: <code>{lobby.replayCode}</code>
+                </div>
+              ) : null}
+
+              {isHost && lobby.status === 'waiting' ? (
+                <div style={{ display: 'grid', gap: 8, padding: 10, border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800 }}>
+                    <input
+                      type="checkbox"
+                      checked={replayEnabled}
+                      onChange={(event) => setReplayEnabled(event.target.checked)}
+                    />
+                    {ui('Replay party', 'Переиграть партию')}
+                  </label>
+                  {replayEnabled ? (
+                    <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
+                      {ui('Replay code', 'Код повтора')}
+                      <input
+                        aria-label="Replay code"
+                        placeholder="ABC123"
+                        maxLength={6}
+                        value={replayCodeInput}
+                        onChange={(event) => setReplayCodeInput(event.target.value.toUpperCase())}
+                        style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontFamily: 'ui-monospace, monospace', letterSpacing: '.12em' }}
+                      />
+                      <small style={{ color: '#64748b', fontWeight: 500 }}>
+                        {ui('Use the same number of seats as the original party.', 'Используйте столько же мест, сколько было в исходной партии.')}
+                      </small>
+                    </label>
+                  ) : null}
+                  <button
+                    onClick={() => send('lobby_set_replay', { enabled: replayEnabled, replayCode: replayCodeInput.trim() })}
+                    style={{ justifySelf: 'start', padding: '7px 11px', fontWeight: 800 }}
+                  >
+                    {ui('Apply replay setting', 'Применить настройку повтора')}
+                  </button>
+                </div>
+              ) : null}
 
               {isHost && lobby.status === 'waiting' ? (
                 <div className="lobby-host-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

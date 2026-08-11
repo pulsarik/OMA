@@ -18,6 +18,8 @@ export type Lobby = {
   maxPlayers: number;
   status: 'waiting' | 'started';
   members: LobbyMember[];
+  replayCode?: string;
+  isReplay?: boolean;
   handId?: string;
   failedPinAttempts?: number;
   created: number;
