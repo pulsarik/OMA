@@ -360,44 +360,98 @@ export const PLAYER_PAGE_STYLES = `
   .opponents-row[data-opponent-count="2"] { grid-template-columns: repeat(2, minmax(0, 240px)); }
   .opponents-row[data-opponent-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .opponents-row[data-opponent-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .opponents-row[data-opponent-count="2"] .player-seat-wrap { transform: translateY(20px); }
-  .opponents-row[data-opponent-count="3"] .player-seat-wrap:first-child,
-  .opponents-row[data-opponent-count="3"] .player-seat-wrap:last-child { transform: translateY(26px); }
-  .opponents-row[data-opponent-count="4"] .player-seat-wrap:first-child,
-  .opponents-row[data-opponent-count="4"] .player-seat-wrap:last-child,
-  .opponents-row[data-opponent-count="5"] .player-seat-wrap:first-child,
-  .opponents-row[data-opponent-count="5"] .player-seat-wrap:last-child { transform: translateY(34px); }
-  .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2),
-  .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3),
-  .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2),
-  .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4) { transform: translateY(12px); }
   @media (min-width: 761px) {
+    .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"],
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) {
+      position: relative;
+      display: grid;
+      box-sizing: border-box;
+      height: clamp(240px, 31vh, 300px);
+      min-height: 0;
+      padding: 0;
+    }
+    .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"],
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      position: absolute;
+      width: clamp(150px, 16vw, 205px);
+      transform: translateX(-50%);
+    }
+    .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 46px; }
+    .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 46px; }
+    .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 20%; top: 78px; }
+    .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 80%; top: 78px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 13%; top: 112px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 38%; top: 28px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 62%; top: 28px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 87%; top: 112px; }
+    .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(1) { left: 10%; top: 142px; }
+    .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2) { left: 30%; top: 48px; }
+    .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(3) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4) { left: 70%; top: 48px; }
+    .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(5) { left: 90%; top: 142px; }
     .opponents-row[data-opponent-count="6"],
     .opponents-row[data-opponent-count="7"],
     .opponents-row[data-opponent-count="8"],
     .opponents-row[data-opponent-count="9"] {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
-      grid-auto-rows: 150px;
-      align-items: start;
-      box-sizing: border-box;
-      height: auto;
       min-height: 0;
-      padding: 0 clamp(4px, 1.5vw, 18px);
-      gap: clamp(8px, 1.2vw, 16px) 8px;
     }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(1) { left: 8%; top: 142px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(2) { left: 25%; top: 70px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(3) { left: 40%; top: 16px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(4) { left: 60%; top: 16px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(5) { left: 75%; top: 70px; }
+    .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(6) { left: 92%; top: 142px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1) { left: 8%; top: 142px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2) { left: 22%; top: 72px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3) { left: 36%; top: 20px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(4) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5) { left: 64%; top: 20px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6) { left: 78%; top: 72px; }
+    .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7) { left: 92%; top: 142px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1) { left: 7%; top: 142px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2) { left: 19%; top: 72px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3) { left: 31%; top: 20px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(4) { left: 43%; top: 0; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(5) { left: 57%; top: 0; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6) { left: 69%; top: 20px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { left: 81%; top: 72px; }
+    .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { left: 93%; top: 142px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1) { left: 6%; top: 142px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2) { left: 17%; top: 72px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3) { left: 28%; top: 20px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4) { left: 39%; top: 0; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(5) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { left: 61%; top: 0; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { left: 72%; top: 20px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { left: 83%; top: 72px; }
+    .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { left: 94%; top: 142px; }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .player-seat-wrap {
-      position: static;
-      width: 100%;
-      min-width: 0;
-      transform: none;
-      min-height: 150px;
-      align-items: flex-start;
+      width: clamp(120px, 10vw, 132px);
     }
     .opponents-row:is(
       [data-opponent-count="6"],
@@ -405,18 +459,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .compact-card-row {
-      max-width: 100%;
-      justify-content: center;
-    }
-    .opponents-row:is(
-      [data-opponent-count="6"],
-      [data-opponent-count="7"],
-      [data-opponent-count="8"],
-      [data-opponent-count="9"]
-    ) .player-seat {
-      width: 100% !important;
-      min-height: 150px;
-      align-items: center;
+      gap: 1px;
     }
     .opponents-row:is(
       [data-opponent-count="6"],
@@ -424,15 +467,15 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .opponent-card-frame {
-      width: 48.024px;
-      height: 68.904px;
+      width: 30px;
+      height: 43.125px;
     }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .opponent-card { transform: scale(.522); }
+    ) .opponent-card { transform: scale(.326); }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
@@ -449,7 +492,6 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) [data-testid^="player-result-"] {
-      position: static;
       width: 100%;
       max-width: 100%;
       margin-top: 5px;
@@ -713,24 +755,28 @@ export const PLAYER_PAGE_STYLES = `
   }
   .hero-zone {
     display: grid;
-    grid-template-columns: minmax(190px, 1fr) max-content minmax(190px, 1fr);
+    grid-template-columns: minmax(220px, 1fr) max-content minmax(220px, 1fr);
     grid-template-areas: "high hero low";
     justify-content: center;
     align-items: end;
-    column-gap: clamp(24px, 2.5vw, 42px);
+    column-gap: clamp(36px, 4vw, 72px);
+    padding-inline: clamp(8px, 2vw, 24px);
+    box-sizing: border-box;
     width: 100%;
   }
   .hero-seat {
     grid-area: hero;
     align-self: end;
     justify-self: center;
+    max-width: 100%;
     min-width: 0;
   }
   .combo-side {
     align-self: center;
     box-sizing: border-box;
-    width: 190px;
+    width: min(190px, 100%);
     min-width: 0;
+    overflow: hidden;
     border: 1px solid rgba(255,255,255,.32);
     border-radius: 12px;
     background: rgba(2,44,30,.52);
@@ -744,12 +790,13 @@ export const PLAYER_PAGE_STYLES = `
     display: flex;
     justify-content: space-between;
     gap: 8px;
+    min-width: 0;
     margin-bottom: 6px;
     font-size: 12px;
     font-weight: 900;
     letter-spacing: .07em;
   }
-  .combo-side-rank { color: #ecfdf5; font-size: 13px; letter-spacing: 0; text-align: right; }
+  .combo-side-rank { min-width: 0; overflow: hidden; color: #ecfdf5; font-size: 13px; letter-spacing: 0; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
   .side-combo-cards { display: flex; justify-content: center; gap: 3px; }
   .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
@@ -939,6 +986,33 @@ export const PLAYER_PAGE_STYLES = `
       height: 84.216px !important;
     }
     .focal-card { transform: scale(.638) !important; }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .player-seat-wrap { width: clamp(120px, 10vw, 132px); }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .compact-card-row { gap: 1px !important; }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-card-frame {
+      width: 30px !important;
+      height: 43.125px !important;
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-card { transform: scale(.326) !important; }
     .table-center,
     .poker-table.is-crowded .table-center {
       min-height: 92px;
@@ -946,8 +1020,8 @@ export const PLAYER_PAGE_STYLES = `
       padding: 6px;
     }
     .hero-zone {
-      grid-template-columns: 170px auto 170px;
-      column-gap: 24px;
+      grid-template-columns: minmax(190px, 1fr) max-content minmax(190px, 1fr);
+      column-gap: 40px;
     }
     .combo-side { width: 170px; padding: 5px 4px; }
     .combo-side-title { margin-bottom: 4px; }
