@@ -439,11 +439,16 @@ async function partyScore(hand: any) {
       handNumber: partyHand.handNumber,
       stage: partyHand.stage,
       replayOfHandId: partyHand.replayOfHandId,
-      players: partyHand.players.map((player: any) => ({
-        id: player.id,
-        folded: Boolean(player.folded),
-        participated: (startingStacks.get(player.id) ?? 0) > 0,
-      })),
+      players: partyHand.players.map((player: any) => {
+        const resultPlayer = result?.players.find((candidate: any) => candidate.id === player.id);
+        return {
+          id: player.id,
+          folded: Boolean(player.folded),
+          participated: (startingStacks.get(player.id) ?? 0) > 0,
+          highRank: resultPlayer?.highRank,
+          lowRank: resultPlayer?.lowRank,
+        };
+      }),
       points: result?.points ?? [],
       net: result ? netResultsAfterPayout(partyHand, startingStacks) : [],
       wallets: result

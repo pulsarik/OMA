@@ -148,6 +148,7 @@ test('screenshot deal OMA1-P7-S12OCLCL advances instead of freezing on the big b
   hand.roundBets = { P1: 16, P2: 16, P3: 16, P4: 16, P5: 16 };
   hand.players.forEach((player, index) => {
     player.isBot = index > 0;
+    player.botStyle = index > 0 ? 'normal' : undefined;
     player.stack = [844.5, 258, 1003.5, 3673, 1141, 0, 0][index];
     player.folded = index >= 5;
   });

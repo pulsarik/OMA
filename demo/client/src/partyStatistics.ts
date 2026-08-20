@@ -1,10 +1,43 @@
 export type StatisticsHand = {
   handNumber: number;
-  players: Array<{ id: string; participated: boolean }>;
+  players: Array<{
+    id: string;
+    participated: boolean;
+    highRank?: string;
+    lowRank?: string;
+  }>;
   net: Array<{ id: string; total: number }>;
   wallets?: Array<{ id: string; total: number }>;
   actions?: Array<{ playerId: string; move: string }>;
 };
+
+export const COMBINATION_RANKS = [
+  { key: 'straightFlush', rank: 'straight flush', en: 'Straight flush', ru: 'Стрит-флеш' },
+  { key: 'fourOfAKind', rank: 'four of a kind', en: 'Four of a kind', ru: 'Каре' },
+  { key: 'fullHouse', rank: 'full house', en: 'Full house', ru: 'Фулл-хаус' },
+  { key: 'flush', rank: 'flush', en: 'Flush', ru: 'Флеш' },
+  { key: 'straight', rank: 'straight', en: 'Straight', ru: 'Стрит' },
+  { key: 'threeOfAKind', rank: 'three of a kind', en: 'Three of a kind', ru: 'Сет' },
+  { key: 'twoPair', rank: 'two pair', en: 'Two pair', ru: 'Две пары' },
+] as const;
+
+export type CombinationKey = typeof COMBINATION_RANKS[number]['key'];
+export type CombinationCounts = Record<CombinationKey, number>;
+
+export function countPlayerCombinations(playerId: string, hands: StatisticsHand[]): CombinationCounts {
+  const counts = Object.fromEntries(
+    COMBINATION_RANKS.map(({ key }) => [key, 0]),
+  ) as CombinationCounts;
+  const ranks = new Map<string, CombinationKey>(COMBINATION_RANKS.map(({ rank, key }) => [rank, key]));
+
+  hands.forEach((hand) => {
+    const rank = hand.players.find((player) => player.id === playerId)?.highRank;
+    const key = rank ? ranks.get(rank) : undefined;
+    if (key) counts[key] += 1;
+  });
+
+  return counts;
+}
 
 export type WalletHistorySeries = {
   playerId: string;
@@ -23,6 +56,12 @@ export function aggressiveHandPercent(playerId: string, hands: StatisticsHand[])
     ))
   )).length;
   return Math.round((aggressiveHands / participatedHands.length) * 100);
+}
+
+export type BotStyle = 'aggressive' | 'cautious';
+
+export function botStyle(playerId: string, hands: StatisticsHand[]): BotStyle {
+  return aggressiveHandPercent(playerId, hands) >= 50 ? 'aggressive' : 'cautious';
 }
 
 export function buildWalletHistory(

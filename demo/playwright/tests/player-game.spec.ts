@@ -1,5 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 import { createHash } from 'node:crypto';
+import { COMBINATION_RANKS } from '../../client/src/partyStatistics';
 
 async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2, addNamedBot = true) {
   await page.goto('/');
@@ -403,6 +404,13 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
       await expect(page.getByTestId(`party-max-loss-${player.id}`))
         .toHaveText(formatPoints(Math.min(0, ...netResults)));
       await expect(page.getByTestId(`party-stack-${player.id}`)).toHaveText(formatPoints(stack));
+      for (const combination of COMBINATION_RANKS) {
+        const count = hands.filter((hand: any) => (
+          hand.players.find((seat: any) => seat.id === player.id)?.highRank === combination.rank
+        )).length;
+        await expect(page.getByTestId(`party-combination-${combination.key}-${player.id}`))
+          .toHaveText(String(count));
+      }
     }
     await expect(page.getByTestId('wallet-history-chart')).toBeVisible();
     for (const player of state.players) {

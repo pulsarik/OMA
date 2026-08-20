@@ -1,6 +1,7 @@
 import {
   PlayerMove,
   MAX_RAISES_PER_STREET,
+  BotStyle,
   compareOmahaHands,
   normalizeHand,
   visibleCommunity,
@@ -166,6 +167,94 @@ function potRaiseTo(hand: any, player: any, fraction: number) {
   return Math.min(Math.max(currentBet + raiseSize, minRaiseTo), maxRaiseTo);
 }
 
+type BotProfile = {
+  premiumPreflopScore: number;
+  strongEquity: number;
+  strongScoop: number;
+  mediumEquity: number;
+  mediumScoop: number;
+  continueEquity: number;
+  continueScoop: number;
+  callMargin: number;
+  riverCallMargin: number;
+  cheapCallFloor: number;
+  cheapCallOddsFactor: number;
+  raiseEquity: number;
+  raiseScoop: number;
+  bigRaiseEquity: number;
+  bigRaiseScoop: number;
+  strongBetFraction: number;
+  mediumBetFraction: number;
+  raiseFraction: number;
+};
+
+const BOT_PROFILES: Record<BotStyle, BotProfile> = {
+  normal: {
+    premiumPreflopScore: 5,
+    strongEquity: 0.68,
+    strongScoop: 0.52,
+    mediumEquity: 0.48,
+    mediumScoop: 0.32,
+    continueEquity: 0.64,
+    continueScoop: 0.45,
+    callMargin: 0.02,
+    riverCallMargin: 0.035,
+    cheapCallFloor: 0.12,
+    cheapCallOddsFactor: 0.75,
+    raiseEquity: 0.64,
+    raiseScoop: 0.45,
+    bigRaiseEquity: 0.78,
+    bigRaiseScoop: 0.65,
+    strongBetFraction: 0.75,
+    mediumBetFraction: 0.25,
+    raiseFraction: 0.5,
+  },
+  aggressive: {
+    premiumPreflopScore: 4.5,
+    strongEquity: 0.61,
+    strongScoop: 0.44,
+    mediumEquity: 0.42,
+    mediumScoop: 0.25,
+    continueEquity: 0.58,
+    continueScoop: 0.38,
+    callMargin: 0.01,
+    riverCallMargin: 0.02,
+    cheapCallFloor: 0.08,
+    cheapCallOddsFactor: 0.6,
+    raiseEquity: 0.58,
+    raiseScoop: 0.38,
+    bigRaiseEquity: 0.72,
+    bigRaiseScoop: 0.58,
+    strongBetFraction: 1,
+    mediumBetFraction: 0.5,
+    raiseFraction: 0.75,
+  },
+  cautious: {
+    premiumPreflopScore: 5.5,
+    strongEquity: 0.75,
+    strongScoop: 0.6,
+    mediumEquity: 0.58,
+    mediumScoop: 0.4,
+    continueEquity: 0.72,
+    continueScoop: 0.55,
+    callMargin: 0.04,
+    riverCallMargin: 0.06,
+    cheapCallFloor: 0.18,
+    cheapCallOddsFactor: 0.9,
+    raiseEquity: 0.8,
+    raiseScoop: 0.68,
+    bigRaiseEquity: 0.88,
+    bigRaiseScoop: 0.78,
+    strongBetFraction: 0.5,
+    mediumBetFraction: 0.2,
+    raiseFraction: 0.35,
+  },
+};
+
+function botProfile(player: any): BotProfile {
+  return BOT_PROFILES[player.botStyle as BotStyle] ?? BOT_PROFILES.normal;
+}
+
 export function aggressiveMoveForMatchedBet(currentBet: number, raiseCount: number): PlayerMove {
   if (currentBet === 0) return 'bet';
   if (raiseCount >= MAX_RAISES_PER_STREET) return 'check';
@@ -174,21 +263,22 @@ export function aggressiveMoveForMatchedBet(currentBet: number, raiseCount: numb
 
 export function botMove(hand: any, player: any): BotDecision {
   normalizeHand(hand);
+  const profile = botProfile(player);
   const playerBet = hand.roundBets?.[player.id] ?? 0;
   const callAmount = Math.max((hand.currentBet ?? 0) - playerBet, 0);
   const bigBlind = hand.blinds?.big ?? 4;
   const potOdds = callAmount > 0 ? callAmount / Math.max((hand.potCoins ?? 0) + callAmount, 1) : 0;
   const startScore = startingHandScore(player.hole);
-  const premiumPreflop = hand.stage === 'preflop' && startScore >= 5;
+  const premiumPreflop = hand.stage === 'preflop' && startScore >= profile.premiumPreflopScore;
   const { equity, scoopRate } = estimateShowdownEquity(hand, player);
 
   if (callAmount <= 0) {
     const aggressiveFraction = premiumPreflop
-      ? 0.5
-      : hand.stage !== 'preflop' && (equity >= 0.68 || scoopRate >= 0.52)
-        ? 0.75
-        : hand.stage !== 'preflop' && (equity >= 0.48 || scoopRate >= 0.32)
-          ? 0.25
+      ? profile.raiseFraction
+      : hand.stage !== 'preflop' && (equity >= profile.strongEquity || scoopRate >= profile.strongScoop)
+        ? profile.strongBetFraction
+        : hand.stage !== 'preflop' && (equity >= profile.mediumEquity || scoopRate >= profile.mediumScoop)
+          ? profile.mediumBetFraction
           : undefined;
 
     if (aggressiveFraction !== undefined) {
@@ -203,16 +293,34 @@ export function botMove(hand: any, player: any): BotDecision {
     return { move: 'check' };
   }
 
-  const cheapCall = callAmount <= bigBlind && equity >= Math.max(0.12, potOdds * 0.75);
-  const profitableCall = equity >= potOdds + (hand.stage === 'river' ? 0.035 : 0.02);
+  const cheapCall = callAmount <= bigBlind
+    && equity >= Math.max(profile.cheapCallFloor, potOdds * profile.cheapCallOddsFactor);
+  const profitableCall = equity >= potOdds + (
+    hand.stage === 'river' ? profile.riverCallMargin : profile.callMargin
+  );
 
-  const mustContinue = premiumPreflop || equity >= 0.64 || scoopRate >= 0.45;
+  const mustContinue = premiumPreflop
+    || equity >= profile.continueEquity
+    || scoopRate >= profile.continueScoop;
   if (mustContinue) {
     if (player.stack <= callAmount) {
       return { move: 'call' };
     }
-    if (!hand.actedSinceLastFullRaise?.includes(player.id) && hand.raiseCount < MAX_RAISES_PER_STREET) {
-      return { move: 'raise', amount: potRaiseTo(hand, player, equity >= 0.78 || scoopRate >= 0.65 ? 1 : 0.5) };
+    if (
+      !hand.actedSinceLastFullRaise?.includes(player.id)
+      && hand.raiseCount < MAX_RAISES_PER_STREET
+      && (equity >= profile.raiseEquity || scoopRate >= profile.raiseScoop)
+    ) {
+      return {
+        move: 'raise',
+        amount: potRaiseTo(
+          hand,
+          player,
+          equity >= profile.bigRaiseEquity || scoopRate >= profile.bigRaiseScoop
+            ? 1
+            : profile.raiseFraction,
+        ),
+      };
     }
     return { move: 'call' };
   }

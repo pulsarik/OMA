@@ -713,14 +713,19 @@ export const PLAYER_PAGE_STYLES = `
   }
   .hero-zone {
     display: grid;
-    grid-template-columns: 190px auto 190px;
+    grid-template-columns: minmax(190px, 1fr) max-content minmax(190px, 1fr);
     grid-template-areas: "high hero low";
     justify-content: center;
     align-items: end;
     column-gap: clamp(24px, 2.5vw, 42px);
     width: 100%;
   }
-  .hero-seat { grid-area: hero; align-self: end; justify-self: center; }
+  .hero-seat {
+    grid-area: hero;
+    align-self: end;
+    justify-self: center;
+    min-width: 0;
+  }
   .combo-side {
     align-self: center;
     box-sizing: border-box;
@@ -1012,7 +1017,10 @@ export const PLAYER_PAGE_STYLES = `
     .combo-side { width: 184px; padding: 6px 5px; }
   }
   @media (min-width: 761px) and (max-width: 820px) {
-    .hero-zone { column-gap: 12px; }
+    .hero-zone {
+      grid-template-columns: minmax(150px, 1fr) max-content minmax(150px, 1fr);
+      column-gap: 12px;
+    }
     .hero-zone .compact-card-row { gap: 4px; }
     .hero-zone .focal-card-frame {
       width: 54.004px;

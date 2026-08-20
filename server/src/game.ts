@@ -34,11 +34,20 @@ const RANK_VALUE: Record<string, number> = {
 export type GameStage = typeof STAGES[number];
 export type PlayerMove = 'check' | 'bet' | 'call' | 'raise' | 'fold';
 export type BetSizePreset = 'blind' | 'quarter' | 'half' | 'pot';
+export type BotStyle = 'normal' | 'aggressive' | 'cautious';
+
+const DEFAULT_BOT_STYLES: BotStyle[] = ['normal', 'aggressive', 'cautious'];
+
+export function botStyleForSeed(seed: number, botIndex: number): BotStyle {
+  const styleIndex = hash32(`bot-style:${seed >>> 0}:${botIndex}`) % DEFAULT_BOT_STYLES.length;
+  return DEFAULT_BOT_STYLES[styleIndex];
+}
 
 export type PlayerHand = {
   id: string;
   name?: string;
   isBot?: boolean;
+  botStyle?: BotStyle;
   token: string;
   hole: string[];
   folded: boolean;
@@ -213,10 +222,19 @@ export function normalizeHand(hand: DealtHand) {
     hand.replayCode = normalizeReplayCode(hand.replayCode);
   }
   hand.isReplay = Boolean(hand.isReplay);
+  let botIndex = 0;
   hand.players.forEach((player, index) => {
     player.folded = Boolean(player.folded);
     player.isBot = Boolean(player.isBot);
     player.name = normalizedPlayerName(player.name, index, player.isBot);
+    if (player.isBot) {
+      if (!['normal', 'aggressive', 'cautious'].includes(player.botStyle ?? '')) {
+        player.botStyle = botStyleForSeed(hand.dealSeed, botIndex);
+      }
+      botIndex++;
+    } else {
+      delete player.botStyle;
+    }
     player.stack = Math.max(0, player.stack ?? STARTING_STACK);
   });
   hand.blinds.dealerPlayerId = hand.blinds.dealerPlayerId ?? inferredDealerPlayer(hand)?.id;
@@ -1156,6 +1174,7 @@ export function dealHand(
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   const playersHands: PlayerHand[] = [];
+  let botIndex = 0;
   for (let p = 0; p < players; p++) {
     const isBot = Boolean(playerBots[p]);
     playersHands.push({
@@ -1165,6 +1184,7 @@ export function dealHand(
       hole: deck.splice(0, CARDS_PER_PLAYER),
       folded: false,
       isBot,
+      botStyle: isBot ? botStyleForSeed(dealSeed, botIndex++) : undefined,
       stack: STARTING_STACK,
     });
   }
@@ -1226,6 +1246,7 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
     ...player,
     id: previous.players[index]?.id ?? player.id,
     isBot: Boolean(previous.players[index]?.isBot),
+    botStyle: previous.players[index]?.botStyle ?? player.botStyle,
     stack: stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK,
     folded: (stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK) <= 0,
   }));
@@ -1248,6 +1269,7 @@ export function replayHandLayout(source: DealtHand): DealtHand {
     id: player.id,
     name: player.name,
     isBot: Boolean(player.isBot),
+    botStyle: player.botStyle,
     token: uuidv4(),
     hole: [...player.hole],
     folded: false,

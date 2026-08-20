@@ -1,5 +1,5 @@
 import { botMove, estimateShowdownEquity } from '../src/bot';
-import { compareOmahaHands, dealHand } from '../src/game';
+import { compareOmahaHands, dealHand, nextPartyHand, replayHandLayout } from '../src/game';
 
 test('Omaha hand comparison handles both halves of a split pot', () => {
   const board = ['3s', '4h', '6d', 'Kc', 'Qc'];
@@ -37,4 +37,56 @@ test('bot calls with a strong two-way draw when the pot price is favorable', () 
   hand.potCoins = 60;
 
   expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
+});
+
+test('bot styles change aggression while staying deterministic', () => {
+  const hand = dealHand(2, 3, [], [true, false]);
+  hand.stage = 'flop';
+  hand.community = hand.fullCommunity.slice(0, 3);
+  hand.currentPlayerId = 'P1';
+  hand.currentBet = 0;
+  hand.roundBets = { P1: 0, P2: 0 };
+  hand.potCoins = 80;
+
+  const bot = hand.players[0];
+  const decisions = (['normal', 'aggressive', 'cautious'] as const).map((botStyle) => {
+    bot.botStyle = botStyle;
+    return botMove(hand, bot);
+  });
+
+  expect(decisions).toEqual([
+    { move: 'bet', amount: 20 },
+    { move: 'bet', amount: 40 },
+    { move: 'check' },
+  ]);
+});
+
+test('bot styles are seeded independently and survive new hands and replays', () => {
+  const hand = dealHand(4, 24680, [], [true, true, false, true]);
+
+  expect(hand.players.map((player) => player.botStyle)).toEqual([
+    'cautious',
+    'aggressive',
+    undefined,
+    'aggressive',
+  ]);
+  expect(dealHand(4, 24680, [], [true, true, false, true]).players.map((player) => player.botStyle)).toEqual(
+    hand.players.map((player) => player.botStyle),
+  );
+  const sampledStyles = new Set(
+    Array.from({ length: 30 }, (_, index) => dealHand(1, index + 1, [], [true]).players[0].botStyle),
+  );
+  expect([...sampledStyles].sort()).toEqual(['aggressive', 'cautious', 'normal']);
+  expect(replayHandLayout(hand).players.map((player) => player.botStyle)).toEqual([
+    'cautious',
+    'aggressive',
+    undefined,
+    'aggressive',
+  ]);
+  expect(nextPartyHand(hand).players.map((player) => player.botStyle)).toEqual([
+    'cautious',
+    'aggressive',
+    undefined,
+    'aggressive',
+  ]);
 });

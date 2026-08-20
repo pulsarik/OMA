@@ -5,7 +5,13 @@ import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
 import { CityInfo } from '../components/CityInfo';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
-import { aggressiveHandPercent, buildWalletHistory } from '../partyStatistics';
+import {
+  aggressiveHandPercent,
+  buildWalletHistory,
+  botStyle,
+  COMBINATION_RANKS,
+  countPlayerCombinations,
+} from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
 import { problemContext } from '../problemContext';
@@ -127,6 +133,8 @@ type PartyScore = {
       id: string;
       folded: boolean;
       participated: boolean;
+      highRank?: string;
+      lowRank?: string;
     }>;
     points: Array<{
       id: string;
@@ -1790,9 +1798,10 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
   );
 }
 
-function PartyStatistics({ score, players }: {
+function PartyStatistics({ score, players, isFinal }: {
   score?: PartyScore;
-  players: Array<{ id: string; name?: string }>;
+  players: Array<{ id: string; name?: string; isBot?: boolean }>;
+  isFinal: boolean;
 }) {
   if (!score) return null;
   const completedHands = score.hands
@@ -1824,6 +1833,8 @@ function PartyStatistics({ score, players }: {
       maxWin: Math.max(0, ...netResults),
       maxLoss: Math.min(0, ...netResults),
       stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
+      combinations: countPlayerCombinations(player.id, hands),
+      botStyle: player.isBot ? botStyle(player.id, hands) : undefined,
     };
   });
 
@@ -1872,12 +1883,42 @@ function PartyStatistics({ score, players }: {
               <th>{ui('Max win', 'Макс. выигрыш')}</th>
               <th>{ui('Max loss', 'Макс. проигрыш')}</th>
               <th>{ui('Stack', 'Стек')}</th>
+              {COMBINATION_RANKS.map((combination) => (
+                <th
+                  key={combination.key}
+                  title={ui(`${combination.en} hands`, `Раздачи с комбинацией «${combination.ru}»`)}
+                >
+                  {ui(combination.en, combination.ru)}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
             {metrics.map((player) => (
               <tr key={player.id} data-testid={`party-total-${player.id}`}>
-                <td style={{ fontWeight: 800 }}>{playerLabel(players, player.id)}</td>
+                <td style={{ fontWeight: 800 }}>
+                  <span>{playerLabel(players, player.id)}</span>
+                  {isFinal && player.isBot ? (
+                    <span
+                      data-testid={`bot-style-${player.id}`}
+                      style={{
+                        display: 'inline-block',
+                        marginLeft: 7,
+                        borderRadius: 999,
+                        padding: '2px 7px',
+                        background: player.botStyle === 'aggressive' ? '#fee2e2' : '#dbeafe',
+                        color: player.botStyle === 'aggressive' ? '#991b1b' : '#1d4ed8',
+                        fontSize: 11,
+                        fontWeight: 900,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {player.botStyle === 'aggressive'
+                        ? ui('Aggressive', 'Наглый')
+                        : ui('Cautious', 'Осторожный')}
+                    </span>
+                  ) : null}
+                </td>
                 <td data-testid={`party-hands-${player.id}`} style={{ textAlign: 'right' }}>{player.hands}</td>
                 <td data-testid={`party-aggression-${player.id}`} style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 800 }}>{player.aggressivePercent}</td>
                 <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
@@ -1888,6 +1929,15 @@ function PartyStatistics({ score, players }: {
                 <td data-testid={`party-max-win-${player.id}`} style={{ textAlign: 'right', color: '#047857' }}>{formatPoints(player.maxWin)}</td>
                 <td data-testid={`party-max-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c' }}>{formatPoints(player.maxLoss)}</td>
                 <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
+                {COMBINATION_RANKS.map((combination) => (
+                  <td
+                    key={combination.key}
+                    data-testid={`party-combination-${combination.key}-${player.id}`}
+                    style={{ textAlign: 'right' }}
+                  >
+                    {player.combinations[combination.key]}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>
@@ -2976,7 +3026,11 @@ function PlayerPage({
           )}
         </>
       ) : null}
-      <PartyStatistics score={player.partyScore} players={player.players} />
+      <PartyStatistics
+        score={player.partyScore}
+        players={player.players}
+        isFinal={Boolean(tournamentWinner || player.partyFinishedEarly)}
+      />
       {player.cardsRevealed ? (
         <ResultView
           result={player.result}
