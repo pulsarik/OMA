@@ -75,7 +75,7 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   }).toBe('quarter');
 });
 
-test('opponent seats form a stable arc as content changes at every table size', async ({ page }) => {
+test('opponent seats form a stable responsive layout as content changes at every table size', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   const rowSizes = async () => {
@@ -97,7 +97,7 @@ test('opponent seats form a stable arc as content changes at every table size', 
     await createDefaultHumanVsBotDeal(page, playerCount, false);
 
     const opponentsGrid = page.getByTestId('opponents-grid');
-    await expect(opponentsGrid).toHaveCSS('display', playerCount >= 7 ? 'block' : 'grid');
+    await expect(opponentsGrid).toHaveCSS('display', 'grid');
     await expect(opponentsGrid.locator('[data-player-seat]')).toHaveCount(playerCount - 1);
     if (playerCount === 2) {
       const gridBox = (await opponentsGrid.boundingBox())!;
@@ -110,19 +110,22 @@ test('opponent seats form a stable arc as content changes at every table size', 
     if (playerCount === 5) {
       expect(rowsBeforeContentChange, 'four opponents should form a balanced arc').toEqual([2, 2]);
     }
-    if (playerCount >= 7) {
+    if (playerCount >= 6) {
       const seats = await opponentsGrid.locator('[data-player-seat]').evaluateAll((items) => (
         items.map((item) => {
           const box = item.getBoundingClientRect();
-          return { centerX: box.x + box.width / 2, top: box.top };
+          return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
         })
       ));
-      const gridBox = (await opponentsGrid.boundingBox())!;
-      const highestSeatTop = Math.min(...seats.map((seat) => seat.top));
-      expect(seats[0].top, `${playerCount}-player left seat follows the oval`).toBeGreaterThan(highestSeatTop + 80);
-      expect(seats.at(-1)!.top, `${playerCount}-player right seat follows the oval`).toBeGreaterThan(highestSeatTop + 80);
-      expect(seats[0].centerX).toBeLessThan(gridBox.x + gridBox.width / 2);
-      expect(seats.at(-1)!.centerX).toBeGreaterThan(gridBox.x + gridBox.width / 2);
+      for (let first = 0; first < seats.length; first += 1) {
+        for (let second = first + 1; second < seats.length; second += 1) {
+          const firstSeat = seats[first];
+          const secondSeat = seats[second];
+          const overlaps = firstSeat.left < secondSeat.right && firstSeat.right > secondSeat.left
+            && firstSeat.top < secondSeat.bottom && firstSeat.bottom > secondSeat.top;
+          expect(overlaps, `${playerCount}-player seats ${first} and ${second} overlap`).toBe(false);
+        }
+      }
     }
 
     await opponentsGrid.locator('.player-seat').first().evaluate((seat) => {
@@ -324,6 +327,32 @@ test('the board stays centered through showdown at a ten-player table', async ({
   await expect(peripheralResults).toHaveCount(9);
   await expect(peripheralResults.first()).toBeVisible();
   await expect(page.getByTestId('player-result-P5')).toContainText('High:');
+  const resultCollisions = await peripheralResults.evaluateAll(results => {
+    const rectanglesOverlap = (first: DOMRect, second: DOMRect) => (
+      first.left < second.right && first.right > second.left
+      && first.top < second.bottom && first.bottom > second.top
+    );
+    const visibleCards = Array.from(document.querySelectorAll<HTMLElement>(
+      '.poker-table.is-oval .opponents-row .compact-card-row',
+    )).map(cards => ({
+      seat: cards.closest('[data-player-seat]'),
+      box: cards.getBoundingClientRect(),
+    }));
+    const resultBoxes = results.map(result => ({
+      seat: result.closest('[data-player-seat]'),
+      box: result.getBoundingClientRect(),
+    }));
+    return resultBoxes.flatMap((result, index) => [
+      ...visibleCards
+        .filter(cards => rectanglesOverlap(result.box, cards.box))
+        .map(cards => `result-${index}-card-${cards.seat?.getAttribute('data-player-seat') ?? 'unknown'}`),
+      ...resultBoxes
+        .slice(index + 1)
+        .filter(other => rectanglesOverlap(result.box, other.box))
+        .map((_, otherIndex) => `result-${index}-result-${index + otherIndex + 1}`),
+    ]);
+  });
+  expect(resultCollisions).toEqual([]);
   const newDealBox = await newDealButton.boundingBox();
   expect(newDealBox).toBeTruthy();
   expect(newDealBox!.y).toBeGreaterThanOrEqual(0);
