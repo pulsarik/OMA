@@ -8,7 +8,6 @@ import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import {
   aggressiveHandPercent,
   buildWalletHistory,
-  botStyle,
   COMBINATION_RANKS,
   countPlayerCombinations,
 } from '../partyStatistics';
@@ -340,6 +339,7 @@ type PlayerView = {
     id: string;
     name?: string;
     isBot?: boolean;
+    botStyle?: 'normal' | 'aggressive' | 'cautious';
     stack?: number;
     connected?: boolean;
     disconnected?: boolean;
@@ -1824,7 +1824,12 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
 
 function PartyStatistics({ score, players, isFinal }: {
   score?: PartyScore;
-  players: Array<{ id: string; name?: string; isBot?: boolean }>;
+  players: Array<{
+    id: string;
+    name?: string;
+    isBot?: boolean;
+    botStyle?: 'normal' | 'aggressive' | 'cautious';
+  }>;
   isFinal: boolean;
 }) {
   if (!score) return null;
@@ -1858,7 +1863,7 @@ function PartyStatistics({ score, players, isFinal }: {
       maxLoss: Math.min(0, ...netResults),
       stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
       combinations: countPlayerCombinations(player.id, hands),
-      botStyle: player.isBot ? botStyle(player.id, hands) : undefined,
+      botStyle: player.isBot ? player.botStyle : undefined,
     };
   });
 
@@ -1930,14 +1935,20 @@ function PartyStatistics({ score, players, isFinal }: {
                         marginLeft: 7,
                         borderRadius: 999,
                         padding: '2px 7px',
-                        background: player.botStyle === 'aggressive' ? '#fee2e2' : '#dbeafe',
-                        color: player.botStyle === 'aggressive' ? '#991b1b' : '#1d4ed8',
+                        background: player.botStyle === 'aggressive'
+                          ? '#fee2e2'
+                          : player.botStyle === 'cautious' ? '#dbeafe' : '#fef3c7',
+                        color: player.botStyle === 'aggressive'
+                          ? '#991b1b'
+                          : player.botStyle === 'cautious' ? '#1d4ed8' : '#92400e',
                         fontSize: 11,
                         fontWeight: 900,
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {player.botStyle === 'aggressive'
+                      {player.botStyle === 'normal'
+                        ? ui('Normal', 'Normal')
+                        : player.botStyle === 'aggressive'
                         ? ui('Aggressive', 'Наглый')
                         : ui('Cautious', 'Осторожный')}
                     </span>

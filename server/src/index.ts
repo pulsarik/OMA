@@ -374,6 +374,7 @@ function publicHandState(hand: any) {
       id: p.id,
       name: p.name,
       isBot: Boolean(p.isBot),
+      botStyle: p.botStyle,
       connected: p.isBot ? undefined : connectedPlayers.has(p.id),
       stack: p.stack,
       folded: Boolean(p.folded),
@@ -443,6 +444,7 @@ async function partyScore(hand: any) {
         const resultPlayer = result?.players.find((candidate: any) => candidate.id === player.id);
         return {
           id: player.id,
+          botStyle: player.botStyle,
           folded: Boolean(player.folded),
           participated: (startingStacks.get(player.id) ?? 0) > 0,
           highRank: resultPlayer?.highRank,
@@ -701,6 +703,7 @@ async function playerState(hand: any, player: any) {
       id: p.id,
       name: p.name,
       isBot: Boolean(p.isBot),
+      botStyle: p.botStyle,
       connected: p.isBot ? undefined : connectedPlayers.has(p.id),
       stack: p.stack,
       folded: Boolean(p.folded),
