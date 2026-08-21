@@ -2279,8 +2279,13 @@ function PlayerPage({
       }
       const widthScale = window.innerWidth / 1280;
       const heightScale = window.innerHeight / 780;
-      const viewportScale = Math.min(1.22, Math.max(0.72, Math.min(widthScale, heightScale)));
       const playerCount = player?.players.length ?? 10;
+      const scaleCap = playerCount <= 2
+        ? 1.55
+        : playerCount <= 5
+          ? 1.38
+          : 1.22;
+      const viewportScale = Math.min(scaleCap, Math.max(0.72, Math.min(widthScale, heightScale)));
       const playerDensityScale = playerCount <= 5
         ? 1.05
         : playerCount <= 7

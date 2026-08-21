@@ -140,7 +140,7 @@ export const PLAYER_PAGE_STYLES = `
   button { min-height: 42px; font: inherit; cursor: pointer; }
   button:disabled { cursor: not-allowed; }
   .poker-page {
-    width: min(100%, 1480px);
+    width: 100%;
     min-height: 100vh;
     margin: 0 auto;
     padding: clamp(8px, 1.4vw, 20px);
@@ -262,7 +262,7 @@ export const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     display: grid;
     gap: clamp(10px, 1.5vw, 20px);
-    height: clamp(560px, calc(100dvh - 190px), 780px);
+    height: clamp(560px, calc(100dvh - 190px), 1040px);
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
@@ -1576,10 +1576,50 @@ export const PLAYER_PAGE_STYLES = `
       transform: scale(calc(var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame {
-      margin-left: calc(-1 * var(--opponent-card-overlap));
+      margin-left: calc(-21px * var(--table-scale, 1));
     }
     .hero-seat .focal-card-frame + .focal-card-frame {
       margin-left: calc(-1 * var(--focal-card-overlap));
+    }
+    .table-center.has-showdown {
+      position: relative;
+      display: block !important;
+      min-height: 142px;
+    }
+    .table-center.has-showdown .table-showdown-center,
+    .poker-table.is-oval .table-center.has-showdown .table-showdown-center {
+      position: absolute;
+      inset: 0;
+      display: flex !important;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      box-sizing: border-box;
+      padding: 4px 42px;
+    }
+    .table-center.has-showdown .table-showdown,
+    .poker-table.is-oval .table-center.has-showdown .table-showdown {
+      position: static !important;
+      width: auto;
+      max-width: 100%;
+      transform: none !important;
+    }
+    .table-center.has-showdown .table-board {
+      position: static;
+      width: auto;
+      min-width: 0 !important;
+    }
+    .table-center.has-showdown .table-board .board-row {
+      min-width: 0 !important;
+      min-height: 48px !important;
+    }
+    .table-center.has-showdown .table-pot {
+      position: absolute;
+      top: 50%;
+      right: 6px;
+      z-index: 4;
+      transform: translateY(-50%);
     }
   }
 `;
