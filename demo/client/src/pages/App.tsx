@@ -562,7 +562,7 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
       style={{
         width: 92,
         height: 132,
-        transform: `scale(calc(${scale} * var(--table-scale, 1)))`,
+        transform: `scale(calc(${scale} * var(--card-table-scale, var(--table-scale, 1))))`,
         transformOrigin: 'top left',
         borderRadius: 12,
         background: 'linear-gradient(145deg, #fff, #f1f5f9)',
@@ -591,7 +591,7 @@ function CardBack({ scale = CARD_SCALE, className }: { scale?: number; className
         position: 'relative',
         width: 92,
         height: 132,
-        transform: `scale(calc(${scale} * var(--table-scale, 1)))`,
+        transform: `scale(calc(${scale} * var(--card-table-scale, var(--table-scale, 1))))`,
         transformOrigin: 'top left',
         borderRadius: 12,
         background: SIMPLE_CARD_BACK_BACKGROUND,
@@ -2210,6 +2210,7 @@ function PlayerPage({
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
   const [tableScale, setTableScale] = useState(1);
+  const [cardScale, setCardScale] = useState(1);
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
   const retryPendingAfterSyncRef = useRef(false);
@@ -2270,18 +2271,30 @@ function PlayerPage({
 
   useEffect(() => {
     const updateTableScale = () => {
-      if (window.innerWidth <= 430) {
+      const isCoarsePortrait = window.matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
+      if (window.innerWidth <= 430 || isCoarsePortrait) {
         setTableScale(1);
+        setCardScale(1);
         return;
       }
       const widthScale = window.innerWidth / 1280;
       const heightScale = window.innerHeight / 780;
-      setTableScale(Math.min(1, Math.max(0.72, Math.min(widthScale, heightScale))));
+      const viewportScale = Math.min(1.22, Math.max(0.72, Math.min(widthScale, heightScale)));
+      const playerCount = player?.players.length ?? 10;
+      const playerDensityScale = playerCount <= 5
+        ? 1.05
+        : playerCount <= 7
+          ? 1.03
+          : playerCount === 8
+            ? 1.02
+            : 1;
+      setTableScale(viewportScale);
+      setCardScale(viewportScale * playerDensityScale);
     };
     updateTableScale();
     window.addEventListener('resize', updateTableScale);
     return () => window.removeEventListener('resize', updateTableScale);
-  }, []);
+  }, [player?.players.length]);
 
   useEffect(() => {
     if (sessionDeadline !== null && sessionNow >= sessionDeadline) {
@@ -2700,6 +2713,7 @@ function PlayerPage({
           className="opponents-row"
           data-testid="opponents-grid"
           data-opponent-count={otherPlayers.length}
+          style={{ '--card-table-scale': cardScale } as React.CSSProperties}
         >
           {otherPlayers.map((seat) => (
             <PlayerSeat
@@ -2785,7 +2799,14 @@ function PlayerPage({
 
         <div className="hero-zone">
           <PlayerComboSide combo={player.currentCombo} kind="high" />
-          <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
+          <div
+            className="hero-seat"
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              '--card-table-scale': cardScale,
+            } as React.CSSProperties}
+          >
             <PlayerSeat
               key={`${player.playerId}-${player.handId}`}
               id={player.playerId}

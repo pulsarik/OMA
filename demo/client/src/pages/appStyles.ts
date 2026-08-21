@@ -395,7 +395,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="9"]
     ) .player-seat-wrap {
       position: absolute;
-      width: clamp(150px, 16vw, 205px);
+      width: calc(clamp(150px, 16vw, 205px) * var(--table-scale, 1));
       transform: translateX(-50%);
     }
     .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
@@ -455,7 +455,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .player-seat-wrap {
-      width: clamp(120px, 10vw, 132px);
+      width: calc(clamp(120px, 10vw, 132px) * var(--table-scale, 1));
     }
     .opponents-row:is(
       [data-opponent-count="6"],
@@ -471,15 +471,15 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .opponent-card-frame {
-      width: calc(30px * var(--table-scale, 1));
-      height: calc(43.125px * var(--table-scale, 1));
+      width: calc(30px * var(--card-table-scale, var(--table-scale, 1)));
+      height: calc(43.125px * var(--card-table-scale, var(--table-scale, 1)));
     }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .opponent-card { transform: scale(calc(.326 * var(--table-scale, 1))); }
+    ) .opponent-card { transform: scale(calc(.326 * var(--card-table-scale, var(--table-scale, 1)))); }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
@@ -812,7 +812,7 @@ export const PLAYER_PAGE_STYLES = `
   .combo-side {
     align-self: center;
     box-sizing: border-box;
-    width: min(190px, 100%);
+    width: min(calc(190px * var(--table-scale, 1)), 100%);
     min-width: 0;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,.32);
@@ -1040,7 +1040,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .player-seat-wrap { width: clamp(120px, 10vw, 132px); }
+    ) .player-seat-wrap { width: calc(clamp(120px, 10vw, 132px) * var(--table-scale, 1)); }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
@@ -1053,15 +1053,15 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .opponent-card-frame {
-      width: calc(30px * var(--table-scale, 1)) !important;
-      height: calc(43.125px * var(--table-scale, 1)) !important;
+      width: calc(30px * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(43.125px * var(--card-table-scale, var(--table-scale, 1))) !important;
     }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .opponent-card { transform: scale(calc(.326 * var(--table-scale, 1))) !important; }
+    ) .opponent-card { transform: scale(calc(.326 * var(--card-table-scale, var(--table-scale, 1)))) !important; }
     .table-center,
     .poker-table.is-crowded .table-center {
       min-height: 92px;
@@ -1072,7 +1072,7 @@ export const PLAYER_PAGE_STYLES = `
       grid-template-columns: minmax(190px, 1fr) max-content minmax(190px, 1fr);
       column-gap: 40px;
     }
-    .combo-side { width: 170px; padding: 5px 4px; }
+    .combo-side { width: calc(170px * var(--table-scale, 1)); padding: 5px 4px; }
     .combo-side-title { margin-bottom: 4px; }
     .side-combo-cards { gap: 2px; }
     .side-combo-card {
@@ -1184,15 +1184,15 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .opponent-card-frame {
-      width: calc(34px * var(--table-scale, 1)) !important;
-      height: calc(48.75px * var(--table-scale, 1)) !important;
+      width: calc(34px * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(48.75px * var(--card-table-scale, var(--table-scale, 1))) !important;
     }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .opponent-card { transform: scale(calc(.37 * var(--table-scale, 1))) !important; }
+    ) .opponent-card { transform: scale(calc(.37 * var(--card-table-scale, var(--table-scale, 1)))) !important; }
   }
   @media (max-width: 560px) {
     .table-center {
@@ -1222,7 +1222,7 @@ export const PLAYER_PAGE_STYLES = `
     }
     .combo-side.high, .combo-side.low { justify-self: center; }
   }
-  @media (orientation: portrait) and (max-width: 430px) {
+  @media (pointer: coarse) and (orientation: portrait) and (max-width: 760px) {
     .poker-page {
       min-height: 100dvh;
       padding:
@@ -1464,9 +1464,9 @@ export const PLAYER_PAGE_STYLES = `
   /* Canonical card layout: two modes, one scalable fan configuration. */
   @media (min-width: 761px) {
     .poker-table {
-      --opponent-card-scale: .52;
+      --opponent-card-scale: .55;
       --opponent-card-overlap: 4px;
-      --focal-card-scale: .64;
+      --focal-card-scale: .68;
       --focal-card-overlap: 5px;
     }
     .opponents-row:is(
@@ -1475,7 +1475,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) {
-      --opponent-card-scale: .37;
+      --opponent-card-scale: .38;
       --opponent-card-overlap: 4px;
     }
     .opponents-row .compact-card-row,
@@ -1483,18 +1483,18 @@ export const PLAYER_PAGE_STYLES = `
       gap: 0 !important;
     }
     .opponents-row .opponent-card-frame {
-      width: calc(92px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
-      height: calc(132px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
     }
     .opponents-row .opponent-card {
-      transform: scale(calc(var(--opponent-card-scale) * var(--table-scale, 1))) !important;
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .hero-seat .focal-card-frame {
-      width: calc(92px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
-      height: calc(132px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
+      width: calc(92px * var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
     }
     .hero-seat .focal-card {
-      transform: scale(calc(var(--focal-card-scale) * var(--table-scale, 1))) !important;
+      transform: scale(calc(var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame {
       margin-left: calc(-1 * var(--opponent-card-overlap));
@@ -1562,18 +1562,18 @@ export const PLAYER_PAGE_STYLES = `
       gap: 0 !important;
     }
     .opponents-row .opponent-card-frame {
-      width: calc(92px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
-      height: calc(132px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
     }
     .opponents-row .opponent-card {
-      transform: scale(calc(var(--opponent-card-scale) * var(--table-scale, 1))) !important;
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .hero-seat .focal-card-frame {
-      width: calc(92px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
-      height: calc(132px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
+      width: calc(92px * var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
     }
     .hero-seat .focal-card {
-      transform: scale(calc(var(--focal-card-scale) * var(--table-scale, 1))) !important;
+      transform: scale(calc(var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame {
       margin-left: calc(-1 * var(--opponent-card-overlap));
