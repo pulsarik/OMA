@@ -562,7 +562,7 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
       style={{
         width: 92,
         height: 132,
-        transform: `scale(${scale})`,
+        transform: `scale(calc(${scale} * var(--table-scale, 1)))`,
         transformOrigin: 'top left',
         borderRadius: 12,
         background: 'linear-gradient(145deg, #fff, #f1f5f9)',
@@ -591,7 +591,7 @@ function CardBack({ scale = CARD_SCALE, className }: { scale?: number; className
         position: 'relative',
         width: 92,
         height: 132,
-        transform: `scale(${scale})`,
+        transform: `scale(calc(${scale} * var(--table-scale, 1)))`,
         transformOrigin: 'top left',
         borderRadius: 12,
         background: SIMPLE_CARD_BACK_BACKGROUND,
@@ -652,8 +652,12 @@ function CompactCardRow({
           }
         } : undefined}
       >
-        {cards.map((card) => (
-          <div key={card} className={frameClass}>
+        {cards.map((card, index) => (
+          <div
+            key={card}
+            className={`${frameClass} deal-card`}
+            style={{ '--deal-delay': `${index * 90}ms` } as React.CSSProperties}
+          >
             <Card code={card} scale={scale} className={cardClass} />
           </div>
         ))}
@@ -688,8 +692,12 @@ function CompactCardRow({
               </strong>
             ) : null}
             <div className="opponent-hand-expanded-row">
-              {cards.map((card) => (
-                <div key={card} className="opponent-hand-expanded-frame">
+              {cards.map((card, index) => (
+                <div
+                  key={card}
+                  className="opponent-hand-expanded-frame deal-card"
+                  style={{ '--deal-delay': `${index * 90}ms` } as React.CSSProperties}
+                >
                   <Card code={card} scale={0.7} />
                 </div>
               ))}
@@ -851,8 +859,11 @@ function CardBackRow({
       {Array.from({ length: count }).map((_, index) => (
         <div
           key={index}
-          className={compact ? frameClass : undefined}
-          style={compact ? undefined : { width, height }}
+          className={compact ? `${frameClass} deal-card` : 'deal-card'}
+          style={{
+            ...(compact ? {} : { width, height }),
+            '--deal-delay': `${index * 90}ms`,
+          } as React.CSSProperties}
         >
           <CardBack scale={scale} className={compact ? cardClass : undefined} />
         </div>
@@ -862,32 +873,32 @@ function CardBackRow({
 }
 
 function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boolean }) {
-  const hiddenCount = Math.max(5 - cards.length, 0);
   const width = compact ? FOCAL_CARD_WIDTH : CARD_WIDTH;
   const height = compact ? FOCAL_CARD_HEIGHT : CARD_HEIGHT;
   const scale = compact ? FOCAL_CARD_SCALE : CARD_SCALE;
+  const gap = compact ? 8 : 10;
+  const boardWidth = width * 5 + gap * 4;
 
   return (
     <div
       className={compact ? 'board-row' : undefined}
-      style={compact ? undefined : { display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}
+      style={compact
+        ? {
+            minWidth: `calc(${boardWidth}px * var(--table-scale, 1))`,
+            minHeight: `calc(${height}px * var(--table-scale, 1))`,
+          }
+        : { display: 'flex', gap, flexWrap: 'wrap', justifyContent: 'center' }}
     >
-      {cards.map((card) => (
+      {cards.map((card, index) => (
         <div
           key={card}
-          className={compact ? 'focal-card-frame' : undefined}
-          style={compact ? undefined : { width, height }}
+          className={compact ? 'focal-card-frame deal-card' : 'deal-card'}
+          style={{
+            ...(compact ? {} : { width, height }),
+            '--deal-delay': `${Math.min(index, 2) * 90}ms`,
+          } as React.CSSProperties}
         >
           <Card code={card} scale={scale} className={compact ? 'focal-card' : undefined} />
-        </div>
-      ))}
-      {Array.from({ length: hiddenCount }).map((_, index) => (
-        <div
-          key={`hidden-${index}`}
-          className={compact ? 'focal-card-frame' : undefined}
-          style={compact ? undefined : { width, height }}
-        >
-          <CardBack scale={scale} className={compact ? 'focal-card' : undefined} />
         </div>
       ))}
     </div>
@@ -1353,6 +1364,9 @@ function PlayerSeat({
         <div
           style={{
             position: 'relative',
+            display: 'block',
+            width: 'max-content',
+            margin: '0 auto',
             padding: hasWinningHand ? 4 : 0,
             border: hasWinningHand ? '3px solid transparent' : undefined,
             borderRadius: hasWinningHand ? 10 : undefined,
@@ -1384,9 +1398,10 @@ function PlayerSeat({
               style={{
                 position: 'absolute',
                 left: '50%',
-                bottom: -14,
+                bottom: -30,
                 zIndex: 3,
                 display: 'flex',
+                justifyContent: 'center',
                 gap: 4,
                 transform: 'translateX(-50%)',
                 whiteSpace: 'nowrap',
@@ -1433,7 +1448,7 @@ function PlayerSeat({
             style={{
               display: 'grid',
               gap: 2,
-              marginTop: hasWinningHand ? 18 : 5,
+              marginTop: hasWinningHand ? 34 : 5,
               color: '#0f172a',
               fontSize: 11,
               fontWeight: 800,
@@ -1626,10 +1641,19 @@ function ShowdownStatus({
     : ui('Showdown', 'Шоудаун');
   const winners = player.showdownSummary
     ? [
-      `${ui('High', 'Хай')}: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')}`,
-      player.showdownSummary.noLow
-        ? undefined
-        : `${ui('Low', 'Лоу')}: ${player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')}`,
+      ...[...new Set(
+        player.showdownSummary.sidePots
+          .map((pot) => pot.uncontestedWinnerId)
+          .filter((id): id is string => Boolean(id)),
+      )].map((id) => (
+        `${ui('Winner', 'Победитель')}: ${playerLabel(player.players, id)} · ${ui('uncontested', 'без вскрытия')}`
+      )),
+      player.showdownSummary.highWinners.length
+        ? `${ui('High', 'Хай')}: ${player.showdownSummary.highWinners.map((id) => playerLabel(player.players, id)).join(', ')}`
+        : undefined,
+      !player.showdownSummary.noLow && player.showdownSummary.lowWinners.length
+        ? `${ui('Low', 'Лоу')}: ${player.showdownSummary.lowWinners.map((id) => playerLabel(player.players, id)).join(', ')}`
+        : undefined,
     ].filter(Boolean).join(' | ')
     : undefined;
   const personalPots = player.showdownSummary?.sidePots
@@ -1644,21 +1668,26 @@ function ShowdownStatus({
       className="showdown-status"
       style={{
         display: 'inline-grid',
-        gap: 4,
+        gap: 6,
         justifyItems: 'center',
         minWidth: 220,
         border: '2px solid rgba(255,255,255,0.72)',
         borderRadius: 12,
         background,
         color: '#fff',
-        padding: '12px 18px',
+        padding: '12px 14px',
         boxShadow: '0 8px 20px rgba(0,0,0,0.24)',
       }}
     >
-      <strong style={{ fontSize: 28, lineHeight: 1.05 }}>
+      <strong style={{ fontSize: 24, lineHeight: 1.1 }}>
         {title}
       </strong>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 13 }}>
+      {winners ? (
+        <span className="showdown-winners" data-testid="showdown-winners" style={{ fontSize: 13, lineHeight: 1.2, opacity: 0.9 }}>
+          {winners}
+        </span>
+      ) : null}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 13, lineHeight: 1.2 }}>
         <span data-testid="showdown-contributed">{ui('Contributed', 'Внесено')}: {formatPoints(contributed)}</span>
         <span data-testid="showdown-payout">{ui('Payout', 'Выплата')}: {formatPoints(payout)}</span>
         <strong data-testid="showdown-net">
@@ -1704,11 +1733,6 @@ function ShowdownStatus({
             </span>
           ))}
         </div>
-      ) : null}
-      {winners ? (
-        <span className="showdown-winners" style={{ fontSize: 13, opacity: 0.9 }}>
-          {winners}
-        </span>
       ) : null}
     </div>
   );
@@ -2185,6 +2209,7 @@ function PlayerPage({
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
+  const [tableScale, setTableScale] = useState(1);
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
   const retryPendingAfterSyncRef = useRef(false);
@@ -2241,6 +2266,21 @@ function PlayerPage({
   useEffect(() => {
     const timer = window.setInterval(() => setSessionNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const updateTableScale = () => {
+      if (window.innerWidth <= 430) {
+        setTableScale(1);
+        return;
+      }
+      const widthScale = window.innerWidth / 1280;
+      const heightScale = window.innerHeight / 780;
+      setTableScale(Math.min(1, Math.max(0.72, Math.min(widthScale, heightScale))));
+    };
+    updateTableScale();
+    window.addEventListener('resize', updateTableScale);
+    return () => window.removeEventListener('resize', updateTableScale);
   }, []);
 
   useEffect(() => {
@@ -2567,11 +2607,6 @@ function PlayerPage({
     ? Math.max(0, Math.ceil((player.turnDeadline - sessionNow) / 1_000))
     : undefined;
   const submitWager = (move: 'bet' | 'raise') => {
-    const allIn = isAllInWager(wagerTarget, yourRoundBet, player.stack);
-    if (allIn && !window.confirm(ui(
-      `Confirm all-in to ${formatPoints(wagerTarget)}?`,
-      `Подтвердить олл-ин до ${formatPoints(wagerTarget)}?`,
-    ))) return;
     sendMove(move, wagerTarget, betSize);
   };
   const statusPillStyle: React.CSSProperties = {
@@ -2658,6 +2693,7 @@ function PlayerPage({
       <div
         className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}${otherPlayers.length >= 6 ? ' is-oval' : ''}${player.stage === 'showdown' ? ' is-showdown' : ''}`}
         data-testid="poker-table"
+        style={{ '--table-scale': tableScale } as React.CSSProperties}
       >
         {player.isReplay || player.replayOfHandId ? <HandBanner player={player} /> : null}
         <div
@@ -2667,7 +2703,7 @@ function PlayerPage({
         >
           {otherPlayers.map((seat) => (
             <PlayerSeat
-              key={seat.id}
+              key={`${seat.id}-${player.handId}`}
               id={seat.id}
               name={seat.name}
               folded={seat.folded}
@@ -2751,6 +2787,7 @@ function PlayerPage({
           <PlayerComboSide combo={player.currentCombo} kind="high" />
           <div className="hero-seat" style={{ display: 'flex', justifyContent: 'center' }}>
             <PlayerSeat
+              key={`${player.playerId}-${player.handId}`}
               id={player.playerId}
               name={player.playerName}
               folded={player.folded}

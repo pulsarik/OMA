@@ -201,6 +201,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   const apiUrl = apiUrlForPlayerLink(href);
   const initialResponse = await request.get(apiUrl);
   const initialState = await initialResponse.json();
+  await expect(page.getByTestId('table-board').getByTestId('card-back')).toHaveCount(0);
   await expect(page.getByTestId(`card-face-${initialState.hole[0]}`))
     .toHaveAttribute('data-card-style', 'simple');
   await expect(page.getByTestId('card-back').first())
@@ -448,6 +449,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId('showdown-contributed')).toHaveText(`Contributed: ${formatResultPoints(contribution)}`);
   await expect(page.getByTestId('showdown-payout')).toHaveText(`Payout: ${formatResultPoints(payout)}`);
   await expect(page.getByTestId('showdown-net')).toHaveText(`Net: ${formatResultPoints(net)}`);
+  await expect(page.getByTestId('showdown-winners')).toContainText('Winner: Anna');
   await expect(page.getByTestId('player-ineligible-P1')).toHaveCount(0);
   for (const winnerId of showdownState.showdownSummary.highWinners) {
     await expect(page.getByTestId(`winner-high-${winnerId}`)).toHaveText('★ HIGH');

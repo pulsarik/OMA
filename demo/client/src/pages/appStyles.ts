@@ -3,6 +3,9 @@ const OPPONENT_CARD_WIDTH = 92 * COMPACT_CARD_SCALE * 0.9;
 const OPPONENT_CARD_HEIGHT = 132 * COMPACT_CARD_SCALE * 0.9;
 const FOCAL_CARD_WIDTH = 92 * COMPACT_CARD_SCALE * 1.1;
 const FOCAL_CARD_HEIGHT = 132 * COMPACT_CARD_SCALE * 1.1;
+const SIDE_COMBO_CARD_SCALE = 0.35;
+const SIDE_COMBO_CARD_WIDTH = 92 * SIDE_COMBO_CARD_SCALE;
+const SIDE_COMBO_CARD_HEIGHT = 132 * SIDE_COMBO_CARD_SCALE;
 
 export const APP_SHELL_STYLES = `
   html, body, #root { min-height: 100%; }
@@ -116,6 +119,7 @@ export const APP_SHELL_STYLES = `
       line-height: 1.45;
     }
   }
+
 `;
 
 
@@ -467,15 +471,15 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .opponent-card-frame {
-      width: 30px;
-      height: 43.125px;
+      width: calc(30px * var(--table-scale, 1));
+      height: calc(43.125px * var(--table-scale, 1));
     }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .opponent-card { transform: scale(.326); }
+    ) .opponent-card { transform: scale(calc(.326 * var(--table-scale, 1))); }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
@@ -500,6 +504,24 @@ export const PLAYER_PAGE_STYLES = `
     .poker-table.is-oval.is-showdown .hero-seat [data-testid^="player-result-"] { display: none !important; }
   }
   .poker-table:has(.replay-indicator) .opponents-row { padding-top: 30px; }
+  .deal-card {
+    animation: deal-card-in .42s cubic-bezier(.2,.78,.28,1) both;
+    animation-delay: var(--deal-delay, 0ms);
+    transform-origin: 50% 85%;
+  }
+  @keyframes deal-card-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, -38px, 0) rotate(-7deg) scale(.82);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .deal-card { animation: none; }
+  }
   .player-seat-wrap { flex: 0 1 288px; min-width: 0; }
   .player-seat {
     transition: border-color .18s ease, background .18s ease, box-shadow .18s ease, transform .18s ease;
@@ -538,15 +560,28 @@ export const PLAYER_PAGE_STYLES = `
   .player-name { text-shadow: 0 1px 3px rgba(0,0,0,.7); }
   .seat-topline {
     display: grid;
-    grid-template-columns: minmax(34px, auto) minmax(0, 1fr) minmax(24px, auto);
+    grid-template-columns: minmax(0, 1fr) max-content;
     align-items: center;
     gap: 4px;
     min-height: 22px;
     margin-bottom: 5px;
   }
-  .seat-topline .seat-name-score { justify-self: center; margin: 0 !important; }
-  .seat-inline-positions { display: flex; justify-content: flex-end; gap: 3px; }
-  .seat-inline-positions:empty { min-width: 24px; }
+  .seat-topline .seat-name-score {
+    grid-column: 1;
+    justify-self: center;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0 !important;
+    overflow: hidden;
+  }
+  .seat-inline-positions {
+    grid-column: 2;
+    display: flex;
+    min-width: max-content;
+    justify-content: flex-end;
+    gap: 3px;
+  }
+  .seat-inline-positions:empty { min-width: 0; }
   .seat-action-bubble {
     position: absolute;
     z-index: 12;
@@ -645,18 +680,21 @@ export const PLAYER_PAGE_STYLES = `
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
   .table-pot { grid-area: pot; justify-self: end; }
-  .showdown-new-deal { margin-top: 4px; }
+  .showdown-new-deal { margin-top: 2px; }
   .showdown-new-deal .action-button.primary {
-    min-height: 38px;
+    min-width: 96px;
+    min-height: 28px;
     border-color: #fef3c7;
     background: linear-gradient(180deg, #fff7d6 0%, #fbbf24 58%, #f59e0b 100%);
-    padding: 6px 16px;
+    padding: 3px 10px;
+    font-size: 12px;
+    border-radius: 8px;
     color: #4a2604;
     text-shadow: 0 1px 0 rgba(255,255,255,.55);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,.85),
-      0 3px 0 #9a5007,
-      0 7px 14px rgba(42,24,5,.3);
+      0 2px 0 #9a5007,
+      0 4px 8px rgba(42,24,5,.3);
     cursor: pointer;
     transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
   }
@@ -665,15 +703,15 @@ export const PLAYER_PAGE_STYLES = `
     filter: brightness(1.04);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,.9),
-      0 4px 0 #9a5007,
-      0 9px 16px rgba(42,24,5,.34);
+      0 3px 0 #9a5007,
+      0 7px 12px rgba(42,24,5,.34);
   }
   .showdown-new-deal .action-button:active:not(:disabled) {
     transform: translateY(2px);
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,.7),
       0 1px 0 #9a5007,
-      0 4px 8px rgba(42,24,5,.28);
+      0 3px 6px rgba(42,24,5,.28);
   }
   .showdown-new-deal .action-button:disabled { cursor: wait; }
   .pot-details { position: relative; }
@@ -797,10 +835,15 @@ export const PLAYER_PAGE_STYLES = `
     letter-spacing: .07em;
   }
   .combo-side-rank { min-width: 0; overflow: hidden; color: #ecfdf5; font-size: 13px; letter-spacing: 0; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
-  .side-combo-cards { display: flex; justify-content: center; gap: 3px; }
-  .side-combo-card { border-top: 2px solid rgba(255,255,255,.58); border-radius: 5px; }
+  .side-combo-cards { display: flex; justify-content: center; gap: calc(3px * var(--table-scale, 1)); }
+  .side-combo-card {
+    width: calc(${SIDE_COMBO_CARD_WIDTH}px * var(--table-scale, 1)) !important;
+    height: calc(${SIDE_COMBO_CARD_HEIGHT}px * var(--table-scale, 1)) !important;
+    border-top: 2px solid rgba(255,255,255,.58);
+    border-radius: 5px;
+  }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
-  .compact-card-row { display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center; }
+  .compact-card-row { display: flex; gap: calc(8px * var(--table-scale, 1)); flex-wrap: nowrap; justify-content: center; }
   .compact-card-row.is-expandable {
     border-radius: 8px;
     cursor: zoom-in;
@@ -867,9 +910,15 @@ export const PLAYER_PAGE_STYLES = `
     height: 92.4px;
     flex: 0 0 auto;
   }
-  .opponent-card-frame { width: ${OPPONENT_CARD_WIDTH}px; height: ${OPPONENT_CARD_HEIGHT}px; }
-  .focal-card-frame { width: ${FOCAL_CARD_WIDTH}px; height: ${FOCAL_CARD_HEIGHT}px; }
-  .board-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .opponent-card-frame {
+    width: calc(${OPPONENT_CARD_WIDTH}px * var(--table-scale, 1));
+    height: calc(${OPPONENT_CARD_HEIGHT}px * var(--table-scale, 1));
+  }
+  .focal-card-frame {
+    width: calc(${FOCAL_CARD_WIDTH}px * var(--table-scale, 1));
+    height: calc(${FOCAL_CARD_HEIGHT}px * var(--table-scale, 1));
+  }
+  .board-row { display: flex; gap: calc(8px * var(--table-scale, 1)); flex-wrap: wrap; justify-content: center; }
   .action-dock {
     display: flex;
     align-items: center;
@@ -975,17 +1024,17 @@ export const PLAYER_PAGE_STYLES = `
     }
     .player-seat { padding: 4px !important; }
     .compact-card-row,
-    .board-row { gap: 4px !important; }
+    .board-row { gap: 8px !important; }
     .opponent-card-frame {
-      width: 48.024px !important;
-      height: 68.904px !important;
+      width: calc(48.024px * var(--table-scale, 1)) !important;
+      height: calc(68.904px * var(--table-scale, 1)) !important;
     }
-    .opponent-card { transform: scale(.522) !important; }
+    .opponent-card { transform: scale(calc(.522 * var(--table-scale, 1))) !important; }
     .focal-card-frame {
-      width: 58.696px !important;
-      height: 84.216px !important;
+      width: calc(58.696px * var(--table-scale, 1)) !important;
+      height: calc(84.216px * var(--table-scale, 1)) !important;
     }
-    .focal-card { transform: scale(.638) !important; }
+    .focal-card { transform: scale(calc(.638 * var(--table-scale, 1))) !important; }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
@@ -1004,15 +1053,15 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .opponent-card-frame {
-      width: 30px !important;
-      height: 43.125px !important;
+      width: calc(30px * var(--table-scale, 1)) !important;
+      height: calc(43.125px * var(--table-scale, 1)) !important;
     }
     .opponents-row:is(
       [data-opponent-count="6"],
       [data-opponent-count="7"],
       [data-opponent-count="8"],
       [data-opponent-count="9"]
-    ) .opponent-card { transform: scale(.326) !important; }
+    ) .opponent-card { transform: scale(calc(.326 * var(--table-scale, 1))) !important; }
     .table-center,
     .poker-table.is-crowded .table-center {
       min-height: 92px;
@@ -1027,10 +1076,10 @@ export const PLAYER_PAGE_STYLES = `
     .combo-side-title { margin-bottom: 4px; }
     .side-combo-cards { gap: 2px; }
     .side-combo-card {
-      width: 30.36px !important;
-      height: 43.56px !important;
+      width: calc(30.36px * var(--table-scale, 1)) !important;
+      height: calc(43.56px * var(--table-scale, 1)) !important;
     }
-    .side-combo-card > div { transform: scale(.33) !important; }
+    .side-combo-card > div { transform: scale(calc(.33 * var(--table-scale, 1))) !important; }
   }
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
@@ -1097,10 +1146,53 @@ export const PLAYER_PAGE_STYLES = `
     }
     .hero-zone .compact-card-row { gap: 4px; }
     .hero-zone .focal-card-frame {
-      width: 54.004px;
-      height: 77.484px;
+      width: calc(54.004px * var(--table-scale, 1));
+      height: calc(77.484px * var(--table-scale, 1));
     }
-    .hero-zone .focal-card { transform: scale(.587); }
+    .hero-zone .focal-card { transform: scale(calc(.587 * var(--table-scale, 1))); }
+  }
+  @media (min-width: 1100px) and (min-height: 700px) {
+    .hero-zone .compact-card-row { gap: 10px !important; }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      width: clamp(144px, 11vw, 160px);
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .compact-card-row {
+      --opponent-card-overlap: 4px;
+      gap: 0 !important;
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-card-frame + .opponent-card-frame {
+      margin-left: calc(-1 * var(--opponent-card-overlap));
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-card-frame {
+      width: calc(34px * var(--table-scale, 1)) !important;
+      height: calc(48.75px * var(--table-scale, 1)) !important;
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-card { transform: scale(calc(.37 * var(--table-scale, 1))) !important; }
   }
   @media (max-width: 560px) {
     .table-center {
@@ -1159,10 +1251,10 @@ export const PLAYER_PAGE_STYLES = `
     .opponents-row .player-seat { padding: 4px !important; }
     .opponents-row .compact-card-row { gap: 0; }
     .opponents-row .opponent-card-frame {
-      width: 33.12px;
-      height: 47.52px;
+      width: calc(33.12px * var(--table-scale, 1));
+      height: calc(47.52px * var(--table-scale, 1));
     }
-    .opponents-row .opponent-card { transform: scale(.36) !important; }
+    .opponents-row .opponent-card { transform: scale(calc(.36 * var(--table-scale, 1))) !important; }
     .opponents-row .opponent-card {
       position: relative !important;
       display: block !important;
@@ -1181,7 +1273,7 @@ export const PLAYER_PAGE_STYLES = `
       top: 34px;
       font-size: 26px !important;
     }
-    .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: -21px; }
+    .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: calc(-21px * var(--table-scale, 1)); }
     .opponents-row .seat-action-bubble {
       top: auto !important;
       right: auto !important;
@@ -1224,7 +1316,10 @@ export const PLAYER_PAGE_STYLES = `
       justify-self: end;
     }
     .poker-table.is-showdown .opponents-row [data-testid^="player-result-"] {
-      display: none !important;
+      display: grid !important;
+      width: min(104px, calc(100vw - 24px));
+      gap: 1px;
+      font-size: 10px;
     }
     .showdown-status {
       width: min(246px, calc(100vw - 44px));
@@ -1264,10 +1359,10 @@ export const PLAYER_PAGE_STYLES = `
     }
     .table-center .board-row { gap: 4px; }
     .table-center .focal-card-frame {
-      width: 33.12px;
-      height: 47.52px;
+      width: calc(33.12px * var(--table-scale, 1));
+      height: calc(47.52px * var(--table-scale, 1));
     }
-    .table-center .focal-card { transform: scale(.36) !important; }
+    .table-center .focal-card { transform: scale(calc(.36 * var(--table-scale, 1))) !important; }
     .hero-zone {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       grid-template-areas:
@@ -1291,15 +1386,15 @@ export const PLAYER_PAGE_STYLES = `
     .combo-side-rank { font-size: 11px; }
     .side-combo-cards { gap: 2px; }
     .side-combo-card {
-      width: 20.24px !important;
-      height: 29.04px !important;
+      width: calc(20.24px * var(--table-scale, 1)) !important;
+      height: calc(29.04px * var(--table-scale, 1)) !important;
     }
-    .side-combo-card > div { transform: scale(.22) !important; }
+    .side-combo-card > div { transform: scale(calc(.22 * var(--table-scale, 1))) !important; }
     .hero-seat .focal-card-frame {
-      width: 40.48px;
-      height: 58.08px;
+      width: calc(40.48px * var(--table-scale, 1));
+      height: calc(58.08px * var(--table-scale, 1));
     }
-    .hero-seat .focal-card { transform: scale(.44) !important; }
+    .hero-seat .focal-card { transform: scale(calc(.44 * var(--table-scale, 1))) !important; }
     .action-dock {
       position: fixed;
       z-index: 80;
@@ -1363,6 +1458,128 @@ export const PLAYER_PAGE_STYLES = `
       max-width: none;
       max-height: calc(100dvh - 190px);
       overflow: auto;
+    }
+  }
+
+  /* Canonical card layout: two modes, one scalable fan configuration. */
+  @media (min-width: 761px) {
+    .poker-table {
+      --opponent-card-scale: .52;
+      --opponent-card-overlap: 4px;
+      --focal-card-scale: .64;
+      --focal-card-overlap: 5px;
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) {
+      --opponent-card-scale: .37;
+      --opponent-card-overlap: 4px;
+    }
+    .opponents-row .compact-card-row,
+    .hero-seat .compact-card-row {
+      gap: 0 !important;
+    }
+    .opponents-row .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
+    }
+    .opponents-row .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--table-scale, 1))) !important;
+    }
+    .hero-seat .focal-card-frame {
+      width: calc(92px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
+      height: calc(132px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
+    }
+    .hero-seat .focal-card {
+      transform: scale(calc(var(--focal-card-scale) * var(--table-scale, 1))) !important;
+    }
+    .opponents-row .opponent-card-frame + .opponent-card-frame {
+      margin-left: calc(-1 * var(--opponent-card-overlap));
+    }
+    .hero-seat .focal-card-frame + .focal-card-frame {
+      margin-left: calc(-1 * var(--focal-card-overlap));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .poker-table {
+      --opponent-card-scale: .36;
+      --opponent-card-overlap: 4px;
+      --focal-card-scale: .44;
+      --focal-card-overlap: 4px;
+    }
+    .hero-zone {
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "high low"
+        "hero hero";
+      column-gap: 8px;
+      row-gap: 8px;
+      align-items: center;
+    }
+    .combo-side.high,
+    .combo-side.low { justify-self: center; }
+    .table-showdown-center,
+    .poker-table.is-oval .table-showdown-center {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+    }
+    .table-showdown,
+    .poker-table.is-oval .table-showdown {
+      position: relative !important;
+      left: auto !important;
+      bottom: auto !important;
+      width: auto;
+      max-width: 100%;
+      z-index: 2;
+      transform: translateY(12px) !important;
+    }
+    .showdown-status {
+      width: min(204px, calc(100vw - 32px)) !important;
+      min-width: 0 !important;
+      padding: 6px 10px !important;
+      gap: 3px !important;
+    }
+    .showdown-status > strong { font-size: 18px !important; }
+    .showdown-status > div {
+      gap: 6px !important;
+      font-size: 10px !important;
+    }
+    .showdown-status .showdown-winners {
+      display: none !important;
+    }
+    .showdown-status .showdown-new-deal .action-button.primary {
+      min-height: 24px;
+      padding: 2px 10px;
+      font-size: 11px;
+    }
+    .opponents-row .compact-card-row,
+    .hero-seat .compact-card-row {
+      gap: 0 !important;
+    }
+    .opponents-row .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--table-scale, 1)) !important;
+    }
+    .opponents-row .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--table-scale, 1))) !important;
+    }
+    .hero-seat .focal-card-frame {
+      width: calc(92px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
+      height: calc(132px * var(--focal-card-scale) * var(--table-scale, 1)) !important;
+    }
+    .hero-seat .focal-card {
+      transform: scale(calc(var(--focal-card-scale) * var(--table-scale, 1))) !important;
+    }
+    .opponents-row .opponent-card-frame + .opponent-card-frame {
+      margin-left: calc(-1 * var(--opponent-card-overlap));
+    }
+    .hero-seat .focal-card-frame + .focal-card-frame {
+      margin-left: calc(-1 * var(--focal-card-overlap));
     }
   }
 `;
