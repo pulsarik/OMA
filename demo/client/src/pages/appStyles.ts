@@ -1581,6 +1581,39 @@ export const PLAYER_PAGE_STYLES = `
     .hero-seat .focal-card-frame + .focal-card-frame {
       margin-left: calc(-1 * var(--focal-card-overlap));
     }
+    .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) {
+      position: relative !important;
+      display: block !important;
+      height: 132px;
+      padding: 0 !important;
+    }
+    .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .player-seat-wrap {
+      position: absolute !important;
+      flex: none;
+      width: 104px;
+      transform: translateX(-50%) !important;
+    }
+    .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 24px; }
+    .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 24px; }
+    .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 20%; top: 46px; }
+    .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50%; top: 0; }
+    .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 80%; top: 46px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap { width: calc((100% - 6px) / 4); }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 12.5%; top: 56px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 37.5%; top: 18px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 62.5%; top: 18px; }
+    .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 87.5%; top: 56px; }
     .table-center.has-showdown {
       position: relative;
       display: block !important;
