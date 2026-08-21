@@ -133,6 +133,19 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
       expect(overlaps, `opponent actions ${first} and ${second} overlap`).toBe(false);
     }
   }
+  const actionToplineOverlaps = await page.locator('.opponents-row .seat-action-bubble:visible').evaluateAll(actions => (
+    actions.map(action => {
+      const bubble = action.getBoundingClientRect();
+      const topline = action.closest<HTMLElement>('.player-seat')?.querySelector<HTMLElement>('.seat-topline')?.getBoundingClientRect();
+      return topline
+        ? bubble.left < topline.right
+          && bubble.right > topline.left
+          && bubble.top < topline.bottom
+          && bubble.bottom > topline.top
+        : false;
+    })
+  ));
+  expect(actionToplineOverlaps, 'opponent action bubble overlaps its name/score badge').not.toContain(true);
   const actionButtonBoxes = await page.locator('.action-dock button').evaluateAll(buttons => (
     buttons.map(button => {
       const box = button.getBoundingClientRect();
@@ -211,6 +224,9 @@ test('player table fits a portrait phone viewport', async ({ page }) => {
     await expect(opponentCards).toHaveAttribute('aria-expanded', 'true');
     const expandedFrames = expandedHand.locator('.opponent-hand-expanded-frame');
     await expect(expandedFrames).toHaveCount(4);
+    await expect.poll(() => expandedFrames.evaluateAll(frames => frames.every(frame => (
+      frame.getAnimations().every(animation => animation.playState === 'finished')
+    )))).toBe(true);
     await expect(expandedFrames.first().locator('[data-testid^="card-face-"]')).toHaveCSS('opacity', '1');
     const expandedFrameBoxes = await expandedFrames.evaluateAll(frames => frames.map(frame => {
       const box = frame.getBoundingClientRect();

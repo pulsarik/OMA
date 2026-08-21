@@ -11,6 +11,19 @@ export const APP_SHELL_STYLES = `
   html, body, #root { min-height: 100%; }
   body { min-height: 100dvh; }
   .portrait-orientation-guard { display: none; }
+  .report-problem-button { touch-action: manipulation; }
+
+  @media (max-width: 560px) {
+    /* Keep the utility control in the top gutter on phones; the lower edge is
+       occupied by page cards, tables, and the game's action dock. */
+    .report-problem-button {
+      top: max(2px, env(safe-area-inset-top)) !important;
+      right: max(8px, env(safe-area-inset-right)) !important;
+      bottom: auto !important;
+      width: 44px !important;
+      height: 44px !important;
+    }
+  }
 
   @media (max-width: 560px) {
     .lobby-page {
@@ -22,7 +35,10 @@ export const APP_SHELL_STYLES = `
         max(10px, env(safe-area-inset-left)) !important;
     }
     .lobby-main { gap: 10px !important; }
-    .lobby-page header { align-items: flex-start !important; }
+    .lobby-page header {
+      align-items: flex-start !important;
+      padding-right: 64px !important;
+    }
     .lobby-page header h1 { font-size: 28px; }
     .lobby-panel { gap: 10px !important; padding: 12px !important; }
     .lobby-panel > div:first-child { padding: 12px !important; }
@@ -55,7 +71,25 @@ export const APP_SHELL_STYLES = `
     }
     .lobby-host-actions input,
     .lobby-host-actions button { min-height: 44px; }
-    .lobby-host-actions button:last-child { flex: 1 0 100%; }
+    .lobby-host-actions { padding-bottom: 58px; }
+    .lobby-start-button {
+      position: fixed;
+      z-index: 1100;
+      right: max(12px, env(safe-area-inset-right));
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: max(12px, env(safe-area-inset-left));
+      width: auto;
+      min-height: 48px !important;
+      flex: none !important;
+      box-shadow: 0 8px 22px rgba(2, 44, 32, .28);
+    }
+    .lobby-table-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow-wrap: normal;
+      word-break: normal;
+    }
   }
 
   @media (orientation: landscape) and (max-height: 600px) and (max-width: 1000px) and (pointer: coarse) {
@@ -262,7 +296,7 @@ export const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     display: grid;
     gap: clamp(10px, 1.5vw, 20px);
-    height: clamp(560px, calc(100dvh - 190px), 1040px);
+    height: max(560px, calc(100dvh - 190px));
     border: 5px solid #73552d;
     border-radius: clamp(28px, 5vw, 72px);
     background:
@@ -970,8 +1004,37 @@ export const PLAYER_PAGE_STYLES = `
     padding: clamp(10px, 2vw, 18px);
     box-shadow: 0 6px 20px rgba(31,54,42,.08);
   }
-  .party-metrics { margin-top: 12px; overflow-x: auto; }
-  .party-metrics .result-points { min-width: 1000px; }
+  .party-metrics { min-width: 0; max-width: 100%; margin-top: 12px; }
+  .party-metrics-scroll,
+  .result-points-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid #dce5df;
+    border-radius: 12px;
+  }
+  .party-metrics-scroll .result-points,
+  .result-points-scroll .result-points {
+    width: max-content;
+    min-width: 100%;
+    margin: 0;
+    overflow: visible;
+  }
+  .party-metrics-scroll .result-points { min-width: 1000px; }
+  .party-metrics-scroll .result-points th:first-child,
+  .party-metrics-scroll .result-points td:first-child,
+  .result-points-scroll .result-points th:first-child,
+  .result-points-scroll .result-points td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #fff;
+    box-shadow: 8px 0 10px -10px rgba(31,54,42,.55);
+  }
+  .party-metrics-scroll .result-points th:first-child,
+  .result-points-scroll .result-points th:first-child { z-index: 2; }
   .wallet-history { margin-top: 14px; border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 12px; }
   .wallet-history h3 { margin: 0 0 8px; }
   .wallet-history-legend { display: flex; gap: 10px 18px; flex-wrap: wrap; margin-bottom: 10px; color: #334155; font-size: 12px; font-weight: 850; }
@@ -1011,8 +1074,7 @@ export const PLAYER_PAGE_STYLES = `
     .game-tile { border-radius: 20px; padding: 4px; }
     .poker-table,
     .poker-table.is-crowded {
-      height: clamp(560px, calc(100vh - 150px), 750px);
-      height: clamp(560px, calc(100dvh - 150px), 750px);
+      height: max(560px, calc(100dvh - 190px));
       gap: 8px;
       border-width: 3px;
       border-radius: 34px;
@@ -1159,7 +1221,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) .player-seat-wrap {
-      width: clamp(144px, 11vw, 160px);
+      width: min(calc(clamp(144px, 11vw, 160px) * var(--table-scale, 1)), 10vw);
     }
     .opponents-row:is(
       [data-opponent-count="6"],
@@ -1275,12 +1337,10 @@ export const PLAYER_PAGE_STYLES = `
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame { margin-left: calc(-21px * var(--table-scale, 1)); }
     .opponents-row .seat-action-bubble {
-      top: auto !important;
       right: auto !important;
-      bottom: -9px !important;
-      left: 50% !important;
+      bottom: auto !important;
       max-width: 92px;
-      transform: translateX(-50%);
+      transform: none !important;
       overflow: hidden;
       padding: 4px 7px;
       font-size: 11px !important;
@@ -1576,7 +1636,7 @@ export const PLAYER_PAGE_STYLES = `
       transform: scale(calc(var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame {
-      margin-left: calc(-21px * var(--table-scale, 1));
+      margin-left: calc(-16.5px * var(--card-table-scale, var(--table-scale, 1)));
     }
     .hero-seat .focal-card-frame + .focal-card-frame {
       margin-left: calc(-1 * var(--focal-card-overlap));

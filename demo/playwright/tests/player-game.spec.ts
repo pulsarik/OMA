@@ -316,6 +316,9 @@ test('the board stays centered through showdown at a ten-player table', async ({
   const showdownNewDeal = page.getByTestId('showdown-new-deal');
   await expect(showdownNewDeal).toBeVisible();
   await expect(page.locator('.table-showdown').getByTestId('showdown-new-deal')).toBeVisible();
+  await expect.poll(() => page.getByTestId('poker-table').locator('.deal-card').evaluateAll(cards => (
+    cards.every(card => card.getAnimations().every(animation => animation.playState === 'finished'))
+  ))).toBe(true);
   const showdownBox = (await page.locator('.table-showdown').boundingBox())!;
   const showdownCenterBox = (await page.locator('.table-center.has-showdown').boundingBox())!;
   const showdownNewDealBox = (await showdownNewDeal.boundingBox())!;

@@ -1128,6 +1128,8 @@ function AdaptiveSeatBubble({
         seat,
         ...Array.from(table.querySelectorAll<HTMLElement>('.player-seat')).filter(candidate => candidate !== seat),
         ...Array.from(table.querySelectorAll<HTMLElement>('.table-center')),
+        ...Array.from(table.querySelectorAll<HTMLElement>('.seat-action-bubble'))
+          .filter(candidate => candidate !== bubble && getComputedStyle(candidate).visibility !== 'hidden'),
       ].map(element => element.getBoundingClientRect());
       const overlapArea = (a: DOMRect, b: DOMRect) => (
         Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
@@ -1146,7 +1148,12 @@ function AdaptiveSeatBubble({
         const rect = new DOMRect(left, top, bubbleWidth, bubbleHeight);
         const clampedDistance = Math.abs(left - candidate.left) + Math.abs(top - candidate.top);
         const collisions = obstacles.reduce((total, obstacle) => total + overlapArea(rect, obstacle), 0);
-        return { ...candidate, left, top, score: clampedDistance * 1000 + collisions + preference };
+        return {
+          ...candidate,
+          left,
+          top,
+          score: (collisions > 0 ? collisions * 100000 : 0) + clampedDistance + preference,
+        };
       }).sort((a, b) => a.score - b.score);
       const best = ranked[0];
       setLayout({
@@ -1157,12 +1164,14 @@ function AdaptiveSeatBubble({
     };
 
     placeBubble();
+    const delayedPlacement = window.setTimeout(placeBubble, 60);
     const resizeObserver = new ResizeObserver(placeBubble);
     resizeObserver.observe(table);
     resizeObserver.observe(seat);
     window.addEventListener('resize', placeBubble);
     return () => {
       resizeObserver.disconnect();
+      window.clearTimeout(delayedPlacement);
       window.removeEventListener('resize', placeBubble);
     };
   }, [label]);
@@ -1896,7 +1905,8 @@ function PartyStatistics({ score, players, isFinal }: {
       />
 
       <div className="party-metrics">
-        <table className="result-points" data-testid="party-totals">
+        <div className="party-metrics-scroll" data-testid="party-metrics-scroll">
+          <table className="result-points" data-testid="party-totals">
           <thead>
             <tr>
               <th style={{ textAlign: 'left' }}>{ui('Player', 'Игрок')}</th>
@@ -1976,7 +1986,8 @@ function PartyStatistics({ score, players, isFinal }: {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     </section>
   );
@@ -2134,7 +2145,8 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
       ) : null}
 
       <h3 style={{ margin: '14px 0 6px' }}>{ui('Points', 'Очки')}</h3>
-      <table className="result-points">
+      <div className="result-points-scroll" data-testid="result-points-scroll">
+        <table className="result-points">
         <thead>
           <tr>
             <th style={{ textAlign: 'left' }}>{ui('Player', 'Игрок')}</th>
@@ -2168,7 +2180,8 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
             );
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
 
       <button
         type="button"
@@ -2222,6 +2235,10 @@ function PlayerPage({
   const [sessionNow, setSessionNow] = useState(Date.now());
   const [tableScale, setTableScale] = useState(1);
   const [cardScale, setCardScale] = useState(1);
+  const [isMobileTable, setIsMobileTable] = useState(() => window.innerWidth <= 760);
+  const [isTabletPortraitTable, setIsTabletPortraitTable] = useState(
+    () => window.innerWidth >= 761 && window.innerWidth <= 820,
+  );
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
   const retryPendingAfterSyncRef = useRef(false);
@@ -2283,6 +2300,8 @@ function PlayerPage({
   useEffect(() => {
     const updateTableScale = () => {
       const isCoarsePortrait = window.matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
+      setIsMobileTable(window.innerWidth <= 760);
+      setIsTabletPortraitTable(window.innerWidth >= 761 && window.innerWidth <= 820);
       if (window.innerWidth <= 430 || isCoarsePortrait) {
         setTableScale(1);
         setCardScale(1);
@@ -2291,12 +2310,7 @@ function PlayerPage({
       const widthScale = window.innerWidth / 1280;
       const heightScale = window.innerHeight / 780;
       const playerCount = player?.players.length ?? 10;
-      const scaleCap = playerCount <= 2
-        ? 1.55
-        : playerCount <= 5
-          ? 1.38
-          : 1.22;
-      const viewportScale = Math.min(scaleCap, Math.max(0.72, Math.min(widthScale, heightScale)));
+      const viewportScale = Math.max(0.6, Math.min(widthScale, heightScale));
       const playerDensityScale = playerCount <= 5
         ? 1.05
         : playerCount <= 7
@@ -2744,7 +2758,7 @@ function PlayerPage({
               compact
               score={totalScore(player.partyScore, seat.id)}
               action={latestActionForPlayer(player.actions, seat.id, player.stage)}
-              resultPlayer={player.cardsRevealed ? playerResult(player.result, seat.id) : undefined}
+              resultPlayer={player.cardsRevealed && !isMobileTable ? playerResult(player.result, seat.id) : undefined}
               isHighWinner={Boolean(player.cardsRevealed && player.showdownSummary?.highWinners.includes(seat.id))}
               isLowWinner={Boolean(player.cardsRevealed && player.showdownSummary?.lowWinners.includes(seat.id))}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
@@ -2813,7 +2827,10 @@ function PlayerPage({
           </div>
         </section>
 
-        <div className="hero-zone">
+        <div
+          className="hero-zone"
+          style={isTabletPortraitTable ? { columnGap: 24 } : undefined}
+        >
           <PlayerComboSide combo={player.currentCombo} kind="high" />
           <div
             className="hero-seat"
@@ -3105,16 +3122,8 @@ function PlayerPage({
         players={player.players}
         isFinal={Boolean(tournamentWinner || player.partyFinishedEarly)}
       />
-      {player.cardsRevealed ? (
-        <ResultView
-          result={player.result}
-          players={player.players}
-          contributions={player.totalContributions}
-          currentPlayerId={player.playerId}
-        />
-      ) : null}
 
-      {newDealLinks.length ? (
+      {false && newDealLinks.length ? (
         <section style={{ marginTop: 18, border: '1px solid #d1d5db', borderRadius: 8, padding: 12 }}>
           <h2>{ui('New deal', 'Новая раздача')}</h2>
           <ul>
@@ -3130,11 +3139,11 @@ function PlayerPage({
         </section>
       ) : null}
 
-      <ReplayControls
+      {false ? <ReplayControls
         score={player.partyScore}
         canReplay={canContinue}
         onReplayHand={replayDeal}
-      />
+      /> : null}
       </section> : null}
 
     </div>
@@ -3647,8 +3656,9 @@ function LobbyPage() {
                       <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em', opacity: .75 }}>{ui('TABLE', 'СТОЛ')}</span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                         <output
+                          className="lobby-table-name"
                           aria-label={ui('Table name', 'Название стола')}
-                          style={{ display: 'block', minWidth: 0, marginTop: 2, overflowWrap: 'anywhere', fontSize: 'clamp(27px, 5vw, 40px)', fontWeight: 900, lineHeight: 1.05 }}
+                          style={{ display: 'block', minWidth: 0, marginTop: 2, fontSize: 'clamp(27px, 5vw, 40px)', fontWeight: 900, lineHeight: 1.05 }}
                         >
                           {lobby.tableName}
                         </output>
@@ -3732,6 +3742,7 @@ function LobbyPage() {
                     {ui('Add bot', 'Добавить бота')}
                   </button>
                   <button
+                    className="lobby-start-button"
                     onClick={() => send('lobby_start')}
                     style={{ padding: '9px 16px', background: '#047857', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
                   >
@@ -4604,6 +4615,7 @@ function ReportProblemButton() {
       ) : null}
       <button
         type="button"
+        className="report-problem-button"
         aria-label={ui('Report a problem', 'Сообщить о проблеме')}
         onClick={() => {
           setStatus(null);

@@ -41,3 +41,19 @@ test('Cancel closes the problem dialog without sending a report', async ({ page 
   await dialog.getByRole('button', { name: 'Cancel' }).click();
   await expect(dialog).toHaveCount(0);
 });
+
+test('mobile report button stays above the home card and keeps a touch target', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.goto('/');
+
+  const reportButton = page.getByRole('button', { name: 'Report a problem' });
+  const homeCard = page.locator('main > section').first();
+  const buttonBox = await reportButton.boundingBox();
+  const cardBox = await homeCard.boundingBox();
+
+  expect(buttonBox).toBeTruthy();
+  expect(cardBox).toBeTruthy();
+  expect(buttonBox!.y + buttonBox!.height).toBeLessThanOrEqual(cardBox!.y);
+  expect(buttonBox!.width).toBeGreaterThanOrEqual(44);
+  expect(buttonBox!.height).toBeGreaterThanOrEqual(44);
+});
