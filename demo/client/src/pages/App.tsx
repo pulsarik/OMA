@@ -656,7 +656,16 @@ function CompactCardRow({
           <div
             key={card}
             className={`${frameClass} deal-card`}
-            style={{ '--deal-delay': `${index * 90}ms` } as React.CSSProperties}
+            data-hand-card-index={index}
+            style={{
+              '--deal-delay': `${index * 90}ms`,
+              ...(focal ? {} : {
+                animation: 'none',
+                transform: 'none',
+                rotate: 'none',
+                marginLeft: 0,
+              }),
+            } as React.CSSProperties}
           >
             <Card code={card} scale={scale} className={cardClass} />
           </div>
@@ -860,9 +869,16 @@ function CardBackRow({
         <div
           key={index}
           className={compact ? `${frameClass} deal-card` : 'deal-card'}
+          data-hand-card-index={compact ? index : undefined}
           style={{
             ...(compact ? {} : { width, height }),
             '--deal-delay': `${index * 90}ms`,
+            ...(compact && !focal ? {
+              animation: 'none',
+              transform: 'none',
+              rotate: 'none',
+              marginLeft: 0,
+            } : {}),
           } as React.CSSProperties}
         >
           <CardBack scale={scale} className={compact ? cardClass : undefined} />
@@ -924,6 +940,7 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
   return (
     <div
       data-testid="coin-stack"
+      className={`coin-stack${compact ? ' is-compact' : ''}`}
       title={`${formatPoints(value)} ${title}`}
       style={{
         display: 'grid',
@@ -1179,7 +1196,7 @@ function AdaptiveSeatBubble({
   return (
     <div
       ref={bubbleRef}
-      className={`seat-action-bubble placement-${layout?.placement ?? 'top'}`}
+      className={`seat-action-bubble placement-${layout?.placement ?? 'top'}${foldedAction ? ' is-folded-action' : ''}`}
       data-testid={testId}
       title={title}
       style={{
@@ -1274,13 +1291,14 @@ function PlayerSeat({
       style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
     >
       <section
-        className={`player-seat${compact && !isYou ? ' is-opponent' : ''}${isCurrentTurn ? ' is-thinking' : ''}${eliminated ? ' is-eliminated' : ''}`}
+        className={`player-seat${compact && !isYou ? ' is-opponent opponent-hand-zone' : ''}${isCurrentTurn ? ' is-thinking' : ''}${eliminated ? ' is-eliminated' : ''}`}
+        data-testid={compact && !isYou ? `opponent-hand-zone-${id}` : undefined}
         style={{
           border: compact && !isYou
-            ? 'none'
+            ? '2px dashed rgba(248, 113, 113, .9)'
             : isCurrentTurn ? '3px solid #facc15' : isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
           borderRadius: 8,
-          padding: compact && !isYou ? 0 : compact ? 6 : 10,
+          padding: compact && !isYou ? '6px 6px 8px' : compact ? 6 : 10,
           background: compact && !isYou
             ? 'transparent'
             : folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
@@ -1290,6 +1308,7 @@ function PlayerSeat({
           minWidth: compact ? undefined : 180,
           margin: '0 auto',
           position: 'relative',
+          boxSizing: 'border-box',
           boxShadow: isCurrentTurn && (isYou || !compact)
             ? '0 0 0 4px rgba(250,204,21,0.35), 0 0 22px rgba(250,204,21,0.95)'
             : undefined,
@@ -1355,7 +1374,7 @@ function PlayerSeat({
         ) : null}
         {bubbleLabel ? (
           <AdaptiveSeatBubble
-            label={bubbleLabel}
+            label={actionLabel ?? bubbleLabel}
             compact={compact}
             emphasized={isCurrentTurn || isWaitingForNextDeal}
             foldedAction={action?.move === 'fold'}
@@ -1371,6 +1390,7 @@ function PlayerSeat({
           />
         ) : null}
         <div
+          className="opponent-hand-content"
           style={{
             position: 'relative',
             display: 'block',
@@ -1405,14 +1425,16 @@ function PlayerSeat({
           {hasWinningHand ? (
             <div
               style={{
-                position: 'absolute',
-                left: '50%',
-                bottom: -30,
+                position: compact && !isYou ? 'static' : 'absolute',
+                left: compact && !isYou ? undefined : '50%',
+                bottom: compact && !isYou ? undefined : -30,
                 zIndex: 3,
                 display: 'flex',
                 justifyContent: 'center',
                 gap: 4,
-                transform: 'translateX(-50%)',
+                alignSelf: 'center',
+                marginTop: compact && !isYou ? 5 : undefined,
+                transform: compact && !isYou ? undefined : 'translateX(-50%)',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -1450,29 +1472,29 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-        </div>
-        {resultPlayer && !isYou && (resultPlayer.highRank || resultPlayer.lowRank) ? (
-          <div
-            data-testid={`player-result-${id}`}
-            style={{
-              display: 'grid',
-              gap: 2,
-              marginTop: hasWinningHand ? 34 : 5,
-              color: '#0f172a',
-              fontSize: 11,
-              fontWeight: 800,
-              lineHeight: 1.15,
-              textAlign: 'center',
-            }}
-          >
+          {resultPlayer && !isYou && (resultPlayer.highRank || resultPlayer.lowRank) ? (
+            <div
+              data-testid={`player-result-${id}`}
+              style={{
+                display: 'grid',
+                gap: 2,
+                marginTop: compact && !isYou ? 5 : hasWinningHand ? 34 : 5,
+                color: '#0f172a',
+                fontSize: 11,
+                fontWeight: 800,
+                lineHeight: 1.15,
+                textAlign: 'center',
+              }}
+            >
             {resultPlayer.highRank ? (
               <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank)}</span>
             ) : null}
             {resultPlayer.lowRank ? (
               <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank)}</span>
             ) : null}
-          </div>
-        ) : null}
+            </div>
+          ) : null}
+        </div>
       </section>
       {compact && isYou ? (
         <div
@@ -3423,6 +3445,7 @@ function LobbyPage() {
   const [sessionNow, setSessionNow] = useState(Date.now());
   const [lobbyExpired, setLobbyExpired] = useState(false);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const activeStorageKey = `omaha-lobby-${lobbyId}-active`;
   const accessStorageKey = `omaha-lobby-${lobbyId}-access-pin`;
   const playerStorageKey = `omaha-lobby-${lobbyId}-player-url`;
@@ -3527,6 +3550,36 @@ function LobbyPage() {
       return;
     }
     socket.send(JSON.stringify({ action, lobbyId, ...extra }));
+  }
+
+  async function copyInvitation() {
+    if (!lobby) return;
+
+    const invitation = ui(
+      `Join my Omaha Hi-Lo table!\nWebsite: ${window.location.origin}\nCity: ${lobby.tableName}\nPIN: ${lobby.pin}`,
+      `Присоединяйтесь к моей игре Omaha хай-ло!\nСайт: ${window.location.origin}\nГород: ${lobby.tableName}\nPIN: ${lobby.pin}`,
+    );
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(invitation);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = invitation;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('copy failed');
+      }
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 1800);
+    } catch {
+      setNotice(ui('Could not copy the invitation.', 'Не удалось скопировать приглашение.'));
+    }
   }
 
   function join() {
@@ -3668,12 +3721,32 @@ function LobbyPage() {
                   </div>
                   <div style={{ flex: '0 1 190px', border: '2px solid #6ee7b7', borderRadius: 13, background: '#fff', padding: '9px 16px', color: '#065f46' }}>
                     <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em' }}>PIN</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <output
                       aria-label={ui('Table PIN', 'PIN стола')}
                       style={{ display: 'block', marginTop: 2, font: '900 clamp(27px, 5vw, 40px)/1.05 ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing: '.16em' }}
                     >
                       {lobby.pin}
                     </output>
+                      <button
+                        type="button"
+                        aria-label={inviteCopied ? ui('Invitation copied', 'Приглашение скопировано') : ui('Copy invitation', 'Скопировать приглашение')}
+                        title={inviteCopied ? ui('Invitation copied', 'Приглашение скопировано') : ui('Copy invitation', 'Скопировать приглашение')}
+                        onClick={copyInvitation}
+                        style={{ display: 'grid', flex: '0 0 auto', placeItems: 'center', width: 38, height: 38, padding: 0, border: '1px solid #a7f3d0', borderRadius: 9, background: inviteCopied ? '#d1fae5' : '#f0fdf4', color: '#047857', cursor: 'pointer' }}
+                      >
+                        {inviteCopied ? (
+                          <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="m5 12 4 4L19 6" />
+                          </svg>
+                        ) : (
+                          <svg aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="11" height="11" rx="2" />
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
