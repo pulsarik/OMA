@@ -270,7 +270,8 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
 
   const opponentBlindBox = await page.getByTestId('player-blind-P2').boundingBox();
   expect(opponentBlindBox).toBeTruthy();
-  expect(opponentBlindBox!.y).toBeLessThan(opponentCardsBox!.y + opponentCardsBox!.height / 2);
+  expect(opponentBlindBox!.x).toBeGreaterThanOrEqual(opponentCardsBox!.x + opponentCardsBox!.width / 2);
+  expect(opponentBlindBox!.y).toBeGreaterThanOrEqual(opponentCardsBox!.y + opponentCardsBox!.height / 2);
 
   await page.getByRole('button', { name: /^Call / }).click();
   await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toHaveCount(0);
@@ -419,6 +420,9 @@ test('the board stays centered through showdown at a ten-player table', async ({
   const opponentZoneGeometry = await page.locator('.poker-table.is-oval .opponent-hand-zone').evaluateAll((zones) => (
     zones.map((zone) => {
       const zoneBox = zone.getBoundingClientRect();
+      const topLabels = Array.from(zone.querySelectorAll<HTMLElement>(
+        '.seat-topline .seat-name-score, .seat-topline-right, .seat-action-bubble',
+      )).map((item) => item.getBoundingClientRect());
       const content = Array.from(zone.querySelectorAll<HTMLElement>(
         '.seat-topline, .seat-action-bubble, .opponent-card-frame, .opponent-card, [data-testid^="winner-"], [data-testid^="player-result-"]',
       )).map((item) => {
@@ -427,12 +431,17 @@ test('the board stays centered through showdown at a ten-player table', async ({
       });
       return {
         zone: { left: zoneBox.left, top: zoneBox.top, right: zoneBox.right, bottom: zoneBox.bottom },
+        topLabelBottom: topLabels.reduce((bottom, item) => Math.max(bottom, item.bottom), zoneBox.top),
+        firstCardTop: Math.min(...Array.from(zone.querySelectorAll<HTMLElement>('.opponent-card-frame'))
+          .map((card) => card.getBoundingClientRect().top)),
         content,
       };
     })
   ));
   expect(opponentZoneGeometry).toHaveLength(9);
-  opponentZoneGeometry.forEach(({ zone, content }, index) => {
+  opponentZoneGeometry.forEach(({ zone, topLabelBottom, firstCardTop, content }, index) => {
+    expect(firstCardTop - topLabelBottom,
+      `showdown opponent zone ${index + 1} top labels overlap cards`).toBeGreaterThanOrEqual(4);
     content.forEach((item) => {
       expect(item.left, `showdown opponent zone ${index + 1} exits left`).toBeGreaterThanOrEqual(zone.left - 1);
       expect(item.top, `showdown opponent zone ${index + 1} exits top`).toBeGreaterThanOrEqual(zone.top - 1);

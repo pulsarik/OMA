@@ -26,22 +26,37 @@ test('wide opponent slots use the table arc and a straight card row', async ({ p
     const zoneBox = zone.getBoundingClientRect();
     const cards = Array.from(zone.querySelectorAll<HTMLElement>('[data-hand-card-index] .opponent-card'))
       .map((card) => card.getBoundingClientRect());
+    const nameBox = zone.querySelector<HTMLElement>('.seat-topline .seat-name-score')?.getBoundingClientRect();
+    const statusBox = zone.querySelector<HTMLElement>('.seat-action-bubble')?.getBoundingClientRect();
     return {
       slotWidth: zoneBox.width,
       tops: cards.map((card) => card.top),
       lefts: cards.map((card) => card.left),
       widths: cards.map((card) => card.width),
+      cardsCenter: cards.length
+        ? (Math.min(...cards.map((card) => card.left)) + Math.max(...cards.map((card) => card.right))) / 2
+        : 0,
+      zoneCenter: zoneBox.left + zoneBox.width / 2,
+      nameRight: nameBox?.right ?? 0,
+      statusLeft: statusBox?.left ?? null,
+      topLabelBottom: Math.max(nameBox?.bottom ?? 0, statusBox?.bottom ?? 0),
+      firstCardTop: cards.length ? Math.min(...cards.map((card) => card.top)) : 0,
       visibleCardCount: cards.filter((card) => card.width > 1 && card.height > 1).length,
       rowMode: zoneBox.width >= Number(rowMinWidth),
     };
   }), ROW_MIN_WIDTH);
-
   expect(result.every((zone) => zone.rowMode)).toBe(true);
   const slotWidths = result.map((zone) => zone.slotWidth);
   expect(Math.max(...slotWidths) - Math.min(...slotWidths)).toBeLessThanOrEqual(2);
   result.forEach((zone) => {
     expect(Math.max(...zone.tops) - Math.min(...zone.tops)).toBeLessThanOrEqual(14);
     expect(zone.visibleCardCount).toBe(4);
+    expect(Math.abs(zone.cardsCenter - zone.zoneCenter)).toBeLessThanOrEqual(2);
+    expect(Math.abs(zone.nameRight - zone.zoneCenter)).toBeLessThanOrEqual(2);
+    if (zone.statusLeft !== null) {
+      expect(Math.abs(zone.statusLeft - zone.zoneCenter)).toBeLessThanOrEqual(2);
+    }
+    expect(zone.firstCardTop - zone.topLabelBottom).toBeGreaterThanOrEqual(4);
     expect(new Set(zone.lefts.map((left) => Math.round(left))).size).toBe(4);
     zone.lefts.slice(1).forEach((left, index) => {
       expect(left).toBeGreaterThan(zone.lefts[index] + zone.widths[index] * 0.5);
@@ -87,8 +102,12 @@ test('thinking state highlights the name without moving the opponent cards', asy
 
   const zone = page.locator('[data-testid^="opponent-hand-zone-"].is-thinking').first();
   await expect(zone).toHaveClass(/is-thinking/);
-  await expect(zone.locator('.seat-action-bubble')).toBeHidden();
-  await expect(zone.locator('.seat-name-score')).toHaveCSS('border-top-color', 'rgb(250, 204, 21)');
+  const status = zone.locator('.seat-action-bubble');
+  await expect(status).toBeVisible();
+  const nameBadge = zone.locator('.seat-topline [data-testid^="player-name-"]').locator('..');
+  await expect(nameBadge).toHaveCSS('border-top-color', 'rgb(250, 204, 21)');
+  await expect(nameBadge).toHaveCSS('animation-name', 'thinking-name-pulse');
+  await expect(zone).toHaveCSS('border-top-style', 'none');
   await expect(zone).toBeVisible();
   const cardPositions = () => zone.locator('[data-hand-card-index] .opponent-card').evaluateAll((cards) => (
     cards.map((card) => {

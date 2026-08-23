@@ -14,6 +14,25 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   expect(pin).toMatch(/^\d{4}$/);
   expect(tableName).not.toBe('');
   await expect(page.getByText('Tell your friends the table name and PIN')).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'REPLAY' })).toBeVisible();
+  await page.getByRole('tab', { name: 'REPLAY' }).click();
+  await expect(page.getByLabel('Replay code')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Start game/ })).toBeVisible();
+  await expect(page.getByTestId('lobby-table')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'LOBBY' }).click();
+  await expect(page.getByTestId('lobby-table')).toBeVisible();
+  const startButton = page.getByRole('button', { name: /Start game/ });
+  const startButtonBox = await startButton.boundingBox();
+  expect(startButtonBox).toBeTruthy();
+  expect(startButtonBox!.y + startButtonBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  const reportButtonBox = await page.getByRole('button', { name: 'Report a problem' }).boundingBox();
+  expect(reportButtonBox).toBeTruthy();
+  expect(
+    startButtonBox!.x + startButtonBox!.width <= reportButtonBox!.x
+      || reportButtonBox!.x + reportButtonBox!.width <= startButtonBox!.x
+      || startButtonBox!.y + startButtonBox!.height <= reportButtonBox!.y
+      || reportButtonBox!.y + reportButtonBox!.height <= startButtonBox!.y,
+  ).toBe(true);
   await expect(page.getByLabel('Table name')).not.toBeEmpty();
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
   await page.getByRole('button', { name: 'Copy invitation' }).click();
@@ -50,7 +69,7 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();
   await expect(guest).toHaveURL(/\/lobby\/[^/?]+$/);
-  await expect(guest.getByRole('heading', { name: 'Table lobby' })).toBeVisible();
+  await expect(guest.getByRole('heading', { name: 'Table lobby' })).toHaveCount(0);
   await expect(guest.getByText('Players already here')).toBeVisible();
   await expect(guest.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');
   await expect(guest.getByText('Enter your name and wait for Dima to start the game.')).toBeVisible();

@@ -13,6 +13,58 @@ export const APP_SHELL_STYLES = `
   .portrait-orientation-guard { display: none; }
   .report-problem-button { touch-action: manipulation; }
 
+  .lobby-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 0 12px -15px;
+    position: relative;
+    z-index: 1;
+  }
+  .lobby-tab {
+    padding: 8px 18px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px 12px 0 0;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .lobby-tab-active {
+    border-bottom-color: #fff;
+    background: #fff;
+    color: #172033;
+  }
+  .lobby-replay-panel {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+  .lobby-replay-panel p,
+  .lobby-replay-panel small { margin: 5px 0 0; color: #64748b; }
+  .lobby-replay-panel label { display: grid; gap: 6px; font-weight: 800; }
+  .lobby-replay-panel input {
+    width: min(100%, 260px);
+    padding: 9px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-family: ui-monospace, monospace;
+    letter-spacing: .12em;
+  }
+  .lobby-start-button {
+    position: fixed;
+    z-index: 1100;
+    right: max(76px, calc(64px + env(safe-area-inset-right)));
+    bottom: max(16px, env(safe-area-inset-bottom));
+    min-height: 48px !important;
+    background: #b45309;
+    box-shadow: 0 8px 22px rgba(2, 44, 32, .28);
+  }
+  .lobby-start-button:hover { background: #92400e; }
+  .lobby-start-button:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+
   @media (max-width: 560px) {
     /* Keep the utility control in the top gutter on phones; the lower edge is
        occupied by page cards, tables, and the game's action dock. */
@@ -41,7 +93,7 @@ export const APP_SHELL_STYLES = `
     }
     .lobby-page header h1 { font-size: 28px; }
     .lobby-panel { gap: 10px !important; padding: 12px !important; }
-    .lobby-panel > div:first-child { padding: 12px !important; }
+    .lobby-panel > .lobby-invite-card { padding: 12px !important; }
     .lobby-table-scroll { overflow: visible !important; padding-bottom: 4px !important; }
     .lobby-table-layout {
       display: grid !important;
@@ -73,8 +125,6 @@ export const APP_SHELL_STYLES = `
     .lobby-host-actions button { min-height: 44px; }
     .lobby-host-actions { padding-bottom: 58px; }
     .lobby-start-button {
-      position: fixed;
-      z-index: 1100;
       right: max(12px, env(safe-area-inset-right));
       bottom: max(12px, env(safe-area-inset-bottom));
       left: max(12px, env(safe-area-inset-left));
@@ -563,6 +613,20 @@ export const PLAYER_PAGE_STYLES = `
   .player-seat.is-thinking {
     transform: translateY(-3px);
   }
+  @keyframes thinking-name-pulse {
+    0%, 100% {
+      border-color: #facc15;
+      box-shadow: 0 0 0 2px rgba(250, 204, 21, .28), 0 2px 8px rgba(250, 204, 21, .38);
+    }
+    50% {
+      border-color: #fef08a;
+      box-shadow: 0 0 0 5px rgba(250, 204, 21, .12), 0 2px 14px rgba(250, 204, 21, .72);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .player-seat.is-thinking .seat-name-score,
+    .player-meta.is-thinking .player-name { animation: none; }
+  }
   .player-seat.is-eliminated {
     box-shadow: inset 0 0 0 2px rgba(220,38,38,.72), 0 3px 12px rgba(15,23,42,.3);
   }
@@ -887,8 +951,6 @@ export const PLAYER_PAGE_STYLES = `
     min-width: 0;
     max-width: 100%;
     overflow: visible;
-    outline: 1px solid rgba(254, 202, 202, .8);
-    outline-offset: 2px;
   }
   .opponent-hand-zone [data-testid^="player-result-"] {
     box-sizing: border-box;
@@ -2655,6 +2717,15 @@ export const PLAYER_PAGE_STYLES = `
   #root .poker-table:not(.is-showdown) .opponent-hand-zone.is-thinking .seat-topline .seat-name-score {
     border: 2px solid #facc15 !important;
     box-shadow: 0 0 0 2px rgba(250, 204, 21, .35), 0 2px 8px rgba(250, 204, 21, .45);
+    animation: thinking-name-pulse 1.15s ease-in-out infinite;
+  }
+  #root .poker-table .player-meta.is-thinking .player-name {
+    display: inline-block;
+    border: 2px solid #facc15;
+    border-radius: 999px;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    animation: thinking-name-pulse 1.15s ease-in-out infinite;
   }
   #root .poker-table:not(.is-showdown) .opponent-hand-zone,
   #root .poker-table.is-showdown .opponent-hand-zone {
@@ -3002,5 +3073,223 @@ export const PLAYER_PAGE_STYLES = `
     animation: none !important;
     transform: none !important;
     rotate: none !important;
+  }
+
+  /* Keep every hand as a centered, self-sized row inside its seat zone. The
+     old full-width/absolute overrides made the row depend on whichever later
+     media rule happened to win the cascade. */
+  #root .poker-table .opponent-hand-card-area {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  #root .poker-table .opponent-hand-card-area > .compact-card-row {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: max-content !important;
+    max-width: 100%;
+    margin: 0 auto !important;
+    transform: none !important;
+    justify-content: flex-start !important;
+  }
+  #root .poker-table .opponent-hand-card-area .opponent-card-frame + .opponent-card-frame {
+    margin-left: 0 !important;
+  }
+  #root .poker-table .seat-card-positions {
+    position: absolute;
+    right: -4px;
+    bottom: -10px;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+  #root .poker-table .seat-card-positions .position-badge {
+    font-size: calc(10px * var(--opponent-ui-scale, 1));
+    padding: calc(3px * var(--opponent-ui-scale, 1)) calc(7px * var(--opponent-ui-scale, 1));
+  }
+  #root .poker-table [data-testid^="player-result-"] {
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+  #root .poker-table [data-testid^="player-result-"] > span {
+    white-space: nowrap;
+  }
+
+  /* Opponent zones use a small fixed layout: name at top-left, status or
+     winner labels at top-right, cards in the exact horizontal center, and
+     the evaluated combination directly below the cards. */
+  #root .poker-table .opponent-hand-zone .seat-topline {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    left: 6px !important;
+    z-index: 22;
+    display: block !important;
+    width: auto !important;
+    min-width: 0;
+    margin: 0 !important;
+  }
+  #root .poker-table .opponent-hand-zone .seat-topline .seat-name-score {
+    position: absolute !important;
+    top: 0 !important;
+    right: 50% !important;
+    left: auto !important;
+    flex: none;
+    width: fit-content !important;
+    max-width: calc(50% - 4px) !important;
+    margin: 0 !important;
+    justify-self: end !important;
+  }
+  #root .poker-table .opponent-hand-zone .seat-topline-right {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    right: 0;
+    display: flex;
+    flex: none;
+    min-width: 0;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  #root .poker-table .opponent-hand-zone .seat-result-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 3px;
+    max-width: 100%;
+  }
+  #root .poker-table .opponent-hand-zone .winner-badge {
+    border: 1px solid rgba(255,255,255,.9);
+    border-radius: 999px;
+    color: #fff;
+    padding: 3px 6px;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 2px 7px rgba(0,0,0,.28);
+  }
+  #root .poker-table .opponent-hand-zone .winner-badge.high { background: #dc2626; }
+  #root .poker-table .opponent-hand-zone .winner-badge.low { background: #2563eb; }
+  #root .poker-table .opponent-hand-zone .seat-action-bubble,
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble.is-folded-action,
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble:not(.is-folded-action) {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    left: auto !important;
+    width: fit-content !important;
+    max-width: calc(50% - 8px) !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: right;
+    transform: none !important;
+    z-index: 23;
+  }
+  #root .poker-table .opponent-hand-zone .seat-action-bubble,
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble.is-folded-action,
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble:not(.is-folded-action) {
+    left: 50% !important;
+    right: auto !important;
+    text-align: left;
+  }
+  #root .poker-table .opponent-hand-zone.is-thinking .seat-action-bubble {
+    display: block !important;
+    visibility: visible !important;
+  }
+  #root .poker-table .opponent-hand-zone .seat-combination[data-testid^="player-result-"] {
+    position: relative !important;
+    inset: auto !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 5px auto 0 !important;
+    transform: none !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    text-align: center;
+  }
+  #root .poker-table .opponent-hand-zone .seat-combination > span {
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+  @media (min-width: 761px) {
+    #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content [data-testid^="player-result-"] {
+      left: 50% !important;
+      right: auto !important;
+      width: fit-content !important;
+      min-width: 104px;
+      max-width: calc(100% - 8px) !important;
+      transform: translateX(-50%) !important;
+    }
+  }
+  #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content .seat-combination[data-testid^="player-result-"] {
+    position: relative !important;
+    inset: auto !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    width: fit-content !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 5px auto 0 !important;
+    transform: none !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-content {
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding-top: max(22px, calc(28px * var(--opponent-ui-scale, 1))) !important;
+  }
+  #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content {
+    box-sizing: border-box !important;
+    padding-top: max(22px, calc(28px * var(--opponent-ui-scale, 1))) !important;
+  }
+  #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    gap: 4px !important;
+  }
+  #root .poker-table .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: max-content !important;
+    max-width: 100%;
+    margin: 0 auto !important;
+    transform: none !important;
+    justify-content: flex-start !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    width: max-content !important;
+    max-width: 100%;
+    margin: 0 auto !important;
+    transform: none !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone.is-thinking .seat-action-bubble {
+    display: block !important;
+    visibility: visible !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #root .poker-table .opponent-hand-zone.is-thinking .seat-topline .seat-name-score,
+    #root .poker-table .player-meta.is-thinking .player-name {
+      animation: none !important;
+    }
   }
 `;

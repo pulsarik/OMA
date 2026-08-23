@@ -1277,6 +1277,8 @@ function PlayerSeat({
         ? isYourTurn ? ui('YOUR TURN', 'ВАШ ХОД') : ui('THINKING…', 'ДУМАЕТ…')
         : actionLabel;
   const hasWinningHand = !folded && (isHighWinner || isLowWinner);
+  const hasCombination = Boolean(resultPlayer && !isYou && (resultPlayer.highRank || resultPlayer.lowRank));
+  const showWinnerFrame = hasWinningHand && (!compact || isYou);
   const winnerBorder = isHighWinner && isLowWinner
     ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
     : isHighWinner
@@ -1294,9 +1296,7 @@ function PlayerSeat({
         className={`player-seat${compact && !isYou ? ' is-opponent opponent-hand-zone' : ''}${isCurrentTurn ? ' is-thinking' : ''}${eliminated ? ' is-eliminated' : ''}`}
         data-testid={compact && !isYou ? `opponent-hand-zone-${id}` : undefined}
         style={{
-          border: compact && !isYou
-            ? '2px dashed rgba(248, 113, 113, .9)'
-            : isCurrentTurn ? '3px solid #facc15' : isYou ? '2px solid #16a34a' : '1px solid #d1d5db',
+          border: isYou ? '2px solid #16a34a' : compact && !isYou ? 'none' : '1px solid #d1d5db',
           borderRadius: 8,
           padding: compact && !isYou ? '6px 6px 8px' : compact ? 6 : 10,
           background: compact && !isYou
@@ -1342,12 +1342,12 @@ function PlayerSeat({
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(score)}</strong>
             </span>
-            <div className="seat-inline-positions" aria-label={ui('Table positions', 'Позиции за столом')}>
-              {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
-              {blindLabel ? (
-                <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
-                  {blindLabel}
-                </span>
+            <div className="seat-topline-right" aria-label={ui('Table status', 'Статус за столом')}>
+              {hasWinningHand ? (
+                <div className="seat-result-badges">
+                  {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`}>{ui('HIGH', 'ХАЙ')}</span> : null}
+                  {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`}>{ui('LOW', 'ЛОУ')}</span> : null}
+                </div>
               ) : null}
             </div>
           </div>
@@ -1363,7 +1363,7 @@ function PlayerSeat({
         {isCurrentTurn && typeof turnSeconds === 'number' ? (
           <span className="turn-countdown" data-testid={`turn-countdown-${id}`}>{turnSeconds}s</span>
         ) : null}
-        {eliminated ? (
+        {/*
           <span
             className="eliminated-badge"
             data-testid={`player-eliminated-${id}`}
@@ -1371,8 +1371,8 @@ function PlayerSeat({
           >
             {ui('OUT', 'ВЫБЫЛ')}
           </span>
-        ) : null}
-        {bubbleLabel ? (
+        */}
+        {bubbleLabel && !(compact && !isYou && hasWinningHand) ? (
           <AdaptiveSeatBubble
             label={actionLabel ?? bubbleLabel}
             compact={compact}
@@ -1396,10 +1396,10 @@ function PlayerSeat({
             display: 'block',
             width: 'max-content',
             margin: '0 auto',
-            padding: hasWinningHand ? 4 : 0,
-            border: hasWinningHand ? '3px solid transparent' : undefined,
-            borderRadius: hasWinningHand ? 10 : undefined,
-            background: hasWinningHand
+            padding: showWinnerFrame ? 4 : 0,
+            border: showWinnerFrame ? '3px solid transparent' : undefined,
+            borderRadius: showWinnerFrame ? 10 : undefined,
+            background: showWinnerFrame
               ? `linear-gradient(#fff, #fff) padding-box, ${winnerBorder} border-box`
               : undefined,
             boxShadow: isHighWinner && isLowWinner
@@ -1411,18 +1411,39 @@ function PlayerSeat({
                   : undefined,
           }}
         >
-          {shouldShowCards ? (
-            <CompactCardRow
-              cards={hole ?? []}
-              testId={`player-cards-${id}`}
-              focal={isYou}
-              expandable={!isYou}
-              expandedTitle={!isYou ? tablePlayerName(name, id) : undefined}
-            />
-          ) : (
-            <CardBackRow count={cardCount} compact={compact} focal={isYou} testId={`player-cards-${id}`} />
-          )}
-          {hasWinningHand ? (
+          <div className="opponent-hand-card-area">
+            {shouldShowCards ? (
+              <CompactCardRow
+                cards={hole ?? []}
+                testId={`player-cards-${id}`}
+                focal={isYou}
+                expandable={!isYou}
+                expandedTitle={!isYou ? tablePlayerName(name, id) : undefined}
+              />
+            ) : (
+              <CardBackRow count={cardCount} compact={compact} focal={isYou} testId={`player-cards-${id}`} />
+            )}
+            {eliminated ? (
+              <span
+                className="eliminated-badge"
+                data-testid={`player-eliminated-${id}`}
+                title={ui('This player is out of chips', 'Игрок выбыл')}
+              >
+                {ui('OUT', 'ВЫБЫЛ')}
+              </span>
+            ) : null}
+            {compact && !isYou && (blindLabel || isDealer) ? (
+              <div className="seat-card-positions" aria-label={ui('Table positions', 'Позиции за столом')}>
+                {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+                {blindLabel ? (
+                  <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
+                    {blindLabel}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {hasWinningHand && (!compact || isYou) ? (
             <div
               style={{
                 position: compact && !isYou ? 'static' : 'absolute',
@@ -1472,13 +1493,14 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-          {resultPlayer && !isYou && (resultPlayer.highRank || resultPlayer.lowRank) ? (
+          {hasCombination ? (
             <div
+              className="seat-combination"
               data-testid={`player-result-${id}`}
               style={{
                 display: 'grid',
                 gap: 2,
-                marginTop: compact && !isYou ? 5 : hasWinningHand ? 34 : 5,
+                marginTop: 5,
                 color: '#0f172a',
                 fontSize: 11,
                 fontWeight: 800,
@@ -3439,6 +3461,7 @@ function LobbyPage() {
   const [name, setName] = useState('');
   const [botName, setBotName] = useState('');
   const [replayCodeInput, setReplayCodeInput] = useState('');
+  const [lobbyTab, setLobbyTab] = useState<'lobby' | 'replay'>('lobby');
   const [notice, setNotice] = useState<string | null>(null);
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
@@ -3633,7 +3656,6 @@ function LobbyPage() {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <a href="/" style={{ color: '#047857', fontWeight: 800, textDecoration: 'none' }}>← {ui('Omaha Hi-Lo', 'Омаха хай-ло')}</a>
-            <h1 style={{ margin: '5px 0 0' }}>{ui('Table lobby', 'Лобби стола')}</h1>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
@@ -3692,13 +3714,30 @@ function LobbyPage() {
           </section>
         ) : lobby ? (
           <>
-            <nav role="tablist" aria-label={ui('Lobby views', 'Разделы лобби')} style={{ display: 'flex', gap: 4, margin: '0 12px -15px', zIndex: 1 }}>
-              <button role="tab" aria-selected="true" style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: '#fff', background: '#fff', fontWeight: 900 }}>
+            <nav className="lobby-tabs" role="tablist" aria-label={ui('Lobby views', 'Разделы лобби')}>
+              <button
+                role="tab"
+                aria-selected={lobbyTab === 'lobby'}
+                onClick={() => setLobbyTab('lobby')}
+                className={lobbyTab === 'lobby' ? 'lobby-tab lobby-tab-active' : 'lobby-tab'}
+              >
                 {ui('LOBBY', 'ЛОББИ')}
               </button>
+              {isHost && lobby.status === 'waiting' ? (
+                <button
+                  role="tab"
+                  aria-selected={lobbyTab === 'replay'}
+                  onClick={() => setLobbyTab('replay')}
+                  className={lobbyTab === 'replay' ? 'lobby-tab lobby-tab-active' : 'lobby-tab'}
+                >
+                  {ui('REPLAY', 'ПОВТОР')}
+                </button>
+              ) : null}
             </nav>
             <section className="lobby-panel" style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
-              <div style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
+              {lobbyTab === 'lobby' || !isHost || lobby.status !== 'waiting' ? (
+                <>
+              <div className="lobby-invite-card" style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
                 <strong style={{ display: 'block', color: '#526159', fontSize: 15 }}>
                   {ui('Tell your friends the table name and PIN', 'Сообщите друзьям название стола и PIN')}
                 </strong>
@@ -3764,38 +3803,6 @@ function LobbyPage() {
               />
 
               {isHost && lobby.status === 'waiting' ? (
-                <div style={{ display: 'grid', gap: 8, padding: 10, border: '1px solid #cbd5e1', borderRadius: 8, background: '#f8fafc' }}>
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 800 }}>
-                    <input
-                      type="checkbox"
-                      checked={/^[A-Za-z]{3}[0-9]{3}$/.test(replayCodeInput.trim())}
-                      disabled
-                      readOnly
-                    />
-                    {ui('Replay party', 'Переиграть партию')}
-                  </label>
-                  <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
-                    {ui('Replay code', 'Код повтора')}
-                    <input
-                      aria-label="Replay code"
-                      placeholder="ABC123"
-                      maxLength={6}
-                      value={replayCodeInput}
-                      onChange={(event) => {
-                        const nextCode = event.target.value.toUpperCase();
-                        setReplayCodeInput(nextCode);
-                        send('lobby_set_replay', { replayCode: nextCode.trim() });
-                      }}
-                      style={{ padding: '8px 10px', border: '1px solid #cbd5e1', borderRadius: 8, fontFamily: 'ui-monospace, monospace', letterSpacing: '.12em' }}
-                    />
-                    <small style={{ color: '#64748b', fontWeight: 500 }}>
-                      {ui('Replay turns on automatically for ABC123. Use the same number of seats as the original party.', 'Повтор включается автоматически для ABC123. Используйте столько же мест, сколько было в исходной партии.')}
-                    </small>
-                  </label>
-                </div>
-              ) : null}
-
-              {isHost && lobby.status === 'waiting' ? (
                 <div className="lobby-host-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <input
                     aria-label={ui('Bot name', 'Имя бота')}
@@ -3817,7 +3824,7 @@ function LobbyPage() {
                   <button
                     className="lobby-start-button"
                     onClick={() => send('lobby_start')}
-                    style={{ padding: '9px 16px', background: '#047857', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
+                    style={{ padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
                   >
                     {ui('Start game · fill with bots', 'Начать игру · заполнить ботами')}
                   </button>
@@ -3830,6 +3837,41 @@ function LobbyPage() {
                     : `Waiting for ${hostDisplayName} to start the game…`}
                 </p>
               ) : null}
+                </>
+              ) : (
+                <div className="lobby-replay-panel">
+                  <div>
+                    <strong>{ui('Replay party', 'Переиграть партию')}</strong>
+                    <p>
+                      {ui('Enter a replay code to start this table from a saved party.', 'Введите код повтора, чтобы начать этот стол с сохранённой партии.')}
+                    </p>
+                  </div>
+                  <label>
+                    {ui('Replay code', 'Код повтора')}
+                    <input
+                      aria-label={ui('Replay code', 'Код повтора')}
+                      placeholder="ABC123"
+                      maxLength={6}
+                      value={replayCodeInput}
+                      onChange={(event) => {
+                        const nextCode = event.target.value.toUpperCase();
+                        setReplayCodeInput(nextCode);
+                        send('lobby_set_replay', { replayCode: nextCode.trim() });
+                      }}
+                    />
+                    <small>
+                      {ui('Replay turns on automatically for a valid code. Use the same number of seats as the original party.', 'Повтор включается автоматически для правильного кода. Используйте столько же мест, сколько было в исходной партии.')}
+                    </small>
+                  </label>
+                  <button
+                    className="lobby-start-button"
+                    onClick={() => send('lobby_start')}
+                    style={{ padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
+                  >
+                    {ui('Start game · fill with bots', 'Начать игру · заполнить ботами')}
+                  </button>
+                </div>
+              )}
               {notice ? <p role="status" style={{ margin: 0, color: notice.includes('copied') ? '#166534' : '#b45309' }}>{notice}</p> : null}
             </section>
           </>

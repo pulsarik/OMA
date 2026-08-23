@@ -6,6 +6,24 @@ The dashed opponent frame is the complete hand zone. It contains the player's
 name, action/status, all four hole cards, and any result label. No content may
 leave the frame. Different opponent zones may not overlap.
 
+## Zone anatomy
+
+Each opponent zone has fixed semantic slots:
+
+- the four cards are centered on the zone's horizontal axis;
+- the player name and score are placed in the upper-left corner;
+- the action/status word is placed in the upper-right corner;
+- HIGH and LOW winner labels use the same upper-right slot and replace the
+  action/status word when present;
+- the name/status slot has reserved vertical space above the cards; its labels
+  must never overlap the card row;
+- the evaluated combination is centered directly below the card row;
+- D and SB/BB stay attached to the lower-right edge of the card row, beside
+  the last card.
+- OUT is centered directly over the card row when a player is eliminated.
+
+The slots must not compete for the same space or cause the card row to move.
+
 ## Opponent arc
 
 Opponent zones follow the table's oval seating geometry. The outer zones are
@@ -64,6 +82,14 @@ change the number of zones, create zone intersections, or move the board.
 8. Closed-to-revealed transition keeps every opponent zone and card row at the
    same coordinates; only the card face and result block change.
 9. Showdown keeps the board center stable.
+10. The showdown phase explicitly verifies that revealed cards stay centered
+    inside each zone, D and SB/BB labels sit at the lower-right edge beside the
+    last card, and high/low result text stays readable without per-character
+    wrapping or leaving its zone.
+11. Zone anatomy is preserved: name left/top, status or HIGH/LOW right/top,
+    combination centered below the cards, and OUT centered over the cards.
+12. The vertical name/status slot remains separated from the card row in both
+    the closed-hand and showdown phases.
 
 ## Mandatory visual QA protocol
 
@@ -98,6 +124,14 @@ For each scenario, automated checks must verify:
 6. The active-player indicator and any THINKING state do not change card or
    zone geometry.
 7. The result panel and board remain stable during responsive resizing.
+8. During showdown, verify the revealed-card row, D/SB/BB label placement,
+   and high/low result text as one combined layout: the label must remain
+   beside the last card and result text must not collapse into a vertical
+   strip.
+9. In an eliminated-player state, verify that OUT is centered over the card
+   row and does not use the zone or name position as its anchor.
+10. Verify that every name/status label has a visible vertical gap from the
+    first card; this must remain true after showdown reveal.
 
 After the automated checks, capture and inspect screenshots at desktop and
 mobile sizes. The inspection must explicitly look for clipped text, invisible
