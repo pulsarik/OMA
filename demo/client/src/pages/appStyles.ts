@@ -878,6 +878,33 @@ export const PLAYER_PAGE_STYLES = `
   }
   .side-combo-card.is-hand { border-top-color: #fbbf24; }
   .compact-card-row { display: flex; gap: calc(8px * var(--table-scale, 1)); flex-wrap: nowrap; justify-content: center; }
+  .opponent-hand-zone {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow: visible;
+    outline: 1px solid rgba(254, 202, 202, .8);
+    outline-offset: 2px;
+  }
+  .opponent-hand-zone [data-testid^="player-result-"] {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+  .opponent-hand-zone .seat-action-bubble {
+    position: static;
+    left: auto !important;
+    top: auto !important;
+    max-width: 100%;
+    margin: 0 auto 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transform: none !important;
+  }
+  .opponent-hand-zone .seat-action-tail { display: none; }
   .compact-card-row.is-expandable {
     border-radius: 8px;
     cursor: zoom-in;
@@ -947,10 +974,12 @@ export const PLAYER_PAGE_STYLES = `
   .opponent-card-frame {
     width: calc(${OPPONENT_CARD_WIDTH}px * var(--table-scale, 1));
     height: calc(${OPPONENT_CARD_HEIGHT}px * var(--table-scale, 1));
+    flex: 0 0 auto;
   }
   .focal-card-frame {
     width: calc(${FOCAL_CARD_WIDTH}px * var(--table-scale, 1));
     height: calc(${FOCAL_CARD_HEIGHT}px * var(--table-scale, 1));
+    flex: 0 0 auto;
   }
   .board-row { display: flex; gap: calc(8px * var(--table-scale, 1)); flex-wrap: wrap; justify-content: center; }
   .action-dock {
@@ -1143,6 +1172,219 @@ export const PLAYER_PAGE_STYLES = `
     }
     .side-combo-card > div { transform: scale(calc(.33 * var(--table-scale, 1))) !important; }
   }
+    /* The opponent row is a measured strip: each hand owns one equal
+       horizontal slot. The card mode is selected from that slot's actual
+       width, rather than from hard-coded seat positions. */
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) {
+      display: grid !important;
+      grid-template-columns: repeat(var(--opponent-count, 1), minmax(0, 1fr));
+      height: max-content !important;
+      min-height: 0 !important;
+      align-items: start;
+      gap: 8px;
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] { --opponent-count: 1; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] { --opponent-count: 2; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] { --opponent-count: 3; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] { --opponent-count: 4; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] { --opponent-count: 5; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="6"] { --opponent-count: 6; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] { --opponent-count: 7; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] { --opponent-count: 8; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] { --opponent-count: 9; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) {
+      height: clamp(240px, 31vh, 300px) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      position: static !important;
+      width: 100% !important;
+      transform: none !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone {
+      container: opponent-zone / inline-size;
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-content {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .compact-card-row {
+      width: 100% !important;
+      justify-content: center;
+      gap: 4px !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone {
+      --opponent-card-scale: clamp(.24, calc((100cqw - 28px) / 276), .40);
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .compact-card-row {
+      display: grid !important;
+      grid-template-columns: repeat(3, max-content);
+      justify-content: center;
+      align-items: start;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .opponent-card-frame:last-child {
+      grid-column: 2;
+    }
+    @container opponent-zone (min-width: 220px) {
+      .opponent-hand-zone {
+        --opponent-card-scale: clamp(.40, calc((100cqw - 16px) / 368), .64);
+      }
+      .opponent-hand-zone .compact-card-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+      }
+      .opponent-hand-zone .opponent-card-frame:last-child {
+        grid-column: auto;
+      }
+    }
+
+    /* Fixed viewport fallback for browsers that do not resolve a query
+       against a grid item container: five or fewer desktop slots are wide
+       enough for a readable four-card row. */
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone {
+      --opponent-card-scale: .50;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone .opponent-card-frame:last-child {
+      grid-column: auto;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: -22px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform-origin: 50% 88%;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone [data-hand-card-index="0"] .opponent-card {
+      transform: translateY(8px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone [data-hand-card-index="1"] .opponent-card {
+      transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone [data-hand-card-index="2"] .opponent-card {
+      transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone [data-hand-card-index="3"] .opponent-card {
+      transform: translateY(8px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+
+    /* Final mode contract: narrow slots are a straight row; wide slots are
+       the oval hand. The status bubble is out of flow in both modes. */
+    .poker-table:not(.is-showdown) .opponent-hand-zone {
+      position: relative;
+      --opponent-card-scale: clamp(.22, calc((100cqw - 12px) / 368), .40);
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble {
+      position: absolute;
+      top: 28px;
+      left: 50% !important;
+      margin: 0;
+      transform: translateX(-50%) !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    @container opponent-zone (min-width: 220px) {
+      .opponent-hand-zone {
+        --opponent-card-scale: clamp(.40, calc((100cqw - 16px) / 368), .64);
+      }
+      .opponent-hand-zone [data-hand-card-index="0"] .opponent-card {
+        transform: translateY(8px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="1"] .opponent-card {
+        transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="2"] .opponent-card {
+        transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="3"] .opponent-card {
+        transform: translateY(8px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="0"] .opponent-card {
+      transform: translateY(8px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="1"] .opponent-card {
+      transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="2"] .opponent-card {
+      transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="3"] .opponent-card {
+      transform: translateY(8px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+  }
+
   @media (max-width: 760px) {
     .poker-page { padding: 6px; padding-bottom: 8px; }
     .view-tabs { margin-inline: 10px; }
@@ -1521,11 +1763,11 @@ export const PLAYER_PAGE_STYLES = `
     }
   }
 
-  /* Canonical card layout: two modes, one scalable fan configuration. */
+  /* Canonical card layout: two modes, one scalable card configuration. */
   @media (min-width: 761px) {
     .poker-table {
-      --opponent-card-scale: .55;
-      --opponent-card-overlap: 4px;
+      --opponent-card-scale: .64;
+      --opponent-card-overlap: 18px;
       --focal-card-scale: .68;
       --focal-card-overlap: 5px;
     }
@@ -1535,8 +1777,16 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="8"],
       [data-opponent-count="9"]
     ) {
-      --opponent-card-scale: .38;
-      --opponent-card-overlap: 4px;
+      --opponent-card-scale: .46;
+      --opponent-card-overlap: 30px;
+    }
+    .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .compact-card-row {
+      --opponent-card-overlap: 30px;
     }
     .opponents-row .compact-card-row,
     .hero-seat .compact-card-row {
@@ -1562,12 +1812,198 @@ export const PLAYER_PAGE_STYLES = `
     .hero-seat .focal-card-frame + .focal-card-frame {
       margin-left: calc(-1 * var(--focal-card-overlap));
     }
+
+    /* During showdown all four opponent cards must remain readable. The
+       compact deal mode is intentionally tighter, but cannot be used after
+       the opponents' cards are revealed. */
+    .poker-table.is-showdown .opponents-row {
+      --opponent-card-scale: .48;
+      --opponent-card-overlap: 4px;
+    }
+    .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) {
+      --opponent-card-scale: .30;
+      --opponent-card-overlap: 4px;
+    }
+    .poker-table.is-showdown .opponents-row .compact-card-row {
+      --opponent-card-overlap: 4px;
+    }
+    .poker-table.is-showdown .opponents-row .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+    }
+    .poker-table.is-showdown .opponents-row .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table.is-showdown .opponents-row .opponent-card-frame + .opponent-card-frame {
+      margin-left: calc(-1 * var(--opponent-card-overlap)) !important;
+    }
+
+    /* Before showdown, use the available table width instead of hiding the
+       four hole cards in compact mode. Five or fewer opponents get one readable row;
+       crowded tables get a small 2x2 grid. */
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) {
+      --opponent-card-scale: .50;
+      --opponent-card-overlap: 0px;
+      height: 220px;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) .player-seat-wrap {
+      width: 220px;
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap { top: 24px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1),
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { top: 48px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(1) { left: 8%; top: 88px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2) { left: 29%; top: 24px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4) { left: 71%; top: 24px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(5) { left: 92%; top: 88px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) .compact-card-row {
+      gap: 4px !important;
+      width: 100% !important;
+      justify-content: center;
+      flex-wrap: nowrap !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) .opponent-hand-content {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"],
+      [data-opponent-count="5"]
+    ) .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .seat-topline .seat-name-score {
+      font-size: 10px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .seat-action-bubble {
+      font-size: 10px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .compact-card-row {
+      flex-wrap: wrap !important;
+      width: 100%;
+      gap: 4px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-hand-content {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    /* Final desktop hand contract: a narrow slot is a straight row; a wide
+       slot is an oval hand. The bubble is always out of flow. */
+    .poker-table:not(.is-showdown) .opponent-hand-zone {
+      position: relative;
+      --opponent-card-scale: clamp(.22, calc((100cqw - 12px) / 368), .40);
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble {
+      position: absolute;
+      top: 28px;
+      left: 50% !important;
+      margin: 0;
+      transform: translateX(-50%) !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    @container opponent-zone (min-width: 220px) {
+      .opponent-hand-zone {
+        --opponent-card-scale: clamp(.40, calc((100cqw - 16px) / 368), .64);
+      }
+      .opponent-hand-zone [data-hand-card-index="0"] .opponent-card {
+        transform: translateY(8px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="1"] .opponent-card {
+        transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="2"] .opponent-card {
+        transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="3"] .opponent-card {
+        transform: translateY(8px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+    }
   }
 
   @media (max-width: 760px) {
     .poker-table {
-      --opponent-card-scale: .36;
-      --opponent-card-overlap: 4px;
+      --opponent-card-scale: .46;
+      --opponent-card-overlap: 30px;
       --focal-card-scale: .44;
       --focal-card-overlap: 4px;
     }
@@ -1636,10 +2072,111 @@ export const PLAYER_PAGE_STYLES = `
       transform: scale(calc(var(--focal-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
     }
     .opponents-row .opponent-card-frame + .opponent-card-frame {
-      margin-left: calc(-16.5px * var(--card-table-scale, var(--table-scale, 1)));
+      margin-left: calc(-30px * var(--card-table-scale, var(--table-scale, 1)));
     }
     .hero-seat .focal-card-frame + .focal-card-frame {
       margin-left: calc(-1 * var(--focal-card-overlap));
+    }
+
+    .poker-table.is-showdown .opponents-row {
+      --opponent-card-scale: .40;
+      --opponent-card-overlap: 20px;
+    }
+    .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) {
+      --opponent-card-scale: .30;
+      --opponent-card-overlap: 18px;
+    }
+    .poker-table.is-showdown .opponents-row .compact-card-row {
+      --opponent-card-overlap: 20px;
+    }
+    .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"],
+      [data-opponent-count="7"],
+      [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .compact-card-row {
+      --opponent-card-overlap: 18px;
+    }
+    .poker-table.is-showdown .opponents-row .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+    }
+    .poker-table.is-showdown .opponents-row .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table.is-showdown .opponents-row .opponent-card-frame + .opponent-card-frame {
+      margin-left: calc(-1 * var(--opponent-card-overlap)) !important;
+    }
+
+    /* Before showdown every opponent gets a compact 2x2 card grid. The
+       debug frame is the complete readable zone, so neighboring zones must
+       have a physical gap even on a narrow phone viewport. */
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) {
+      --opponent-card-scale: .32;
+      --opponent-card-overlap: 0px;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .player-seat-wrap {
+      width: 86px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .opponent-hand-content {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .compact-card-row {
+      width: 100% !important;
+      justify-content: center;
+      flex-wrap: wrap !important;
+      gap: 4px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"],
+      [data-opponent-count="2"],
+      [data-opponent-count="3"],
+      [data-opponent-count="4"]
+    ) .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
     }
     .opponents-row:is(
       [data-opponent-count="1"],
@@ -1663,6 +2200,15 @@ export const PLAYER_PAGE_STYLES = `
       width: 104px;
       transform: translateX(-50%) !important;
     }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 27%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 73%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 14%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 86%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 10%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 37%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 63%; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 90%; }
     .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
     .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 24px; }
     .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 24px; }
@@ -1714,5 +2260,747 @@ export const PLAYER_PAGE_STYLES = `
       z-index: 4;
       transform: translateY(-50%);
     }
+
+    /* Mobile uses the same equal-slot rule; only the card mode changes when
+       the slot falls below the 220px row threshold. */
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"],
+      [data-opponent-count="3"], [data-opponent-count="4"]
+    ) {
+      display: grid !important;
+      grid-template-columns: repeat(var(--opponent-count, 1), minmax(0, 1fr));
+      height: max-content !important;
+      min-height: 0 !important;
+      gap: 4px !important;
+      align-items: start;
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] { --opponent-count: 1; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] { --opponent-count: 2; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] { --opponent-count: 3; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] { --opponent-count: 4; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"],
+      [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .player-seat-wrap {
+      position: static !important;
+      width: 100% !important;
+      transform: none !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"],
+      [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone {
+      container: opponent-zone / inline-size;
+      width: 100% !important;
+      max-width: 100%;
+      --opponent-card-scale: clamp(.24, calc((100cqw - 20px) / 276), .40);
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"],
+      [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-content {
+      width: 100% !important;
+      max-width: 100%;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"],
+      [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .compact-card-row {
+      display: grid !important;
+      grid-template-columns: repeat(3, max-content);
+      justify-content: center;
+      align-items: start;
+      width: 100% !important;
+      gap: 4px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"],
+      [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-card-frame:last-child { grid-column: 2; }
+    @container opponent-zone (min-width: 220px) {
+      .opponent-hand-zone {
+        --opponent-card-scale: clamp(.40, calc((100cqw - 16px) / 368), .64);
+      }
+      .opponent-hand-zone .compact-card-row {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+      }
+      .opponent-hand-zone .opponent-card-frame:last-child { grid-column: auto; }
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .opponent-hand-zone {
+      --opponent-card-scale: .50;
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .opponent-card-frame:last-child {
+      grid-column: auto;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone {
+      --opponent-card-scale: .42;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      justify-content: center !important;
+      gap: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone .opponent-card-frame:last-child {
+      grid-column: auto !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: -22px !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform-origin: 50% 88%;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone [data-hand-card-index="0"] .opponent-card {
+      transform: translateY(7px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone [data-hand-card-index="1"] .opponent-card {
+      transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone [data-hand-card-index="2"] .opponent-card {
+      transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone [data-hand-card-index="3"] .opponent-card {
+      transform: translateY(7px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone {
+      position: relative;
+      --opponent-card-scale: clamp(.22, calc((100cqw - 12px) / 368), .40);
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble {
+      position: absolute;
+      top: 28px;
+      left: 50% !important;
+      margin: 0;
+      transform: translateX(-50%) !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    @container opponent-zone (min-width: 220px) {
+      .opponent-hand-zone {
+        --opponent-card-scale: clamp(.40, calc((100cqw - 16px) / 368), .64);
+      }
+      .opponent-hand-zone [data-hand-card-index="0"] .opponent-card {
+        transform: translateY(7px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="1"] .opponent-card {
+        transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="2"] .opponent-card {
+        transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+      .opponent-hand-zone [data-hand-card-index="3"] .opponent-card {
+        transform: translateY(7px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      }
+    }
+  }
+
+  /* Final specificity overrides for the two card modes. */
+  @media (min-width: 761px) {
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="0"] .opponent-card { transform: translateY(8px) rotate(-12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="1"] .opponent-card { transform: translateY(1px) rotate(-4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="2"] .opponent-card { transform: translateY(1px) rotate(4deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"]
+    ) .opponent-hand-zone [data-hand-card-index="3"] .opponent-card { transform: translateY(8px) rotate(12deg) scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important; }
+  }
+  @media (max-width: 760px) {
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone {
+      --opponent-card-scale: .20 !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+  }
+  @media (min-width: 761px) {
+    /* Closed hands use the same oval table seating as revealed hands. */
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) {
+      display: block !important;
+      position: relative !important;
+      height: clamp(240px, 31vh, 300px) !important;
+      padding: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"],
+      [data-opponent-count="4"], [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      position: absolute !important;
+      width: 220px !important;
+      transform: translateX(-50%) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap { width: 90px !important; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone { --opponent-card-scale: .18 !important; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 46px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 46px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 20%; top: 78px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 80%; top: 78px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 13%; top: 112px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 38%; top: 28px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 62%; top: 28px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 87%; top: 112px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(1) { left: 10%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2) { left: 30%; top: 48px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(3) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4) { left: 70%; top: 48px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(5) { left: 90%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(1) { left: 8%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(2) { left: 25%; top: 70px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(3) { left: 40%; top: 16px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(4) { left: 60%; top: 16px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(5) { left: 75%; top: 70px; }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(6) { left: 92%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7) { left: 92%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1) { left: 8%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2) { left: 22%; top: 72px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3) { left: 36%; top: 20px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(4) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5) { left: 64%; top: 20px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6) { left: 78%; top: 72px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { left: 81%; top: 72px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { left: 93%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1) { left: 7%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2) { left: 19%; top: 72px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3) { left: 31%; top: 20px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(4) { left: 43%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(5) { left: 57%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6) { left: 69%; top: 20px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { left: 72%; top: 20px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { left: 83%; top: 72px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { left: 94%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1) { left: 6%; top: 142px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2) { left: 17%; top: 72px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3) { left: 28%; top: 20px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4) { left: 39%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(5) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { left: 61%; top: 0; }
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+  }
+  @media (max-width: 760px) {
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) {
+      display: block !important;
+      position: relative !important;
+      height: 132px !important;
+      padding: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row:is(
+      [data-opponent-count="1"], [data-opponent-count="2"], [data-opponent-count="3"], [data-opponent-count="4"]
+    ) .player-seat-wrap {
+      position: absolute !important;
+      width: 104px !important;
+      transform: translateX(-50%) !important;
+    }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 24px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 24px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 20%; top: 46px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50%; top: 0; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 80%; top: 46px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 12.5%; top: 56px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 37.5%; top: 18px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 62.5%; top: 18px; }
+    .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 87.5%; top: 56px; }
+    .poker-table:not(.is-showdown) .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 0 !important;
+    }
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(.20) !important;
+    }
+  }
+  @media (min-width: 761px) {
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] {
+      animation: none !important;
+      transform: none !important;
+      rotate: none !important;
+    }
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+      rotate: none !important;
+    }
+  }
+  @media (max-width: 760px) {
+    .poker-table:not(.is-showdown) .opponent-hand-zone [data-hand-card-index] {
+      animation: none !important;
+      transform: none !important;
+      rotate: none !important;
+    }
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(.20) !important;
+      rotate: none !important;
+    }
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble.is-folded-action {
+    left: 50% !important;
+    right: auto !important;
+    top: 6px !important;
+    width: calc(50% - 9px) !important;
+    box-sizing: border-box;
+    text-align: center;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 20;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble:not(.is-folded-action) {
+    left: 50% !important;
+    right: auto !important;
+    top: 6px !important;
+    width: calc(50% - 9px) !important;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+    margin: 0 !important;
+    transform: none !important;
+    z-index: 20;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-topline {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-topline .seat-name-score {
+    width: calc(50% - 9px) !important;
+    max-width: calc(50% - 9px) !important;
+    margin-right: auto !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-inline-positions {
+    position: absolute;
+    right: 0;
+    top: -13px;
+    z-index: 22;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone.is-thinking .seat-action-bubble {
+    display: none !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone.is-thinking .seat-topline .seat-name-score {
+    border: 2px solid #facc15 !important;
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, .35), 0 2px 8px rgba(250, 204, 21, .45);
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone,
+  #root .poker-table.is-showdown .opponent-hand-zone {
+    --opponent-ui-scale: clamp(.55, calc(var(--opponent-card-scale) / .50), 1);
+  }
+  #root .poker-table .opponent-hand-zone .seat-topline .seat-name-score {
+    font-size: calc(12px * var(--opponent-ui-scale)) !important;
+    padding: calc(4px * var(--opponent-ui-scale)) calc(8px * var(--opponent-ui-scale)) !important;
+    gap: calc(6px * var(--opponent-ui-scale));
+  }
+  #root .poker-table .opponent-hand-zone .seat-action-bubble {
+    font-size: calc(10px * var(--opponent-ui-scale)) !important;
+    padding: calc(5px * var(--opponent-ui-scale)) calc(9px * var(--opponent-ui-scale)) !important;
+  }
+  #root .poker-table .opponent-hand-zone .seat-inline-positions {
+    gap: calc(3px * var(--opponent-ui-scale));
+  }
+  #root .poker-table .opponent-hand-zone .position-badge {
+    font-size: calc(10px * var(--opponent-ui-scale)) !important;
+    padding: calc(3px * var(--opponent-ui-scale)) calc(7px * var(--opponent-ui-scale)) !important;
+    border-width: max(1px, calc(2px * var(--opponent-ui-scale)));
+  }
+  #root .poker-table .hero-seat .coin-stack {
+    transform: scale(var(--hero-ui-scale, 1));
+    transform-origin: center bottom;
+  }
+  #root .poker-table .hero-seat .player-name {
+    font-size: calc(12px * var(--hero-ui-scale, 1)) !important;
+  }
+  #root .poker-table .opponents-row .opponent-hand-zone {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  @media (min-width: 761px) {
+    /* A hand zone owns the full horizontal slot, not just the card width. */
+    #root .poker-table .opponents-row[data-opponent-count="1"] .player-seat-wrap { width: calc(100% / 1 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="2"] .player-seat-wrap { width: calc(100% / 2 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap { width: calc(100% / 3 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap { width: calc(100% / 4 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="5"] .player-seat-wrap { width: calc(100% / 5 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap { width: calc(100% / 6 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap { width: calc(100% / 7 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap { width: calc(100% / 8 - 2px) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap { width: calc(100% / 9 - 2px) !important; }
+  }
+  @media (max-width: 760px) {
+    #root .poker-table .opponents-row[data-opponent-count="1"] .player-seat-wrap { width: 100% !important; }
+    #root .poker-table .opponents-row[data-opponent-count="2"] .player-seat-wrap { width: calc(100% / 2) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap { width: calc(100% / 3) !important; }
+    #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap { width: calc(100% / 4) !important; }
+  }
+  @media (min-width: 761px) {
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="1"] .player-seat-wrap { width: calc(100% / 1 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="2"] .player-seat-wrap { width: calc(100% / 2 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="3"] .player-seat-wrap { width: calc(100% / 3 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="4"] .player-seat-wrap { width: calc(100% / 4 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="5"] .player-seat-wrap { width: calc(100% / 5 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="6"] .player-seat-wrap { width: calc(100% / 6 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap { width: calc(100% / 7 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap { width: calc(100% / 8 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap { width: calc(100% / 9 - 2px) !important; }
+    /* Reveal adds the combination below the hand, but must not change the
+       card geometry. Keep the same non-overlapping row as the closed hand. */
+    #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-card-frame,
+    #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+      transform: none !important;
+      rotate: none !important;
+    }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    #root .poker-table .opponents-row .opponent-hand-zone .compact-card-row {
+      position: absolute !important;
+      left: 50% !important;
+      top: 35px !important;
+      width: calc(368px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)) + 12px) !important;
+      transform: translateX(-50%) !important;
+      gap: 4px !important;
+      justify-content: space-between !important;
+    }
+    #root .poker-table.is-showdown .opponents-row .opponent-hand-zone {
+      position: relative !important;
+      min-height: 400px !important;
+      height: auto !important;
+    }
+    #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content [data-testid^="player-result-"],
+    #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content:has([data-testid^="winner-"]) > div:has(> [data-testid^="winner-"]) {
+      position: absolute !important;
+      top: calc(35px + 132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)) + 5px) !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      overflow-wrap: anywhere;
+    }
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .compact-card-row {
+      position: relative !important;
+      left: auto !important;
+      top: auto !important;
+      transform: none !important;
+      width: calc(368px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)) + 12px) !important;
+      justify-content: space-between !important;
+    }
+    #root .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .opponent-hand-zone .compact-card-row {
+      position: absolute !important;
+      left: 50% !important;
+      top: 35px !important;
+      transform: translateX(-50%) !important;
+    }
+    #root .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="9"] .opponent-hand-zone {
+      position: relative !important;
+      min-height: 400px !important;
+    }
+  }
+  @media (min-width: 761px) {
+    #root .poker-table .hero-seat { --hero-ui-scale: clamp(.70, calc(var(--focal-card-scale) / .68), 1); }
+  }
+  @media (max-width: 760px) {
+    #root .poker-table .hero-seat { --hero-ui-scale: clamp(.65, calc(var(--focal-card-scale, .44) / .68), 1); }
+  }
+  @media (min-width: 761px) {
+    /* Reveal is additive: keep the pre-showdown arc and card row geometry. */
+    #root .poker-table.is-showdown .opponents-row {
+      display: block !important;
+      position: relative !important;
+      height: clamp(240px, 31vh, 300px) !important;
+      padding: 0 !important;
+    }
+    #root .poker-table.is-showdown .opponents-row .player-seat-wrap {
+      position: absolute !important;
+      width: 220px !important;
+      transform: translateX(-50%) !important;
+    }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      width: 90px !important;
+    }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone {
+      --opponent-card-scale: .18 !important;
+    }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 46px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 46px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 20%; top: 78px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 80%; top: 78px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 13%; top: 112px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 38%; top: 28px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 62%; top: 28px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 87%; top: 112px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(1) { left: 10%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2) { left: 30%; top: 48px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(3) { left: 50%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4) { left: 70%; top: 48px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(5) { left: 90%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(1) { left: 8%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(2) { left: 25%; top: 70px; }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(3) { left: 40%; top: 16px; }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(4) { left: 60%; top: 16px; }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(5) { left: 75%; top: 70px; }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .player-seat-wrap:nth-child(6) { left: 92%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7) { left: 92%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1) { left: 8%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2) { left: 22%; top: 72px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3) { left: 36%; top: 20px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(4) { left: 50%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5) { left: 64%; top: 20px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6) { left: 78%; top: 72px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { left: 81%; top: 72px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { left: 93%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1) { left: 7%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2) { left: 19%; top: 72px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3) { left: 31%; top: 20px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(4) { left: 43%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(5) { left: 57%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6) { left: 69%; top: 20px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { left: 72%; top: 20px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { left: 83%; top: 72px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { left: 94%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1) { left: 6%; top: 142px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2) { left: 17%; top: 72px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3) { left: 28%; top: 20px; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4) { left: 39%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(5) { left: 50%; top: 0; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { left: 61%; top: 0; }
+    #root .poker-table.is-showdown .opponent-hand-zone .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 0 !important;
+    }
+    #root .poker-table.is-showdown .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="6"], [data-opponent-count="7"],
+      [data-opponent-count="8"], [data-opponent-count="9"]
+    ) .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+    }
+    #root .poker-table.is-showdown .opponent-hand-zone [data-hand-card-index] .opponent-card {
+      transform: scale(calc(var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1)))) !important;
+    }
+    #root .poker-table.is-showdown .opponent-hand-zone .opponent-hand-content {
+      padding: 0 !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    #root .poker-table.is-showdown .opponent-hand-zone {
+      padding-bottom: 100px !important;
+    }
+    #root .poker-table.is-showdown .opponent-hand-zone .opponent-hand-content [data-testid^="player-result-"] {
+      position: absolute !important;
+      top: calc(100% + 5px);
+      left: 0;
+      width: 100%;
+      margin: 0 !important;
+    }
+    #root .poker-table.is-showdown .opponent-hand-zone .opponent-hand-content:has([data-testid^="winner-"]) > div:has(> [data-testid^="winner-"]) {
+      position: absolute !important;
+      top: calc(100% + 5px);
+      left: 0;
+      width: 100%;
+      margin: 0 !important;
+    }
+    #root .poker-table:not(.is-showdown) .opponent-hand-zone .opponent-card-frame,
+    #root .poker-table.is-showdown .opponent-hand-zone .opponent-card-frame {
+      width: calc(92px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+      height: calc(132px * var(--opponent-card-scale) * var(--card-table-scale, var(--table-scale, 1))) !important;
+    }
+  }
+  /* The round result is anchored to the table-center, so viewport changes do
+     not make it jump between the left, right, and board areas. */
+  #root .poker-table .table-center.has-showdown .table-showdown-center,
+  #root .poker-table.is-oval .table-center.has-showdown .table-showdown-center {
+    position: absolute !important;
+    inset: 0 !important;
+    grid-area: auto !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 20;
+    pointer-events: none;
+  }
+  #root .poker-table .table-center.has-showdown .table-showdown,
+  #root .poker-table.is-oval .table-center.has-showdown .table-showdown {
+    position: static !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: min(560px, calc(100% - 24px));
+    max-width: calc(100% - 24px);
+    pointer-events: auto;
+  }
+  #root .poker-table .table-center.has-showdown .table-board {
+    position: relative;
+    top: 16px;
+  }
+  #root .poker-table .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 25% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 75% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1) { left: 16.6667% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(2) { left: 50% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3) { left: 83.3333% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1) { left: 12.5% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(2) { left: 37.5% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(3) { left: 62.5% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { left: 87.5% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(1) { left: 8.3333% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(2) { left: 25% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(3) { left: 41.6667% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(4) { left: 58.3333% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(5) { left: 75% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(6) { left: 91.6667% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1) { left: 7.1429% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2) { left: 21.4286% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3) { left: 35.7143% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(4) { left: 50% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5) { left: 64.2857% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6) { left: 78.5714% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7) { left: 92.8571% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1) { left: 6.25% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2) { left: 18.75% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3) { left: 31.25% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(4) { left: 43.75% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(5) { left: 56.25% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6) { left: 68.75% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { left: 81.25% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { left: 93.75% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1) { left: 5.5556% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2) { left: 16.6667% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3) { left: 27.7778% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4) { left: 38.8889% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(5) { left: 50% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { left: 61.1111% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { left: 72.2222% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { left: 83.3333% !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { left: 94.4444% !important; }
+  @media (min-width: 761px) {
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone,
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .opponent-hand-content {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .opponent-card-frame,
+    #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .opponent-card-frame + .opponent-card-frame {
+      margin-left: 0 !important;
+      transform: none !important;
+      rotate: none !important;
+    }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="6"] .player-seat-wrap { width: calc(100% / 6 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="7"] .player-seat-wrap { width: calc(100% / 7 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="8"] .player-seat-wrap { width: calc(100% / 8 - 2px) !important; }
+    #root .poker-table.is-showdown .opponents-row[data-opponent-count="9"] .player-seat-wrap { width: calc(100% / 9 - 2px) !important; }
+  }
+  #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone [data-hand-card-index] {
+    animation: none !important;
+    transform: none !important;
+    rotate: none !important;
   }
 `;

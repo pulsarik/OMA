@@ -15,6 +15,13 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   expect(tableName).not.toBe('');
   await expect(page.getByText('Tell your friends the table name and PIN')).toBeVisible();
   await expect(page.getByLabel('Table name')).not.toBeEmpty();
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(page.url()).origin });
+  await page.getByRole('button', { name: 'Copy invitation' }).click();
+  await expect(page.getByRole('button', { name: 'Invitation copied' })).toBeVisible();
+  const invitation = await page.evaluate(() => navigator.clipboard.readText());
+  expect(invitation).toContain(`Website: ${new URL(page.url()).origin}`);
+  expect(invitation).toContain(`City: ${tableName}`);
+  expect(invitation).toContain(`PIN: ${pin}`);
   await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Dima');
   await expect(page.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('HOST · YOU');
 
