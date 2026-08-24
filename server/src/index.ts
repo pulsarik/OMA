@@ -41,6 +41,7 @@ import {
   stacksAfterPayout,
   visibleCommunity,
 } from './game';
+import { diagnosticPlayerSnapshot } from './problemSnapshot';
 
 const app = express();
 const server = http.createServer(app);
@@ -617,14 +618,9 @@ function diagnosticHandSnapshot(hand: any) {
     dealAuditNonce: hand.dealAuditNonce,
     dealSeed: hand.dealSeed,
     rngSeed: hand.rngSeed,
-    players: hand.players.map((player: any) => ({
-      id: player.id,
-      name: player.name,
-      isBot: Boolean(player.isBot),
-      hole: player.hole,
-      folded: Boolean(player.folded),
-      stack: player.stack,
-    })),
+    players: hand.players.map((player: any) => (
+      diagnosticPlayerSnapshot(player, hand.totalContributions?.[player.id] ?? 0)
+    )),
     community: hand.community,
     fullCommunity: hand.fullCommunity,
     stage: hand.stage,

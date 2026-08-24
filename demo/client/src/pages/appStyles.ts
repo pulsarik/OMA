@@ -204,6 +204,50 @@ export const APP_SHELL_STYLES = `
     }
   }
 
+  .horizontal-table-width-guard {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    padding: 20px;
+    box-sizing: border-box;
+    background: radial-gradient(circle at 50% 10%, #147a58, #064630 52%, #022c20);
+    color: #fff;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    text-align: center;
+  }
+  .horizontal-table-width-card {
+    width: min(100%, 420px);
+    border: 1px solid rgba(255,255,255,.24);
+    border-radius: 24px;
+    background: rgba(255,255,255,.1);
+    padding: 22px;
+    box-shadow: 0 24px 70px rgba(1,35,25,.34);
+    backdrop-filter: blur(12px);
+  }
+  .horizontal-table-width-icon {
+    display: block;
+    width: 68px;
+    height: 42px;
+    margin: 0 auto 18px;
+    border: 3px solid currentColor;
+    border-radius: 9px;
+    box-shadow: 0 0 0 7px rgba(255,255,255,.08);
+  }
+  .horizontal-table-width-card strong {
+    display: block;
+    font-size: clamp(20px, 5vw, 28px);
+    line-height: 1.1;
+  }
+  .horizontal-table-width-card p {
+    margin: 8px 0 0;
+    color: rgba(255,255,255,.78);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
 `;
 
 

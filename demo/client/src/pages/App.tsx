@@ -28,6 +28,8 @@ type UiLanguage = 'en' | 'ru';
 
 const PLAYER_NAME_COOKIE = 'omaha-player-name';
 const PLAYER_NAME_MAX_LENGTH = 30;
+const DESKTOP_TABLE_LAYOUT_MIN_WIDTH = 761;
+const MOBILE_TABLE_LAYOUT_MAX_WIDTH = 560;
 
 function storedPlayerName() {
   const cookie = document.cookie
@@ -2781,8 +2783,9 @@ function PlayerPage({
   };
 
   return (
-    <div className="poker-page">
-      <style>{PLAYER_PAGE_STYLES}</style>
+    <>
+      <div className="poker-page">
+        <style>{PLAYER_PAGE_STYLES}</style>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
       </div>
       <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
@@ -3268,7 +3271,9 @@ function PlayerPage({
       /> : null}
       </section> : null}
 
-    </div>
+      </div>
+      <HorizontalTableWidthGuard />
+    </>
   );
 }
 
@@ -4937,6 +4942,52 @@ function PortraitOrientationGuard() {
           {ui(
             'The game is temporarily available in portrait orientation only.',
             'Пока игра доступна только в вертикальной ориентации.',
+          )}
+        </p>
+      </div>
+    </aside>
+  );
+}
+
+function isNarrowDesktopTableViewport() {
+  const width = window.innerWidth;
+  const isPortraitTouchDevice = window.matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
+  return width > MOBILE_TABLE_LAYOUT_MAX_WIDTH
+    && width < DESKTOP_TABLE_LAYOUT_MIN_WIDTH
+    && !isPortraitTouchDevice;
+}
+
+function HorizontalTableWidthGuard() {
+  const [isVisible, setIsVisible] = useState(isNarrowDesktopTableViewport);
+
+  useEffect(() => {
+    const updateVisibility = () => setIsVisible(isNarrowDesktopTableViewport());
+    updateVisibility();
+    window.addEventListener('resize', updateVisibility);
+    window.visualViewport?.addEventListener('resize', updateVisibility);
+    return () => {
+      window.removeEventListener('resize', updateVisibility);
+      window.visualViewport?.removeEventListener('resize', updateVisibility);
+    };
+  }, []);
+
+  if (!isVisible) return null;
+
+  return (
+    <aside
+      className="horizontal-table-width-guard"
+      role="dialog"
+      aria-modal="true"
+      aria-label={ui('Wider window required', 'Нужно увеличить окно')}
+      data-testid="horizontal-table-width-guard"
+    >
+      <div className="horizontal-table-width-card">
+        <span className="horizontal-table-width-icon" aria-hidden="true" />
+        <strong>{ui('Make the window wider', 'Увеличьте окно')}</strong>
+        <p>
+          {ui(
+            'The table needs more horizontal space. Widen the browser window to continue.',
+            'Столу нужно больше места по ширине. Увеличьте окно браузера, чтобы продолжить.',
           )}
         </p>
       </div>
