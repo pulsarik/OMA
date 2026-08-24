@@ -714,8 +714,8 @@ export const PLAYER_PAGE_STYLES = `
     border-radius: 999px;
     background: #f59e0b;
     color: #fff;
-    padding: 3px 7px;
-    font-size: 10px;
+    padding: 3px 8px;
+    font-size: 11px;
     font-weight: 950;
     line-height: 1;
     box-shadow: 0 2px 8px rgba(0,0,0,.3);
@@ -1175,6 +1175,11 @@ export const PLAYER_PAGE_STYLES = `
     .poker-table.is-crowded .opponents-row {
       gap: 8px 6px;
     }
+    /* At compact heights the normal oval proportions leave the hero row
+       below the viewport. Use the same scale as the cards for these strips. */
+    .poker-table .opponents-row {
+      height: clamp(180px, calc(31vh * var(--table-scale, 1)), 280px);
+    }
     .player-seat { padding: 4px !important; }
     .compact-card-row,
     .board-row { gap: 8px !important; }
@@ -1217,7 +1222,7 @@ export const PLAYER_PAGE_STYLES = `
     ) .opponent-card { transform: scale(calc(.326 * var(--card-table-scale, var(--table-scale, 1)))) !important; }
     .table-center,
     .poker-table.is-crowded .table-center {
-      min-height: 92px;
+      min-height: clamp(84px, calc(132px * var(--table-scale, 1)), 132px);
       border-radius: 20px;
       padding: 6px;
     }
@@ -1233,6 +1238,22 @@ export const PLAYER_PAGE_STYLES = `
       height: calc(43.56px * var(--table-scale, 1)) !important;
     }
     .side-combo-card > div { transform: scale(calc(.33 * var(--table-scale, 1))) !important; }
+
+    /* Keep the result card and board together, but lift the whole showdown
+       group as the viewport gets shorter so the hero cards remain visible. */
+    .poker-table.is-showdown .table-showdown-center {
+      transform: translateY(clamp(-72px, calc((100dvh - 900px) * .28), 0px));
+    }
+    .poker-table.is-showdown .showdown-status {
+      transform: scale(var(--table-scale, 1));
+      transform-origin: center center;
+    }
+  }
+  @media (min-width: 761px) and (max-height: 760px) {
+    .poker-table,
+    .poker-table.is-crowded {
+      height: clamp(420px, calc(100dvh - 190px), 560px);
+    }
   }
     /* The opponent row is a measured strip: each hand owns one equal
        horizontal slot. The card mode is selected from that slot's actual
@@ -2550,7 +2571,11 @@ export const PLAYER_PAGE_STYLES = `
     ) .player-seat-wrap { width: 90px !important; }
     .poker-table:not(.is-showdown) .opponents-row:is(
       [data-opponent-count="6"], [data-opponent-count="7"], [data-opponent-count="8"], [data-opponent-count="9"]
-    ) .opponent-hand-zone { --opponent-card-scale: .18 !important; }
+    ) .opponent-hand-zone {
+      /* Four cards should use a readable desktop size instead of collapsing
+         to the tiny .18 fallback that made ten-player tables unreadable. */
+      --opponent-card-scale: clamp(.28, calc(100vw / 5000px), .36) !important;
+    }
     .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
     .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 46px; }
     .poker-table:not(.is-showdown) .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(2) { left: 68%; top: 46px; }
@@ -2744,8 +2769,8 @@ export const PLAYER_PAGE_STYLES = `
     gap: calc(3px * var(--opponent-ui-scale));
   }
   #root .poker-table .opponent-hand-zone .position-badge {
-    font-size: calc(10px * var(--opponent-ui-scale)) !important;
-    padding: calc(3px * var(--opponent-ui-scale)) calc(7px * var(--opponent-ui-scale)) !important;
+    font-size: calc(11px * var(--opponent-ui-scale)) !important;
+    padding: calc(3px * var(--opponent-ui-scale)) calc(8px * var(--opponent-ui-scale)) !important;
     border-width: max(1px, calc(2px * var(--opponent-ui-scale)));
   }
   #root .poker-table .hero-seat .coin-stack {
@@ -2872,7 +2897,7 @@ export const PLAYER_PAGE_STYLES = `
       [data-opponent-count="6"], [data-opponent-count="7"],
       [data-opponent-count="8"], [data-opponent-count="9"]
     ) .opponent-hand-zone {
-      --opponent-card-scale: .18 !important;
+      --opponent-card-scale: clamp(.28, calc(100vw / 5000px), .36) !important;
     }
     #root .poker-table.is-showdown .opponents-row[data-opponent-count="1"] .player-seat-wrap:nth-child(1) { left: 50%; top: 0; }
     #root .poker-table.is-showdown .opponents-row[data-opponent-count="2"] .player-seat-wrap:nth-child(1) { left: 32%; top: 46px; }
@@ -3111,8 +3136,8 @@ export const PLAYER_PAGE_STYLES = `
     pointer-events: none;
   }
   #root .poker-table .seat-card-positions .position-badge {
-    font-size: calc(10px * var(--opponent-ui-scale, 1));
-    padding: calc(3px * var(--opponent-ui-scale, 1)) calc(7px * var(--opponent-ui-scale, 1));
+    font-size: calc(11px * var(--opponent-ui-scale, 1));
+    padding: calc(3px * var(--opponent-ui-scale, 1)) calc(8px * var(--opponent-ui-scale, 1));
   }
   #root .poker-table [data-testid^="player-result-"] {
     overflow-wrap: normal !important;
@@ -3136,7 +3161,8 @@ export const PLAYER_PAGE_STYLES = `
     min-width: 0;
     margin: 0 !important;
   }
-  #root .poker-table .opponent-hand-zone .seat-topline .seat-name-score {
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-topline .seat-name-score,
+  #root .poker-table.is-showdown .opponent-hand-zone .seat-topline .seat-name-score {
     position: absolute !important;
     top: 0 !important;
     right: 50% !important;
@@ -3147,7 +3173,8 @@ export const PLAYER_PAGE_STYLES = `
     margin: 0 !important;
     justify-self: end !important;
   }
-  #root .poker-table .opponent-hand-zone .seat-topline-right {
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-topline-right,
+  #root .poker-table.is-showdown .opponent-hand-zone .seat-topline-right {
     position: absolute;
     top: 0;
     left: 50%;
@@ -3219,10 +3246,48 @@ export const PLAYER_PAGE_STYLES = `
     word-break: normal !important;
     text-align: center;
   }
+  #root .poker-table .opponent-hand-zone .seat-betting-action {
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    min-height: 20px;
+    margin: 5px auto 0;
+    border: 1px solid rgba(167, 243, 208, .55);
+    border-radius: 999px;
+    background: rgba(6, 78, 59, .52);
+    color: #ecfdf5;
+    padding: 3px 10px;
+    font-size: clamp(12px, 5cqw, 20px);
+    font-weight: 950;
+    letter-spacing: .06em;
+    line-height: 1.1;
+    text-align: center;
+    white-space: nowrap;
+  }
   #root .poker-table .opponent-hand-zone .seat-combination > span {
     white-space: normal;
     overflow-wrap: break-word;
     word-break: normal;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-topline .seat-name-score,
+  #root .poker-table.is-showdown .opponent-hand-zone .seat-topline .seat-name-score {
+    font-size: clamp(11px, 4cqw, 15px) !important;
+    gap: 6px !important;
+    padding: 4px 8px !important;
+    left: 0 !important;
+    right: auto !important;
+    width: 80% !important;
+    max-width: 80% !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-topline-right,
+  #root .poker-table.is-showdown .opponent-hand-zone .seat-topline-right {
+    left: 80% !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble,
+  #root .poker-table.is-showdown .opponent-hand-zone .seat-action-bubble {
+    left: 80% !important;
+    right: auto !important;
+    max-width: calc(20% - 8px) !important;
   }
   @media (min-width: 761px) {
     #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content [data-testid^="player-result-"] {
@@ -3248,15 +3313,44 @@ export const PLAYER_PAGE_STYLES = `
     transform: none !important;
   }
   #root .poker-table .opponent-hand-zone .opponent-hand-content {
+    container: opponent-zone / inline-size;
     box-sizing: border-box;
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
-    padding-top: max(22px, calc(28px * var(--opponent-ui-scale, 1))) !important;
+    padding-top: max(24px, calc(30px * var(--opponent-ui-scale, 1))) !important;
   }
   #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-content {
     box-sizing: border-box !important;
-    padding-top: max(22px, calc(28px * var(--opponent-ui-scale, 1))) !important;
+    padding-top: max(24px, calc(30px * var(--opponent-ui-scale, 1))) !important;
+  }
+  /* The four opponent cards are the visual content of the slot: the row and
+     its four frames must consume the complete horizontal zone. */
+  #root .poker-table .opponents-row .opponent-hand-zone .opponent-hand-card-area,
+  #root .poker-table .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 92 / 132;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card {
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card .card-rank {
+    font-size: clamp(12px, calc(48px * var(--opponent-card-scale, 1) * var(--card-table-scale, var(--table-scale, 1))), 48px) !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card .card-suit {
+    font-size: clamp(11px, calc(44px * var(--opponent-card-scale, 1) * var(--card-table-scale, var(--table-scale, 1))), 44px) !important;
   }
   #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
     gap: 4px !important;
@@ -3265,7 +3359,7 @@ export const PLAYER_PAGE_STYLES = `
     position: relative !important;
     left: auto !important;
     top: auto !important;
-    width: max-content !important;
+    width: 100% !important;
     max-width: 100%;
     margin: 0 auto !important;
     transform: none !important;
@@ -3275,7 +3369,7 @@ export const PLAYER_PAGE_STYLES = `
     position: relative !important;
     left: auto !important;
     top: auto !important;
-    width: max-content !important;
+    width: 100% !important;
     max-width: 100%;
     margin: 0 auto !important;
     transform: none !important;
@@ -3290,6 +3384,121 @@ export const PLAYER_PAGE_STYLES = `
     #root .poker-table .opponent-hand-zone.is-thinking .seat-topline .seat-name-score,
     #root .poker-table .player-meta.is-thinking .player-name {
       animation: none !important;
+    }
+  }
+  /* Keep the final cascade contract explicit: the card row is the zone's
+     full width, including after the older responsive rules above. */
+  #root .poker-table .opponents-row .opponent-hand-zone .opponent-hand-card-area,
+  #root .poker-table .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponents-row[data-opponent-count] .opponent-hand-zone .opponent-hand-card-area > .compact-card-row,
+  #root .poker-table.is-showdown .opponents-row[data-opponent-count] .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    justify-content: stretch !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame,
+  #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 92 / 132;
+  }
+  #root .poker-table:not(.is-showdown) .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card,
+  #root .poker-table.is-showdown .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card {
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important;
+  }
+  #root .poker-table:not(.is-showdown) .opponents-row[data-opponent-count] .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame:last-child,
+  #root .poker-table.is-showdown .opponents-row[data-opponent-count] .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame:last-child {
+    grid-column: auto !important;
+  }
+  /* Compact cards must remain a straight row at every slot width. The old
+     fan/overlap rules made small cards look round and eventually collapsed
+     them into capsules. */
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    flex-wrap: nowrap !important;
+    justify-content: stretch !important;
+    align-items: start !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame,
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame + .opponent-card-frame {
+    grid-column: auto !important;
+    margin-left: 0 !important;
+    transform: none !important;
+    rotate: none !important;
+  }
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card,
+  #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row [data-testid="card-back"] {
+    transform: none !important;
+    rotate: none !important;
+    border-radius: 10% !important;
+    transform-origin: center center !important;
+  }
+  /* At the narrow desktop widths the oval's six-to-nine absolute seats leave
+     each hand too little room for its labels and cards. Switch the opponent
+     seats themselves to a real grid; the hand inside each seat stays linear. */
+  @media (min-width: 761px) and (max-width: 1100px) {
+    #root .poker-table .opponents-row:is(
+      [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) {
+      display: grid !important;
+      position: relative !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      grid-auto-rows: minmax(80px, auto);
+      height: auto !important;
+      min-height: 0 !important;
+      align-self: start !important;
+      padding: 0 !important;
+      gap: 14px 8px !important;
+      align-items: start !important;
+    }
+    #root .poker-table .opponents-row[data-opponent-count="7"],
+    #root .poker-table .opponents-row[data-opponent-count="8"] {
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+    #root .poker-table .opponents-row:is(
+      [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      position: static !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      align-self: start !important;
+      margin: 0 !important;
+      transform: none !important;
+    }
+    #root .poker-table.is-showdown .opponents-row:is(
+      [data-opponent-count="5"], [data-opponent-count="6"],
+      [data-opponent-count="7"], [data-opponent-count="8"],
+      [data-opponent-count="9"]
+    ) .player-seat-wrap {
+      position: static !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      align-self: start !important;
+      margin: 0 !important;
+      transform: none !important;
+    }
+    #root .poker-table .opponents-row .opponent-hand-zone,
+    #root .poker-table .opponents-row .opponent-hand-content {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+    }
+    #root .poker-table .opponents-row .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+      margin-top: 2px !important;
+      top: 2px !important;
+      transform: translateY(2px) !important;
     }
   }
 `;

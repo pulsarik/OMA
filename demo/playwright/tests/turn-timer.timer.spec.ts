@@ -81,3 +81,29 @@ test('a matched timed-out player is automatically checked', async ({ page, brows
   expect(state.currentPlayerId).toBe('P1');
   await guestContext.close();
 });
+
+test('holds the last opponent action for one second when a new street gives me the turn', async ({ page, browser, request }) => {
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  const { hostUrl } = await createTwoHumanTable(page, guest);
+  const apiUrl = apiUrlForPlayerLink(hostUrl);
+
+  await page.getByRole('button', { name: /^Call / }).click();
+  await guest.getByRole('button', { name: 'Check' }).click();
+
+  await expect.poll(async () => {
+    const state = await (await request.get(apiUrl)).json();
+    return { stage: state.stage, currentPlayerId: state.currentPlayerId };
+  }).toEqual({ stage: 'flop', currentPlayerId: 'P1' });
+
+  const opponentAction = page.getByTestId('opponent-betting-action-P2');
+  await expect(opponentAction).toBeVisible();
+  await expect(opponentAction).toHaveText('CHECK');
+  const pauseStartedAt = Date.now();
+  await expect(page.locator('.action-dock')).toHaveCount(0);
+  await expect.poll(() => Date.now() - pauseStartedAt, { timeout: 2_000 }).toBeGreaterThanOrEqual(700);
+  await expect(opponentAction).toHaveCount(0);
+  await expect(page.locator('.action-dock')).toBeVisible();
+
+  await guestContext.close();
+});

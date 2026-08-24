@@ -76,6 +76,61 @@ test('pot details and bet-size math are available on demand', async ({ page, req
   }).toBe('quarter');
 });
 
+test('opponent betting slot shows the latest action until showdown reveals the combination', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const href = await createDefaultHumanVsBotDeal(page);
+
+  const opponent = page.locator('[data-player-seat="P2"]');
+  const bettingAction = page.getByTestId('opponent-betting-action-P2');
+  await expect(page.getByTestId('opponent-betting-status-P2')).toHaveCount(0);
+  await expect(bettingAction).toHaveCount(0);
+  await expect(opponent.locator('[data-testid^="player-result-"]')).toHaveCount(0);
+
+  await page.getByRole('button', { name: /^Call / }).click();
+  const apiUrl = apiUrlForPlayerLink(href);
+  await expect.poll(async () => {
+    const state = await (await request.get(apiUrl)).json();
+    return state.actions.some((action: { playerId: string; move: string }) => (
+      action.playerId === 'P2' && ['check', 'call', 'bet', 'raise', 'fold'].includes(action.move)
+    ));
+  }, { timeout: 30_000 }).toBe(true);
+  await expect(bettingAction).toBeVisible();
+  await expect(bettingAction).toHaveText(/^(CHECK|CALL|BET|RAISE|FOLD)( .+)?$/);
+  await expect(opponent.locator('.seat-action-bubble')).toHaveCount(0);
+  const nameMetrics = await opponent.locator('.seat-topline .seat-name-score').evaluate((element) => {
+    const style = getComputedStyle(element);
+    const nameBox = element.getBoundingClientRect();
+    const toplineBox = element.closest('.seat-topline')?.getBoundingClientRect();
+    return {
+      fontSize: Number.parseFloat(style.fontSize),
+      widthRatio: toplineBox && toplineBox.width > 0 ? nameBox.width / toplineBox.width : 0,
+      maxWidth: style.maxWidth,
+      right: style.right,
+      left: style.left,
+      computedWidth: style.width,
+      nameBoxWidth: nameBox.width,
+      toplineBoxWidth: toplineBox?.width ?? 0,
+    };
+  });
+  expect(nameMetrics.fontSize).toBeGreaterThanOrEqual(11);
+  expect(nameMetrics.fontSize).toBeLessThanOrEqual(15);
+  expect(nameMetrics.widthRatio).toBeGreaterThanOrEqual(0.79);
+  expect(nameMetrics.widthRatio).toBeLessThanOrEqual(0.81);
+  expect(nameMetrics.maxWidth).toBe('80%');
+  expect(nameMetrics.left).toBe('0px');
+
+  const cardBox = await opponent.locator('.compact-card-row').boundingBox();
+  const statusBox = await bettingAction.boundingBox();
+  expect(cardBox).toBeTruthy();
+  expect(statusBox).toBeTruthy();
+  expect(statusBox!.y).toBeGreaterThanOrEqual(cardBox!.y + cardBox!.height);
+
+  await page.getByRole('button', { name: 'Fold' }).click();
+  await expect(page.getByRole('button', { name: 'New deal' })).toBeVisible({ timeout: 30_000 });
+  await expect(bettingAction).toHaveCount(0);
+  await expect(opponent.locator('[data-testid^="player-result-"]')).toBeVisible();
+});
+
 test('opponent seats form a stable responsive layout as content changes at every table size', async ({ page }) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -111,15 +166,13 @@ test('opponent seats form a stable responsive layout as content changes at every
         return {
           zone: { left: zoneBox.left, top: zoneBox.top, right: zoneBox.right, bottom: zoneBox.bottom },
           content,
-          borderStyle: getComputedStyle(zone).borderStyle,
         };
       })
     ));
 
     expect(geometry.filter(Boolean), `${expectedCount} opponent hand zones should be rendered`).toHaveLength(expectedCount);
     const zones = geometry.filter((item): item is NonNullable<typeof item> => Boolean(item));
-    zones.forEach(({ zone, content, borderStyle }, index) => {
-      expect(borderStyle, `opponent hand ${index + 1} should keep its debug frame`).toBe('dashed');
+    zones.forEach(({ zone, content }, index) => {
       content.forEach((item, contentIndex) => {
         const detail = `opponent hand ${index + 1} content ${contentIndex + 1}`;
         expect(item.left, `${detail} exits left`).toBeGreaterThanOrEqual(zone.left - 1);
@@ -222,7 +275,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByTestId('stats-tile')).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'TABLE' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeDisabled();
-  await expect(page.getByTestId('player-name-P1')).toHaveText('Dima (you)');
+  await expect(page.getByTestId('player-name-P1')).toHaveText('Dima');
   await expect(page.getByTestId('player-name-P2')).toHaveText('Anna');
   await expect(page.getByText(/_bot$/)).toHaveCount(0);
   await expect(page.getByTestId('player-score-P2')).toBeVisible();
@@ -241,7 +294,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(actionDock).toHaveCSS('position', 'static');
   expect(actionDockBox!.y).toBeGreaterThanOrEqual(tableBox!.y + tableBox!.height);
   const yourSeat = page.locator('[data-player-seat="P1"]');
-  await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toBeVisible();
+  await expect(yourSeat.getByText('YOUR TURN', { exact: true })).toHaveCount(0);
   await expect(page.locator('.action-dock').getByText('YOUR TURN', { exact: true })).toHaveCount(0);
 
   const apiUrl = apiUrlForPlayerLink(href);
@@ -278,14 +331,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
 
   const thinkingSeat = page.getByTestId('active-player-P2');
   await expect(thinkingSeat).toBeVisible();
-  const thinkingBubble = thinkingSeat.getByText('THINKING…', { exact: true });
-  await expect(thinkingBubble).toBeVisible();
-  const thinkingBox = (await thinkingBubble.boundingBox())!;
-  const thinkingTableBox = (await page.getByTestId('poker-table').boundingBox())!;
-  expect(thinkingBox.x).toBeGreaterThanOrEqual(thinkingTableBox.x);
-  expect(thinkingBox.y).toBeGreaterThanOrEqual(thinkingTableBox.y);
-  expect(thinkingBox.x + thinkingBox.width).toBeLessThanOrEqual(thinkingTableBox.x + thinkingTableBox.width);
-  expect(thinkingBox.y + thinkingBox.height).toBeLessThanOrEqual(thinkingTableBox.y + thinkingTableBox.height);
+  await expect(thinkingSeat.getByText('THINKING…', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Anna — THINKING…', { exact: true })).toHaveCount(0);
 
   await expect.poll(async () => {

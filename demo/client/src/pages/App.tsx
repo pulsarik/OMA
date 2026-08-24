@@ -26,6 +26,28 @@ const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module
 
 type UiLanguage = 'en' | 'ru';
 
+const PLAYER_NAME_COOKIE = 'omaha-player-name';
+const PLAYER_NAME_MAX_LENGTH = 30;
+
+function storedPlayerName() {
+  const cookie = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(`${PLAYER_NAME_COOKIE}=`));
+  if (!cookie) return '';
+
+  try {
+    return decodeURIComponent(cookie.slice(PLAYER_NAME_COOKIE.length + 1)).trim().slice(0, PLAYER_NAME_MAX_LENGTH);
+  } catch {
+    return '';
+  }
+}
+
+function rememberPlayerName(name: string) {
+  const normalizedName = name.trim().slice(0, PLAYER_NAME_MAX_LENGTH);
+  if (!normalizedName) return;
+  document.cookie = `${PLAYER_NAME_COOKIE}=${encodeURIComponent(normalizedName)}; Max-Age=31536000; Path=/; SameSite=Lax`;
+}
+
 function storedLanguage(): UiLanguage {
   return 'en';
 }
@@ -1234,6 +1256,7 @@ function PlayerSeat({
   isLowWinner = false,
   isCurrentTurn = false,
   isWaitingForNextDeal = false,
+  isBetting = false,
   blindLabel,
   isDealer = false,
   disconnected = false,
@@ -1255,6 +1278,7 @@ function PlayerSeat({
   isLowWinner?: boolean;
   isCurrentTurn?: boolean;
   isWaitingForNextDeal?: boolean;
+  isBetting?: boolean;
   blindLabel?: string;
   isDealer?: boolean;
   disconnected?: boolean;
@@ -1269,6 +1293,7 @@ function PlayerSeat({
     ? `${localizedMove(action.move).toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}${actionBetSize ? ` (${localizedBetSize(actionBetSize)})` : ''}`
     : undefined;
   const isYourTurn = isCurrentTurn && isYou && !isBot;
+  const suppressUpperBettingAction = compact && !isYou && isBetting && Boolean(actionLabel);
   const bubbleLabel = isWaitingForNextDeal
     ? ui('WAITING', 'ЖДЁМ')
     : disconnected
@@ -1372,7 +1397,7 @@ function PlayerSeat({
             {ui('OUT', 'ВЫБЫЛ')}
           </span>
         */}
-        {bubbleLabel && !(compact && !isYou && hasWinningHand) ? (
+        {bubbleLabel && !isCurrentTurn && !suppressUpperBettingAction && !(compact && !isYou && hasWinningHand) ? (
           <AdaptiveSeatBubble
             label={actionLabel ?? bubbleLabel}
             compact={compact}
@@ -1493,7 +1518,15 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-          {hasCombination ? (
+          {compact && !isYou && isBetting && actionLabel ? (
+            <div
+              className="seat-betting-action"
+              data-testid={`opponent-betting-action-${id}`}
+              aria-label={actionLabel}
+            >
+              {actionLabel}
+            </div>
+          ) : hasCombination ? (
             <div
               className="seat-combination"
               data-testid={`player-result-${id}`}
@@ -1540,7 +1573,7 @@ function PlayerSeat({
               whiteSpace: 'nowrap',
             }}
           >
-            {tablePlayerName(name, id)}{isYou ? ` (${ui('you', 'вы')})` : ''}
+            {tablePlayerName(name, id)}
           </span>
         </div>
       ) : null}
@@ -1610,6 +1643,12 @@ function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: strin
   return [...(actions ?? [])].reverse().find((action) => (
     action.playerId === playerId && action.stage === stage
   ));
+}
+
+const BETTING_STREETS = ['preflop', 'flop', 'turn', 'river'];
+
+function isBettingStreetAdvance(previousStage: string, nextStage: string) {
+  return BETTING_STREETS.indexOf(nextStage) === BETTING_STREETS.indexOf(previousStage) + 1;
 }
 
 function playerResult(result: HiLoResult | undefined, id: string) {
@@ -2283,8 +2322,11 @@ function PlayerPage({
   const [isTabletPortraitTable, setIsTabletPortraitTable] = useState(
     () => window.innerWidth >= 761 && window.innerWidth <= 820,
   );
+  const [streetPauseAction, setStreetPauseAction] = useState<{ playerId: string; action: ActionLog } | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
+  const playerRef = useRef<PlayerView | null>(null);
+  const streetPauseTimerRef = useRef<number | null>(null);
   const retryPendingAfterSyncRef = useRef(false);
   const joinedPlayerSocketRef = useRef<WebSocket | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
@@ -2305,6 +2347,40 @@ function PlayerPage({
     const elapsedAtReceipt = Math.max(0, timing.serverNow - timing.lastActivity);
     setSessionDeadline(Date.now() + Math.max(0, timing.expiresAfterMs - elapsedAtReceipt));
     setSessionWarningRemainingMs(Math.max(0, timing.expiresAfterMs - timing.warningAfterMs));
+  }
+
+  function applyPlayerState(nextPlayer: PlayerView) {
+    const previousPlayer = playerRef.current;
+    if (
+      previousPlayer
+      && previousPlayer.handId === nextPlayer.handId
+      && previousPlayer.revision > nextPlayer.revision
+    ) return;
+
+    if (
+      previousPlayer
+      && previousPlayer.handId === nextPlayer.handId
+      && previousPlayer.stage !== nextPlayer.stage
+      && isBettingStreetAdvance(previousPlayer.stage, nextPlayer.stage)
+      && nextPlayer.currentPlayerId === playerId
+    ) {
+      const completedAction = [...nextPlayer.actions].reverse().find((action) => (
+        action.stage === previousPlayer.stage && action.playerId !== playerId
+      ));
+      if (completedAction) {
+        setStreetPauseAction({ playerId: completedAction.playerId, action: completedAction });
+        if (streetPauseTimerRef.current !== null) window.clearTimeout(streetPauseTimerRef.current);
+        streetPauseTimerRef.current = window.setTimeout(() => {
+          setStreetPauseAction((current) => (
+            current?.action.at === completedAction.at ? null : current
+          ));
+          streetPauseTimerRef.current = null;
+        }, 1_000);
+      }
+    }
+
+    playerRef.current = nextPlayer;
+    setPlayer(nextPlayer);
   }
 
   useEffect(() => {
@@ -2341,6 +2417,10 @@ function PlayerPage({
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => () => {
+    if (streetPauseTimerRef.current !== null) window.clearTimeout(streetPauseTimerRef.current);
+  }, []);
+
   useEffect(() => {
     const updateTableScale = () => {
       const isCoarsePortrait = window.matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
@@ -2352,7 +2432,10 @@ function PlayerPage({
         return;
       }
       const widthScale = window.innerWidth / 1280;
-      const heightScale = window.innerHeight / 780;
+      // visualViewport follows the actually usable area when browser chrome
+      // or the on-screen keyboard changes the viewport height.
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const heightScale = viewportHeight / 780;
       const playerCount = player?.players.length ?? 10;
       const viewportScale = Math.max(0.6, Math.min(widthScale, heightScale));
       const playerDensityScale = playerCount <= 5
@@ -2367,7 +2450,11 @@ function PlayerPage({
     };
     updateTableScale();
     window.addEventListener('resize', updateTableScale);
-    return () => window.removeEventListener('resize', updateTableScale);
+    window.visualViewport?.addEventListener('resize', updateTableScale);
+    return () => {
+      window.removeEventListener('resize', updateTableScale);
+      window.visualViewport?.removeEventListener('resize', updateTableScale);
+    };
   }, [player?.players.length]);
 
   useEffect(() => {
@@ -2385,13 +2472,7 @@ function PlayerPage({
       .then((nextPlayer) => {
         applySessionTiming(nextPlayer.session);
         const localizedPlayer = withLocalTurnDeadline(nextPlayer);
-        setPlayer((currentPlayer) => (
-          currentPlayer
-          && currentPlayer.handId === localizedPlayer.handId
-          && currentPlayer.revision > localizedPlayer.revision
-            ? currentPlayer
-            : localizedPlayer
-        ));
+        applyPlayerState(localizedPlayer);
       })
       .catch((err) => setError(err instanceof Error ? err.message : ui('Could not load hand', 'Не удалось загрузить раздачу')));
   }, [handId, playerId, token]);
@@ -2416,13 +2497,7 @@ function PlayerPage({
         joinedPlayerSocketRef.current = socket;
         applySessionTiming(message.data.session);
         const localizedPlayer = withLocalTurnDeadline(message.data);
-        setPlayer((currentPlayer) => (
-          currentPlayer
-          && currentPlayer.handId === localizedPlayer.handId
-          && currentPlayer.revision > localizedPlayer.revision
-            ? currentPlayer
-            : localizedPlayer
-        ));
+        applyPlayerState(localizedPlayer);
         setNotice(null);
         if (
           retryPendingAfterSyncRef.current
@@ -2611,7 +2686,7 @@ function PlayerPage({
     ? `${sessionHours}:${String(sessionMinutes).padStart(2, '0')}:${String(sessionSeconds).padStart(2, '0')}`
     : `${sessionMinutes}:${String(sessionSeconds).padStart(2, '0')}`;
   const isYourTurn = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
-  const canAct = isYourTurn && !pendingCommand;
+  const canAct = isYourTurn && !pendingCommand && !streetPauseAction;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
@@ -2665,7 +2740,7 @@ function PlayerPage({
     && !tournamentWinner
     && !player.partyFinishedEarly
     && !finishVotePending;
-  const showActionDock = isYourTurn;
+  const showActionDock = isYourTurn && !streetPauseAction;
   const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
@@ -2801,12 +2876,15 @@ function PlayerPage({
               cardCount={seat.cardCount}
               compact
               score={totalScore(player.partyScore, seat.id)}
-              action={latestActionForPlayer(player.actions, seat.id, player.stage)}
+              action={streetPauseAction?.playerId === seat.id
+                ? streetPauseAction.action
+                : latestActionForPlayer(player.actions, seat.id, player.stage)}
               resultPlayer={player.cardsRevealed && !isMobileTable ? playerResult(player.result, seat.id) : undefined}
               isHighWinner={Boolean(player.cardsRevealed && player.showdownSummary?.highWinners.includes(seat.id))}
               isLowWinner={Boolean(player.cardsRevealed && player.showdownSummary?.lowWinners.includes(seat.id))}
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
               isWaitingForNextDeal={Boolean(player.waitingForPlayers?.some(candidate => candidate.id === seat.id))}
+              isBetting={player.stage !== 'showdown'}
               blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
               isDealer={seat.id === dealerPlayerId}
               disconnected={seat.disconnected === true || seat.connected === false}
@@ -2906,7 +2984,7 @@ function PlayerPage({
               isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
               isDealer={player.playerId === dealerPlayerId}
               disconnected={!socketReady}
-              turnSeconds={player.currentPlayerId === player.playerId ? turnSeconds : undefined}
+              turnSeconds={player.currentPlayerId === player.playerId && !streetPauseAction ? turnSeconds : undefined}
               eliminated={Boolean(player.partyScore && totalScore(player.partyScore, player.playerId) <= 0)}
             />
           </div>
@@ -3458,7 +3536,7 @@ function LobbyPage() {
   const memberHint = new URLSearchParams(window.location.search).get('member');
   const [lobby, setLobby] = useState<LobbyView | null>(null);
   const [memberId, setMemberId] = useState<string | null>(null);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(storedPlayerName);
   const [botName, setBotName] = useState('');
   const [replayCodeInput, setReplayCodeInput] = useState('');
   const [lobbyTab, setLobbyTab] = useState<'lobby' | 'replay'>('lobby');
@@ -3606,12 +3684,14 @@ function LobbyPage() {
   }
 
   function join() {
-    if (!name.trim()) {
+    const normalizedName = name.trim();
+    if (!normalizedName) {
       setNotice(ui('Enter your name.', 'Введите ваше имя.'));
       return;
     }
+    rememberPlayerName(normalizedName);
     send('join_lobby', {
-      name: name.trim(),
+      name: normalizedName,
       pin: window.sessionStorage.getItem(accessStorageKey) ?? undefined,
     });
   }
@@ -4338,7 +4418,7 @@ const WELCOME_TEXT = {
 
 function WelcomePage() {
   const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
-  const [hostName, setHostName] = useState('');
+  const [hostName, setHostName] = useState(storedPlayerName);
   const [seats, setSeats] = useState(4);
   const [pin, setPin] = useState('');
   const [selectedLobbyId, setSelectedLobbyId] = useState<string | null>(null);
@@ -4394,11 +4474,13 @@ function WelcomePage() {
   }
 
   function createTable() {
-    if (!hostName.trim()) {
+    const normalizedName = hostName.trim();
+    if (!normalizedName) {
       setNotice(t.enterName);
       return;
     }
-    send('create_lobby', { name: hostName.trim(), maxPlayers: seats });
+    rememberPlayerName(normalizedName);
+    send('create_lobby', { name: normalizedName, maxPlayers: seats });
   }
 
   function findByPin() {

@@ -1,5 +1,17 @@
 import { expect, test } from '@playwright/test';
 
+test('remembers the host name in the next create-table form', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByLabel('Your name').fill('Cookie Player');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await expect(page.getByLabel('Your name')).toHaveValue('Cookie Player');
+});
+
 test('host creates a city table and a friend joins it by PIN', async ({ page, browser }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Omaha Hi-Lo' })).toBeVisible();
