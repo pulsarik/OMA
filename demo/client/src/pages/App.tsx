@@ -10,10 +10,14 @@ import {
   buildWalletHistory,
   COMBINATION_RANKS,
   countPlayerCombinations,
+  advantageRealizationPercent,
 } from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
 import { problemContext } from '../problemContext';
+import './wireframe-actions.css';
+import { WIREFRAME_LAYOUT } from './wireframeLayout';
+import { WireframeTable } from './WireframeTable';
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
@@ -27,7 +31,11 @@ const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module
 type UiLanguage = 'en' | 'ru';
 
 const PLAYER_NAME_COOKIE = 'omaha-player-name';
+const TABLE_SEATS_COOKIE = 'omaha-table-seats';
 const PLAYER_NAME_MAX_LENGTH = 30;
+const DEFAULT_TABLE_SEATS = 4;
+const MIN_TABLE_SEATS = 2;
+const MAX_TABLE_SEATS = 10;
 const DESKTOP_TABLE_LAYOUT_MIN_WIDTH = 761;
 const MOBILE_TABLE_LAYOUT_MAX_WIDTH = 560;
 
@@ -646,12 +654,14 @@ function CompactCardRow({
   focal = false,
   expandable = false,
   expandedTitle,
+  winnerBorder,
 }: {
   cards: string[];
   testId?: string;
   focal?: boolean;
   expandable?: boolean;
   expandedTitle?: string;
+  winnerBorder?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
@@ -664,6 +674,12 @@ function CompactCardRow({
       <div
         data-testid={testId}
         className={`compact-card-row${expandable ? ' is-expandable' : ''}`}
+        style={winnerBorder ? {
+          border: '3px solid transparent',
+          borderRadius: 10,
+          background: `linear-gradient(#fff, #fff) padding-box, ${winnerBorder} border-box`,
+          padding: 4,
+        } : undefined}
         role={expandable ? 'button' : undefined}
         tabIndex={expandable ? 0 : undefined}
         aria-label={expandable ? expansionLabel : undefined}
@@ -1031,6 +1047,7 @@ function PotDisplay({
   roundBets: Record<string, number>;
   currentPlayerId: string;
 }) {
+  const potDetailsRef = useRef<HTMLDetailsElement>(null);
   const visiblePots = breakdown?.length && breakdown.length > 1 ? breakdown : [];
   const contributingPlayers = players
     .map((player) => ({
@@ -1039,6 +1056,17 @@ function PotDisplay({
       round: roundBets[player.id] ?? 0,
     }))
     .filter((player) => player.total > 0 || player.round > 0);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const details = potDetailsRef.current;
+      if (details?.open && event.target instanceof Node && !details.contains(event.target)) {
+        details.open = false;
+      }
+    };
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    return () => document.removeEventListener('pointerdown', closeOnOutsideClick);
+  }, []);
 
   return (
     <div
@@ -1052,7 +1080,7 @@ function PotDisplay({
         color: '#fff',
       }}
     >
-      <details className="pot-details">
+      <details ref={potDetailsRef} className="pot-details">
         <summary className="pot-summary" aria-label={`${ui('Pot', 'Банк')} ${formatPoints(value)}. ${ui('Show contributions', 'Показать взносы')}`}>
           <CoinStack value={value} title={ui('pot', 'банк')} compact />
           {currentBet > 0 ? (
@@ -1076,9 +1104,21 @@ function PotDisplay({
               <span>{formatPoints(seat.round)}</span>
             </div>
           ))}
+          {visiblePots.length ? (
+            <div className="pot-side-breakdown" data-testid="side-pot-breakdown">
+              <strong>Pot breakdown / Разбивка банков</strong>
+              {visiblePots.map((pot, index) => (
+                <div className="pot-side-row" key={`${index}-${pot.amount}`}>
+                  <span>{index === 0 ? 'Main pot / Основной банк' : `Side pot ${index} / Побочный банк ${index}`}</span>
+                  <strong>{formatPoints(pot.amount)}</strong>
+                  <small>Eligible / Участники: {pot.eligiblePlayerIds.join(', ')}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </details>
-      {visiblePots.length ? (
+      {false && visiblePots.length ? (
         <div
           data-testid="side-pot-breakdown"
           style={{ display: 'flex', justifyContent: 'center', gap: 4, flexWrap: 'wrap', maxWidth: 280 }}
@@ -1242,6 +1282,149 @@ function AdaptiveSeatBubble({
   );
 }
 
+function WireframeHand({
+  id,
+  hole,
+  cardCount,
+  isYou,
+  name,
+  stack,
+  isThinking = false,
+  lastAction,
+  folded = false,
+  isHighWinner = false,
+  isLowWinner = false,
+  blindLabel,
+  isDealer = false,
+}: {
+  id: string;
+  hole?: string[];
+  cardCount: number;
+  isYou: boolean;
+  name?: string;
+  stack?: number;
+  isThinking?: boolean;
+  lastAction?: ActionLog;
+  folded?: boolean;
+  isHighWinner?: boolean;
+  isLowWinner?: boolean;
+  blindLabel?: string;
+  isDealer?: boolean;
+}) {
+  const actionLabel = lastAction
+    ? `${localizedMove(lastAction.move).toUpperCase()}${lastAction.amount ? ` ${formatPoints(lastAction.amount)}` : ''}`
+    : undefined;
+  const winnerBorder = isHighWinner && isLowWinner
+    ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
+    : isHighWinner
+      ? 'linear-gradient(#dc2626, #dc2626)'
+      : isLowWinner
+        ? 'linear-gradient(#2563eb, #2563eb)'
+        : undefined;
+  return (
+    <div
+      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${folded ? ' is-folded' : ''}`}
+      data-player-seat={id}
+      data-testid={isYou ? `wireframe-hand-${id}` : `opponent-hand-zone-${id}`}
+    >
+      {!isYou ? (
+        <div className="seat-topline" data-testid={`opponent-info-${id}`}>
+          <span
+            className="seat-name-score"
+            title={`${tablePlayerName(name, id)}: ${formatPoints(stack ?? 0)}`}
+            style={{
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+              justifySelf: 'start',
+              width: 'fit-content',
+              maxWidth: '100%',
+              padding: '3px 7px',
+              border: '1px solid #fbbf24',
+              borderRadius: 999,
+              background: '#172033',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 900,
+              lineHeight: 1,
+              boxShadow: '0 2px 7px rgba(15,23,42,.28)',
+              whiteSpace: 'nowrap',
+              boxSizing: 'border-box',
+            }}
+          >
+            <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
+            <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(stack ?? 0)}</strong>
+          </span>
+          {(isHighWinner || isLowWinner) ? (
+            <div className="seat-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
+              {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`}>{ui('HIGH', 'ХАЙ')}</span> : null}
+              {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`}>{ui('LOW', 'ЛОУ')}</span> : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {hole?.length ? (
+        <CompactCardRow
+          cards={hole}
+          testId={`player-cards-${id}`}
+          focal={isYou}
+          expandable={!isYou}
+          expandedTitle={!isYou ? name : undefined}
+          winnerBorder={winnerBorder}
+        />
+      ) : (
+        <CardBackRow count={cardCount} compact={true} focal={isYou} testId={`player-cards-${id}`} />
+      )}
+      {isYou && (blindLabel || isDealer) ? (
+        <div className="wireframe-seat-positions wireframe-hero-position" aria-label={ui('Table positions', 'Позиции за столом')}>
+          {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+          {blindLabel ? (
+            <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
+              {blindLabel.split(' ')[0]}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="wireframe-opponent-footer">
+        <div className="wireframe-opponent-action-slot">
+          {actionLabel ? (
+            <span className="wireframe-opponent-thinking wireframe-opponent-action">{actionLabel}</span>
+          ) : isThinking ? (
+            <span className="wireframe-opponent-thinking">{ui('THINKING…', 'ДУМАЕТ…')}</span>
+          ) : null}
+        </div>
+        {!isYou && (blindLabel || isDealer) ? (
+          <div className="wireframe-seat-positions" aria-label={ui('Table positions', 'Позиции за столом')}>
+            {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+            {blindLabel ? (
+              <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
+                {blindLabel.split(' ')[0]}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function storedTableSeats() {
+  const cookie = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(`${TABLE_SEATS_COOKIE}=`));
+  if (!cookie) return DEFAULT_TABLE_SEATS;
+
+  const seats = Number.parseInt(cookie.slice(TABLE_SEATS_COOKIE.length + 1), 10);
+  return Number.isInteger(seats) && seats >= MIN_TABLE_SEATS && seats <= MAX_TABLE_SEATS
+    ? seats
+    : DEFAULT_TABLE_SEATS;
+}
+
+function rememberTableSeats(seats: number) {
+  if (!Number.isInteger(seats) || seats < MIN_TABLE_SEATS || seats > MAX_TABLE_SEATS) return;
+  document.cookie = `${TABLE_SEATS_COOKIE}=${seats}; Max-Age=31536000; Path=/; SameSite=Lax`;
+}
+
 function PlayerSeat({
   id,
   name,
@@ -1261,6 +1444,7 @@ function PlayerSeat({
   isBetting = false,
   blindLabel,
   isDealer = false,
+  wireframeZone = false,
   disconnected = false,
   turnSeconds,
   eliminated = false,
@@ -1283,6 +1467,7 @@ function PlayerSeat({
   isBetting?: boolean;
   blindLabel?: string;
   isDealer?: boolean;
+  wireframeZone?: boolean;
   disconnected?: boolean;
   turnSeconds?: number;
   eliminated?: boolean;
@@ -1317,22 +1502,46 @@ function PlayerSeat({
       data-testid={isCurrentTurn ? `active-player-${id}` : undefined}
       data-player-seat={id}
       className="player-seat-wrap"
-      style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'center' }}
+      style={{
+        display: 'flex',
+        gap: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+        ...(wireframeZone && compact && !isYou
+          ? {
+            width: WIREFRAME_LAYOUT.opponent.width,
+            minWidth: WIREFRAME_LAYOUT.opponent.width,
+            maxWidth: WIREFRAME_LAYOUT.opponent.width,
+            height: WIREFRAME_LAYOUT.opponent.height,
+            flex: `0 0 ${WIREFRAME_LAYOUT.opponent.width}px`,
+            transform: 'none',
+            zoom: 1,
+          }
+          : {}),
+      }}
     >
       <section
         className={`player-seat${compact && !isYou ? ' is-opponent opponent-hand-zone' : ''}${isCurrentTurn ? ' is-thinking' : ''}${eliminated ? ' is-eliminated' : ''}`}
         data-testid={compact && !isYou ? `opponent-hand-zone-${id}` : undefined}
         style={{
-          border: isYou ? '2px solid #16a34a' : compact && !isYou ? 'none' : '1px solid #d1d5db',
           borderRadius: 8,
-          padding: compact && !isYou ? '6px 6px 8px' : compact ? 6 : 10,
           background: compact && !isYou
             ? 'transparent'
             : folded ? '#f3f4f6' : isCurrentTurn ? '#fffbeb' : '#fff',
           opacity: eliminated ? 0.82 : folded ? 0.38 : 1,
           filter: eliminated ? 'grayscale(.35)' : folded ? 'grayscale(1)' : undefined,
-          width: compact ? 'fit-content' : undefined,
-          minWidth: compact ? undefined : 180,
+          width: wireframeZone && compact && !isYou
+            ? WIREFRAME_LAYOUT.opponent.width
+            : compact ? 'fit-content' : undefined,
+          minWidth: wireframeZone && compact && !isYou
+            ? WIREFRAME_LAYOUT.opponent.width
+            : compact ? undefined : 180,
+          maxWidth: wireframeZone && compact && !isYou
+            ? WIREFRAME_LAYOUT.opponent.width
+            : undefined,
+          height: wireframeZone && compact && !isYou ? WIREFRAME_LAYOUT.opponent.height : undefined,
+          padding: wireframeZone && compact && !isYou ? 0 : compact && !isYou ? '6px 6px 8px' : compact ? 6 : 10,
+          // border: wireframeZone && compact && !isYou ? '1px solid #87918a' : isYou ? '2px solid #16a34a' : compact && !isYou ? 'none' : '1px solid #d1d5db',
           margin: '0 auto',
           position: 'relative',
           boxSizing: 'border-box',
@@ -1341,7 +1550,7 @@ function PlayerSeat({
             : undefined,
         }}
       >
-        {compact && !isYou ? (
+        {compact && !isYou && !wireframeZone ? (
           <div className="seat-topline">
             <span
               className="seat-name-score"
@@ -1379,15 +1588,21 @@ function PlayerSeat({
             </div>
           </div>
         ) : null}
-        {(!compact || isYou) ? <div className="seat-position-badges" aria-label={ui('Table positions', 'Позиции за столом')}>
-          {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
-          {blindLabel ? (
+        {!wireframeZone && (!compact || isYou) ? <div className="seat-position-badges" aria-label={ui('Table positions', 'Позиции за столом')}>
+          {!wireframeZone && isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+          {!wireframeZone && blindLabel ? (
             <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
               {blindLabel}
             </span>
           ) : null}
         </div> : null}
-        {isCurrentTurn && typeof turnSeconds === 'number' ? (
+        {wireframeZone && isYou && hasWinningHand ? (
+          <div className="seat-result-badges hero-result-badges" aria-label="Winning hands">
+            {isHighWinner ? <span className="winner-badge high">HIGH</span> : null}
+            {isLowWinner ? <span className="winner-badge low">LOW</span> : null}
+          </div>
+        ) : null}
+        {!wireframeZone && isCurrentTurn && typeof turnSeconds === 'number' ? (
           <span className="turn-countdown" data-testid={`turn-countdown-${id}`}>{turnSeconds}s</span>
         ) : null}
         {/*
@@ -1399,7 +1614,7 @@ function PlayerSeat({
             {ui('OUT', 'ВЫБЫЛ')}
           </span>
         */}
-        {bubbleLabel && !isCurrentTurn && !suppressUpperBettingAction && !(compact && !isYou && hasWinningHand) ? (
+        {!wireframeZone && bubbleLabel && !isCurrentTurn && !suppressUpperBettingAction && !(compact && !isYou && hasWinningHand) ? (
           <AdaptiveSeatBubble
             label={actionLabel ?? bubbleLabel}
             compact={compact}
@@ -1446,11 +1661,12 @@ function PlayerSeat({
                 focal={isYou}
                 expandable={!isYou}
                 expandedTitle={!isYou ? tablePlayerName(name, id) : undefined}
+                winnerBorder={hasWinningHand ? winnerBorder : undefined}
               />
             ) : (
               <CardBackRow count={cardCount} compact={compact} focal={isYou} testId={`player-cards-${id}`} />
             )}
-            {eliminated ? (
+            {!wireframeZone && eliminated ? (
               <span
                 className="eliminated-badge"
                 data-testid={`player-eliminated-${id}`}
@@ -1461,8 +1677,8 @@ function PlayerSeat({
             ) : null}
             {compact && !isYou && (blindLabel || isDealer) ? (
               <div className="seat-card-positions" aria-label={ui('Table positions', 'Позиции за столом')}>
-                {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
-                {blindLabel ? (
+                {!wireframeZone && isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+                {!wireframeZone && blindLabel ? (
                   <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
                     {blindLabel}
                   </span>
@@ -1470,7 +1686,7 @@ function PlayerSeat({
               </div>
             ) : null}
           </div>
-          {hasWinningHand && (!compact || isYou) ? (
+          {!wireframeZone && hasWinningHand && (!compact || isYou) ? (
             <div
               style={{
                 position: compact && !isYou ? 'static' : 'absolute',
@@ -1520,7 +1736,7 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-          {compact && !isYou && isBetting && actionLabel ? (
+          {!wireframeZone && compact && !isYou && isBetting && actionLabel ? (
             <div
               className="seat-betting-action"
               data-testid={`opponent-betting-action-${id}`}
@@ -1528,7 +1744,7 @@ function PlayerSeat({
             >
               {actionLabel}
             </div>
-          ) : hasCombination ? (
+          ) : !wireframeZone && hasCombination ? (
             <div
               className="seat-combination"
               data-testid={`player-result-${id}`}
@@ -1553,7 +1769,7 @@ function PlayerSeat({
           ) : null}
         </div>
       </section>
-      {compact && isYou ? (
+      {compact && isYou && !wireframeZone ? (
         <div
           className={`player-meta${isCurrentTurn ? ' is-thinking' : ''}`}
           style={{ display: 'grid', gap: 4, justifyItems: 'center', alignSelf: 'stretch', alignContent: 'end' }}
@@ -1643,7 +1859,8 @@ function totalScore(score: PartyScore | undefined, playerId: string) {
 
 function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string, stage: string) {
   return [...(actions ?? [])].reverse().find((action) => (
-    action.playerId === playerId && action.stage === stage
+    action.playerId === playerId
+    && (action.stage === stage || action.move === 'fold')
   ));
 }
 
@@ -1776,11 +1993,6 @@ function ShowdownStatus({
       <strong style={{ fontSize: 24, lineHeight: 1.1 }}>
         {title}
       </strong>
-      {winners ? (
-        <span className="showdown-winners" data-testid="showdown-winners" style={{ fontSize: 13, lineHeight: 1.2, opacity: 0.9 }}>
-          {winners}
-        </span>
-      ) : null}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', fontSize: 13, lineHeight: 1.2 }}>
         <span data-testid="showdown-contributed">{ui('Contributed', 'Внесено')}: {formatPoints(contributed)}</span>
         <span data-testid="showdown-payout">{ui('Payout', 'Выплата')}: {formatPoints(payout)}</span>
@@ -1927,6 +2139,8 @@ function PartyStatistics({ score, players, isFinal }: {
   isFinal: boolean;
 }) {
   if (!score) return null;
+  const [expandedCombination, setExpandedCombination] = useState<string | null>(null);
+  const [showRealizationHelp, setShowRealizationHelp] = useState(false);
   const completedHands = score.hands
     .filter((hand) => hand.stage === 'showdown')
     .sort((a, b) => b.handNumber - a.handNumber);
@@ -1948,6 +2162,7 @@ function PartyStatistics({ score, players, isFinal }: {
       ...player,
       hands: hands.length,
       aggressivePercent: `${aggressiveHandPercent(player.id, hands)}%`,
+      realizationPercent: `${advantageRealizationPercent(player.id, hands)}%`,
       foldPercent: percentage(folds, hands.length),
       winPercent: percentage(wins, hands.length),
       lossPercent: percentage(losses, hands.length),
@@ -2010,9 +2225,20 @@ function PartyStatistics({ score, players, isFinal }: {
               {COMBINATION_RANKS.map((combination) => (
                 <th
                   key={combination.key}
+                  className="party-combination-heading"
                   title={ui(`${combination.en} hands`, `Раздачи с комбинацией «${combination.ru}»`)}
                 >
-                  {ui(combination.en, combination.ru)}
+                  <button
+                    type="button"
+                    className="party-combination-button"
+                    aria-expanded={expandedCombination === combination.key}
+                    onClick={() => setExpandedCombination((current) => current === combination.key ? null : combination.key)}
+                  >
+                    {combination.short}
+                  </button>
+                  {expandedCombination === combination.key ? (
+                    <span className="party-combination-popover">{combination.en}</span>
+                  ) : null}
                 </th>
               ))}
             </tr>
@@ -2020,6 +2246,7 @@ function PartyStatistics({ score, players, isFinal }: {
           <tbody>
             {metrics.map((player) => (
               <tr key={player.id} data-testid={`party-total-${player.id}`}>
+                <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
                 <td style={{ fontWeight: 800 }}>
                   <span>{playerLabel(players, player.id)}</span>
                   {isFinal && player.isBot ? (
@@ -2059,6 +2286,7 @@ function PartyStatistics({ score, players, isFinal }: {
                 <td data-testid={`party-max-win-${player.id}`} style={{ textAlign: 'right', color: '#047857' }}>{formatPoints(player.maxWin)}</td>
                 <td data-testid={`party-max-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c' }}>{formatPoints(player.maxLoss)}</td>
                 <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
+                <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
                 {COMBINATION_RANKS.map((combination) => (
                   <td
                     key={combination.key}
@@ -2439,6 +2667,8 @@ function PlayerPage({
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       const heightScale = viewportHeight / 780;
       const playerCount = player?.players.length ?? 10;
+      // Scale the base wireframe uniformly in both directions. Extra space
+      // may enlarge it; insufficient space may shrink it.
       const viewportScale = Math.max(0.6, Math.min(widthScale, heightScale));
       const playerDensityScale = playerCount <= 5
         ? 1.05
@@ -2742,7 +2972,10 @@ function PlayerPage({
     && !tournamentWinner
     && !player.partyFinishedEarly
     && !finishVotePending;
-  const showActionDock = isYourTurn && !streetPauseAction;
+  const showActionDock = socketReady
+    && player.stage !== 'showdown'
+    && !player.folded
+    && !streetPauseAction;
   const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
@@ -2750,7 +2983,7 @@ function PlayerPage({
   const voiceAvailable = Boolean(
     player.voiceEnabled && (sessionDeadline === null || sessionNow < sessionDeadline)
   );
-  const isVoiceView = activeView === 'voice' && voiceAvailable;
+  const isVoiceView = activeView === 'voice';
   const isStatsView = activeView === 'stats' && showStatsTile;
   const isTableView = !isVoiceView && !isStatsView;
   const playerSeatIndex = player.players.findIndex(seat => seat.id === player.playerId);
@@ -2767,9 +3000,34 @@ function PlayerPage({
       : player.players[(smallBlindIndex - 1 + player.players.length) % player.players.length]?.id
     : undefined;
   const dealerPlayerId = player.blinds?.dealerPlayerId ?? inferredDealerId;
+  const heroSeat = player.players.find((seat) => (
+      seat.hole?.length === player.hole.length
+      && seat.hole?.every((card, index) => card === player.hole[index])
+    ))
+    ?? player.players.find((seat) => seat.id === player.playerId)
+    ?? player.players.find((seat) => seat.name && seat.name === player.playerName);
+  const heroPositionId = heroSeat?.id ?? player.playerId;
   const turnSeconds = typeof player.turnDeadline === 'number'
     ? Math.max(0, Math.ceil((player.turnDeadline - sessionNow) / 1_000))
     : undefined;
+  const opponentNodes = otherPlayers.map((seat) => (
+    <WireframeHand
+      key={`${seat.id}-${player.handId}`}
+      id={seat.id}
+      hole={seat.hole}
+      cardCount={seat.cardCount}
+      isYou={false}
+      name={seat.name}
+      stack={seat.stack}
+      isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
+      lastAction={latestActionForPlayer(player.actions, seat.id, player.stage)}
+      folded={seat.folded}
+      isHighWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.highWinners.includes(seat.id))}
+      isLowWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.lowWinners.includes(seat.id))}
+      blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
+      isDealer={dealerPlayerId === seat.id}
+    />
+  ));
   const submitWager = (move: 'bet' | 'raise') => {
     sendMove(move, wagerTarget, betSize);
   };
@@ -2800,8 +3058,7 @@ function PlayerPage({
         >
           {ui('TABLE', 'СТОЛ')}
         </button>
-        {voiceAvailable ? (
-          <button
+        <button
             id="voice-tab"
             type="button"
             role="tab"
@@ -2812,7 +3069,6 @@ function PlayerPage({
           >
             {ui('VOICE', 'ГОЛОС')}
           </button>
-        ) : null}
         <button
           id="stats-tab"
           type="button"
@@ -2855,90 +3111,57 @@ function PlayerPage({
         </div>
       ) : null}
 
-      <div
-        className={`poker-table${otherPlayers.length >= 5 ? ' is-crowded' : ''}${otherPlayers.length >= 6 ? ' is-oval' : ''}${player.stage === 'showdown' ? ' is-showdown' : ''}`}
-        data-testid="poker-table"
-        style={{ '--table-scale': tableScale } as React.CSSProperties}
-      >
-        {player.isReplay || player.replayOfHandId ? <HandBanner player={player} /> : null}
+      <WireframeTable opponents={opponentNodes} opponentCount={otherPlayers.length}>
+        <section className="opponents-zone" data-testid="opponents-zone" aria-label={ui('Opponents', 'Ð¡Ð¾Ð¿ÐµÑ€Ð½Ð¸ÐºÐ¸')}>
+          {player.isReplay || player.replayOfHandId ? <HandBanner player={player} /> : null}
         <div
-          className="opponents-row"
+          className="wireframe-opponents-row"
           data-testid="opponents-grid"
           data-opponent-count={otherPlayers.length}
           style={{ '--card-table-scale': cardScale } as React.CSSProperties}
         >
-          {otherPlayers.map((seat) => (
-            <PlayerSeat
-              key={`${seat.id}-${player.handId}`}
-              id={seat.id}
-              name={seat.name}
-              folded={seat.folded}
-              isYou={false}
-              isBot={seat.isBot}
-              hole={seat.hole}
-              cardCount={seat.cardCount}
-              compact
-              score={totalScore(player.partyScore, seat.id)}
-              action={streetPauseAction?.playerId === seat.id
-                ? streetPauseAction.action
-                : latestActionForPlayer(player.actions, seat.id, player.stage)}
-              resultPlayer={player.cardsRevealed && !isMobileTable ? playerResult(player.result, seat.id) : undefined}
-              isHighWinner={Boolean(player.cardsRevealed && player.showdownSummary?.highWinners.includes(seat.id))}
-              isLowWinner={Boolean(player.cardsRevealed && player.showdownSummary?.lowWinners.includes(seat.id))}
-              isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
-              isWaitingForNextDeal={Boolean(player.waitingForPlayers?.some(candidate => candidate.id === seat.id))}
-              isBetting={player.stage !== 'showdown'}
-              blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
-              isDealer={seat.id === dealerPlayerId}
-              disconnected={seat.disconnected === true || seat.connected === false}
-              turnSeconds={player.currentPlayerId === seat.id ? turnSeconds : undefined}
-              eliminated={Boolean(player.partyScore && totalScore(player.partyScore, seat.id) <= 0)}
-            />
-          ))}
+          {opponentNodes}
         </div>
+        </section>
 
         <section
-          className={`table-center${player.stage === 'showdown' ? ' has-showdown' : ''}`}
-          style={{
-            textAlign: 'center',
-            display: 'grid',
-            gap: 4,
-          }}
+          className="wireframe-results-zone results-zone"
+          data-testid="results-zone"
+          aria-label={ui('Game results', 'Итоги игры')}
         >
           {player.stage === 'showdown' ? (
-            <div className="table-showdown-center">
-              <div className="table-showdown">
-                <ShowdownStatus
-                  player={player}
-                  newDealAction={canContinue ? (
-                    <button
-                      className="action-button primary"
-                      disabled={isCreatingDeal}
-                      onClick={startNewDeal}
-                    >
-                      {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
-                    </button>
-                  ) : player.nextPlayerLink ? (
-                    <button
-                      className="action-button primary"
-                      onClick={() => {
-                        if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
-                        else window.location.href = player.nextPlayerLink!.url;
-                      }}
-                    >
-                      {ui('New deal', 'Новая раздача')}
-                    </button>
-                  ) : undefined}
-                />
-              </div>
-              <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
-            </div>
-          ) : (
-            <>
-              <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
-              <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
-            </>
-          )}
+            <ShowdownStatus
+              player={player}
+              newDealAction={canContinue ? (
+                <button
+                  className="action-button primary"
+                  disabled={isCreatingDeal}
+                  onClick={startNewDeal}
+                >
+                  {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
+                </button>
+              ) : player.nextPlayerLink ? (
+                <button
+                  className="action-button primary"
+                  onClick={() => {
+                    if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
+                    else window.location.href = player.nextPlayerLink!.url;
+                  }}
+                >
+                  {ui('New deal', 'Новая раздача')}
+                </button>
+              ) : undefined}
+            />
+          ) : null}
+        </section>
+
+        <section
+          className="wireframe-flop-zone flop-zone"
+          data-testid="flop-zone"
+          aria-label={ui('Flop and board', 'Флоп и доска')}
+        >
+          <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
+          <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
           <div className="table-pot" data-testid="table-pot">
             <PotDisplay
               value={player.potCoins}
@@ -2953,47 +3176,120 @@ function PlayerPage({
         </section>
 
         <div
-          className="hero-zone"
+          className="wireframe-player-zone hero-zone"
           style={isTabletPortraitTable ? { columnGap: 24 } : undefined}
         >
           <PlayerComboSide combo={player.currentCombo} kind="high" />
           <div
-            className="hero-seat"
+            className="wireframe-hero-slot"
             style={{
               display: 'flex',
               justifyContent: 'center',
               '--card-table-scale': cardScale,
             } as React.CSSProperties}
           >
-            <PlayerSeat
+            <WireframeHand
               key={`${player.playerId}-${player.handId}`}
               id={player.playerId}
-              name={player.playerName}
-              folded={player.folded}
               isYou
-              isBot={player.isBot}
               hole={player.hole}
               cardCount={player.hole.length}
-              compact
-              score={totalScore(player.partyScore, player.playerId)}
-              resultPlayer={player.cardsRevealed ? playerResult(player.result, player.playerId) : undefined}
-              isHighWinner={Boolean(
-                player.cardsRevealed && player.showdownSummary?.highWinners.includes(player.playerId)
-              )}
-              isLowWinner={Boolean(
-                player.cardsRevealed && player.showdownSummary?.lowWinners.includes(player.playerId)
-              )}
-              blindLabel={playerBlindLabel(player.blinds, player.playerId, player.stage)}
-              isCurrentTurn={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
-              isDealer={player.playerId === dealerPlayerId}
-              disconnected={!socketReady}
-              turnSeconds={player.currentPlayerId === player.playerId && !streetPauseAction ? turnSeconds : undefined}
-              eliminated={Boolean(player.partyScore && totalScore(player.partyScore, player.playerId) <= 0)}
+              isHighWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.highWinners.includes(player.playerId))}
+              isLowWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.lowWinners.includes(player.playerId))}
+              blindLabel={playerBlindLabel(player.blinds, heroPositionId, player.stage)}
+              isDealer={dealerPlayerId === heroPositionId}
             />
           </div>
           <PlayerComboSide combo={player.currentCombo} kind="low" />
         </div>
-      </div>
+
+        <section
+          className="wireframe-actions-zone actions-zone"
+          data-testid="actions-zone"
+          aria-label={ui('Actions and buttons', 'Действия и кнопки')}
+        >
+          {showActionDock ? <div className="action-dock">
+            {pendingCommand ? (
+              <strong role="status">
+                {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
+              </strong>
+            ) : null}
+            {(currentBet === 0 || raiseCapAvailable) ? (
+              <div className="bet-sizes">
+                <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
+                {BET_SIZE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    disabled={!canAct}
+                    onClick={() => setBetSize(option.value)}
+                    className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
+                  >
+                    {localizedBetSize(option)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <fieldset className="main-actions" disabled={!canAct}>
+            {callAmount === 0 ? (
+              <>
+                <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
+                {currentBet === 0 ? (
+                  <button className="action-button" onClick={() => submitWager('bet')}>
+                    {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(wagerTarget)}
+                  </button>
+                ) : null}
+                {currentBet > 0 && raiseCapAvailable ? (
+                  <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
+                    {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
+                  </button>
+                ) : null}
+                <button
+                  className="action-button danger"
+                  onClick={() => sendMove('fold')}
+                >
+                  {ui('Fold', 'Фолд')}
+                </button>
+              </>
+            ) : null}
+            {callAmount > 0 ? (
+              <>
+                <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
+                  {call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')} {formatPoints(call.amount)}
+                </button>
+                {raiseCapAvailable ? (
+                  <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
+                    {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
+                  </button>
+                ) : null}
+                <button
+                  className="action-button danger"
+                  onClick={() => sendMove('fold')}
+                >
+                  {ui('Fold', 'Фолд')}
+                </button>
+              </>
+            ) : null}
+            </fieldset>
+            {betSizeFraction > 0 && betSize !== 'pot' ? (
+              <div className="bet-size-explanation" data-testid="bet-size-explanation">
+                {currentBet > 0 ? (
+                  <>
+                    {ui('Pot after call', 'Банк после колла')}: <strong>{formatPoints(potAfterCall)}</strong>
+                    {' · '}{selectedBetSizeLabel} = <strong>{formatPoints(nominalRaiseSize)}</strong>
+                    {' · '}{ui('Raise to', 'Рейз до')} <strong>{formatPoints(raiseTo)}</strong>
+                  </>
+                ) : (
+                  <>
+                    {ui('Pot', 'Банк')}: <strong>{formatPoints(player.potCoins)}</strong>
+                    {' · '}{selectedBetSizeLabel} = {ui('Bet', 'ставка')} <strong>{formatPoints(betAmount)}</strong>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div> : null}
+        </section>
+      </WireframeTable>
       {finishVotePending ? (
         <section
           data-testid="early-finish-vote"
@@ -3070,85 +3366,6 @@ function PlayerPage({
         </section>
       ) : null}
 
-      {showActionDock ? <div className="action-dock">
-        {pendingCommand ? (
-          <strong role="status">
-            {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
-          </strong>
-        ) : null}
-        {canAct && (currentBet === 0 || raiseCapAvailable) ? (
-          <div className="bet-sizes">
-            <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
-            {BET_SIZE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setBetSize(option.value)}
-                className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
-              >
-                {localizedBetSize(option)}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <div className="main-actions">
-        {canAct && callAmount === 0 ? (
-          <>
-            <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
-            {currentBet === 0 ? (
-              <button className="action-button" onClick={() => submitWager('bet')}>
-                {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(wagerTarget)}
-              </button>
-            ) : null}
-            {currentBet > 0 && raiseCapAvailable ? (
-              <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
-                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
-              </button>
-            ) : null}
-            <button
-              className="action-button danger"
-              onClick={() => sendMove('fold')}
-            >
-              {ui('Fold', 'Фолд')}
-            </button>
-          </>
-        ) : null}
-        {canAct && callAmount > 0 ? (
-          <>
-            <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
-              {call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')} {formatPoints(call.amount)}
-            </button>
-            {raiseCapAvailable ? (
-              <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
-                {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
-              </button>
-            ) : null}
-            <button
-              className="action-button danger"
-              onClick={() => sendMove('fold')}
-            >
-              {ui('Fold', 'Фолд')}
-            </button>
-          </>
-        ) : null}
-        </div>
-        {betSizeFraction > 0 ? (
-          <div className="bet-size-explanation" data-testid="bet-size-explanation">
-            {currentBet > 0 ? (
-              <>
-                {ui('Pot after call', 'Банк после колла')}: <strong>{formatPoints(potAfterCall)}</strong>
-                {' · '}{selectedBetSizeLabel} = <strong>{formatPoints(nominalRaiseSize)}</strong>
-                {' · '}{ui('Raise to', 'Рейз до')} <strong>{formatPoints(raiseTo)}</strong>
-              </>
-            ) : (
-              <>
-                {ui('Pot', 'Банк')}: <strong>{formatPoints(player.potCoins)}</strong>
-                {' · '}{selectedBetSizeLabel} = {ui('Bet', 'ставка')} <strong>{formatPoints(betAmount)}</strong>
-              </>
-            )}
-          </div>
-        ) : null}
-      </div> : null}
       {notice ? (
         <p className="game-notice">
           {notice}
@@ -3156,15 +3373,14 @@ function PlayerPage({
       ) : null}
       </section> : null}
 
-      {voiceAvailable ? (
-        <section
+      <section
           id="voice-panel"
           role="tabpanel"
           aria-labelledby="voice-tab"
           className="voice-panel"
           hidden={!isVoiceView}
         >
-          <React.Suspense fallback={null}>
+          {voiceAvailable ? <React.Suspense fallback={null}>
             <VoiceChat
               endpoint={`${SERVER_URL}/api/voice/token`}
               handId={handId}
@@ -3186,9 +3402,12 @@ function PlayerPage({
                 genericError: ui('Could not connect to voice chat', 'Не удалось подключиться к голосовому чату'),
               }}
             />
-          </React.Suspense>
-        </section>
-      ) : null}
+          </React.Suspense> : (
+            <p role="status">
+              {ui('Voice chat is currently unavailable.', 'Голосовой чат сейчас недоступен.')}
+            </p>
+          )}
+      </section>
 
       {isStatsView ? <section
         id="stats-panel"
@@ -3969,7 +4188,7 @@ function LobbyPage() {
 function HomePage() {
   const [homeTab, setHomeTab] = useState<'lobby' | 'quick'>('lobby');
   const [hostName, setHostName] = useState('Dima');
-  const [lobbySeats, setLobbySeats] = useState(4);
+  const [lobbySeats, setLobbySeats] = useState(storedTableSeats);
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
   const [playersText, setPlayersText] = useState('2');
@@ -4181,7 +4400,11 @@ function HomePage() {
               <select
                 aria-label="Seats at the table"
                 value={lobbySeats}
-                onChange={(event) => setLobbySeats(Number(event.target.value))}
+                onChange={(event) => {
+                  const seats = Number(event.target.value);
+                  setLobbySeats(seats);
+                  rememberTableSeats(seats);
+                }}
                 style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}
               >
                 {Array.from({ length: 9 }, (_, index) => index + 2).map(value => (

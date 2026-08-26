@@ -904,9 +904,9 @@ export const PLAYER_PAGE_STYLES = `
   .pot-popover-title,
   .pot-contribution-row {
     display: grid;
-    grid-template-columns: minmax(80px, 1fr) auto auto;
+    grid-template-columns: minmax(100px, 1fr) 58px 72px;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
   }
   .pot-popover-title {
     border-bottom: 1px solid rgba(255,255,255,.2);
@@ -922,6 +922,11 @@ export const PLAYER_PAGE_STYLES = `
     text-align: left;
     text-transform: none;
   }
+  .pot-popover-title > :not(:first-child),
+  .pot-contribution-row > :not(:first-child) {
+    width: 100%;
+    text-align: right;
+  }
   .pot-contribution-row {
     padding: 6px 2px 0;
     font-size: 12px;
@@ -932,6 +937,25 @@ export const PLAYER_PAGE_STYLES = `
     text-align: left;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .pot-side-breakdown {
+    display: grid;
+    gap: 6px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,.2);
+  }
+  .pot-side-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    padding: 4px 2px;
+    font-size: 12px;
+  }
+  .pot-side-row small {
+    grid-column: 1 / -1;
+    color: #cbd5e1;
+    font-size: 10px;
   }
   .hero-zone {
     display: grid;
@@ -1104,6 +1128,7 @@ export const PLAYER_PAGE_STYLES = `
     min-height: 94px;
   }
   .bet-sizes, .main-actions { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  fieldset.main-actions { border: 0; padding: 0; margin: 0; min-width: 0; }
   .bet-size-button, .action-button {
     border: 1px solid #cbd5e1;
     border-radius: 10px;
@@ -1157,6 +1182,12 @@ export const PLAYER_PAGE_STYLES = `
     margin: 0;
     overflow: visible;
   }
+  .party-metrics-scroll .result-points { font-size: 12px; }
+  .party-metrics-scroll .legacy-realization-heading,
+  .party-metrics-scroll td[data-testid^="party-realization-"] ~ td[data-testid^="party-hands-"] { }
+  .party-combination-heading { position: relative; }
+  .party-combination-button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; cursor: pointer; }
+  .party-combination-popover { position: absolute; z-index: 5; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); padding: 6px 8px; border: 1px solid #cbd5d1; border-radius: 7px; background: #fff; color: #1f2937; box-shadow: 0 4px 12px rgba(31,54,42,.18); white-space: nowrap; font-size: 12px; font-weight: 700; }
   .party-metrics-scroll .result-points { min-width: 1000px; }
   .party-metrics-scroll .result-points th:first-child,
   .party-metrics-scroll .result-points td:first-child,
@@ -1178,8 +1209,8 @@ export const PLAYER_PAGE_STYLES = `
   .wallet-history-canvas { overflow-x: auto; }
   .wallet-history-canvas > svg { display: block; width: 100%; min-width: 620px; height: auto; color: #475569; font: 12px Inter, ui-sans-serif, system-ui, sans-serif; }
   .wallet-history .chart-grid { stroke: #cbd5d1; stroke-width: 1; }
-  .wallet-history .chart-line-halo { stroke: #fff; stroke-width: 8; opacity: .9; }
-  .wallet-history .chart-line { stroke-width: 4; }
+  .wallet-history .chart-line-halo { stroke: #fff; stroke-width: 6; opacity: .9; }
+  .wallet-history .chart-line { stroke-width: 3; }
   .wallet-history .chart-axis-title { fill: #334155; font-weight: 800; }
   .result-panel { margin-top: 12px; padding: clamp(10px, 2vw, 18px); }
   .winner-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -1517,7 +1548,14 @@ export const PLAYER_PAGE_STYLES = `
     .view-tabs { margin-inline: 10px; }
     .view-tab { min-height: 36px; padding: 7px 13px; }
     .game-tile { border-radius: 22px; padding: 5px; }
-    .stats-tile { border-radius: 18px; padding: 10px; }
+    /* Keep the complete statistics card inside narrow browser windows. CSS
+       zoom scales typography, spacing, borders and the chart together while
+       leaving the intentionally wide metrics table horizontally scrollable. */
+    .stats-tile {
+      zoom: clamp(.72, calc(100vw / 900), 1);
+      border-radius: 18px;
+      padding: 10px;
+    }
     .poker-table {
       height: clamp(360px, calc(100vh - 210px), 570px);
       height: clamp(360px, calc(100dvh - 210px), 570px);
@@ -2379,6 +2417,14 @@ export const PLAYER_PAGE_STYLES = `
     .table-center.has-showdown .table-board .board-row {
       min-width: 0 !important;
       min-height: 48px !important;
+      align-items: flex-start;
+    }
+    .table-center.has-showdown .table-board .focal-card-frame {
+      width: calc(58.696px * var(--table-scale, 1)) !important;
+      height: calc(84.216px * var(--table-scale, 1)) !important;
+    }
+    .table-center.has-showdown .table-board .focal-card {
+      transform: scale(calc(.638 * var(--table-scale, 1))) !important;
     }
     .table-center.has-showdown .table-pot {
       position: absolute;
@@ -3250,6 +3296,30 @@ export const PLAYER_PAGE_STYLES = `
   }
   #root .poker-table .opponent-hand-zone .winner-badge.high { background: #dc2626; }
   #root .poker-table .opponent-hand-zone .winner-badge.low { background: #2563eb; }
+  .wireframe-opponent-hand .seat-result-badges {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+  }
+  .wireframe-opponent-hand .winner-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 18px;
+    border: 1px solid rgba(255,255,255,.95);
+    border-radius: 999px;
+    color: #fff;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 950;
+    letter-spacing: .04em;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 2px 7px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.28);
+  }
+  .wireframe-opponent-hand .winner-badge.high { background: #dc2626; }
+  .wireframe-opponent-hand .winner-badge.low { background: #2563eb; }
   #root .poker-table .opponent-hand-zone .seat-action-bubble,
   #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble.is-folded-action,
   #root .poker-table:not(.is-showdown) .opponent-hand-zone .seat-action-bubble:not(.is-folded-action) {
@@ -3545,4 +3615,162 @@ export const PLAYER_PAGE_STYLES = `
       transform: translateY(2px) !important;
     }
   }
+  .table-center.has-showdown .table-board .board-row { align-items: flex-start; }
+  .table-center.has-showdown .table-board .focal-card-frame {
+    width: calc(58.696px * var(--table-scale, 1)) !important;
+    height: calc(84.216px * var(--table-scale, 1)) !important;
+  }
+  .table-center.has-showdown .table-board .focal-card {
+    transform: scale(calc(.638 * var(--table-scale, 1))) !important;
+  }
+  .table-center.has-showdown .table-board {
+    display: flex;
+    align-items: flex-end;
+  }
+
+  /* Cycle 1A: the table layout is rectangular. Keep legacy seat selectors
+     inert so old state classes cannot restore oval/crowded positioning. */
+  #root .poker-table.is-oval,
+  #root .poker-table.is-crowded {
+    position: relative !important;
+  }
+  #root .poker-table.is-oval .opponents-row,
+  #root .poker-table.is-crowded .opponents-row,
+  #root .poker-table .opponents-row {
+    position: static !important;
+    height: auto !important;
+    min-height: 0 !important;
+    transform: none !important;
+  }
+  #root .poker-table .opponents-row .player-seat-wrap,
+  #root .poker-table.is-oval .opponents-row .player-seat-wrap,
+  #root .poker-table.is-crowded .opponents-row .player-seat-wrap,
+  #root .poker-table .opponents-row .player-seat,
+  #root .poker-table .opponents-row .opponent-hand-zone,
+  #root .poker-table .opponents-row .opponent-hand-content {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+  }
+  #root .poker-table.is-oval .table-showdown,
+  #root .poker-table.is-oval .table-showdown-center,
+  #root .poker-table.is-crowded .table-showdown,
+  #root .poker-table.is-crowded .table-showdown-center {
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+  }
+
+  /* Round-table effect: lower opponent hands by 10% for each step away from
+     the centre. With an even number of opponents the two centre hands stay
+     level, so the falloff remains symmetrical on both sides. */
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4),
+  #root .poker-table .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(5),
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(6),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) {
+    transform: translateY(20%) !important;
+  }
+  #root .poker-table .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4),
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(5),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) {
+    transform: translateY(10%) !important;
+  }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) {
+    transform: translateY(10%) !important;
+  }
+  /* Correct the accumulated distances for the larger tables. */
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) {
+    transform: translateY(10%) !important;
+  }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) {
+    transform: translateY(30%) !important;
+  }
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) {
+    transform: translateY(20%) !important;
+  }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { transform: translateY(40%) !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { transform: translateY(30%) !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { transform: translateY(20%) !important; }
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4),
+  #root .poker-table .opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { transform: translateY(10%) !important; }
+
+  /* The live table uses the wireframe row class. */
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="3"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="4"] .player-seat-wrap:nth-child(4) { transform: translateY(10%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(5),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(6) { transform: translateY(20%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="5"] .player-seat-wrap:nth-child(4),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="6"] .player-seat-wrap:nth-child(5) { transform: translateY(10%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(7),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(8) { transform: translateY(30%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(6),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(7) { transform: translateY(20%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="7"] .player-seat-wrap:nth-child(5),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="8"] .player-seat-wrap:nth-child(6) { transform: translateY(10%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(1),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(9) { transform: translateY(40%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(2),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(8) { transform: translateY(30%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(3),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(7) { transform: translateY(20%) !important; }
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(4),
+  #root .poker-table .wireframe-opponents-row[data-opponent-count="9"] .player-seat-wrap:nth-child(6) { transform: translateY(10%) !important; }
+
+  /* WireframeTable splits the opponents into rows and wraps each hand in a
+     slot, so target the actual live-table structure as well. */
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(2)):not(:has(> .wireframe-opponent-slot:nth-child(3))) > .wireframe-opponent-slot { transform: translateY(0) !important; }
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(3)):not(:has(> .wireframe-opponent-slot:nth-child(4))) > .wireframe-opponent-slot:nth-child(1),
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(3)):not(:has(> .wireframe-opponent-slot:nth-child(4))) > .wireframe-opponent-slot:nth-child(3) { transform: translateY(10%) !important; }
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(4)):not(:has(> .wireframe-opponent-slot:nth-child(5))) > .wireframe-opponent-slot:nth-child(1),
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(4)):not(:has(> .wireframe-opponent-slot:nth-child(5))) > .wireframe-opponent-slot:nth-child(4) { transform: translateY(10%) !important; }
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(1),
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(6) { transform: translateY(20%) !important; }
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(2),
+  #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(5) { transform: translateY(10%) !important; }
 `;

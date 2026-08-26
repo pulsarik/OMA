@@ -12,13 +12,13 @@ export type StatisticsHand = {
 };
 
 export const COMBINATION_RANKS = [
-  { key: 'straightFlush', rank: 'straight flush', en: 'Straight flush', ru: 'Стрит-флеш' },
-  { key: 'fourOfAKind', rank: 'four of a kind', en: 'Four of a kind', ru: 'Каре' },
-  { key: 'fullHouse', rank: 'full house', en: 'Full house', ru: 'Фулл-хаус' },
-  { key: 'flush', rank: 'flush', en: 'Flush', ru: 'Флеш' },
-  { key: 'straight', rank: 'straight', en: 'Straight', ru: 'Стрит' },
-  { key: 'threeOfAKind', rank: 'three of a kind', en: 'Three of a kind', ru: 'Сет' },
-  { key: 'twoPair', rank: 'two pair', en: 'Two pair', ru: 'Две пары' },
+  { key: 'straightFlush', rank: 'straight flush', short: 'SF', en: 'Straight flush', ru: 'Стрит-флеш' },
+  { key: 'fourOfAKind', rank: 'four of a kind', short: '4K', en: 'Four of a kind', ru: 'Каре' },
+  { key: 'fullHouse', rank: 'full house', short: 'FH', en: 'Full house', ru: 'Фулл-хаус' },
+  { key: 'flush', rank: 'flush', short: 'F', en: 'Flush', ru: 'Флеш' },
+  { key: 'straight', rank: 'straight', short: 'S', en: 'Straight', ru: 'Стрит' },
+  { key: 'threeOfAKind', rank: 'three of a kind', short: '3K', en: 'Three of a kind', ru: 'Сет' },
+  { key: 'twoPair', rank: 'two pair', short: '2P', en: 'Two pair', ru: 'Две пары' },
 ] as const;
 
 export type CombinationKey = typeof COMBINATION_RANKS[number]['key'];
@@ -37,6 +37,38 @@ export function countPlayerCombinations(playerId: string, hands: StatisticsHand[
   });
 
   return counts;
+}
+
+const HIGH_RANK_STRENGTH = new Map(COMBINATION_RANKS.map((combination, index) => [combination.rank, COMBINATION_RANKS.length - index]));
+
+function compareLowRank(first?: string, second?: string) {
+  if (!first) return 1;
+  if (!second) return -1;
+  const a = first.split('-').map(Number);
+  const b = second.split('-').map(Number);
+  for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+    if ((a[index] ?? 0) !== (b[index] ?? 0)) return (a[index] ?? 0) < (b[index] ?? 0) ? -1 : 1;
+  }
+  return 0;
+}
+
+export function advantageRealizationPercent(playerId: string, hands: StatisticsHand[]) {
+  const advantagedHands = hands.filter((hand) => {
+    const ranks = hand.players
+      .filter((player) => player.participated && player.highRank)
+      .map((player) => HIGH_RANK_STRENGTH.get(player.highRank! ) ?? 0);
+    const player = hand.players.find((entry) => entry.id === playerId && entry.participated);
+    const playerStrength = player?.highRank ? (HIGH_RANK_STRENGTH.get(player.highRank) ?? 0) : 0;
+    const bestHigh = playerStrength > 0 && playerStrength === Math.max(...ranks);
+    const lowPlayers = hand.players.filter((entry) => entry.participated && entry.lowRank);
+    const bestLow = Boolean(player?.lowRank) && lowPlayers.every((entry) => compareLowRank(player.lowRank, entry.lowRank) <= 0);
+    return bestHigh || bestLow;
+  });
+  if (!advantagedHands.length) return 0;
+  const realized = advantagedHands.filter((hand) => (
+    (hand.net.find((result) => result.id === playerId)?.total ?? 0) > 0
+  )).length;
+  return Math.round((realized / advantagedHands.length) * 100);
 }
 
 export type WalletHistorySeries = {

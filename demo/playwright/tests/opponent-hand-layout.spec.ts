@@ -27,6 +27,7 @@ test('wide opponent slots use the table arc and a straight card row', async ({ p
     const toplineBox = zone.querySelector<HTMLElement>('.seat-topline')?.getBoundingClientRect();
     const cards = Array.from(zone.querySelectorAll<HTMLElement>('[data-hand-card-index] .opponent-card'))
       .map((card) => card.getBoundingClientRect());
+    const cardAreaBox = zone.querySelector<HTMLElement>('.compact-card-row')?.getBoundingClientRect();
     const nameBox = zone.querySelector<HTMLElement>('.seat-topline .seat-name-score')?.getBoundingClientRect();
     const statusElement = zone.querySelector<HTMLElement>('.seat-action-bubble');
     const statusStyle = statusElement ? getComputedStyle(statusElement) : undefined;
@@ -56,6 +57,19 @@ test('wide opponent slots use the table arc and a straight card row', async ({ p
       statusLeft: statusBox?.left ?? null,
       topLabelBottom: Math.max(nameBox?.bottom ?? 0, statusBox?.bottom ?? 0),
       firstCardTop: cards.length ? Math.min(...cards.map((card) => card.top)) : 0,
+      cardAreaTop: cardAreaBox?.top ?? 0,
+      cardAreaBottom: cardAreaBox?.bottom ?? 0,
+      cardAreaLeft: cardAreaBox?.left ?? 0,
+      cardAreaRight: cardAreaBox?.right ?? 0,
+      cardRatios: cards.map((card) => card.width / card.height),
+      cardsFitArea: cardAreaBox
+        ? cards.every((card) => (
+          card.top >= cardAreaBox.top - 1
+          && card.bottom <= cardAreaBox.bottom + 1
+          && card.left >= cardAreaBox.left - 1
+          && card.right <= cardAreaBox.right + 1
+        ))
+        : false,
       visibleCardCount: cards.filter((card) => card.width > 1 && card.height > 1).length,
       rowMode: zoneBox.width >= Number(rowMinWidth),
     };
@@ -71,6 +85,10 @@ test('wide opponent slots use the table arc and a straight card row', async ({ p
     expect(zone.nameWidth).toBeGreaterThanOrEqual(zone.toplineWidth * .79);
     expect(zone.nameRight).toBeLessThanOrEqual(zone.toplineLeft + zone.toplineWidth * .81 + 2);
     expect(zone.firstCardTop - zone.topLabelBottom).toBeGreaterThanOrEqual(4);
+    zone.cardRatios.forEach((ratio) => {
+      expect(ratio).toBeCloseTo(92 / 132, 1);
+    });
+    expect(zone.cardsFitArea).toBe(true);
     expect(new Set(zone.lefts.map((left) => Math.round(left))).size).toBe(4);
     zone.lefts.slice(1).forEach((left, index) => {
       expect(left).toBeGreaterThan(zone.lefts[index] + zone.widths[index] * 0.5);

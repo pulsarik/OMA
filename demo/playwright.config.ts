@@ -17,14 +17,14 @@ export default defineConfig({
       command: 'node ../server/dist/index.js',
       url: 'http://localhost:4000/api/version',
       timeout: 120_000,
-      reuseExistingServer: false,
+      reuseExistingServer: true,
       env: { DATA_FILE: ':memory:' },
     },
     {
-      command: 'node client/node_modules/vite/bin/vite.js client --host localhost',
+      command: 'cd client && npm.cmd run dev -- --host localhost',
       url: 'http://localhost:5173',
       timeout: 120_000,
-      reuseExistingServer: false,
+      reuseExistingServer: true,
     },
   ],
 });

@@ -68,7 +68,7 @@ export function WalletHistoryChart({
   if (!points.length) return null;
 
   const width = 900;
-  const height = 320;
+  const height = 270;
   const margin = { top: 22, right: 24, bottom: 48, left: 72 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;

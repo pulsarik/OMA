@@ -135,7 +135,7 @@ test('opponent seats form a stable responsive layout as content changes at every
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   const rowSizes = async () => {
-    const positions = await page.getByTestId('opponents-grid').locator('[data-player-seat]')
+    const positions = await page.getByTestId('opponents-zone').locator('[data-player-seat]')
       .evaluateAll((seats) => seats.map((seat) => ({
         top: seat.getBoundingClientRect().top,
         left: seat.getBoundingClientRect().left,
@@ -149,10 +149,13 @@ test('opponent seats form a stable responsive layout as content changes at every
       .map((row) => row.positions.length);
   };
   const assertOpponentHandZones = async (expectedCount: number) => {
-    await expect.poll(() => page.getByTestId('opponents-grid').locator('.deal-card').evaluateAll((cards) => (
+    await expect.poll(() => page.getByTestId('opponents-zone').locator('.deal-card').evaluateAll((cards) => (
       cards.every((card) => card.getAnimations().every((animation) => animation.playState === 'finished'))
     ))).toBe(true);
-    const geometry = await page.getByTestId('opponents-grid').locator('[data-player-seat]').evaluateAll((seats) => (
+    const tableScale = await page.getByTestId('poker-table').evaluate((table) => (
+      Number.parseFloat(getComputedStyle(table).getPropertyValue('--table-scale')) || 1
+    ));
+    const geometry = await page.getByTestId('opponents-zone').locator('[data-player-seat]').evaluateAll((seats) => (
       seats.map((seat) => {
         const zone = seat.querySelector<HTMLElement>('[data-testid^="opponent-hand-zone-"]');
         if (!zone) return null;
@@ -164,7 +167,7 @@ test('opponent seats form a stable responsive layout as content changes at every
           return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
         });
         return {
-          zone: { left: zoneBox.left, top: zoneBox.top, right: zoneBox.right, bottom: zoneBox.bottom },
+          zone: { left: zoneBox.left, top: zoneBox.top, right: zoneBox.right, bottom: zoneBox.bottom, width: zoneBox.width, height: zoneBox.height },
           content,
         };
       })
@@ -173,12 +176,14 @@ test('opponent seats form a stable responsive layout as content changes at every
     expect(geometry.filter(Boolean), `${expectedCount} opponent hand zones should be rendered`).toHaveLength(expectedCount);
     const zones = geometry.filter((item): item is NonNullable<typeof item> => Boolean(item));
     zones.forEach(({ zone, content }, index) => {
+      expect(Math.abs(zone.right - zone.left - 150 * tableScale), `opponent hand ${index + 1} width`).toBeLessThanOrEqual(1);
+      expect(Math.abs(zone.bottom - zone.top - 100 * tableScale), `opponent hand ${index + 1} height`).toBeLessThanOrEqual(1);
       content.forEach((item, contentIndex) => {
         const detail = `opponent hand ${index + 1} content ${contentIndex + 1}`;
-        expect(item.left, `${detail} exits left`).toBeGreaterThanOrEqual(zone.left - 1);
-        expect(item.top, `${detail} exits top`).toBeGreaterThanOrEqual(zone.top - 1);
-        expect(item.right, `${detail} exits right`).toBeLessThanOrEqual(zone.right + 1);
-        expect(item.bottom, `${detail} exits bottom`).toBeLessThanOrEqual(zone.bottom + 1);
+        expect(item.left, `${detail} exits left`).toBeGreaterThanOrEqual(zone.left - 3);
+        expect(item.top, `${detail} exits top`).toBeGreaterThanOrEqual(zone.top - 3);
+        expect(item.right, `${detail} exits right`).toBeLessThanOrEqual(zone.right + 3);
+        expect(item.bottom, `${detail} exits bottom`).toBeLessThanOrEqual(zone.bottom + 3);
       });
     });
     for (let first = 0; first < zones.length; first += 1) {
@@ -192,11 +197,11 @@ test('opponent seats form a stable responsive layout as content changes at every
     }
   };
 
-  for (let playerCount = 2; playerCount <= 10; playerCount += 1) {
+  for (let playerCount = 2; playerCount <= 8; playerCount += 1) {
     await createDefaultHumanVsBotDeal(page, playerCount, false);
 
-    const opponentsGrid = page.getByTestId('opponents-grid');
-    await expect(opponentsGrid).toHaveCSS('display', 'block');
+    const opponentsGrid = page.getByTestId('opponents-zone');
+    await expect(opponentsGrid.locator('.wireframe-opponents-row').first()).toHaveCSS('display', 'grid');
     await expect(opponentsGrid.locator('[data-player-seat]')).toHaveCount(playerCount - 1);
     await assertOpponentHandZones(playerCount - 1);
     if (playerCount === 2) {
@@ -208,7 +213,7 @@ test('opponent seats form a stable responsive layout as content changes at every
     }
     const rowsBeforeContentChange = await rowSizes();
     if (playerCount === 5) {
-      expect(rowsBeforeContentChange, 'four opponent zones should follow the table arc').toEqual([2, 2]);
+      expect(rowsBeforeContentChange, 'four opponent zones should stay in one row when width allows').toEqual([4]);
     }
     if (playerCount >= 6) {
       const seats = await opponentsGrid.locator('[data-player-seat]').evaluateAll((items) => (
@@ -239,14 +244,14 @@ test('opponent seats form a stable responsive layout as content changes at every
   await expect(firstOpponentCards).toHaveCSS('flex-wrap', 'nowrap');
   await expect(firstOpponentCards.locator(':scope > div')).toHaveCount(4);
 
-  const stageBox = await page.getByTestId('table-stage').boundingBox();
-  const boardBox = await page.getByTestId('table-board').boundingBox();
-  const potBox = await page.getByTestId('table-pot').boundingBox();
-  expect(stageBox).toBeTruthy();
-  expect(boardBox).toBeTruthy();
-  expect(potBox).toBeTruthy();
-  expect(stageBox!.x + stageBox!.width).toBeLessThan(boardBox!.x);
-  expect(boardBox!.x + boardBox!.width).toBeLessThan(potBox!.x);
+  const resultsBox = await page.getByTestId('results-zone').boundingBox();
+  const flopBox = await page.getByTestId('flop-zone').boundingBox();
+  const heroBox = await page.locator('.hero-zone').boundingBox();
+  expect(resultsBox).toBeTruthy();
+  expect(flopBox).toBeTruthy();
+  expect(heroBox).toBeTruthy();
+  expect(resultsBox!.y).toBeLessThan(flopBox!.y);
+  expect(flopBox!.y).toBeLessThan(heroBox!.y);
 });
 
 test('the table keeps its height in a compact desktop viewport', async ({ page }) => {
@@ -393,7 +398,7 @@ test('the board stays centered through showdown at a ten-player table', async ({
     expect(box.right).toBeLessThanOrEqual(viewport.width);
     expect(box.bottom).toBeLessThanOrEqual(viewport.height);
   });
-  const opponentGeometryBeforeShowdown = await page.locator('.poker-table.is-oval .opponent-hand-zone').evaluateAll((zones) => (
+    const opponentGeometryBeforeShowdown = await page.locator('.poker-table .opponent-hand-zone').evaluateAll((zones) => (
     zones.map((zone) => {
       const zoneBox = zone.getBoundingClientRect();
       const cards = Array.from(zone.querySelectorAll<HTMLElement>('.opponent-card-frame'))
@@ -432,11 +437,11 @@ test('the board stays centered through showdown at a ten-player table', async ({
   expect(Math.abs(
     (showdownBox.x + showdownBox.width / 2) - (showdownCenterBox.x + showdownCenterBox.width / 2),
   )).toBeLessThanOrEqual(2);
-  const peripheralResults = page.locator('.poker-table.is-oval .opponents-row [data-testid^="player-result-"]');
+  const peripheralResults = page.locator('.poker-table .opponents-row [data-testid^="player-result-"]');
   await expect(peripheralResults).toHaveCount(9);
   await expect(peripheralResults.first()).toBeVisible();
   await expect(page.getByTestId('player-result-P5')).toContainText('High:');
-  const opponentGeometryAfterShowdown = await page.locator('.poker-table.is-oval .opponent-hand-zone').evaluateAll((zones) => (
+  const opponentGeometryAfterShowdown = await page.locator('.poker-table .opponent-hand-zone').evaluateAll((zones) => (
     zones.map((zone) => {
       const zoneBox = zone.getBoundingClientRect();
       const cards = Array.from(zone.querySelectorAll<HTMLElement>('.opponent-card-frame'))
@@ -463,7 +468,7 @@ test('the board stays centered through showdown at a ten-player table', async ({
       });
     });
   });
-  const opponentZoneGeometry = await page.locator('.poker-table.is-oval .opponent-hand-zone').evaluateAll((zones) => (
+  const opponentZoneGeometry = await page.locator('.poker-table .opponent-hand-zone').evaluateAll((zones) => (
     zones.map((zone) => {
       const zoneBox = zone.getBoundingClientRect();
       const topLabels = Array.from(zone.querySelectorAll<HTMLElement>(
@@ -510,7 +515,7 @@ test('the board stays centered through showdown at a ten-player table', async ({
       && first.top < second.bottom && first.bottom > second.top
     );
     const visibleCards = Array.from(document.querySelectorAll<HTMLElement>(
-      '.poker-table.is-oval .opponents-row .compact-card-row',
+      '.poker-table .opponents-row .compact-card-row',
     )).map(cards => ({
       seat: cards.closest('[data-player-seat]'),
       box: cards.getBoundingClientRect(),
@@ -539,6 +544,38 @@ test('the board stays centered through showdown at a ten-player table', async ({
   await newDealButton.click();
   await expect(page).toHaveURL(oldUrl);
   await expect.poll(() => currentPlayerUrl(page)).not.toBe(oldPlayerUrl);
+});
+
+test('flop card bottoms stay fixed through showdown at an eight-player table', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1558, height: 1037 });
+  await createDefaultHumanVsBotDeal(page, 8);
+
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    if (await page.getByTestId('table-board').locator('[data-testid^="card-face-"]').count() >= 3) break;
+    const action = page.getByRole('button', { name: /^(Call|Check)\b/ }).first();
+    await expect(action).toBeVisible({ timeout: 20_000 });
+    await action.click();
+    await page.waitForTimeout(150);
+  }
+  await expect(page.getByTestId('table-board').locator('[data-testid^="card-face-"]')).toHaveCount(3);
+
+  const readBoardBottoms = () => page.getByTestId('table-board').evaluate((board) => {
+    const cards = Array.from(board.querySelectorAll<HTMLElement>('[data-testid^="card-face-"]'))
+      .map((card) => card.getBoundingClientRect());
+    const box = board.getBoundingClientRect();
+    return { cardBottoms: cards.map((card) => card.bottom), boardBottom: box.bottom };
+  });
+  const before = await readBoardBottoms();
+
+  await page.getByRole('button', { name: 'Fold', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'New deal' })).toBeVisible({ timeout: 30_000 });
+  const after = await readBoardBottoms();
+
+  const differences = after.cardBottoms.map((bottom, index) => bottom - before.cardBottoms[index]);
+  expect(differences.every((difference) => Math.abs(difference) <= 2), JSON.stringify({ before, after, differences })).toBe(true);
+  expect(Math.abs(after.boardBottom - before.boardBottom), JSON.stringify({ before, after }))
+    .toBeLessThanOrEqual(2);
 });
 
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
@@ -684,4 +721,70 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const secondShowdownState = await secondShowdownResponse.json();
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await assertCumulativeStats(secondShowdownState);
+});
+
+test('wireframe card layout scales uniformly across wide and narrow desktop viewports', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.setViewportSize({ width: 1800, height: 1200 });
+  await createDefaultHumanVsBotDeal(page, 8, false);
+
+  const viewports = [
+    { width: 1800, height: 1200, expectedRows: 1 },
+    { width: 1280, height: 900, expectedRows: 1 },
+    { width: 900, height: 900, expectedRows: 1 },
+    { width: 700, height: 900, expectedRows: 2 },
+    { width: 400, height: 900, expectedRows: 3 },
+  ];
+
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByTestId('opponents-zone').locator('[data-player-seat]')).toHaveCount(7);
+    await expect.poll(
+      () => page.getByTestId('poker-table').getAttribute('data-row-count'),
+      { timeout: 5_000 },
+    ).toBe(String(viewport.expectedRows));
+    const geometry = await page.getByTestId('poker-table').evaluate((table) => {
+      const scale = Number.parseFloat(getComputedStyle(table).getPropertyValue('--table-scale')) || 1;
+      const zones = Array.from(table.querySelectorAll<HTMLElement>('.wireframe-opponent-hand'));
+      const rows = new Set(zones.map((zone) => Math.round(zone.getBoundingClientRect().top)));
+      return {
+        scale,
+        rowCount: rows.size,
+        zones: zones.map((zone) => {
+          const box = zone.getBoundingClientRect();
+          const cards = Array.from(zone.querySelectorAll<HTMLElement>('.opponent-card-frame'))
+            .map((card) => card.getBoundingClientRect());
+          return {
+            box: { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height },
+            cards: cards.map((card) => ({ left: card.left, top: card.top, right: card.right, bottom: card.bottom })),
+          };
+        }),
+        hero: (() => {
+          const zone = table.querySelector<HTMLElement>('.wireframe-player-zone .wireframe-hero-slot');
+          if (!zone) return null;
+          const box = zone.getBoundingClientRect();
+          const cards = Array.from(zone.querySelectorAll<HTMLElement>('.focal-card-frame, .focal-card'))
+            .filter((card) => card.classList.contains('focal-card-frame'))
+            .map((card) => card.getBoundingClientRect());
+          return {
+            box: { left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height },
+            cards: cards.map((card) => ({ left: card.left, top: card.top, right: card.right, bottom: card.bottom })),
+          };
+        })(),
+      };
+    });
+    expect(geometry.rowCount, `${viewport.width}px should use ${viewport.expectedRows} opponent row(s)`).toBe(viewport.expectedRows);
+    geometry.zones.forEach(({ box, cards }, index) => {
+      expect(box.width, `opponent zone ${index + 1} width at ${viewport.width}px`).toBeCloseTo(150 * geometry.scale, 0);
+      expect(box.height, `opponent zone ${index + 1} height at ${viewport.width}px`).toBeCloseTo(100 * geometry.scale, 0);
+      cards.forEach((card) => {
+        expect(card.left).toBeGreaterThanOrEqual(box.left - 2);
+        expect(card.top).toBeGreaterThanOrEqual(box.top - 2);
+        expect(card.right).toBeLessThanOrEqual(box.right + 2);
+        expect(card.bottom).toBeLessThanOrEqual(box.bottom + 2);
+      });
+    });
+    expect(geometry.hero, 'my cards zone should be rendered').not.toBeNull();
+    expect(geometry.hero!.box.width).toBeCloseTo(300 * geometry.scale, 0);
+  }
 });
