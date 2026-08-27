@@ -1308,8 +1308,10 @@ function WireframeHand({
   folded = false,
   isHighWinner = false,
   isLowWinner = false,
+  isAllIn = false,
   blindLabel,
   isDealer = false,
+  turnSeconds,
 }: {
   id: string;
   hole?: string[];
@@ -1324,8 +1326,10 @@ function WireframeHand({
   folded?: boolean;
   isHighWinner?: boolean;
   isLowWinner?: boolean;
+  isAllIn?: boolean;
   blindLabel?: string;
   isDealer?: boolean;
+  turnSeconds?: number;
 }) {
   const actionLabel = lastAction
     ? `${localizedMove(lastAction.move).toUpperCase()}${lastAction.amount ? ` ${formatPoints(lastAction.amount)}` : ''}`
@@ -1380,6 +1384,11 @@ function WireframeHand({
           ) : null}
         </div>
       ) : null}
+      {isAllIn ? (
+        <span className="wireframe-all-in-badge" data-testid={`player-all-in-${id}`}>
+          {ui('ALL IN', 'ОЛЛ-ИН')}
+        </span>
+      ) : null}
       {hole?.length ? (
         <CompactCardRow
           cards={hole}
@@ -1417,7 +1426,11 @@ function WireframeHand({
       ) : null}
       <div className="wireframe-opponent-footer">
         <div className="wireframe-opponent-action-slot">
-          {isWaitingForNextDeal ? (
+          {isYou && isThinking && typeof turnSeconds === 'number' ? (
+            <span className="wireframe-opponent-thinking wireframe-opponent-action" data-testid={`turn-countdown-${id}`}>
+              {turnSeconds}s
+            </span>
+          ) : isWaitingForNextDeal ? (
             <span
               className="wireframe-opponent-thinking wireframe-opponent-action"
               data-testid={`waiting-for-player-${id}`}
@@ -3090,6 +3103,7 @@ function PlayerPage({
       folded={seat.folded}
       isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(seat.id))}
       isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(seat.id))}
+      isAllIn={seat.stack === 0 && !seat.folded}
       blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
       isDealer={dealerPlayerId === seat.id}
     />
@@ -3276,8 +3290,11 @@ function PlayerPage({
               stack={player.stack}
               isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(player.playerId))}
               isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(player.playerId))}
+              isAllIn={player.stack === 0 && !player.folded}
               blindLabel={playerBlindLabel(player.blinds, heroPositionId, player.stage)}
               isDealer={dealerPlayerId === heroPositionId}
+              isThinking={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
+              turnSeconds={turnSeconds}
             />
           </div>
           <PlayerComboSide combo={player.currentCombo} kind="low" />
