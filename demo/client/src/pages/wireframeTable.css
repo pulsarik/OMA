@@ -305,6 +305,15 @@
   box-sizing: border-box !important;
 }
 
+/* Keep the split red/blue winner frame visible after the compact-card layout
+   rules above reset the row's overflow and box model. */
+.wireframe-hand .compact-card-row.has-winner-border {
+  border: 3px solid transparent !important;
+  overflow: visible !important;
+  position: relative;
+  z-index: 5;
+}
+
 .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame {
   width: 100% !important;
   height: calc(100% - 3px) !important;
@@ -331,6 +340,26 @@
   width: 100% !important;
   height: 100% !important;
   min-height: 0 !important;
+}
+
+/* At showdown the evaluated Hi/Lo labels sit in their own band directly
+   below the revealed cards. */
+.wireframe-opponent-slot > .wireframe-opponent-hand {
+  grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr) !important;
+}
+
+.wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-hand-combination {
+  grid-row: 3 !important;
+  align-self: start !important;
+  justify-self: center !important;
+  min-width: 0;
+  max-width: 100%;
+  margin: 3px auto 0 !important;
+  box-sizing: border-box;
+}
+
+.wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-opponent-footer {
+  grid-row: 4 !important;
 }
 
 .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row,
@@ -361,6 +390,20 @@
   /* border: 1px solid #87918a; */
 }
 
+.wireframe-results-zone:has(.pot-details[open]) {
+  z-index: 30;
+  overflow: visible;
+}
+
+.wireframe-results-zone > .table-pot {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
 .wireframe-results-zone > .showdown-status {
   position: absolute !important;
   left: 50% !important;
@@ -377,6 +420,26 @@
   box-sizing: border-box !important;
   transform: translate(-50%, -50%) scale(calc(.55 * var(--wireframe-scale))) !important;
   transform-origin: center center !important;
+}
+
+/* The result plaque can extend to the lower edge of its compact slot. Keep
+   the continuation button visible above the hero row instead of clipping it. */
+.wireframe-results-zone:has(> .showdown-status) {
+  z-index: 20;
+  overflow: visible;
+}
+
+.wireframe-results-zone > .showdown-status {
+  position: relative !important;
+  z-index: 20;
+  overflow: visible !important;
+}
+
+.wireframe-results-zone > .showdown-status .showdown-new-deal {
+  position: relative;
+  z-index: 2;
+  display: block !important;
+  visibility: visible !important;
 }
 
 .wireframe-flop-zone {
@@ -468,7 +531,7 @@
 #root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side.low {
   left: calc(50% + var(--wireframe-hint-offset, 152px)) !important;
   right: auto !important;
-  transform: translate(10px, -50%) !important;
+  transform: translateY(-50%) !important;
 }
 
 /* Keep the three lower zones in a fixed grid, giving the hero hand more room:
@@ -491,6 +554,18 @@
   width: calc(200px * var(--wireframe-scale)) !important;
   height: calc(150px * var(--wireframe-scale)) !important;
   transform: none !important;
+  overflow: visible !important;
+  align-self: center !important;
+}
+
+#root .poker-page .wireframe-table .side-combo-cards {
+  flex-wrap: nowrap !important;
+  width: max-content !important;
+  min-width: 100% !important;
+}
+
+#root .poker-page .wireframe-table .side-combo-card {
+  flex: 0 0 auto !important;
 }
 
 .wireframe-opponent-action-slot {
@@ -544,12 +619,36 @@
   line-height: 1.1 !important;
 }
 
+#root .poker-page .wireframe-results-zone > .showdown-status {
+  position: relative !important;
+  z-index: 20 !important;
+  overflow: visible !important;
+}
+
+#root .poker-page .wireframe-results-zone > .showdown-status .showdown-new-deal {
+  position: relative !important;
+  z-index: 2 !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
 #root .poker-page .wireframe-table > .wireframe-player-zone > aside.combo-side.high {
   grid-column: 1 !important;
 }
 
 #root .poker-page .wireframe-table > .wireframe-player-zone > aside.combo-side.low {
   grid-column: 3 !important;
+}
+
+/* Both combination hints share the same vertical grid alignment. Keep this
+   after the legacy absolute-position rules so neither side can drift. */
+#root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side.high,
+#root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side.low {
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  align-self: center !important;
 }
 
 #root .poker-page .wireframe-table > .wireframe-player-zone > .wireframe-hero-slot {
@@ -857,6 +956,65 @@
   transform: none !important;
 }
 
+/* Keep the controls in one horizontal row. The table scale is calculated
+   from the available viewport, so the controls shrink together with the
+   table instead of wrapping when the action zone gets narrow. */
+#root .poker-page .wireframe-actions-zone {
+  --action-ui-scale: clamp(.55, var(--wireframe-scale, 1), 1);
+}
+
+#root .poker-page .wireframe-actions-zone > .action-dock {
+  flex-wrap: wrap !important;
+  align-content: center !important;
+  gap: calc(10px * var(--action-ui-scale)) !important;
+  padding: calc(10px * var(--action-ui-scale)) !important;
+}
+
+#root .poker-page .wireframe-actions-zone .bet-sizes,
+#root .poker-page .wireframe-actions-zone .main-actions {
+  display: flex !important;
+  flex: 1 1 0 !important;
+  align-items: center;
+  min-width: 0 !important;
+  gap: calc(7px * var(--action-ui-scale)) !important;
+  flex-wrap: nowrap !important;
+}
+
+#root .poker-page .wireframe-actions-zone .bet-sizes > span {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: clamp(8px, calc(12px * var(--action-ui-scale)), 12px) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .poker-page .wireframe-actions-zone .bet-size-button,
+#root .poker-page .wireframe-actions-zone .main-actions .action-button {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  min-height: clamp(24px, calc(42px * var(--action-ui-scale)), 42px) !important;
+  padding: calc(8px * var(--action-ui-scale)) calc(12px * var(--action-ui-scale)) !important;
+  overflow: hidden;
+  font-size: clamp(8px, calc(14px * var(--action-ui-scale)), 14px) !important;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#root .poker-page .wireframe-actions-zone .main-actions .action-button.primary {
+  min-width: calc(120px * var(--action-ui-scale)) !important;
+}
+
+#root .poker-page .wireframe-actions-zone .bet-size-explanation {
+  flex-basis: 100% !important;
+  min-width: 0;
+  overflow: hidden;
+  font-size: clamp(8px, calc(12px * var(--action-ui-scale)), 12px) !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .wireframe-table[data-layout-status="window-too-small"]::before {
   content: 'WINDOW TOO SMALL';
   position: absolute;
@@ -867,6 +1025,22 @@
   background: rgba(255, 255, 255, .92);
   color: #7f1d1d;
   font-weight: 800;
+}
+
+.wireframe-hero-stack {
+  position: absolute;
+  /* The stack belongs outside the Low hint, not between the hero hand and
+     that hint. Keep its offset in the same scaled coordinate system as the
+     three-column lower row. */
+  left: calc(50% + 390px * var(--wireframe-scale, 1));
+  top: 50%;
+  z-index: 6;
+  transform: translateY(-50%);
+}
+
+/* The stack intentionally sits just outside the hand's card row. */
+.wireframe-hand:not(.wireframe-opponent-hand) {
+  overflow: visible !important;
 }
 
 /* The compact table remains usable at small viewport sizes. The warning layer
@@ -884,3 +1058,23 @@
   display: flex;
   gap: 3px;
 }
+
+.wireframe-hand .hero-result-badges .winner-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  border: 1px solid rgba(255,255,255,.95);
+  border-radius: 999px;
+  color: #fff;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 950;
+  letter-spacing: .04em;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 2px 7px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.28);
+}
+
+.wireframe-hand .hero-result-badges .winner-badge.high { background: #dc2626; }
+.wireframe-hand .hero-result-badges .winner-badge.low { background: #2563eb; }

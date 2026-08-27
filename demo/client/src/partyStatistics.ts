@@ -25,9 +25,10 @@ export type CombinationKey = typeof COMBINATION_RANKS[number]['key'];
 export type CombinationCounts = Record<CombinationKey, number>;
 
 export function countPlayerCombinations(playerId: string, hands: StatisticsHand[]): CombinationCounts {
-  const counts = Object.fromEntries(
-    COMBINATION_RANKS.map(({ key }) => [key, 0]),
-  ) as CombinationCounts;
+  const counts = COMBINATION_RANKS.reduce((result, { key }) => {
+    result[key] = 0;
+    return result;
+  }, {} as CombinationCounts);
   const ranks = new Map<string, CombinationKey>(COMBINATION_RANKS.map(({ rank, key }) => [rank, key]));
 
   hands.forEach((hand) => {
@@ -39,7 +40,9 @@ export function countPlayerCombinations(playerId: string, hands: StatisticsHand[
   return counts;
 }
 
-const HIGH_RANK_STRENGTH = new Map(COMBINATION_RANKS.map((combination, index) => [combination.rank, COMBINATION_RANKS.length - index]));
+const HIGH_RANK_STRENGTH = new Map<string, number>(COMBINATION_RANKS.map((combination, index) => (
+  [combination.rank, COMBINATION_RANKS.length - index]
+)));
 
 function compareLowRank(first?: string, second?: string) {
   if (!first) return 1;
@@ -61,7 +64,9 @@ export function advantageRealizationPercent(playerId: string, hands: StatisticsH
     const playerStrength = player?.highRank ? (HIGH_RANK_STRENGTH.get(player.highRank) ?? 0) : 0;
     const bestHigh = playerStrength > 0 && playerStrength === Math.max(...ranks);
     const lowPlayers = hand.players.filter((entry) => entry.participated && entry.lowRank);
-    const bestLow = Boolean(player?.lowRank) && lowPlayers.every((entry) => compareLowRank(player.lowRank, entry.lowRank) <= 0);
+    const bestLow = player?.lowRank
+      ? lowPlayers.every((entry) => compareLowRank(player.lowRank, entry.lowRank) <= 0)
+      : false;
     return bestHigh || bestLow;
   });
   if (!advantagedHands.length) return 0;

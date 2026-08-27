@@ -99,10 +99,13 @@ test('holds the last opponent action for one second when a new street gives me t
   const opponentAction = page.getByTestId('opponent-betting-action-P2');
   await expect(opponentAction).toBeVisible();
   await expect(opponentAction).toHaveText('CHECK');
+  const guestOpponentAction = guest.getByTestId('opponent-betting-action-P1');
+  await expect(guestOpponentAction).toContainText('CALL');
   const pauseStartedAt = Date.now();
   await expect(page.locator('.action-dock')).toHaveCount(0);
   await expect.poll(() => Date.now() - pauseStartedAt, { timeout: 2_000 }).toBeGreaterThanOrEqual(700);
   await expect(opponentAction).toHaveCount(0);
+  await expect(guestOpponentAction).toHaveCount(0);
   await expect(page.locator('.action-dock')).toBeVisible();
 
   await guestContext.close();

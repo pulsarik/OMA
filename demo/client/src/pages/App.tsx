@@ -668,17 +668,24 @@ function CompactCardRow({
   const cardClass = focal ? 'focal-card' : 'opponent-card';
   const scale = focal ? FOCAL_CARD_SCALE : OPPONENT_CARD_SCALE;
   const expansionLabel = ui('Show opponent cards larger', 'Показать карты соперника крупнее');
+  const winnerGlow = winnerBorder?.includes('#dc2626') && winnerBorder.includes('#2563eb')
+    ? '0 0 0 1px rgba(255,255,255,.8), 0 0 10px rgba(220,38,38,.42), 0 0 16px rgba(37,99,235,.34)'
+    : winnerBorder?.includes('#dc2626')
+      ? '0 0 0 1px rgba(255,255,255,.8), 0 0 14px rgba(220,38,38,.5)'
+      : '0 0 0 1px rgba(255,255,255,.8), 0 0 14px rgba(37,99,235,.5)';
 
   return (
     <>
       <div
         data-testid={testId}
-        className={`compact-card-row${expandable ? ' is-expandable' : ''}`}
+        className={`compact-card-row${expandable ? ' is-expandable' : ''}${winnerBorder ? ' has-winner-border' : ''}`}
+        data-winner-border={winnerBorder ? 'red-blue' : undefined}
         style={winnerBorder ? {
           border: '3px solid transparent',
           borderRadius: 10,
           background: `linear-gradient(#fff, #fff) padding-box, ${winnerBorder} border-box`,
           padding: 4,
+          boxShadow: winnerGlow,
         } : undefined}
         role={expandable ? 'button' : undefined}
         tabIndex={expandable ? 0 : undefined}
@@ -993,29 +1000,32 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
         fontWeight: 800,
       }}
     >
-      <div style={{ display: 'grid', alignItems: 'end', minHeight: compact ? 38 : 72 }}>
+      <div className="coin-stack-pile" style={{ display: 'grid', alignItems: 'end', minHeight: compact ? 36 : 72 }}>
         {visibleChips.map((chip, index) => (
           <span
             key={index}
             data-chip-index={index}
             data-chip-value={chip.value}
+            className="coin-chip"
             style={{
               gridArea: '1 / 1',
               position: 'relative',
-              width: compact ? 20 : 24,
-              height: compact ? 7 : 8,
+              width: compact ? 22 : 28,
+              height: compact ? 8 : 10,
               border: `1px solid ${chip.edge}`,
               borderRadius: '50%',
+              color: chip.text,
               background: chip.value === 0
                 ? 'linear-gradient(#cbd5e1, #64748b)'
                 : `linear-gradient(#fff 0 12%, ${chip.color} 13% 72%, ${chip.edge} 73%)`,
-              boxShadow: `0 1px 0 ${chip.edge}`,
+              boxShadow: `0 2px 0 ${chip.edge}, 0 3px 4px rgba(0,0,0,.2)`,
               transform: `translate(${index % 2 === 0 ? (compact ? -2 : -3) : (compact ? 2 : 3)}px, ${-index * (compact ? 2 : 3)}px)`,
             }}
           />
         ))}
       </div>
       <span
+        className={compact ? 'coin-stack-total' : undefined}
         style={{
           border: '1px solid rgba(255,255,255,0.45)',
           borderRadius: 999,
@@ -1033,6 +1043,7 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
 function PotDisplay({
   value,
   currentBet,
+  showCurrentBet = true,
   breakdown,
   players,
   contributions,
@@ -1041,6 +1052,7 @@ function PotDisplay({
 }: {
   value: number;
   currentBet: number;
+  showCurrentBet?: boolean;
   breakdown?: PotBreakdown[];
   players: Array<{ id: string; name?: string }>;
   contributions: Record<string, number>;
@@ -1083,11 +1095,11 @@ function PotDisplay({
       <details ref={potDetailsRef} className="pot-details">
         <summary className="pot-summary" aria-label={`${ui('Pot', 'Банк')} ${formatPoints(value)}. ${ui('Show contributions', 'Показать взносы')}`}>
           <CoinStack value={value} title={ui('pot', 'банк')} compact />
-          {currentBet > 0 ? (
-            <span className="pot-current-bet">
+          {showCurrentBet ? <span className="pot-current-bet" aria-hidden={currentBet <= 0}>
+            {currentBet > 0 ? <>
               {ui('bet', 'ставка')} {formatPoints(currentBet)}
-            </span>
-          ) : null}
+            </> : '\u00a0'}
+          </span> : null}
         </summary>
         <div className="pot-popover" data-testid="pot-contributions">
           <div className="pot-popover-title">
@@ -1289,7 +1301,9 @@ function WireframeHand({
   isYou,
   name,
   stack,
+  resultPlayer,
   isThinking = false,
+  isWaitingForNextDeal = false,
   lastAction,
   folded = false,
   isHighWinner = false,
@@ -1303,7 +1317,9 @@ function WireframeHand({
   isYou: boolean;
   name?: string;
   stack?: number;
+  resultPlayer?: HiLoResult['players'][number];
   isThinking?: boolean;
+  isWaitingForNextDeal?: boolean;
   lastAction?: ActionLog;
   folded?: boolean;
   isHighWinner?: boolean;
@@ -1323,7 +1339,7 @@ function WireframeHand({
         : undefined;
   return (
     <div
-      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${folded ? ' is-folded' : ''}`}
+      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${isThinking ? ' is-thinking' : ''}${folded ? ' is-folded' : ''}`}
       data-player-seat={id}
       data-testid={isYou ? `wireframe-hand-${id}` : `opponent-hand-zone-${id}`}
     >
@@ -1340,7 +1356,7 @@ function WireframeHand({
               width: 'fit-content',
               maxWidth: '100%',
               padding: '3px 7px',
-              border: '1px solid #fbbf24',
+              border: '1px solid #facc15',
               borderRadius: 999,
               background: '#172033',
               color: '#fff',
@@ -1348,6 +1364,7 @@ function WireframeHand({
               fontWeight: 900,
               lineHeight: 1,
               boxShadow: '0 2px 7px rgba(15,23,42,.28)',
+              animation: isThinking ? 'thinking-name-pulse 1.15s ease-in-out infinite' : undefined,
               whiteSpace: 'nowrap',
               boxSizing: 'border-box',
             }}
@@ -1357,8 +1374,8 @@ function WireframeHand({
           </span>
           {(isHighWinner || isLowWinner) ? (
             <div className="seat-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
-              {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`}>{ui('HIGH', 'ХАЙ')}</span> : null}
-              {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`}>{ui('LOW', 'ЛОУ')}</span> : null}
+              {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
+              {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
             </div>
           ) : null}
         </div>
@@ -1375,6 +1392,19 @@ function WireframeHand({
       ) : (
         <CardBackRow count={cardCount} compact={true} focal={isYou} testId={`player-cards-${id}`} />
       )}
+      {isYou && (isHighWinner || isLowWinner) ? (
+        <div className="seat-result-badges hero-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
+          {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
+          {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
+        </div>
+      ) : null}
+      {isYou ? <div className="wireframe-hero-stack"><CoinStack value={stack ?? 0} compact /></div> : null}
+      {resultPlayer && (resultPlayer.highRank || resultPlayer.lowRank) ? (
+        <div className="wireframe-hand-combination" data-testid={`player-result-${id}`}>
+          {resultPlayer.highRank ? <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank)}</span> : null}
+          {resultPlayer.lowRank ? <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank)}</span> : null}
+        </div>
+      ) : null}
       {isYou && (blindLabel || isDealer) ? (
         <div className="wireframe-seat-positions wireframe-hero-position" aria-label={ui('Table positions', 'Позиции за столом')}>
           {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
@@ -1387,8 +1417,20 @@ function WireframeHand({
       ) : null}
       <div className="wireframe-opponent-footer">
         <div className="wireframe-opponent-action-slot">
-          {actionLabel ? (
-            <span className="wireframe-opponent-thinking wireframe-opponent-action">{actionLabel}</span>
+          {isWaitingForNextDeal ? (
+            <span
+              className="wireframe-opponent-thinking wireframe-opponent-action"
+              data-testid={`waiting-for-player-${id}`}
+            >
+              {ui('WAITING', 'ЖДЁМ')}
+            </span>
+          ) : actionLabel ? (
+            <span
+              className="wireframe-opponent-thinking wireframe-opponent-action"
+              data-testid={`opponent-betting-action-${id}`}
+            >
+              {actionLabel}
+            </span>
           ) : isThinking ? (
             <span className="wireframe-opponent-thinking">{ui('THINKING…', 'ДУМАЕТ…')}</span>
           ) : null}
@@ -1558,7 +1600,7 @@ function PlayerSeat({
             style={{
               position: 'relative',
               zIndex: 3,
-              border: '1px solid #fbbf24',
+              border: `1px solid ${isCurrentTurn ? '#facc15' : '#fbbf24'}`,
               borderRadius: 999,
               background: '#172033',
               color: '#fff',
@@ -1567,6 +1609,7 @@ function PlayerSeat({
               fontWeight: 900,
               lineHeight: 1,
               boxShadow: '0 2px 7px rgba(15,23,42,.28)',
+              animation: isCurrentTurn ? 'thinking-name-pulse 1.15s ease-in-out infinite' : undefined,
               display: 'flex',
               gap: 6,
               alignItems: 'center',
@@ -1581,8 +1624,8 @@ function PlayerSeat({
             <div className="seat-topline-right" aria-label={ui('Table status', 'Статус за столом')}>
               {hasWinningHand ? (
                 <div className="seat-result-badges">
-                  {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`}>{ui('HIGH', 'ХАЙ')}</span> : null}
-                  {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`}>{ui('LOW', 'ЛОУ')}</span> : null}
+                  {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
+                  {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
                 </div>
               ) : null}
             </div>
@@ -1598,8 +1641,8 @@ function PlayerSeat({
         </div> : null}
         {wireframeZone && isYou && hasWinningHand ? (
           <div className="seat-result-badges hero-result-badges" aria-label="Winning hands">
-            {isHighWinner ? <span className="winner-badge high">HIGH</span> : null}
-            {isLowWinner ? <span className="winner-badge low">LOW</span> : null}
+            {isHighWinner ? <span className="winner-badge high winner-badge-label" title="High winner">HIGH</span> : null}
+            {isLowWinner ? <span className="winner-badge low winner-badge-label" title="Low winner">LOW</span> : null}
           </div>
         ) : null}
         {!wireframeZone && isCurrentTurn && typeof turnSeconds === 'number' ? (
@@ -1614,9 +1657,9 @@ function PlayerSeat({
             {ui('OUT', 'ВЫБЫЛ')}
           </span>
         */}
-        {!wireframeZone && bubbleLabel && !isCurrentTurn && !suppressUpperBettingAction && !(compact && !isYou && hasWinningHand) ? (
+        {!wireframeZone && bubbleLabel && (!isCurrentTurn || isWaitingForNextDeal) && !suppressUpperBettingAction && !(compact && !isYou && hasWinningHand) ? (
           <AdaptiveSeatBubble
-            label={actionLabel ?? bubbleLabel}
+            label={isWaitingForNextDeal ? bubbleLabel : actionLabel ?? bubbleLabel}
             compact={compact}
             emphasized={isCurrentTurn || isWaitingForNextDeal}
             foldedAction={action?.move === 'fold'}
@@ -1710,12 +1753,12 @@ function PlayerSeat({
                     background: '#dc2626',
                     color: '#fff',
                     padding: '3px 7px',
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: 900,
                     lineHeight: 1,
                   }}
                 >
-                  ★ {ui('HIGH', 'ХАЙ')}
+                  {ui('HIGH', 'ХАЙ')}
                 </span>
               ) : null}
               {isLowWinner ? (
@@ -1726,12 +1769,12 @@ function PlayerSeat({
                     background: '#2563eb',
                     color: '#fff',
                     padding: '3px 7px',
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: 900,
                     lineHeight: 1,
                   }}
                 >
-                  ★ {ui('LOW', 'ЛОУ')}
+                  {ui('LOW', 'ЛОУ')}
                 </span>
               ) : null}
             </div>
@@ -1860,11 +1903,13 @@ function totalScore(score: PartyScore | undefined, playerId: string) {
 function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string, stage: string) {
   return [...(actions ?? [])].reverse().find((action) => (
     action.playerId === playerId
-    && (action.stage === stage || action.move === 'fold')
+    && action.stage === stage
+    && action.move !== 'fold'
   ));
 }
 
 const BETTING_STREETS = ['preflop', 'flop', 'turn', 'river'];
+const STREET_CHANGE_PAUSE_MS = 1_000;
 
 function isBettingStreetAdvance(previousStage: string, nextStage: string) {
   return BETTING_STREETS.indexOf(nextStage) === BETTING_STREETS.indexOf(previousStage) + 1;
@@ -2312,7 +2357,9 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   contributions?: Record<string, number>;
   currentPlayerId?: string;
 }) {
-  const [showAllHands, setShowAllHands] = useState(false);
+  // At showdown every revealed player's combinations are useful context, so
+  // keep the old hand-details panel open by default.
+  const [showAllHands, setShowAllHands] = useState(true);
   if (!result) return null;
   const displayName = (id: string) => playerLabel(players, id);
   const highWinnerResults = result.highWinners
@@ -2552,11 +2599,12 @@ function PlayerPage({
   const [isTabletPortraitTable, setIsTabletPortraitTable] = useState(
     () => window.innerWidth >= 761 && window.innerWidth <= 820,
   );
-  const [streetPauseAction, setStreetPauseAction] = useState<{ playerId: string; action: ActionLog } | null>(null);
+  const [streetPause, setStreetPause] = useState<{ action?: ActionLog; version: number } | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
   const playerRef = useRef<PlayerView | null>(null);
   const streetPauseTimerRef = useRef<number | null>(null);
+  const streetPauseVersionRef = useRef(0);
   const retryPendingAfterSyncRef = useRef(false);
   const joinedPlayerSocketRef = useRef<WebSocket | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
@@ -2592,21 +2640,18 @@ function PlayerPage({
       && previousPlayer.handId === nextPlayer.handId
       && previousPlayer.stage !== nextPlayer.stage
       && isBettingStreetAdvance(previousPlayer.stage, nextPlayer.stage)
-      && nextPlayer.currentPlayerId === playerId
     ) {
       const completedAction = [...nextPlayer.actions].reverse().find((action) => (
         action.stage === previousPlayer.stage && action.playerId !== playerId
       ));
-      if (completedAction) {
-        setStreetPauseAction({ playerId: completedAction.playerId, action: completedAction });
-        if (streetPauseTimerRef.current !== null) window.clearTimeout(streetPauseTimerRef.current);
-        streetPauseTimerRef.current = window.setTimeout(() => {
-          setStreetPauseAction((current) => (
-            current?.action.at === completedAction.at ? null : current
-          ));
-          streetPauseTimerRef.current = null;
-        }, 1_000);
-      }
+      const pauseVersion = streetPauseVersionRef.current + 1;
+      streetPauseVersionRef.current = pauseVersion;
+      setStreetPause({ action: completedAction, version: pauseVersion });
+      if (streetPauseTimerRef.current !== null) window.clearTimeout(streetPauseTimerRef.current);
+      streetPauseTimerRef.current = window.setTimeout(() => {
+        setStreetPause((current) => current?.version === pauseVersion ? null : current);
+        streetPauseTimerRef.current = null;
+      }, STREET_CHANGE_PAUSE_MS);
     }
 
     playerRef.current = nextPlayer;
@@ -2666,19 +2711,11 @@ function PlayerPage({
       // or the on-screen keyboard changes the viewport height.
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       const heightScale = viewportHeight / 780;
-      const playerCount = player?.players.length ?? 10;
       // Scale the base wireframe uniformly in both directions. Extra space
       // may enlarge it; insufficient space may shrink it.
       const viewportScale = Math.max(0.6, Math.min(widthScale, heightScale));
-      const playerDensityScale = playerCount <= 5
-        ? 1.05
-        : playerCount <= 7
-          ? 1.03
-          : playerCount === 8
-            ? 1.02
-            : 1;
       setTableScale(viewportScale);
-      setCardScale(viewportScale * playerDensityScale);
+      setCardScale(viewportScale);
     };
     updateTableScale();
     window.addEventListener('resize', updateTableScale);
@@ -2918,7 +2955,7 @@ function PlayerPage({
     ? `${sessionHours}:${String(sessionMinutes).padStart(2, '0')}:${String(sessionSeconds).padStart(2, '0')}`
     : `${sessionMinutes}:${String(sessionSeconds).padStart(2, '0')}`;
   const isYourTurn = socketReady && player.stage !== 'showdown' && !player.isBot && !player.folded && player.currentPlayerId === player.playerId;
-  const canAct = isYourTurn && !pendingCommand && !streetPauseAction;
+  const canAct = isYourTurn && !pendingCommand && !streetPause;
   const currentBet = player.currentBet ?? 0;
   const yourRoundBet = player.roundBets?.[player.playerId] ?? 0;
   const bigBlind = player.blinds?.big ?? 4;
@@ -2975,7 +3012,7 @@ function PlayerPage({
   const showActionDock = socketReady
     && player.stage !== 'showdown'
     && !player.folded
-    && !streetPauseAction;
+    && !streetPause;
   const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
     tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
@@ -3019,11 +3056,15 @@ function PlayerPage({
       isYou={false}
       name={seat.name}
       stack={seat.stack}
+      resultPlayer={player.stage === 'showdown' ? player.result?.players.find(result => result.id === seat.id) : undefined}
       isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
-      lastAction={latestActionForPlayer(player.actions, seat.id, player.stage)}
+      isWaitingForNextDeal={player.waitingForPlayers.some(waiting => waiting.id === seat.id)}
+      lastAction={streetPause?.action?.playerId === seat.id
+        ? streetPause.action
+        : latestActionForPlayer(player.actions, seat.id, player.stage)}
       folded={seat.folded}
-      isHighWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.highWinners.includes(seat.id))}
-      isLowWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.lowWinners.includes(seat.id))}
+      isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(seat.id))}
+      isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(seat.id))}
       blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
       isDealer={dealerPlayerId === seat.id}
     />
@@ -3039,6 +3080,18 @@ function PlayerPage({
     fontSize: 12,
     lineHeight: 1.2,
   };
+  const potDisplay = (showCurrentBet: boolean) => (
+    <PotDisplay
+      value={player.potCoins}
+      currentBet={currentBet}
+      showCurrentBet={showCurrentBet}
+      breakdown={player.potBreakdown}
+      players={player.players}
+      contributions={player.totalContributions ?? {}}
+      roundBets={player.roundBets ?? {}}
+      currentPlayerId={player.playerId}
+    />
+  );
 
   return (
     <>
@@ -3111,7 +3164,10 @@ function PlayerPage({
         </div>
       ) : null}
 
-      <WireframeTable opponents={opponentNodes} opponentCount={otherPlayers.length}>
+      <WireframeTable
+        opponents={opponentNodes}
+        opponentCount={otherPlayers.length}
+      >
         <section className="opponents-zone" data-testid="opponents-zone" aria-label={ui('Opponents', 'Ð¡Ð¾Ð¿ÐµÑ€Ð½Ð¸ÐºÐ¸')}>
           {player.isReplay || player.replayOfHandId ? <HandBanner player={player} /> : null}
         <div
@@ -3152,7 +3208,11 @@ function PlayerPage({
                 </button>
               ) : undefined}
             />
-          ) : null}
+          ) : (
+            <div className="table-pot" data-testid="table-pot">
+              {potDisplay(false)}
+            </div>
+          )}
         </section>
 
         <section
@@ -3162,17 +3222,11 @@ function PlayerPage({
         >
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
-          <div className="table-pot" data-testid="table-pot">
-            <PotDisplay
-              value={player.potCoins}
-              currentBet={currentBet}
-              breakdown={player.potBreakdown}
-              players={player.players}
-              contributions={player.totalContributions ?? {}}
-              roundBets={player.roundBets ?? {}}
-              currentPlayerId={player.playerId}
-            />
-          </div>
+          {player.stage === 'showdown' ? (
+            <div className="table-pot" data-testid="table-pot">
+              {potDisplay(true)}
+            </div>
+          ) : null}
         </section>
 
         <div
@@ -3194,8 +3248,9 @@ function PlayerPage({
               isYou
               hole={player.hole}
               cardCount={player.hole.length}
-              isHighWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.highWinners.includes(player.playerId))}
-              isLowWinner={player.stage === 'showdown' && Boolean(player.showdownSummary?.lowWinners.includes(player.playerId))}
+              stack={player.stack}
+              isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(player.playerId))}
+              isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(player.playerId))}
               blindLabel={playerBlindLabel(player.blinds, heroPositionId, player.stage)}
               isDealer={dealerPlayerId === heroPositionId}
             />

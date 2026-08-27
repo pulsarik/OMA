@@ -66,19 +66,23 @@ export function WireframeTable({
   ), [container, opponentCount, opponents?.length]);
 
   const opponentRows = layout.rows.map((row, rowIndex) => (
-    <div
-      className="wireframe-opponents-row"
-      data-testid={rowIndex === 0 ? 'opponents-grid' : 'wireframe-opponents-row'}
-      data-row-index={rowIndex}
-      style={{
-        // Each row distributes the available table width evenly between its
-        // opponents; the base opponent width remains the layout fallback.
-        gridTemplateColumns: `repeat(${row.length}, minmax(0, 1fr))`,
-        width: '90%',
-        marginInline: 'auto',
-      }}
-      key={`row-${rowIndex}`}
-    >
+    (() => {
+      const availableWidth = container.width * 0.9;
+      const maxSlotWidth = 500 * layout.scale;
+      const slotWidth = Math.min(maxSlotWidth, availableWidth / row.length);
+      const rowWidth = row.length * slotWidth + Math.max(0, row.length - 1) * 2 * layout.scale;
+      return (
+        <div
+          className="wireframe-opponents-row"
+          data-testid={rowIndex === 0 ? 'opponents-grid' : 'wireframe-opponents-row'}
+          data-row-index={rowIndex}
+          style={{
+            gridTemplateColumns: `repeat(${row.length}, ${slotWidth}px)`,
+            width: `${rowWidth}px`,
+            marginInline: 'auto',
+          }}
+          key={`row-${rowIndex}`}
+        >
       {row.map((opponentIndex, index) => {
         const middle = (row.length - 1) / 2;
         const distance = row.length % 2 === 0
@@ -94,7 +98,9 @@ export function WireframeTable({
         </div>
         );
       })}
-    </div>
+        </div>
+      );
+    })()
   ));
 
   if (children) {

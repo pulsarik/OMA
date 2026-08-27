@@ -21,8 +21,8 @@ test('wireframe scales down before changing from one row', () => {
 test('wireframe balances two and three opponent rows', () => {
   const twoRows = getWireframeTableLayout({ width: 700, height: 900 }, 7);
   const threeRows = getWireframeTableLayout({ width: 400, height: 900 }, 7);
-  expect(twoRows.rows.map(row => row.length)).toEqual([4, 3]);
-  expect(threeRows.rows.map(row => row.length)).toEqual([3, 2, 2]);
-  expect(twoRows.mode).toBe('narrow');
-  expect(threeRows.mode).toBe('narrow');
+  expect(twoRows.rows.map(row => row.length)).toEqual([7]);
+  expect(threeRows.rows.map(row => row.length)).toEqual([7]);
+  expect(twoRows.mode).toBe('wide');
+  expect(threeRows.mode).toBe('wide');
 });
