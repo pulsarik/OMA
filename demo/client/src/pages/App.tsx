@@ -2173,8 +2173,9 @@ function ReplayControls({ score, onReplayHand, canReplay }: {
   );
 }
 
-function PartyStatistics({ score, players, isFinal }: {
+function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
   score?: PartyScore;
+  currentPlayerId?: string;
   players: Array<{
     id: string;
     name?: string;
@@ -2255,6 +2256,25 @@ function PartyStatistics({ score, players, isFinal }: {
           <thead>
             <tr>
               <th style={{ textAlign: 'left' }}>{ui('Player', 'Игрок')}</th>
+              <th className="party-combination-heading" title={ui('Advantage realization', 'Реализация преимущества')}>
+                <button
+                  type="button"
+                  className="party-combination-button"
+                  aria-expanded={showRealizationHelp}
+                  aria-label={ui('Explain advantage realization', 'Объяснить реализацию преимущества')}
+                  onClick={() => setShowRealizationHelp((current) => !current)}
+                >
+                  {ui('Realization', 'Реализация')}
+                </button>
+                {showRealizationHelp ? (
+                  <span className="party-combination-popover">
+                    {ui(
+                      'Percentage of advantaged hands that produced a positive net result.',
+                      'Процент раздач с преимуществом, которые дали положительный итог.',
+                    )}
+                  </span>
+                ) : null}
+              </th>
               <th>{ui('Hands', 'Раздачи')}</th>
               <th title={ui('Hands with at least one bet or raise', 'Раздачи хотя бы с одной ставкой или рейзом')}>
                 {ui('Bet/Raise', 'Бет/рейз')}
@@ -2291,9 +2311,14 @@ function PartyStatistics({ score, players, isFinal }: {
           <tbody>
             {metrics.map((player) => (
               <tr key={player.id} data-testid={`party-total-${player.id}`}>
-                <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
-                <td style={{ fontWeight: 800 }}>
-                  <span>{playerLabel(players, player.id)}</span>
+                <td style={{ fontWeight: 800, textAlign: 'left' }}>
+                  <span
+                    style={player.id === currentPlayerId
+                      ? { color: '#047857', background: '#ecfdf5', borderRadius: 6, padding: '3px 6px' }
+                      : undefined}
+                  >
+                    {playerLabel(players, player.id)}
+                  </span>
                   {isFinal && player.isBot ? (
                     <span
                       data-testid={`bot-style-${player.id}`}
@@ -2321,6 +2346,7 @@ function PartyStatistics({ score, players, isFinal }: {
                     </span>
                   ) : null}
                 </td>
+                <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
                 <td data-testid={`party-hands-${player.id}`} style={{ textAlign: 'right' }}>{player.hands}</td>
                 <td data-testid={`party-aggression-${player.id}`} style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 800 }}>{player.aggressivePercent}</td>
                 <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
@@ -2331,7 +2357,6 @@ function PartyStatistics({ score, players, isFinal }: {
                 <td data-testid={`party-max-win-${player.id}`} style={{ textAlign: 'right', color: '#047857' }}>{formatPoints(player.maxWin)}</td>
                 <td data-testid={`party-max-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c' }}>{formatPoints(player.maxLoss)}</td>
                 <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
-                <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
                 {COMBINATION_RANKS.map((combination) => (
                   <td
                     key={combination.key}
@@ -3519,6 +3544,7 @@ function PlayerPage({
       <PartyStatistics
         score={player.partyScore}
         players={player.players}
+        currentPlayerId={player.playerId}
         isFinal={Boolean(tournamentWinner || player.partyFinishedEarly)}
       />
 
