@@ -131,6 +131,12 @@ function suitedAceBonus(hole: string[]) {
   return aces.some((ace) => hole.some((card) => card !== ace && card[1] === ace[1])) ? 1 : 0;
 }
 
+function doubleSuitedBonus(hole: string[]) {
+  const suitCounts = new Map<string, number>();
+  hole.forEach((card) => suitCounts.set(card[1], (suitCounts.get(card[1]) ?? 0) + 1));
+  return [...suitCounts.values()].filter((count) => count >= 2).length >= 2 ? 1 : 0;
+}
+
 function startingHandScore(hole: string[]) {
   const ranks = hole.map(rankValue);
   const lows = [...new Set(hole.map(lowValue).filter((value): value is number => Boolean(value)))];
@@ -141,9 +147,10 @@ function startingHandScore(hole: string[]) {
   if (lows.includes(1) && lows.includes(2)) score += 4;
   if (lows.includes(1) && lows.includes(3)) score += 2;
   if (lows.length >= 3) score += 2;
-  if ((rankCounts.get(14) ?? 0) >= 2) score += 3;
+  if ((rankCounts.get(14) ?? 0) >= 2) score += 4;
   if ([...rankCounts.values()].some((count) => count >= 3)) score -= 2;
   score += suitedAceBonus(hole);
+  score += doubleSuitedBonus(hole);
   score += ranks.filter((rank) => rank >= 11).length * 0.5;
   score -= ranks.filter((rank) => rank >= 6 && rank <= 9).length * 0.25;
   return score;

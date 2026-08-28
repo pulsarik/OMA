@@ -243,6 +243,15 @@
   filter: grayscale(1);
 }
 
+.wireframe-hand.is-eliminated:not(.is-folded) {
+  opacity: .82;
+  filter: grayscale(.35);
+}
+
+.wireframe-hand.is-eliminated .eliminated-badge {
+  z-index: 12;
+}
+
 /* Authoritative opponent-seat layout. This intentionally resets the older
    compact-card geometry instead of trying to combine it with the wireframe. */
 .wireframe-opponent-slot > .wireframe-opponent-hand {
@@ -675,6 +684,7 @@
 
 .wireframe-hand {
   position: relative !important;
+  container-type: inline-size;
   width: 100% !important;
   height: 100% !important;
   min-width: 0 !important;
@@ -686,30 +696,39 @@
   box-sizing: border-box !important;
 }
 
-.wireframe-all-in-badge {
+.wireframe-all-in-badge,
+.wireframe-hand .eliminated-badge {
   position: absolute;
-  z-index: 8;
-  border: 1px solid #b91c1c;
-  border-radius: 999px;
-  background: #fee2e2;
-  color: #991b1b;
-  padding: 3px 7px;
-  font-size: calc(10px * var(--wireframe-scale, 1));
+  top: 50%;
+  left: 50%;
+  z-index: 11;
+  transform: translate(-50%, -50%) rotate(-7deg) scale(.667);
+  border: 2px solid #fff;
+  border-radius: 5px;
+  background: #b91c1c;
+  color: #fff;
+  padding: clamp(5px, 2.6cqw, 8px) clamp(10px, 5.2cqw, 16px);
+  font-size: clamp(12px, 6cqw, 18px);
   font-weight: 950;
-  letter-spacing: .04em;
+  letter-spacing: .08em;
   line-height: 1;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(127, 29, 29, .24);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .48);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+  pointer-events: none;
 }
 
-.wireframe-opponent-hand > .wireframe-all-in-badge {
-  top: calc(28px * var(--wireframe-scale, 1));
-  right: 4px;
+/* A heads-up hand has much more room than a multi-seat opponent slot. */
+.wireframe-table:has(.wireframe-opponents-row[data-opponent-count="1"]) .wireframe-all-in-badge {
+  transform: translate(-50%, -50%) rotate(-7deg) scale(1);
 }
 
-.wireframe-hand:not(.wireframe-opponent-hand) > .wireframe-all-in-badge {
-  top: 3px;
-  left: 4px;
+.wireframe-table:has(.wireframe-opponents-row[data-opponent-count="1"]) .wireframe-opponents-row .wireframe-hand .eliminated-badge {
+  transform: translate(-50%, -50%) rotate(-7deg) scale(2);
+}
+
+.wireframe-table:has(.wireframe-opponents-row[data-opponent-count="1"]) .player-seat .eliminated-badge {
+  transform: translate(-50%, -50%) rotate(-7deg) scale(2);
 }
 
 .wireframe-hand .compact-card-row {
@@ -732,6 +751,30 @@
 .wireframe-hand:not(.wireframe-opponent-hand) {
   --wireframe-hand-card-width: 71.5px;
   --wireframe-hand-card-height: 102.65px;
+}
+
+/* The hero uses the same identity plaque as opponents, anchored above its
+   cards without changing the existing focal-card geometry. */
+.wireframe-hand:not(.wireframe-opponent-hand) > .seat-topline {
+  position: absolute !important;
+  top: calc(2px * var(--wireframe-scale, 1)) !important;
+  left: 0 !important;
+  z-index: 9 !important;
+  display: flex !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+}
+
+.wireframe-hand:not(.wireframe-opponent-hand) > .seat-topline > .seat-name-score {
+  width: fit-content !important;
+  max-width: 84% !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
 .wireframe-opponent-hand {
@@ -1053,18 +1096,7 @@
   font-weight: 800;
 }
 
-.wireframe-hero-stack {
-  position: absolute;
-  /* The stack belongs outside the Low hint, not between the hero hand and
-     that hint. Keep its offset in the same scaled coordinate system as the
-     three-column lower row. */
-  left: calc(50% + 390px * var(--wireframe-scale, 1));
-  top: 50%;
-  z-index: 6;
-  transform: translateY(-50%);
-}
-
-/* The stack intentionally sits just outside the hand's card row. */
+/* Allow the hero's identity and result badges to sit outside the card row. */
 .wireframe-hand:not(.wireframe-opponent-hand) {
   overflow: visible !important;
 }
@@ -1104,3 +1136,12 @@
 
 .wireframe-hand .hero-result-badges .winner-badge.high { background: #dc2626; }
 .wireframe-hand .hero-result-badges .winner-badge.low { background: #2563eb; }
+
+/* Reserve a small band for the hero plaque, just as opponent seats do. */
+.wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row {
+  transform: translateY(calc(18px * var(--wireframe-scale, 1))) !important;
+}
+
+.wireframe-hand:not(.wireframe-opponent-hand) > .hero-result-badges {
+  top: calc(26px * var(--wireframe-scale, 1)) !important;
+}

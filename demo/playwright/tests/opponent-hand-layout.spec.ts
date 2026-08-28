@@ -96,6 +96,23 @@ test('wide opponent slots use the table arc and a straight card row', async ({ p
   });
 });
 
+test('hero name and stack plaque sits above the cards', async ({ page }) => {
+  await page.setViewportSize({ width: 1558, height: 1037 });
+  await startTable(page, 2);
+
+  const info = page.getByTestId('player-info-P1');
+  const cards = page.getByTestId('player-cards-P1').locator('.focal-card').first();
+  await expect(info).toBeVisible();
+  await expect(info.getByTestId('player-name-P1')).toHaveText('Dima');
+  await expect(info.getByTestId('player-score-P1')).toBeVisible();
+
+  const infoBox = await info.boundingBox();
+  const cardsBox = await cards.boundingBox();
+  expect(infoBox).toBeTruthy();
+  expect(cardsBox).toBeTruthy();
+  expect(infoBox!.y + infoBox!.height).toBeLessThanOrEqual(cardsBox!.y + 1);
+});
+
 test('revealed opponent card typography follows the card scale', async ({ page }) => {
   await page.setViewportSize({ width: 1558, height: 1037 });
   await startTable(page, 6);

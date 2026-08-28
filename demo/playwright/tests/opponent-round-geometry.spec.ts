@@ -148,6 +148,12 @@ test('opponent cards fit their table zone from deal through the next round for 2
       expect(hand.cardFaces, `showdown: opponent ${index + 1} should be revealed`).toBe(4);
     });
     assertCardsStayInsideZones(afterReveal, `${playerCount} players / showdown`);
+    if (playerCount === 2 || playerCount === 8) {
+      await page.screenshot({
+        path: `test-results/result-${playerCount}-players.png`,
+        fullPage: true,
+      });
+    }
 
     await page.getByRole('button', { name: 'New deal' }).click();
     await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible({ timeout: 30_000 });

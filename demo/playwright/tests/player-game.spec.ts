@@ -32,6 +32,165 @@ function apiUrlForPlayerLink(href: string) {
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
 }
 
+test('new table shows OUT over the cards of an eliminated player', async ({ page }) => {
+  await createDefaultHumanVsBotDeal(page);
+
+  // The real tournament marks a player out when their cumulative party score
+  // reaches zero. Keep this test focused and deterministic by changing only
+  // that value in the server snapshot delivered over the player socket.
+  await page.addInitScript(() => {
+    const descriptor = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage');
+    if (!descriptor?.set) return;
+    const nativeSetter = descriptor.set;
+    Object.defineProperty(WebSocket.prototype, 'onmessage', {
+      ...descriptor,
+      set(handler) {
+        nativeSetter.call(this, typeof handler === 'function' ? function (event) {
+          if (typeof event.data !== 'string') {
+            handler.call(this, event);
+            return;
+          }
+          try {
+            const message = JSON.parse(event.data);
+            const total = message.data?.partyScore?.totals?.find((item: { id?: string }) => item.id === 'P2');
+            if (total) {
+              total.total = 0;
+              const patchedEvent = new MessageEvent('message', {
+                data: JSON.stringify(message),
+                origin: event.origin,
+              });
+              handler.call(this, patchedEvent);
+              return;
+            }
+          } catch {
+            // Pass through non-JSON and unrelated socket messages unchanged.
+          }
+          handler.call(this, event);
+        } : handler);
+      },
+    });
+  });
+  await page.reload();
+
+  const badge = page.getByTestId('player-eliminated-P2');
+  await expect(badge).toHaveText('OUT');
+  const geometry = await page.locator('[data-player-seat="P2"]').evaluate((seat) => {
+    const badge = seat.querySelector<HTMLElement>('[data-testid="player-eliminated-P2"]')?.getBoundingClientRect();
+    const cards = seat.querySelector<HTMLElement>('.compact-card-row')?.getBoundingClientRect();
+    return { badge, cards };
+  });
+  expect(geometry.badge).toBeTruthy();
+  expect(geometry.cards).toBeTruthy();
+  expect(geometry.badge!.top).toBeLessThan(geometry.cards!.bottom);
+  expect(geometry.badge!.bottom).toBeGreaterThan(geometry.cards!.top);
+  await expect(page.getByTestId('player-eliminated-P1')).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/out-over-cards.png', fullPage: true });
+});
+
+test('new table shows ALL IN over the cards while keeping the betting action label', async ({ page }) => {
+  await createDefaultHumanVsBotDeal(page);
+
+  // Force a deterministic all-in snapshot without changing the game state in
+  // the server. The action itself remains a regular call in the action log.
+  await page.addInitScript(() => {
+    const descriptor = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage');
+    if (!descriptor?.set) return;
+    const nativeSetter = descriptor.set;
+    Object.defineProperty(WebSocket.prototype, 'onmessage', {
+      ...descriptor,
+      set(handler) {
+        nativeSetter.call(this, typeof handler === 'function' ? function (event) {
+          if (typeof event.data !== 'string') {
+            handler.call(this, event);
+            return;
+          }
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === 'player_state' && message.data?.players) {
+              const opponent = message.data.players.find((item: { id?: string }) => item.id === 'P2');
+              if (opponent) {
+                opponent.stack = 0;
+                message.data.actions = [
+                  ...(message.data.actions ?? []).filter((action: { playerId?: string; stage?: string }) => (
+                    action.playerId !== 'P2' || action.stage !== message.data.stage
+                  )),
+                  {
+                    playerId: 'P2',
+                    move: 'call',
+                    amount: 20,
+                    stage: message.data.stage,
+                    at: Date.now(),
+                  },
+                ];
+                const patchedEvent = new MessageEvent('message', {
+                  data: JSON.stringify(message),
+                  origin: event.origin,
+                });
+                handler.call(this, patchedEvent);
+                return;
+              }
+            }
+          } catch {
+            // Pass through non-JSON and unrelated socket messages unchanged.
+          }
+          handler.call(this, event);
+        } : handler);
+      },
+    });
+  });
+  await page.reload();
+
+  const badge = page.getByTestId('player-all-in-P2');
+  await expect(badge).toHaveText('ALL IN');
+  await expect(page.getByTestId('opponent-betting-action-P2')).toHaveText('CALL 20');
+  const geometry = await page.locator('[data-player-seat="P2"]').evaluate((seat) => {
+    const badge = seat.querySelector<HTMLElement>('[data-testid="player-all-in-P2"]')?.getBoundingClientRect();
+    const cards = seat.querySelector<HTMLElement>('.compact-card-row')?.getBoundingClientRect();
+    return {
+      badge,
+      cards,
+      verticalCenterOffset: badge && cards
+        ? Math.abs((badge.top + badge.bottom) / 2 - (cards.top + cards.bottom) / 2)
+        : null,
+    };
+  });
+  expect(geometry.badge).toBeTruthy();
+  expect(geometry.cards).toBeTruthy();
+  expect(geometry.badge!.top).toBeLessThan(geometry.cards!.bottom);
+  expect(geometry.badge!.bottom).toBeGreaterThan(geometry.cards!.top);
+  expect(geometry.verticalCenterOffset).toBeLessThan(geometry.cards!.height * 0.2);
+  await page.screenshot({ path: 'test-results/all-in-over-cards.png', fullPage: true });
+});
+
+test('result layout visual check for 2 and 8 players', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1558, height: 1037 });
+  for (const playerCount of [2, 8]) {
+    await createDefaultHumanVsBotDeal(page, playerCount, false);
+    await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible({ timeout: 30_000 });
+    await page.getByRole('button', { name: 'Fold', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'New deal', exact: true })).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByTestId('showdown-new-deal')).toBeVisible();
+    await page.evaluate(() => {
+      const allInSeat = document.querySelector<HTMLElement>('[data-player-seat="P1"]');
+      const outSeat = document.querySelector<HTMLElement>('[data-player-seat="P2"]');
+      if (allInSeat && !allInSeat.querySelector('.wireframe-all-in-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'wireframe-all-in-badge';
+        badge.textContent = 'ALL IN';
+        allInSeat.appendChild(badge);
+      }
+      if (outSeat && !outSeat.querySelector('.eliminated-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'eliminated-badge';
+        badge.textContent = 'OUT';
+        outSeat.appendChild(badge);
+      }
+    });
+    await page.screenshot({ path: `test-results/result-${playerCount}-players.png`, fullPage: true });
+  }
+});
+
 test('pot details and bet-size math are available on demand', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   const response = await request.get(apiUrlForPlayerLink(href));

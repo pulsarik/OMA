@@ -1306,6 +1306,7 @@ function WireframeHand({
   isWaitingForNextDeal = false,
   lastAction,
   folded = false,
+  eliminated = false,
   isHighWinner = false,
   isLowWinner = false,
   isAllIn = false,
@@ -1324,6 +1325,7 @@ function WireframeHand({
   isWaitingForNextDeal?: boolean;
   lastAction?: ActionLog;
   folded?: boolean;
+  eliminated?: boolean;
   isHighWinner?: boolean;
   isLowWinner?: boolean;
   isAllIn?: boolean;
@@ -1343,12 +1345,11 @@ function WireframeHand({
         : undefined;
   return (
     <div
-      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${isThinking ? ' is-thinking' : ''}${folded ? ' is-folded' : ''}`}
+      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${isThinking ? ' is-thinking' : ''}${folded ? ' is-folded' : ''}${eliminated ? ' is-eliminated' : ''}`}
       data-player-seat={id}
       data-testid={isYou ? `wireframe-hand-${id}` : `opponent-hand-zone-${id}`}
     >
-      {!isYou ? (
-        <div className="seat-topline" data-testid={`opponent-info-${id}`}>
+      <div className="seat-topline" data-testid={`${isYou ? 'player' : 'opponent'}-info-${id}`}>
           <span
             className="seat-name-score"
             title={`${tablePlayerName(name, id)}: ${formatPoints(stack ?? 0)}`}
@@ -1376,16 +1377,20 @@ function WireframeHand({
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(stack ?? 0)}</strong>
           </span>
-          {(isHighWinner || isLowWinner) ? (
+          {!isYou && (isHighWinner || isLowWinner) ? (
             <div className="seat-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
               {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
               {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
-      {isAllIn ? (
-        <span className="wireframe-all-in-badge" data-testid={`player-all-in-${id}`}>
+      </div>
+      {isAllIn && !eliminated ? (
+        <span
+          className="wireframe-all-in-badge"
+          data-testid={`player-all-in-${id}`}
+          aria-label={ui('All-in player', 'Игрок пошёл олл-ин')}
+          title={ui('All in', 'Олл-ин')}
+        >
           {ui('ALL IN', 'ОЛЛ-ИН')}
         </span>
       ) : null}
@@ -1401,13 +1406,21 @@ function WireframeHand({
       ) : (
         <CardBackRow count={cardCount} compact={true} focal={isYou} testId={`player-cards-${id}`} />
       )}
+      {eliminated ? (
+        <span
+          className="eliminated-badge"
+          data-testid={`player-eliminated-${id}`}
+          title={ui('This player is out of chips', 'Игрок выбыл')}
+        >
+          {ui('OUT', 'ВЫБЫЛ')}
+        </span>
+      ) : null}
       {isYou && (isHighWinner || isLowWinner) ? (
         <div className="seat-result-badges hero-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
           {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
           {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
         </div>
       ) : null}
-      {isYou ? <div className="wireframe-hero-stack"><CoinStack value={stack ?? 0} compact /></div> : null}
       {resultPlayer && (resultPlayer.highRank || resultPlayer.lowRank) ? (
         <div className="wireframe-hand-combination" data-testid={`player-result-${id}`}>
           {resultPlayer.highRank ? <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank)}</span> : null}
@@ -3101,6 +3114,7 @@ function PlayerPage({
         ? streetPause.action
         : latestActionForPlayer(player.actions, seat.id, player.stage)}
       folded={seat.folded}
+      eliminated={Boolean(player.partyScore && totalScore(player.partyScore, seat.id) <= 0)}
       isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(seat.id))}
       isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(seat.id))}
       isAllIn={seat.stack === 0 && !seat.folded}
@@ -3285,12 +3299,14 @@ function PlayerPage({
               key={`${player.playerId}-${player.handId}`}
               id={player.playerId}
               isYou
+              name={player.playerName}
               hole={player.hole}
               cardCount={player.hole.length}
               stack={player.stack}
               isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(player.playerId))}
               isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(player.playerId))}
               isAllIn={player.stack === 0 && !player.folded}
+              eliminated={Boolean(player.partyScore && totalScore(player.partyScore, player.playerId) <= 0)}
               blindLabel={playerBlindLabel(player.blinds, heroPositionId, player.stage)}
               isDealer={dealerPlayerId === heroPositionId}
               isThinking={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}

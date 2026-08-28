@@ -39,6 +39,18 @@ test('bot calls with a strong two-way draw when the pot price is favorable', () 
   expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
 });
 
+test('a cautious bot continues with double-suited pocket aces', () => {
+  const hand = dealHand(2, 12345, [], [true, false]);
+  hand.currentPlayerId = 'P1';
+  hand.currentBet = 16;
+  hand.roundBets = { P1: 0, P2: 16 };
+  hand.potCoins = 80;
+  hand.players[0].botStyle = 'cautious';
+  hand.players[0].hole = ['As', 'Ac', 'Ts', 'Tc'];
+
+  expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
+});
+
 test('bot styles change aggression while staying deterministic', () => {
   const hand = dealHand(2, 3, [], [true, false]);
   hand.stage = 'flop';
