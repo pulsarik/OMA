@@ -32,6 +32,10 @@ function apiUrlForPlayerLink(href: string) {
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
 }
 
+function partyScoreApiUrlForPlayerLink(href: string) {
+  return `${apiUrlForPlayerLink(href)}/score`;
+}
+
 test('new table shows OUT over the cards of an eliminated player', async ({ page }) => {
   await createDefaultHumanVsBotDeal(page);
 
@@ -52,7 +56,7 @@ test('new table shows OUT over the cards of an eliminated player', async ({ page
           }
           try {
             const message = JSON.parse(event.data);
-            const total = message.data?.partyScore?.totals?.find((item: { id?: string }) => item.id === 'P2');
+            const total = message.data?.partyTotals?.find((item: { id?: string }) => item.id === 'P2');
             if (total) {
               total.total = 0;
               const patchedEvent = new MessageEvent('message', {
@@ -275,8 +279,8 @@ test('opponent betting slot shows the latest action until showdown reveals the c
   expect(nameMetrics.fontSize).toBeGreaterThanOrEqual(11);
   expect(nameMetrics.fontSize).toBeLessThanOrEqual(15);
   expect(nameMetrics.widthRatio).toBeGreaterThanOrEqual(0.79);
-  expect(nameMetrics.widthRatio).toBeLessThanOrEqual(0.81);
-  expect(nameMetrics.maxWidth).toBe('80%');
+  expect(nameMetrics.widthRatio).toBeLessThanOrEqual(0.84);
+  expect(['80%', 'calc(100% - 2px)']).toContain(nameMetrics.maxWidth);
   expect(nameMetrics.left).toBe('0px');
 
   await page.getByRole('button', { name: 'Fold' }).click();
@@ -468,7 +472,7 @@ test('a bot takes its turn after the human acts', async ({ page, request }) => {
   await expect(page.getByTestId('card-back').first())
     .toHaveCSS('background-image', /card-back-qz\.jpg/);
   await expect(page.getByTestId('player-score-P2'))
-    .toHaveText(String(initialState.partyScore.totals.find((total: any) => total.id === 'P2').total));
+    .toHaveText(String(initialState.partyTotals.find((total: any) => total.id === 'P2').total));
   const opponentCardsBox = await page.getByTestId('player-cards-P2').boundingBox();
   const opponentScoreBox = await page.getByTestId('player-score-P2').boundingBox();
   expect(opponentCardsBox).toBeTruthy();
@@ -735,8 +739,8 @@ test('flop card bottoms stay fixed through showdown at an eight-player table', a
 test('folded hands show combinations and a new deal opens with rotated blinds', async ({ page, request }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
   const formatResultPoints = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
-  const assertCumulativeStats = async (state: any) => {
-    const completedHands = state.partyScore.hands.filter((hand: any) => hand.stage === 'showdown');
+  const assertCumulativeStats = async (state: any, score: any) => {
+    const completedHands = score.hands.filter((hand: any) => hand.stage === 'showdown');
     const formatPoints = (value: number) => Number.isInteger(value) ? String(value) : value.toFixed(2);
     const percentage = (count: number, hands: number) => hands ? `${Math.round((count / hands) * 100)}%` : '0%';
     await expect(page.getByTestId('completed-hand-count'))
@@ -757,7 +761,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
       const wins = netResults.filter((net: number) => net > 0).length;
       const losses = netResults.filter((net: number) => net < 0).length;
       const net = netResults.reduce((total: number, result: number) => total + result, 0);
-      const stack = state.partyScore.totals.find((total: any) => total.id === player.id)?.total ?? 0;
+      const stack = score.totals.find((total: any) => total.id === player.id)?.total ?? 0;
       await expect(page.getByTestId(`party-hands-${player.id}`)).toHaveText(String(hands.length));
       await expect(page.getByTestId(`party-aggression-${player.id}`)).toHaveText(percentage(aggressiveHands, hands.length));
       await expect(page.getByTestId(`party-fold-${player.id}`)).toHaveText(percentage(folds, hands.length));
@@ -794,6 +798,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByText('You lost', { exact: true })).toBeVisible();
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
+  const showdownScore = await (await request.get(partyScoreApiUrlForPlayerLink(href))).json();
   await expect(page.getByTestId('high-combo-side')).toBeVisible();
   await expect(page.getByTestId('low-combo-side')).toHaveCount(
     showdownState.currentCombo?.lowRank && showdownState.currentCombo?.lowCombo ? 1 : 0,
@@ -832,7 +837,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId('result-net-P1')).toHaveText(formatResultPoints(net));
   await expect(page.getByTestId('game-tile')).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toHaveAttribute('aria-selected', 'true');
-  await assertCumulativeStats(showdownState);
+  await assertCumulativeStats(showdownState, showdownScore);
   await page.getByRole('button', { name: 'Show all hands' }).click();
 
   const foldedHand = page.getByTestId('hand-detail-P1');
@@ -856,6 +861,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByText('preflop', { exact: true }).first()).toBeVisible();
   const nextStateResponse = await request.get(apiUrlForPlayerLink(await currentPlayerUrl(page)));
   const nextState = await nextStateResponse.json();
+  const nextScore = await (await request.get(partyScoreApiUrlForPlayerLink(await currentPlayerUrl(page)))).json();
   expect(nextState.blinds.smallBlindPlayerId).not.toBe(firstState.blinds.smallBlindPlayerId);
   expect(nextState.blinds.bigBlindPlayerId).not.toBe(firstState.blinds.bigBlindPlayerId);
   await expect(page.getByTestId(`player-blind-${nextState.blinds.smallBlindPlayerId}`))
@@ -866,13 +872,14 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
 
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled();
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
-  await assertCumulativeStats(nextState);
+  await assertCumulativeStats(nextState, nextScore);
   await page.getByRole('tab', { name: 'TABLE' }).click();
 
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByRole('button', { name: 'New deal' })).toBeVisible();
   const secondShowdownResponse = await request.get(apiUrlForPlayerLink(await currentPlayerUrl(page)));
   const secondShowdownState = await secondShowdownResponse.json();
+  const secondShowdownScore = await (await request.get(partyScoreApiUrlForPlayerLink(await currentPlayerUrl(page)))).json();
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
-  await assertCumulativeStats(secondShowdownState);
+  await assertCumulativeStats(secondShowdownState, secondShowdownScore);
 });

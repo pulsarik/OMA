@@ -42,6 +42,12 @@ import {
   visibleCommunity,
 } from './game';
 import { diagnosticPlayerSnapshot } from './problemSnapshot';
+import {
+  ConnectionContext,
+  receivesHandUpdate,
+  receivesOpenLobbies,
+  receivesPublicDeal,
+} from './connectionContext';
 
 const app = express();
 const server = http.createServer(app);
@@ -63,6 +69,14 @@ const playerConnections = new Map<WebSocket, {
   partyId: string;
   playerId: string;
   visitId: number;
+}>();
+const connectionContexts = new Map<WebSocket, ConnectionContext>();
+const partyLiveSummaryCache = new Map<string, {
+  revisionKey: string;
+  summary: {
+    totals: Array<{ id: string; total: number }>;
+    completedHandCount: number;
+  };
 }>();
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
@@ -474,6 +488,26 @@ async function partyScore(hand: any) {
   };
 }
 
+async function partyLiveSummary(hand: any) {
+  normalizeHand(hand);
+  const partyId = hand.partyId ?? hand.id;
+  const revisionKey = `${hand.id}:${hand.revision ?? 0}`;
+  const cached = partyLiveSummaryCache.get(partyId);
+  if (cached?.revisionKey === revisionKey) return cached.summary;
+
+  const partyHands = await store.listHandsByParty(partyId);
+  const hands = partyHands
+    .map((partyHand: any) => normalizeHand(partyHand))
+    .sort((a: any, b: any) => (a.handNumber ?? 1) - (b.handNumber ?? 1) || (a.created ?? 0) - (b.created ?? 0));
+  const latestHand = hands[hands.length - 1] ?? hand;
+  const summary = {
+    totals: [...stacksAfterPayout(latestHand).entries()].map(([id, total]) => ({ id, total })),
+    completedHandCount: hands.filter((partyHand: any) => partyHand.stage === 'showdown').length,
+  };
+  partyLiveSummaryCache.set(partyId, { revisionKey, summary });
+  return summary;
+}
+
 function clientIp(req: http.IncomingMessage) {
   const forwarded = req.headers['x-forwarded-for'];
   const value = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0];
@@ -523,6 +557,7 @@ async function recordPlayerConnection(
     visitId,
   };
   playerConnections.set(ws, connection);
+  connectionContexts.set(ws, { scope: 'player', ...connection });
   await store.recordAnalyticsActivity(connection.partyId);
   return connection;
 }
@@ -550,6 +585,7 @@ async function cleanupInactiveSessions() {
   const cutoff = Date.now() - SESSION_EXPIRE_MS;
   const expired = await store.deleteExpiredParties(cutoff);
   const expiredLobbyIds = await store.deleteExpiredWaitingLobbies(cutoff);
+  expired.partyIds.forEach((partyId) => partyLiveSummaryCache.delete(partyId));
   if (!expired.partyIds.length && !expiredLobbyIds.length) return expired;
 
   const expiredPartyIds = new Set(expired.partyIds);
@@ -560,6 +596,7 @@ async function cleanupInactiveSessions() {
       client.close(4001, 'Table expired due to inactivity');
     }
     playerConnections.delete(client);
+    connectionContexts.delete(client);
   });
   const expiredLobbyIdSet = new Set(expiredLobbyIds);
   lobbyConnections.forEach((connection, client) => {
@@ -569,6 +606,7 @@ async function cleanupInactiveSessions() {
       client.close(4001, 'Lobby expired due to inactivity');
     }
     lobbyConnections.delete(client);
+    connectionContexts.delete(client);
   });
   expired.handIds.forEach((handId) => {
     clearBotTurnTimer(handId);
@@ -665,6 +703,7 @@ async function playerState(hand: any, player: any) {
   const community = visibleCommunity(hand);
   const enteredPlayerIds = new Set<string>(hand.enteredPlayerIds ?? []);
   const connectedPlayers = connectedPlayerIds(hand.id);
+  const liveSummary = await partyLiveSummary(hand);
   return {
     handId: hand.id,
     partyId: hand.partyId,
@@ -728,7 +767,8 @@ async function playerState(hand: any, player: any) {
     partyFinishedEarly: Boolean(hand.partyFinishedEarly),
     partyFinishedAt: hand.partyFinishedAt,
     showdownSummary: showdownSummary(hand),
-    partyScore: await partyScore(hand),
+    partyTotals: liveSummary.totals,
+    completedHandCount: liveSummary.completedHandCount,
     result: hand.cardsRevealed ? evaluateOmahaHiLo(hand) : undefined,
     currentCombo: evaluatePlayerCombo(player.hole, community),
     community,
@@ -740,9 +780,10 @@ async function playerState(hand: any, player: any) {
 
 function broadcastHandUpdated(hand: any) {
   const publicState = publicHandState(hand);
-  wss.clients.forEach(c => {
-    if (c.readyState === WebSocket.OPEN) {
-      c.send(JSON.stringify({ type: 'hand_updated', data: publicState }));
+  const message = JSON.stringify({ type: 'hand_updated', data: publicState });
+  connectionContexts.forEach((context, client) => {
+    if (receivesHandUpdate(context, hand.id) && client.readyState === WebSocket.OPEN) {
+      client.send(message);
     }
   });
 }
@@ -780,9 +821,10 @@ function sendDeal(ws: WebSocket, hand: any) {
 
 function broadcastPublicDeal(sender: WebSocket, hand: any) {
   const publicState = publicHandState(hand);
-  wss.clients.forEach(c => {
-    if (c !== sender && c.readyState === WebSocket.OPEN) {
-      c.send(JSON.stringify({ type: 'hand_dealt', data: publicState }));
+  const message = JSON.stringify({ type: 'hand_dealt', data: publicState });
+  connectionContexts.forEach((context, client) => {
+    if (client !== sender && receivesPublicDeal(context, hand) && client.readyState === WebSocket.OPEN) {
+      client.send(message);
     }
   });
 }
@@ -839,8 +881,8 @@ async function listOpenLobbies() {
 
 async function broadcastOpenLobbies() {
   const message = JSON.stringify({ type: 'open_lobbies', data: await listOpenLobbies() });
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) client.send(message);
+  connectionContexts.forEach((context, client) => {
+    if (receivesOpenLobbies(context) && client.readyState === WebSocket.OPEN) client.send(message);
   });
 }
 
@@ -876,6 +918,7 @@ function broadcastLobby(lobby: Lobby) {
   lobbyConnections.forEach((connection, client) => {
     if (
       connection.lobbyId === lobby.id
+      && connectionContexts.get(client)?.scope === 'lobby'
       && client.readyState === WebSocket.OPEN
     ) {
       client.send(message);
@@ -892,6 +935,7 @@ function notifyLobbyHostPinChanged(lobby: Lobby) {
     if (
       connection.lobbyId === lobby.id
       && connection.memberId === lobby.hostMemberId
+      && connectionContexts.get(client)?.scope === 'lobby'
       && client.readyState === WebSocket.OPEN
     ) {
       client.send(message);
@@ -926,6 +970,7 @@ async function validateLobbyPin(lobby: Lobby, suppliedPin: unknown) {
 
 function bindLobbyClient(ws: WebSocket, lobby: Lobby, member: LobbyMember) {
   lobbyConnections.set(ws, { lobbyId: lobby.id, memberId: member.id });
+  connectionContexts.set(ws, { scope: 'lobby', lobbyId: lobby.id, memberId: member.id });
 }
 
 async function withLobbyLock<T>(lobbyId: string, action: () => Promise<T>) {
@@ -956,7 +1001,11 @@ async function sendStartedLobby(ws: WebSocket, lobby: Lobby, member: LobbyMember
 async function sendStartedLobbyToMembers(lobby: Lobby) {
   const sends: Promise<void>[] = [];
   lobbyConnections.forEach((connection, client) => {
-    if (connection.lobbyId !== lobby.id || client.readyState !== WebSocket.OPEN) return;
+    if (
+      connection.lobbyId !== lobby.id
+      || connectionContexts.get(client)?.scope !== 'lobby'
+      || client.readyState !== WebSocket.OPEN
+    ) return;
     const connectedMember = lobby.members.find(candidate => candidate.id === connection.memberId);
     if (connectedMember && !connectedMember.isBot) {
       sends.push(sendStartedLobby(client, lobby, connectedMember));
@@ -1583,6 +1632,17 @@ app.get('/api/player/:handId/:playerId/:token', async (req, res) => {
 
   res.json(await playerState(hand, player));
 });
+app.get('/api/player/:handId/:playerId/:token/score', async (req, res) => {
+  const hand = await getActiveHand(req.params.handId);
+  if (!hand) return res.status(404).send('Not found');
+
+  const player = hand.players.find((candidate: any) => (
+    candidate.id === req.params.playerId && candidate.token === req.params.token
+  ));
+  if (!player) return res.status(403).send('Forbidden');
+
+  res.json(await partyScore(hand));
+});
 app.post('/api/voice/token', async (req, res) => {
   if (!voiceConfig) return res.status(503).json({ error: 'Voice chat is not configured' });
 
@@ -1618,6 +1678,7 @@ if (staticDir) {
 }
 
 wss.on('connection', (ws, req) => {
+  connectionContexts.set(ws, { scope: 'home' });
   // simple protocol: client sends JSON {action: "join", tableId, role: "player"|"admin"}
   ws.on('message', async (data) => {
     let receivedCommandId: string | undefined;
@@ -1821,6 +1882,7 @@ wss.on('connection', (ws, req) => {
     const playerConnection = playerConnections.get(ws);
     lobbyConnections.delete(ws);
     playerConnections.delete(ws);
+    connectionContexts.delete(ws);
     if (
       playerConnection
       && !connectedPlayerIds(playerConnection.handId).has(playerConnection.playerId)

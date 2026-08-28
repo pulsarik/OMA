@@ -189,6 +189,11 @@ type PartyScore = {
   }>;
 };
 
+type PartyTotal = {
+  id: string;
+  total: number;
+};
+
 type BlindInfo = {
   level: number;
   small: number;
@@ -202,12 +207,6 @@ type PotBreakdown = {
   amount: number;
   eligiblePlayerIds: string[];
 };
-
-function sourceHandLabel(score: PartyScore | undefined, sourceHandId: string | undefined) {
-  if (!score || !sourceHandId) return undefined;
-  const hand = score.hands.find((item) => item.id === sourceHandId);
-  return hand ? handLabel(hand.handCode, hand.handNumber, hand.id) : undefined;
-}
 
 function shortId(id: string | undefined) {
   return id ? id.slice(0, 8) : '-';
@@ -399,8 +398,9 @@ type PlayerView = {
   earlyFinishRequest?: EarlyFinishRequest;
   partyFinishedEarly: boolean;
   partyFinishedAt?: number;
+  partyTotals: PartyTotal[];
+  completedHandCount: number;
   showdownSummary?: ShowdownSummary;
-  partyScore?: PartyScore;
   result?: HiLoResult;
   currentCombo?: PlayerCombo;
   community: string[];
@@ -1450,7 +1450,7 @@ function WireframeHand({
             >
               {ui('WAITING', 'ЖДЁМ')}
             </span>
-          ) : actionLabel ? (
+          ) : actionLabel && isAllIn ? (
             <span
               className="wireframe-opponent-thinking wireframe-opponent-action"
               data-testid={`opponent-betting-action-${id}`}
@@ -1805,7 +1805,7 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-          {!wireframeZone && compact && !isYou && isBetting && actionLabel ? (
+          {!wireframeZone && compact && !isYou && isBetting && isAllIn && actionLabel ? (
             <div
               className="seat-betting-action"
               data-testid={`opponent-betting-action-${id}`}
@@ -1869,8 +1869,7 @@ function PlayerSeat({
 }
 
 function HandBanner({ player }: { player: PlayerView }) {
-  const replaySource = sourceHandLabel(player.partyScore, player.replayOfHandId);
-  const replayCode = player.replayCode ?? replaySource ?? '?';
+  const replayCode = player.replayCode ?? '?';
 
   return (
     <div
@@ -1922,8 +1921,8 @@ function raiseTargetAmount(
   return Math.min(Math.max(currentBet + raiseSize, minRaiseTo), maxRaiseTo);
 }
 
-function totalScore(score: PartyScore | undefined, playerId: string) {
-  return score?.totals.find((item) => item.id === playerId)?.total ?? 0;
+function totalScore(totals: PartyTotal[] | undefined, playerId: string) {
+  return totals?.find((item) => item.id === playerId)?.total ?? 0;
 }
 
 function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: string, stage: string) {
@@ -2635,6 +2634,9 @@ function PlayerPage({
   onExitGame,
 }: PlayerPageProps = {}) {
   const [player, setPlayer] = useState<PlayerView | null>(null);
+  const [partyScore, setPartyScore] = useState<PartyScore | null>(null);
+  const [partyScoreLoading, setPartyScoreLoading] = useState(false);
+  const [partyScoreRetryVersion, setPartyScoreRetryVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
@@ -2658,6 +2660,7 @@ function PlayerPage({
   const streetPauseVersionRef = useRef(0);
   const retryPendingAfterSyncRef = useRef(false);
   const joinedPlayerSocketRef = useRef<WebSocket | null>(null);
+  const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
 
@@ -2737,6 +2740,34 @@ function PlayerPage({
   useEffect(() => {
     if (player?.partyFinishedEarly) setActiveView('stats');
   }, [player?.partyFinishedEarly]);
+
+  useEffect(() => {
+    if (activeView !== 'stats' || !player) return;
+    const requestKey = `${player.handId}:${player.completedHandCount}:${player.partyFinishedEarly ? 'final' : 'live'}`;
+    if (partyScoreRequestRef.current === requestKey) return;
+
+    partyScoreRequestRef.current = requestKey;
+    const controller = new AbortController();
+    setPartyScore(null);
+    setPartyScoreLoading(true);
+    fetch(`${SERVER_URL}/api/player/${handId}/${playerId}/${token}/score`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text());
+        return res.json() as Promise<PartyScore>;
+      })
+      .then((nextScore) => {
+        if (!controller.signal.aborted) setPartyScore(nextScore);
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        partyScoreRequestRef.current = null;
+        setNotice(err instanceof Error ? err.message : ui('Could not load statistics', 'Не удалось загрузить статистику'));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPartyScoreLoading(false);
+      });
+    return () => controller.abort();
+  }, [activeView, handId, partyScoreRetryVersion, player?.completedHandCount, player?.handId, player?.partyFinishedEarly, playerId, token]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setSessionNow(Date.now()), 1_000);
@@ -2875,6 +2906,14 @@ function PlayerPage({
       }
     },
   });
+
+  useEffect(() => {
+    if (!socketReady) {
+      partyScoreRequestRef.current = null;
+      return;
+    }
+    setPartyScoreRetryVersion((version) => version + 1);
+  }, [socketReady]);
 
   useEffect(() => {
     if (ws?.readyState === WebSocket.OPEN) {
@@ -3035,7 +3074,7 @@ function PlayerPage({
   const tournamentWinner = findTournamentWinner(
     player.stage,
     player.players,
-    player.partyScore?.totals,
+    player.partyTotals,
   );
   const finishRequest = player.earlyFinishRequest;
   const finishVotePending = finishRequest?.status === 'pending';
@@ -3064,9 +3103,9 @@ function PlayerPage({
     && player.stage !== 'showdown'
     && !player.folded
     && !streetPause;
-  const completedPartyHands = player.partyScore?.hands.filter((hand) => hand.stage === 'showdown') ?? [];
   const showStatsTile = Boolean(
-    tournamentWinner || player.partyFinishedEarly || completedPartyHands.length || newDealLinks.length
+    tournamentWinner || player.partyFinishedEarly || player.stage === 'showdown'
+      || player.completedHandCount > 0 || newDealLinks.length
   );
   const voiceAvailable = Boolean(
     player.voiceEnabled && (sessionDeadline === null || sessionNow < sessionDeadline)
@@ -3114,7 +3153,7 @@ function PlayerPage({
         ? streetPause.action
         : latestActionForPlayer(player.actions, seat.id, player.stage)}
       folded={seat.folded}
-      eliminated={Boolean(player.partyScore && totalScore(player.partyScore, seat.id) <= 0)}
+      eliminated={totalScore(player.partyTotals, seat.id) <= 0}
       isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(seat.id))}
       isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(seat.id))}
       isAllIn={seat.stack === 0 && !seat.folded}
@@ -3306,7 +3345,7 @@ function PlayerPage({
               isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(player.playerId))}
               isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(player.playerId))}
               isAllIn={player.stack === 0 && !player.folded}
-              eliminated={Boolean(player.partyScore && totalScore(player.partyScore, player.playerId) <= 0)}
+              eliminated={totalScore(player.partyTotals, player.playerId) <= 0}
               blindLabel={playerBlindLabel(player.blinds, heroPositionId, player.stage)}
               isDealer={dealerPlayerId === heroPositionId}
               isThinking={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
@@ -3575,11 +3614,14 @@ function PlayerPage({
         </>
       ) : null}
       <PartyStatistics
-        score={player.partyScore}
+        score={partyScore ?? undefined}
         players={player.players}
         currentPlayerId={player.playerId}
         isFinal={Boolean(tournamentWinner || player.partyFinishedEarly)}
       />
+      {partyScoreLoading && !partyScore ? (
+        <p role="status">{ui('Loading statistics…', 'Загружаем статистику…')}</p>
+      ) : null}
 
       {false && newDealLinks.length ? (
         <section style={{ marginTop: 18, border: '1px solid #d1d5db', borderRadius: 8, padding: 12 }}>
@@ -3598,7 +3640,7 @@ function PlayerPage({
       ) : null}
 
       {false ? <ReplayControls
-        score={player.partyScore}
+        score={partyScore ?? undefined}
         canReplay={canContinue}
         onReplayHand={replayDeal}
       /> : null}
