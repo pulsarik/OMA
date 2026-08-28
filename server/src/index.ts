@@ -248,7 +248,7 @@ function scheduleBotTurns(handId: string) {
         if (!current?.isBot || current.folded || current.stack <= 0) return;
 
         const decision = botMove(hand, current);
-        recordPlayerMove(hand, current.id, decision.move, decision.amount);
+        recordPlayerMove(hand, current.id, decision.move, decision.amount, undefined, decision.reason);
         prepareHumanTurnClock(hand, true);
         await store.updateHand(hand);
         broadcastHandUpdated(hand);

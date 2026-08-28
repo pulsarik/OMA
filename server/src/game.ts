@@ -102,6 +102,13 @@ export type DealtHand = {
     betSize?: BetSizePreset;
     stage: GameStage;
     at: number;
+    botReason?: {
+      summary: string;
+      factors: string[];
+      equity: number;
+      scoopRate: number;
+      potOdds: number;
+    };
   }>;
   rngSeed?: number;
   dealSeed: number;
@@ -513,6 +520,7 @@ export function recordPlayerMove(
   move: PlayerMove,
   amount?: number,
   betSize?: unknown,
+  botReason?: DealtHand['actions'][number]['botReason'],
 ) {
   normalizeHand(hand);
 
@@ -592,6 +600,7 @@ export function recordPlayerMove(
     ...(selectedBetSize ? { betSize: selectedBetSize } : {}),
     stage: hand.stage,
     at: Date.now(),
+    ...(botReason ? { botReason } : {}),
   });
 
   if (move === 'fold') {

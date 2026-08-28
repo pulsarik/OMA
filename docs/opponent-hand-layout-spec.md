@@ -47,6 +47,17 @@ the card face and replaces the latest betting-action label with the high/low
 combination block below the cards. It must not move or resize the hand zone, the
 name/action row, or the card row.
 
+## Hero/player hand
+
+The player's own hand uses the same top-line anatomy as an opponent hand:
+
+- the player name and score remain on the left of the name row;
+- `HIGH` and `LOW` winner labels are placed in the upper-right part of that
+  same row, beside the name and before any `D`/`SB`/`BB` position markers;
+- the winner labels must not be centered above the cards or rendered in the
+  combination slot below them;
+- moving the labels into the name row must not move or resize the card row.
+
 ## Card mode
 
 `OPPONENT_HAND_ROW_MIN_WIDTH = 220px` is the mode threshold.

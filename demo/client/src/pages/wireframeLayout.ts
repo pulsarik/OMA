@@ -338,5 +338,7 @@ export const WIREFRAME_GAME_STYLES = `
 #root .poker-page .poker-table.is-showdown .opponents-row .opponent-hand-zone{width:calc(150px * var(--table-scale, 1))!important;min-width:calc(150px * var(--table-scale, 1))!important;max-width:calc(150px * var(--table-scale, 1))!important;height:calc(100px * var(--table-scale, 1))!important;min-height:calc(100px * var(--table-scale, 1))!important;max-height:calc(100px * var(--table-scale, 1))!important;transform:none!important;zoom:1!important}
 #root .poker-page .poker-table.is-showdown .opponents-row .opponent-hand-content{zoom:1!important;transform:none!important;position:relative!important;top:4px!important}
 #root .poker-page .poker-table.is-showdown .opponents-row .opponent-hand-zone .compact-card-row{transform:scale(calc(.42 * var(--table-scale, 1)))!important;transform-origin:center!important}
+#root .poker-page .poker-table.is-showdown .opponents-row .opponent-hand-content{top:0!important}
+#root .poker-page .poker-table.is-showdown .opponents-row .opponent-hand-zone .compact-card-row{transform:scale(calc(.28 * var(--table-scale, 1)))!important}
 #root .poker-page .poker-table.is-showdown .results-zone .showdown-status{position:static!important;inset:auto!important;transform:none!important;width:100%!important;height:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}
 `;

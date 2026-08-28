@@ -351,24 +351,28 @@
   min-height: 0 !important;
 }
 
-/* At showdown the evaluated Hi/Lo labels sit in their own band directly
-   below the revealed cards. */
+/* Result labels are overlays. They must not add a grid row, otherwise
+   revealing a hand changes the vertical position of the cards. */
 .wireframe-opponent-slot > .wireframe-opponent-hand {
-  grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr) !important;
+  grid-template-rows: 1fr auto 1fr !important;
+  overflow: visible !important;
 }
 
 .wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-hand-combination {
-  grid-row: 3 !important;
-  align-self: start !important;
-  justify-self: center !important;
+  position: absolute !important;
+  left: 50% !important;
+  top: calc(100% - 100px * var(--table-scale, 1)) !important;
+  transform: translateX(-50%) !important;
+  z-index: 20 !important;
+  pointer-events: none;
   min-width: 0;
   max-width: 100%;
-  margin: 3px auto 0 !important;
+  margin: 1px auto 0 !important;
   box-sizing: border-box;
 }
 
 .wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-opponent-footer {
-  grid-row: 4 !important;
+  grid-row: 3 !important;
 }
 
 .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row,
@@ -399,6 +403,36 @@
   /* border: 1px solid #87918a; */
 }
 
+/* The timer is an overlay in the action area, so it never changes the
+   geometry of the cards, hints, or the player's hand. */
+.turn-timer-badge {
+  position: absolute;
+  top: calc(5px * var(--wireframe-scale));
+  left: 50%;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: calc(58px * var(--wireframe-scale));
+  justify-content: center;
+  padding: calc(4px * var(--wireframe-scale)) calc(8px * var(--wireframe-scale));
+  border: 1px solid rgba(255,255,255,.7);
+  border-radius: 999px;
+  background: rgba(15,23,42,.86);
+  color: #fff;
+  font-size: clamp(10px, calc(13px * var(--wireframe-scale)), 13px);
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 3px 9px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.16);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.turn-timer-icon {
+  color: #facc15;
+  font-size: 1.1em;
+}
+
 .wireframe-results-zone:has(.pot-details[open]) {
   z-index: 30;
   overflow: visible;
@@ -411,6 +445,11 @@
   height: 100%;
   min-width: 0;
   margin: 0;
+}
+
+/* The pot's coin pile and amount share a baseline. */
+.pot-summary .coin-stack {
+  align-items: flex-end !important;
 }
 
 .wireframe-results-zone > .showdown-status {
@@ -767,14 +806,45 @@
   min-height: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
+  align-items: center !important;
+}
+
+/* Keep the lower hand and both combination hints on one centered baseline. */
+#root .poker-page .wireframe-table > .wireframe-player-zone {
+  justify-items: center !important;
+}
+
+#root .poker-page .wireframe-table > .wireframe-player-zone > .wireframe-hero-slot,
+#root .poker-page .wireframe-table > .wireframe-player-zone > aside.combo-side {
+  align-self: center !important;
+  justify-self: center !important;
+}
+
+#root .poker-page .wireframe-table > .wireframe-player-zone > .wireframe-hero-slot .compact-card-row {
+  margin-inline: auto !important;
 }
 
 .wireframe-hand:not(.wireframe-opponent-hand) > .seat-topline > .seat-name-score {
   width: fit-content !important;
-  max-width: 84% !important;
+  max-width: calc(100% - 58px) !important;
   margin: 0 !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
+}
+
+/* Keep the hero's position and winner badges on the same baseline as the name plaque. */
+.wireframe-hand:not(.wireframe-opponent-hand) > .seat-topline > .wireframe-hero-position {
+  position: static !important;
+  flex: 0 0 auto;
+  margin: 0 0 0 6px !important;
+  transform: none !important;
+}
+
+.wireframe-hand:not(.wireframe-opponent-hand) > .seat-topline > .hero-result-badges {
+  position: static !important;
+  flex: 0 0 auto;
+  margin: 0 0 0 6px !important;
+  transform: none !important;
 }
 
 .wireframe-opponent-hand {

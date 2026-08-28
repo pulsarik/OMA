@@ -10,6 +10,13 @@ import {
 export type BotDecision = {
   move: PlayerMove;
   amount?: number;
+  reason?: {
+    summary: string;
+    factors: string[];
+    equity: number;
+    scoopRate: number;
+    potOdds: number;
+  };
 };
 
 const SUITS = ['s', 'h', 'd', 'c'];
@@ -278,6 +285,27 @@ export function botMove(hand: any, player: any): BotDecision {
   const startScore = startingHandScore(player.hole);
   const premiumPreflop = hand.stage === 'preflop' && startScore >= profile.premiumPreflopScore;
   const { equity, scoopRate } = estimateShowdownEquity(hand, player);
+  const explain = (move: PlayerMove, amount?: number): BotDecision => {
+    const decision: BotDecision = {
+      move,
+      ...(amount === undefined ? {} : { amount }),
+    };
+    Object.defineProperty(decision, 'reason', {
+      enumerable: false,
+      value: {
+      summary: move === 'fold' ? 'Недостаточно выгодно продолжать' : move === 'call' ? 'Шансы банка оправдывают продолжение' : move === 'check' ? 'Контроль размера банка' : 'Достаточно сильная ситуация для давления',
+      factors: [
+        `Оценка доли банка: ${Math.round(equity * 100)}%`,
+        `Шансы банка: ${Math.round(potOdds * 100)}%`,
+        `Шанс забрать весь банк: ${Math.round(scoopRate * 100)}%`,
+      ],
+      equity,
+      scoopRate,
+      potOdds,
+      },
+    });
+    return decision;
+  };
 
   if (callAmount <= 0) {
     const aggressiveFraction = premiumPreflop
@@ -291,13 +319,13 @@ export function botMove(hand: any, player: any): BotDecision {
     if (aggressiveFraction !== undefined) {
       const aggressiveMove = aggressiveMoveForMatchedBet(hand.currentBet, hand.raiseCount);
       if (aggressiveMove === 'bet') {
-        return { move: 'bet', amount: potBetAmount(hand, player, aggressiveFraction) };
+        return explain('bet', potBetAmount(hand, player, aggressiveFraction));
       }
       if (aggressiveMove === 'raise') {
-        return { move: 'raise', amount: potRaiseTo(hand, player, aggressiveFraction) };
+        return explain('raise', potRaiseTo(hand, player, aggressiveFraction));
       }
     }
-    return { move: 'check' };
+    return explain('check');
   }
 
   const cheapCall = callAmount <= bigBlind
@@ -311,26 +339,23 @@ export function botMove(hand: any, player: any): BotDecision {
     || scoopRate >= profile.continueScoop;
   if (mustContinue) {
     if (player.stack <= callAmount) {
-      return { move: 'call' };
+      return explain('call');
     }
     if (
       !hand.actedSinceLastFullRaise?.includes(player.id)
       && hand.raiseCount < MAX_RAISES_PER_STREET
       && (equity >= profile.raiseEquity || scoopRate >= profile.raiseScoop)
     ) {
-      return {
-        move: 'raise',
-        amount: potRaiseTo(
+      return explain('raise', potRaiseTo(
           hand,
           player,
           equity >= profile.bigRaiseEquity || scoopRate >= profile.bigRaiseScoop
             ? 1
             : profile.raiseFraction,
-        ),
-      };
+        ));
     }
-    return { move: 'call' };
+    return explain('call');
   }
-  if (cheapCall || profitableCall) return { move: 'call' };
-  return { move: 'fold' };
+  if (cheapCall || profitableCall) return explain('call');
+  return explain('fold');
 }

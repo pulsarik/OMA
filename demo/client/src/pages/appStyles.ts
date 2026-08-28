@@ -637,6 +637,53 @@ export const PLAYER_PAGE_STYLES = `
     animation-delay: var(--deal-delay, 0ms);
     transform-origin: 50% 85%;
   }
+  .card-face {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid rgba(123, 91, 48, .22);
+  }
+  .card-face::before,
+  .card-face::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .card-face::before {
+    z-index: -1;
+    opacity: .8;
+    background:
+      radial-gradient(ellipse at 0% 0%, rgba(117, 76, 28, .26) 0 4%, transparent 13%),
+      radial-gradient(ellipse at 100% 100%, rgba(117, 76, 28, .2) 0 5%, transparent 15%),
+      repeating-linear-gradient(103deg, transparent 0 19px, rgba(117, 76, 28, .045) 20px, transparent 21px 42px);
+    mix-blend-mode: multiply;
+  }
+  .card-face::after {
+    z-index: 1;
+    box-shadow: inset 0 0 8px rgba(117, 76, 28, .18);
+  }
+  .card-face--texture-1 { background: linear-gradient(145deg, #fffaf0, #eadfc6); }
+  .card-face--texture-2 {
+    background:
+      linear-gradient(146deg, transparent 0 38%, rgba(132, 92, 42, .09) 39%, transparent 40%),
+      linear-gradient(145deg, #fff9ec, #e8d8b7);
+  }
+  .card-face--texture-3 {
+    background:
+      linear-gradient(32deg, transparent 0 68%, rgba(132, 92, 42, .1) 69%, transparent 70%),
+      linear-gradient(145deg, #fbf1dc, #e4cfaa);
+  }
+  .card-face--texture-4 {
+    background:
+      linear-gradient(158deg, transparent 0 73%, rgba(132, 92, 42, .11) 74%, transparent 75%),
+      linear-gradient(145deg, #fff8e7, #e9d6af);
+  }
+  .card-face--texture-5 {
+    background:
+      linear-gradient(25deg, transparent 0 24%, rgba(132, 92, 42, .075) 25%, transparent 26%),
+      linear-gradient(145deg, #fdf5e3, #e2c99d);
+  }
   @keyframes deal-card-in {
     from {
       opacity: 0;
@@ -1087,6 +1134,9 @@ export const PLAYER_PAGE_STYLES = `
   .opponent-hand-dialog {
     position: relative;
     width: min(100%, 340px);
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border: 1px solid rgba(255,255,255,.4);
     border-radius: 20px;
     background: rgba(3, 69, 47, .96);

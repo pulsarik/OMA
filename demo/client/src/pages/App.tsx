@@ -100,6 +100,13 @@ type ActionLog = {
   betSize?: BetSizeOption;
   stage: string;
   at: number;
+  botReason?: {
+    summary: string;
+    factors: string[];
+    equity: number;
+    scoopRate: number;
+    potOdds: number;
+  };
 };
 
 type HiLoResult = {
@@ -577,11 +584,16 @@ function rankNumber(rank: string) {
   return Number(rank);
 }
 
+function cardTextureVariant(code: string) {
+  return [...code].reduce((total, character) => total + character.charCodeAt(0), 0) % 5 + 1;
+}
+
 function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: number; className?: string }) {
   const rank = code.slice(0, -1).toUpperCase();
   const suit = code.slice(-1).toLowerCase();
   const suitSymbol: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
   const isRed = suit === 'h' || suit === 'd';
+  const textureVariant = cardTextureVariant(code);
 
   return (
     <div
@@ -590,14 +602,13 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
       aria-label={code}
       data-testid={`card-face-${code}`}
       data-card-style="simple"
-      className={className}
+      className={`card-face card-face--texture-${textureVariant}${className ? ` ${className}` : ''}`}
       style={{
         width: 92,
         height: 132,
         transform: `scale(calc(${scale} * var(--card-table-scale, var(--table-scale, 1))))`,
         transformOrigin: 'top left',
         borderRadius: 12,
-        background: 'linear-gradient(145deg, #fff, #f1f5f9)',
         color: isRed ? '#dc2626' : '#111827',
         boxShadow: '0 2px 4px rgba(0,0,0,0.28)',
         overflow: 'hidden',
@@ -655,6 +666,8 @@ function CompactCardRow({
   expandable = false,
   expandedTitle,
   winnerBorder,
+  decisionActions = [],
+  boardCards = [],
 }: {
   cards: string[];
   testId?: string;
@@ -662,6 +675,8 @@ function CompactCardRow({
   expandable?: boolean;
   expandedTitle?: string;
   winnerBorder?: string;
+  decisionActions?: ActionLog[];
+  boardCards?: string[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
@@ -758,6 +773,28 @@ function CompactCardRow({
                 </div>
               ))}
             </div>
+            {decisionActions.length ? (
+              <div className="bot-decision-log" data-testid="bot-decision-log" style={{ marginTop: 16, width: 'min(100%, 560px)', textAlign: 'left', color: '#e2e8f0' }}>
+                <strong style={{ display: 'block', marginBottom: 8, fontSize: 15 }}>{ui('How the bot decided', 'Как бот принимал решения')}</strong>
+                {decisionActions.map((action) => (
+                  <div key={`${action.stage}-${action.at}`} className="bot-decision-entry" style={{ padding: '8px 10px', marginTop: 6, borderRadius: 8, background: 'rgba(255,255,255,.1)', fontSize: 12, lineHeight: 1.4 }}>
+                    <div style={{ marginBottom: 5, color: '#f8fafc' }}>
+                      <div><strong>{ui('Hand', 'Рука')}:</strong> <PrintedCards cards={cards} /></div>
+                      {decisionBoardForStage(action.stage, boardCards).length ? (
+                        <div><strong>{localizedStage(action.stage)}:</strong> <PrintedCards cards={decisionBoardForStage(action.stage, boardCards)} /></div>
+                      ) : null}
+                    </div>
+                    <div>
+                      <strong>{localizedStage(action.stage)} · {localizedMove(action.move).toUpperCase()}</strong>
+                      {action.amount ? ` ${formatPoints(action.amount)}` : ''}
+                    </div>
+                    {action.botReason ? (
+                      <div style={{ marginTop: 4 }}>{botPlainReason(action, cards, boardCards.slice(0, action.stage === 'flop' ? 3 : action.stage === 'turn' ? 4 : action.stage === 'river' || action.stage === 'showdown' ? 5 : 0))}</div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </section>
         </div>,
         document.body,
@@ -968,7 +1005,7 @@ function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boole
   );
 }
 
-function CoinStack({ value, title = 'coins', compact = false }: { value: number; title?: string; compact?: boolean }) {
+function CoinStack({ value, title = 'coins', compact = false, horizontal = false }: { value: number; title?: string; compact?: boolean; horizontal?: boolean }) {
   const chipValues = [
     { value: 100, color: '#111827', edge: '#020617', text: '#fff' },
     { value: 20, color: '#7c3aed', edge: '#4c1d95', text: '#fff' },
@@ -990,8 +1027,9 @@ function CoinStack({ value, title = 'coins', compact = false }: { value: number;
       className={`coin-stack${compact ? ' is-compact' : ''}`}
       title={`${formatPoints(value)} ${title}`}
       style={{
-        display: 'grid',
+        display: horizontal ? 'flex' : 'grid',
         justifyItems: 'center',
+        alignItems: 'center',
         gap: 2,
         minWidth: compact ? 28 : 34,
         color: '#fff',
@@ -1094,7 +1132,7 @@ function PotDisplay({
     >
       <details ref={potDetailsRef} className="pot-details">
         <summary className="pot-summary" aria-label={`${ui('Pot', 'Банк')} ${formatPoints(value)}. ${ui('Show contributions', 'Показать взносы')}`}>
-          <CoinStack value={value} title={ui('pot', 'банк')} compact />
+          <CoinStack value={value} title={ui('pot', 'банк')} compact horizontal />
           {showCurrentBet ? <span className="pot-current-bet" aria-hidden={currentBet <= 0}>
             {currentBet > 0 ? <>
               {ui('bet', 'ставка')} {formatPoints(currentBet)}
@@ -1313,6 +1351,8 @@ function WireframeHand({
   blindLabel,
   isDealer = false,
   turnSeconds,
+  decisionActions = [],
+  boardCards = [],
 }: {
   id: string;
   hole?: string[];
@@ -1332,6 +1372,8 @@ function WireframeHand({
   blindLabel?: string;
   isDealer?: boolean;
   turnSeconds?: number;
+  decisionActions?: ActionLog[];
+  boardCards?: string[];
 }) {
   const actionLabel = lastAction
     ? `${localizedMove(lastAction.move).toUpperCase()}${lastAction.amount ? ` ${formatPoints(lastAction.amount)}` : ''}`
@@ -1377,7 +1419,23 @@ function WireframeHand({
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(stack ?? 0)}</strong>
           </span>
-          {!isYou && (isHighWinner || isLowWinner) ? (
+           {isYou && (blindLabel || isDealer) ? (
+             <div className="wireframe-seat-positions wireframe-hero-position" aria-label={ui('Table positions', 'Позиции за столом')}>
+              {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
+              {blindLabel ? (
+                <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
+                  {blindLabel.split(' ')[0]}
+                </span>
+               ) : null}
+             </div>
+           ) : null}
+           {isYou && (isHighWinner || isLowWinner) ? (
+             <div className="seat-result-badges hero-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
+               {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
+               {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
+             </div>
+           ) : null}
+           {!isYou && (isHighWinner || isLowWinner) ? (
             <div className="seat-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
               {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
               {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
@@ -1402,6 +1460,8 @@ function WireframeHand({
           expandable={!isYou}
           expandedTitle={!isYou ? name : undefined}
           winnerBorder={winnerBorder}
+          decisionActions={decisionActions}
+          boardCards={boardCards}
         />
       ) : (
         <CardBackRow count={cardCount} compact={true} focal={isYou} testId={`player-cards-${id}`} />
@@ -1415,35 +1475,15 @@ function WireframeHand({
           {ui('OUT', 'ВЫБЫЛ')}
         </span>
       ) : null}
-      {isYou && (isHighWinner || isLowWinner) ? (
-        <div className="seat-result-badges hero-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
-          {isHighWinner ? <span className="winner-badge high" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
-          {isLowWinner ? <span className="winner-badge low" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
-        </div>
-      ) : null}
       {resultPlayer && (resultPlayer.highRank || resultPlayer.lowRank) ? (
         <div className="wireframe-hand-combination" data-testid={`player-result-${id}`}>
           {resultPlayer.highRank ? <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank)}</span> : null}
           {resultPlayer.lowRank ? <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank)}</span> : null}
         </div>
       ) : null}
-      {isYou && (blindLabel || isDealer) ? (
-        <div className="wireframe-seat-positions wireframe-hero-position" aria-label={ui('Table positions', 'Позиции за столом')}>
-          {isDealer ? <span className="position-badge dealer" data-testid={`player-dealer-${id}`}>D</span> : null}
-          {blindLabel ? (
-            <span className={`position-badge ${blindLabel.startsWith('BB') ? 'big-blind' : 'small-blind'}`} data-testid={`player-blind-${id}`}>
-              {blindLabel.split(' ')[0]}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
       <div className="wireframe-opponent-footer">
         <div className="wireframe-opponent-action-slot">
-          {isYou && isThinking && typeof turnSeconds === 'number' ? (
-            <span className="wireframe-opponent-thinking wireframe-opponent-action" data-testid={`turn-countdown-${id}`}>
-              {turnSeconds}s
-            </span>
-          ) : isWaitingForNextDeal ? (
+          {isWaitingForNextDeal ? (
             <span
               className="wireframe-opponent-thinking wireframe-opponent-action"
               data-testid={`waiting-for-player-${id}`}
@@ -1457,7 +1497,7 @@ function WireframeHand({
             >
               {actionLabel}
             </span>
-          ) : isThinking ? (
+          ) : !isYou && isThinking ? (
             <span className="wireframe-opponent-thinking">{ui('THINKING…', 'ДУМАЕТ…')}</span>
           ) : null}
         </div>
@@ -1931,6 +1971,59 @@ function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: strin
     && action.stage === stage
     && action.move !== 'fold'
   ));
+}
+
+function botPlainReason(action: ActionLog, cards: string[], board: string[]) {
+  const ranks = cards.map(card => card[0]);
+  const lowRanks = ranks.filter(rank => ['A', '2', '3', '4', '5', '6', '7', '8'].includes(rank));
+  const hasAceTwo = ranks.includes('A') && ranks.includes('2');
+  const pairs = ranks.filter((rank, index) => ranks.indexOf(rank) !== index);
+  const signals = [
+    hasAceTwo ? ui('A-2 gives the hand a strong low potential.', 'A-2 дают руке сильный потенциал для лоу.') : undefined,
+    pairs.length ? ui(`A pair of ${pairs[0]} gives a chance to make a high hand.`, `Пара ${pairs[0]} даёт шанс собрать хай.`) : undefined,
+    lowRanks.length >= 3 ? ui('Several low cards support a low combination.', 'Несколько маленьких карт помогают собрать лоу.') : undefined,
+    board.filter(card => ['A', '2', '3', '4', '5', '6', '7', '8'].includes(card[0])).length >= 2
+      ? ui('The board has low cards, so the low half of the pot is relevant.', 'На доске есть маленькие карты, поэтому важна нижняя половина банка.')
+      : undefined,
+  ].filter((signal): signal is string => Boolean(signal));
+  const signalText = signals[0] ?? ui('The hand did not have a clear strong combination.', 'У руки не было очевидной сильной комбинации.');
+
+  if (action.move === 'fold') {
+    return ui(`The hand did not improve enough to continue. ${signalText} The bot gave up the hand to avoid paying more.`, `Рука недостаточно усилилась для продолжения. ${signalText} Бот выбрал фолд, чтобы не вкладывать больше фишек.`);
+  }
+  if (action.move === 'call') {
+    return ui(`The bot continued because there was still a realistic way to win. ${signalText} It chose a call to see the next card without building a large pot.`, `Бот продолжил, потому что у руки ещё был реальный путь к победе. ${signalText} Он выбрал колл, чтобы увидеть следующую карту и не разгонять банк.`);
+  }
+  if (action.move === 'check') {
+    return ui(`There was no bet to call. ${signalText} The bot checked to keep the pot small and wait for improvement.`, `Ставки для колла не было. ${signalText} Бот сделал чек, чтобы сохранить небольшой банк и дождаться усиления.`);
+  }
+  return ui(`The bot saw enough potential to put more chips into the pot. ${signalText} The bet was meant to get value from weaker hands and protect the draw.`, `Бот увидел достаточно сильный потенциал, чтобы вложить больше фишек. ${signalText} Ставка нужна, чтобы добрать с более слабых рук и защитить своё усиление.`);
+}
+
+function PrintedCards({ cards }: { cards: string[] }) {
+  const suits: Record<string, { symbol: string; color: string }> = {
+    s: { symbol: '♠', color: '#111827' },
+    c: { symbol: '♣', color: '#111827' },
+    h: { symbol: '♥', color: '#dc2626' },
+    d: { symbol: '♦', color: '#dc2626' },
+  };
+  return (
+    <span>
+      {cards.map((card, index) => {
+        const suit = suits[card.slice(-1).toLowerCase()];
+        return (
+          <span key={`${card}-${index}`} style={{ whiteSpace: 'nowrap', color: suit?.color ?? 'inherit' }}>
+            {index ? ' ' : ''}{card.slice(0, -1)}{suit?.symbol ?? card.slice(-1)}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+function decisionBoardForStage(stage: string, board: string[]) {
+  const count = stage === 'flop' ? 3 : stage === 'turn' ? 4 : stage === 'river' || stage === 'showdown' ? 5 : 0;
+  return board.slice(0, count);
 }
 
 const BETTING_STREETS = ['preflop', 'flop', 'turn', 'river'];
@@ -2985,18 +3078,6 @@ function PlayerPage({
     ws.send(JSON.stringify(command));
   }
 
-  function sendEarlyFinish(action: 'request_early_finish' | 'vote_early_finish', approve?: boolean) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
-      return;
-    }
-    setError(null);
-    setNotice(action === 'request_early_finish'
-      ? ui('Finish request sent to all players.', 'Запрос на завершение отправлен всем игрокам.')
-      : ui('Your vote was sent.', 'Ваш голос отправлен.'));
-    ws.send(JSON.stringify({ action, handId, playerId, token, approve }));
-  }
-
   function startNewDeal() {
     if (isCreatingDeal) return;
 
@@ -3076,29 +3157,11 @@ function PlayerPage({
     player.players,
     player.partyTotals,
   );
-  const finishRequest = player.earlyFinishRequest;
-  const finishVotePending = finishRequest?.status === 'pending';
-  const hasApprovedFinish = Boolean(finishRequest?.approvals.includes(player.playerId));
-  const finishApprovals = finishRequest?.approvals.length ?? 0;
-  const finishRequired = finishRequest?.requiredPlayerIds.length ?? player.players.length;
-  const rejectedBy = finishRequest?.rejectedByPlayerId
-    ? player.players.find(candidate => candidate.id === finishRequest.rejectedByPlayerId)
-    : undefined;
-  const canRequestEarlyFinish = Boolean(
-    isLobbyHost
-    && socketReady
-    && player.stage === 'showdown'
-    && !hasContinuation
-    && !tournamentWinner
-    && !player.partyFinishedEarly
-    && !finishVotePending
-  );
   const canContinue = socketReady
     && player.stage === 'showdown'
     && !hasContinuation
     && !tournamentWinner
-    && !player.partyFinishedEarly
-    && !finishVotePending;
+    && !player.partyFinishedEarly;
   const showActionDock = socketReady
     && player.stage !== 'showdown'
     && !player.folded
@@ -3137,6 +3200,13 @@ function PlayerPage({
   const turnSeconds = typeof player.turnDeadline === 'number'
     ? Math.max(0, Math.ceil((player.turnDeadline - sessionNow) / 1_000))
     : undefined;
+  const turnElapsedMs = typeof player.turnDeadline === 'number' && typeof player.turnDurationMs === 'number'
+    ? player.turnDurationMs - (player.turnDeadline - sessionNow)
+    : 0;
+  const showTurnCountdown = player.stage !== 'showdown'
+    && player.currentPlayerId === player.playerId
+    && typeof turnSeconds === 'number'
+    && turnElapsedMs >= 10_000;
   const opponentNodes = otherPlayers.map((seat) => (
     <WireframeHand
       key={`${seat.id}-${player.handId}`}
@@ -3159,6 +3229,10 @@ function PlayerPage({
       isAllIn={seat.stack === 0 && !seat.folded}
       blindLabel={playerBlindLabel(player.blinds, seat.id, player.stage)}
       isDealer={dealerPlayerId === seat.id}
+      decisionActions={player.stage === 'showdown'
+        ? player.actions.filter((action) => action.playerId === seat.id && Boolean(action.botReason))
+        : []}
+      boardCards={player.stage === 'showdown' ? player.community : []}
     />
   ));
   const submitWager = (move: 'bet' | 'raise') => {
@@ -3360,6 +3434,16 @@ function PlayerPage({
           data-testid="actions-zone"
           aria-label={ui('Actions and buttons', 'Действия и кнопки')}
         >
+          {showTurnCountdown ? (
+            <div
+              className="turn-timer-badge"
+              data-testid={`turn-countdown-${player.playerId}`}
+              aria-label={ui('Time remaining', 'Оставшееся время')}
+            >
+              <span className="turn-timer-icon" aria-hidden="true">◷</span>
+              <span>{turnSeconds}s</span>
+            </div>
+          ) : null}
           {showActionDock ? <div className="action-dock">
             {pendingCommand ? (
               <strong role="status">
@@ -3442,56 +3526,6 @@ function PlayerPage({
           </div> : null}
         </section>
       </WireframeTable>
-      {finishVotePending ? (
-        <section
-          data-testid="early-finish-vote"
-          style={{ display: 'grid', gap: 10, marginTop: 10, padding: 14, border: '1px solid #f59e0b', borderRadius: 12, background: '#fffbeb' }}
-        >
-          <strong>{ui('The host proposes ending the table early and calculating the final results.', 'Ведущий предлагает досрочно завершить стол и подвести итоги.')}</strong>
-          <span>
-            {ui('Confirmed', 'Подтвердили')}: {finishApprovals}/{finishRequired}
-          </span>
-          {!hasApprovedFinish ? (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                className="action-button primary"
-                onClick={() => sendEarlyFinish('vote_early_finish', true)}
-              >
-                {ui('Confirm finish', 'Подтвердить завершение')}
-              </button>
-              <button
-                className="action-button danger"
-                onClick={() => sendEarlyFinish('vote_early_finish', false)}
-              >
-                {ui('Decline', 'Отклонить')}
-              </button>
-            </div>
-          ) : (
-            <span>{ui('You confirmed. Waiting for the other players.', 'Вы подтвердили. Ждём остальных игроков.')}</span>
-          )}
-        </section>
-      ) : null}
-      {canRequestEarlyFinish ? (
-        <section
-          data-testid="host-early-finish"
-          style={{ display: 'grid', gap: 8, marginTop: 10 }}
-        >
-          {finishRequest?.status === 'rejected' ? (
-            <span style={{ color: '#b45309', fontWeight: 700 }}>
-              {ui(
-                `${tablePlayerName(rejectedBy?.name, rejectedBy?.id ?? finishRequest.rejectedByPlayerId ?? '')} declined the previous finish request.`,
-                `${tablePlayerName(rejectedBy?.name, rejectedBy?.id ?? finishRequest.rejectedByPlayerId ?? '')} отклонил(а) предыдущее завершение.`,
-              )}
-            </span>
-          ) : null}
-          <button
-            className="action-button danger"
-            onClick={() => sendEarlyFinish('request_early_finish')}
-          >
-            {ui('End table early and calculate results', 'Досрочно завершить стол и подвести итоги')}
-          </button>
-        </section>
-      ) : null}
       {tournamentWinner ? (
         <section
           data-testid="game-finished-prompt"
