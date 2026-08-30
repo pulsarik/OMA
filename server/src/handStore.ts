@@ -107,9 +107,14 @@ export default class HandStore {
         screen_height INTEGER,
         viewport_width INTEGER,
         viewport_height INTEGER,
-        pixel_ratio REAL
+        pixel_ratio REAL,
+        client_cookie TEXT
       )
     `);
+    const analyticsVisitColumns = await this.db.all('PRAGMA table_info(analytics_visits)');
+    if (!analyticsVisitColumns.some((column: any) => column.name === 'client_cookie')) {
+      await this.db.run('ALTER TABLE analytics_visits ADD COLUMN client_cookie TEXT');
+    }
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_party ON analytics_visits(party_id)');
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_created ON analytics_visits(created DESC)');
     await this.db.run(`
@@ -414,14 +419,15 @@ export default class HandStore {
     viewportWidth?: number;
     viewportHeight?: number;
     pixelRatio?: number;
+    clientCookie?: string;
   }, occurredAt = Date.now()) {
     const db = await this.getDb();
     const result = await db.run(`
       INSERT INTO analytics_visits(
         created, last_seen, party_id, hand_id, player_id, ip, user_agent,
         device_type, platform, screen_width, screen_height, viewport_width,
-        viewport_height, pixel_ratio
-      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        viewport_height, pixel_ratio, client_cookie
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     occurredAt,
     occurredAt,
@@ -436,7 +442,8 @@ export default class HandStore {
     visit.screenHeight ?? null,
     visit.viewportWidth ?? null,
     visit.viewportHeight ?? null,
-    visit.pixelRatio ?? null);
+    visit.pixelRatio ?? null,
+    visit.clientCookie ?? null);
     return result.lastID as number;
   }
 
@@ -451,22 +458,15 @@ export default class HandStore {
 
   async getAnalyticsStats(now = Date.now()) {
     const db = await this.getDb();
-    const [handRows, activityRows, accesses, devices, totals] = await Promise.all([
+    const [handRows, activityRows, visitRows, devices, totals] = await Promise.all([
       db.all('SELECT created, data FROM hands ORDER BY created ASC'),
       db.all('SELECT * FROM analytics_activity'),
-      db.all(`
-        SELECT MIN(created) AS firstSeen, MAX(last_seen) AS lastSeen,
-          ip, user_agent AS userAgent, device_type AS deviceType,
-          platform, screen_width AS screenWidth,
-          screen_height AS screenHeight, viewport_width AS viewportWidth,
-          viewport_height AS viewportHeight, pixel_ratio AS pixelRatio,
-          COUNT(*) AS connections
-        FROM analytics_visits
-        GROUP BY ip, user_agent, device_type, platform, screen_width,
-          screen_height, viewport_width, viewport_height, pixel_ratio
-        ORDER BY lastSeen DESC
-        LIMIT 200
-      `),
+      db.all(`SELECT created, last_seen AS lastSeen, party_id AS partyId,
+        player_id AS playerId, ip, user_agent AS userAgent, device_type AS deviceType,
+        platform, screen_width AS screenWidth, screen_height AS screenHeight,
+        viewport_width AS viewportWidth, viewport_height AS viewportHeight,
+        pixel_ratio AS pixelRatio, client_cookie AS clientCookie
+        FROM analytics_visits ORDER BY last_seen DESC`),
       db.all(`
         SELECT COALESCE(device_type, 'Unknown') AS deviceType,
           COALESCE(platform, 'Unknown') AS platform,
@@ -485,6 +485,55 @@ export default class HandStore {
       const hand = JSON.parse(row.data);
       return { ...hand, created: hand.created ?? row.created };
     });
+    const latestHandByParty = new Map<string, any>();
+    hands.forEach((hand: any) => {
+      const partyId = hand.partyId ?? hand.id;
+      const previous = latestHandByParty.get(partyId);
+      if (!previous || (hand.handNumber ?? 0) > (previous.handNumber ?? 0)) latestHandByParty.set(partyId, hand);
+    });
+    const accessGroups = new Map<string, any>();
+    visitRows.forEach((visit: any) => {
+      const key = [visit.clientCookie, visit.ip, visit.userAgent, visit.deviceType,
+        visit.platform, visit.screenWidth, visit.screenHeight, visit.viewportWidth,
+        visit.viewportHeight, visit.pixelRatio].map((value) => value ?? '').join('|');
+      const access = accessGroups.get(key) ?? {
+        firstSeen: visit.created,
+        lastSeen: visit.lastSeen,
+        clientCookie: visit.clientCookie,
+        ip: visit.ip,
+        userAgent: visit.userAgent,
+        deviceType: visit.deviceType,
+        platform: visit.platform,
+        screenWidth: visit.screenWidth,
+        screenHeight: visit.screenHeight,
+        viewportWidth: visit.viewportWidth,
+        viewportHeight: visit.viewportHeight,
+        pixelRatio: visit.pixelRatio,
+        connections: 0,
+        playersByParty: new Map<string, string>(),
+      };
+      access.connections += 1;
+      access.firstSeen = Math.min(access.firstSeen, visit.created);
+      access.lastSeen = Math.max(access.lastSeen, visit.lastSeen);
+      if (!access.playersByParty.has(visit.partyId)) access.playersByParty.set(visit.partyId, visit.playerId);
+      accessGroups.set(key, access);
+    });
+    const accesses = [...accessGroups.values()].map((access: any) => {
+      let gamesPlayed = 0;
+      let wins = 0;
+      access.playersByParty.forEach((playerId: string, partyId: string) => {
+        const finalHand = latestHandByParty.get(partyId);
+        const playersWithChips = finalHand?.players?.filter((player: any) => (Number(player.stack) || 0) > 0) ?? [];
+        if (!finalHand || finalHand.stage !== 'showdown'
+          || (!finalHand.partyFinishedEarly && playersWithChips.length > 1)
+          || !finalHand.players.some((player: any) => player.id === playerId)) return;
+        gamesPlayed += 1;
+        const maxStack = Math.max(...finalHand.players.map((player: any) => Number(player.stack) || 0));
+        if ((Number(finalHand.players.find((player: any) => player.id === playerId)?.stack) || 0) === maxStack) wins += 1;
+      });
+      const { playersByParty, ...publicAccess } = access;
+      return { ...publicAccess, gamesPlayed, winPercent: gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0 };
+    }).sort((a: any, b: any) => b.lastSeen - a.lastSeen).slice(0, 200);
     const parties = new Map<string, any>();
     hands.forEach((hand: any) => {
       const partyId = hand.partyId ?? hand.id;

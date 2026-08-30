@@ -157,6 +157,9 @@
     }
 
     function table(headers, rows) {
+      if (headers.includes('User-Agent')) {
+        headers = [headers[0], 'Cookie', ...headers.slice(1), 'Games played', 'Win rate'];
+      }
       return `
         <table>
           <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
@@ -180,6 +183,7 @@
       document.getElementById('cards').innerHTML = [
         ['Запусков раздачи', totals.deals || 0],
         ['Игровых сессий', totals.parties || 0],
+        ['Сыграно партий', totals.parties || 0],
         ['Общее активное время', formatDuration(totals.activeMs)],
         ['Среднее время сессии', formatDuration(totals.averagePartyActiveMs)],
         ['Подключений', totals.visits || 0],
@@ -207,11 +211,14 @@
         (stats.accesses || []).map((access) => `
           <tr>
             <td>${escapeHtml(formatDate(access.lastSeen))}</td>
+            <td>${escapeHtml(access.clientCookie)}</td>
             <td>${escapeHtml(access.ip)}</td>
             <td>${escapeHtml(access.deviceType)}</td>
             <td>${escapeHtml(access.platform)}</td>
             <td>${escapeHtml(resolution(access.screenWidth, access.screenHeight))}</td>
             <td>${escapeHtml(resolution(access.viewportWidth, access.viewportHeight))}</td>
+            <td>${escapeHtml(access.gamesPlayed)}</td>
+            <td>${escapeHtml(`${access.winPercent}%`)}</td>
             <td>${escapeHtml(access.connections)}</td>
             <td class="user-agent">${escapeHtml(access.userAgent)}</td>
           </tr>

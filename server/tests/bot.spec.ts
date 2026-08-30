@@ -39,6 +39,20 @@ test('bot calls with a strong two-way draw when the pot price is favorable', () 
   expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
 });
 
+test('bot does not auto-fold a made two-pair hand at a normal price', () => {
+  const hand = dealHand(3, 12345, [], [true, true, false]);
+  hand.stage = 'turn';
+  hand.fullCommunity = ['Qh', '7s', '9s', '7c', '2h'];
+  hand.community = hand.fullCommunity.slice(0, 4);
+  hand.currentPlayerId = 'P1';
+  hand.currentBet = 16;
+  hand.roundBets = { P1: 0, P2: 16, P3: 16 };
+  hand.potCoins = 96;
+  hand.players[0].hole = ['Qd', 'Ad', '2c', '9d'];
+
+  expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
+});
+
 test('a cautious bot continues with double-suited pocket aces', () => {
   const hand = dealHand(2, 12345, [], [true, false]);
   hand.currentPlayerId = 'P1';

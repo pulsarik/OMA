@@ -1,22 +1,10 @@
 import React from 'react';
 import type { WalletHistorySeries } from '../partyStatistics';
+import { playerSeriesStyle, type PlayerSeriesStyle } from './playerSeriesStyles';
 
 // The dash and marker patterns make the series identifiable without relying on
 // colour alone. This also keeps overlapping lines legible on small screens.
-const SERIES_STYLES = [
-  { color: '#007A5E', dash: undefined, marker: 'circle' },
-  { color: '#005FCC', dash: '14 6', marker: 'square' },
-  { color: '#C73232', dash: '3 6', marker: 'diamond' },
-  { color: '#6D3FC0', dash: '14 5 3 5', marker: 'triangle' },
-  { color: '#B05A00', dash: '8 5', marker: 'triangle-down' },
-  { color: '#007C91', dash: '2 5', marker: 'circle' },
-  { color: '#C2185B', dash: '12 4 2 4', marker: 'square' },
-  { color: '#4F6B00', dash: '6 4 2 4', marker: 'diamond' },
-  { color: '#8A288F', dash: '16 5', marker: 'triangle' },
-  { color: '#344054', dash: '5 5', marker: 'triangle-down' },
-] as const;
-
-type SeriesStyle = (typeof SERIES_STYLES)[number];
+type SeriesStyle = PlayerSeriesStyle;
 
 function SeriesMarker({ x, y, style, title }: {
   x: number;
@@ -99,26 +87,6 @@ export function WalletHistoryChart({
   return (
     <section className="wallet-history" data-testid="wallet-history-chart">
       <h3>{title}</h3>
-      <div className="wallet-history-legend" aria-label={title}>
-        {series.map((item, index) => (
-          <span key={item.playerId}>
-            <svg className="wallet-history-key" viewBox="0 0 30 14" aria-hidden="true">
-              <line
-                x1="1"
-                x2="29"
-                y1="7"
-                y2="7"
-                stroke={SERIES_STYLES[index % SERIES_STYLES.length].color}
-                strokeWidth="4"
-                strokeDasharray={SERIES_STYLES[index % SERIES_STYLES.length].dash}
-                strokeLinecap="round"
-              />
-              <SeriesMarker x={15} y={7} style={SERIES_STYLES[index % SERIES_STYLES.length]} />
-            </svg>
-            {playerName(item.playerId)}
-          </span>
-        ))}
-      </div>
       <div className="wallet-history-canvas">
         <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title}>
           {yTicks.map((tick) => (
@@ -136,7 +104,7 @@ export function WalletHistoryChart({
           <text className="chart-axis-title" x={margin.left + plotWidth / 2} y={height - 8} textAnchor="middle">{handLabel}</text>
           <text className="chart-axis-title" transform={`translate(17 ${margin.top + plotHeight / 2}) rotate(-90)`} textAnchor="middle">{walletLabel}</text>
           {series.map((item, index) => {
-            const style = SERIES_STYLES[index % SERIES_STYLES.length];
+            const style = playerSeriesStyle(index);
             const path = item.points.map((point, pointIndex) => (
               `${pointIndex ? 'L' : 'M'} ${x(point.handNumber)} ${y(point.wallet)}`
             )).join(' ');

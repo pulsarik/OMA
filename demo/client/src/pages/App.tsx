@@ -5,6 +5,7 @@ import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
 import { CityInfo } from '../components/CityInfo';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
+import { playerSeriesStyle } from '../components/playerSeriesStyles';
 import {
   aggressiveHandPercent,
   buildWalletHistory,
@@ -2427,15 +2428,24 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
             </tr>
           </thead>
           <tbody>
-            {metrics.map((player) => (
+            {metrics.map((player, playerIndex) => (
               <tr key={player.id} data-testid={`party-total-${player.id}`}>
                 <td style={{ fontWeight: 800, textAlign: 'left' }}>
-                  <span
-                    style={player.id === currentPlayerId
-                      ? { color: '#047857', background: '#ecfdf5', borderRadius: 6, padding: '3px 6px' }
-                      : undefined}
-                  >
-                    {playerLabel(players, player.id)}
+                  <span className="party-player-name">
+                    <span
+                      className="party-player-color"
+                      data-testid={`party-player-color-${player.id}`}
+                      style={{ backgroundColor: playerSeriesStyle(playerIndex).color }}
+                      title={ui('Player color on the chart', 'Цвет игрока на графике')}
+                      aria-hidden="true"
+                    />
+                    <span
+                      style={player.id === currentPlayerId
+                        ? { color: '#047857', background: '#ecfdf5', borderRadius: 6, padding: '3px 6px' }
+                        : undefined}
+                    >
+                      {playerLabel(players, player.id)}
+                    </span>
                   </span>
                   {isFinal && player.isBot ? (
                     <span
@@ -4376,7 +4386,7 @@ function LobbyPage() {
 }
 
 function HomePage() {
-  const [homeTab, setHomeTab] = useState<'lobby' | 'quick'>('lobby');
+  const [homeTab, setHomeTab] = useState<'lobby' | 'quick' | 'about'>('lobby');
   const [hostName, setHostName] = useState('Dima');
   const [lobbySeats, setLobbySeats] = useState(storedTableSeats);
   const [messages, setMessages] = useState<DealMessage[]>([]);
@@ -4561,14 +4571,39 @@ function HomePage() {
         <nav role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -17px', zIndex: 1 }}>
           <button
             role="tab"
-            aria-selected="true"
-            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: '#fff', background: '#fff', fontWeight: 900 }}
+            aria-selected={homeTab === 'lobby'}
+            onClick={() => setHomeTab('lobby')}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
           >
             LOBBY
           </button>
+          <button
+            role="tab"
+            aria-selected={homeTab === 'about'}
+            onClick={() => setHomeTab('about')}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'about' ? '#fff' : '#cbd5e1', background: homeTab === 'about' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
+          >
+            ABOUT / О ПРОЕКТЕ
+          </button>
         </nav>
 
-        {homeTab === 'lobby' ? (
+        {homeTab === 'about' ? (
+          <section style={{ border: '1px solid #cbd5e1', borderRadius: 12, background: '#fff', padding: 18, display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0 }}>About / О проекте</h2>
+            <p style={{ margin: 0, color: '#475569' }}>
+              Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
+              <br />
+              Omaha Hi-Lo — многопользовательская покерная игра, где банк делится между лучшей старшей и подходящей младшей комбинациями.
+            </p>
+            <p style={{ margin: 0, color: '#475569' }}>
+              Questions or feedback? Contact us at{' '}
+              <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+              <br />
+              Вопросы или предложения? Пишите на{' '}
+              <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+            </p>
+          </section>
+        ) : homeTab === 'lobby' ? (
           <section style={{ border: '1px solid #cbd5e1', borderRadius: 12, background: '#fff', padding: 18, display: 'grid', gap: 14 }}>
             <div>
               <h2 style={{ margin: 0 }}>Create a table</h2>

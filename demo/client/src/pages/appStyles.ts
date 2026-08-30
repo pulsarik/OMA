@@ -1280,9 +1280,6 @@ export const PLAYER_PAGE_STYLES = `
   .result-points-scroll .result-points th:first-child { z-index: 2; }
   .wallet-history { margin-top: 14px; border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 12px; }
   .wallet-history h3 { margin: 0 0 8px; }
-  .wallet-history-legend { display: flex; gap: 10px 18px; flex-wrap: wrap; margin-bottom: 10px; color: #334155; font-size: 12px; font-weight: 850; }
-  .wallet-history-legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .wallet-history-key { width: 30px; height: 14px; flex: 0 0 30px; overflow: visible; }
   .wallet-history-canvas { overflow-x: auto; }
   .wallet-history-canvas > svg { display: block; width: 100%; min-width: 620px; height: auto; color: #475569; font: 12px Inter, ui-sans-serif, system-ui, sans-serif; }
   .wallet-history .chart-grid { stroke: #cbd5d1; stroke-width: 1; }
@@ -1294,6 +1291,8 @@ export const PLAYER_PAGE_STYLES = `
   .winner-card { border: 1px solid #dce5df; border-radius: 14px; background: #f8fbf9; padding: 10px; overflow: auto; }
   .result-points { width: 100%; border-collapse: separate; border-spacing: 0; overflow: hidden; }
   .result-points th, .result-points td { border-bottom: 1px solid #e5e7eb; padding: 8px; }
+  .party-player-name { display: inline-flex; align-items: center; gap: 7px; }
+  .party-player-color { width: 9px; height: 9px; flex: 0 0 9px; border: 1px solid rgba(255,255,255,.9); border-radius: 50%; box-shadow: 0 0 0 1px rgba(31,54,42,.2); }
   .all-hands { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 12px; margin-top: 12px; }
   .hand-detail { border: 1px solid #dce5df; border-radius: 14px; background: #fff; padding: 10px; overflow: auto; }
   @media (max-width: 900px) {

@@ -2,7 +2,7 @@ services:
   - type: web
     name: omaha-hi-lo-newui
     runtime: node
-    plan: free
+    plan: starter
     branch: NewUI
     autoDeployTrigger: checksPass
     buildCommand: npm --prefix server ci --include=dev && npm --prefix demo/client ci --include=dev && node server/scripts/write-build-info.cjs && npm --prefix server run build && npm --prefix demo/client run build
@@ -12,7 +12,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATA_FILE
-        value: data/beta-hands.sqlite
+        value: /var/data/hands.sqlite
       - key: ADMIN_API_TOKEN
         generateValue: true
       - key: HUMAN_TURN_MS
@@ -23,3 +23,7 @@ services:
         value: pulsarik@gmail.com
       - key: GMAIL_APP_PASSWORD
         sync: false
+    disk:
+      name: omaha-data
+      mountPath: /var/data
+      sizeGB: 1

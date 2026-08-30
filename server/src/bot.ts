@@ -3,6 +3,7 @@ import {
   MAX_RAISES_PER_STREET,
   BotStyle,
   compareOmahaHands,
+  evaluatePlayerCombo,
   normalizeHand,
   visibleCommunity,
 } from './game';
@@ -284,6 +285,18 @@ export function botMove(hand: any, player: any): BotDecision {
   const potOdds = callAmount > 0 ? callAmount / Math.max((hand.potCoins ?? 0) + callAmount, 1) : 0;
   const startScore = startingHandScore(player.hole);
   const premiumPreflop = hand.stage === 'preflop' && startScore >= profile.premiumPreflopScore;
+  const currentCombo = hand.stage !== 'preflop'
+    ? evaluatePlayerCombo(player.hole, visibleCommunity(hand))
+    : undefined;
+  const madeHighHand = [
+    'two pair',
+    'three of a kind',
+    'straight',
+    'flush',
+    'full house',
+    'four of a kind',
+    'straight flush',
+  ].includes(currentCombo?.highRank ?? '');
   const { equity, scoopRate } = estimateShowdownEquity(hand, player);
   const explain = (move: PlayerMove, amount?: number): BotDecision => {
     const decision: BotDecision = {
@@ -335,6 +348,10 @@ export function botMove(hand: any, player: any): BotDecision {
   );
 
   const mustContinue = premiumPreflop
+    // A simulation can undervalue a made Omaha hand when several opponents
+    // are dealt unknown cards. Do not auto-fold a real made hand at a normal
+    // price; equity still controls raises and expensive calls below.
+    || (madeHighHand && equity >= Math.min(0.35, potOdds + 0.02))
     || equity >= profile.continueEquity
     || scoopRate >= profile.continueScoop;
   if (mustContinue) {

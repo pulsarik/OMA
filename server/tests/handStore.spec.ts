@@ -72,6 +72,23 @@ test('analytics pauses after 30 seconds and resumes on later activity', async ()
   });
 });
 
+test('analytics reports completed parties and cookie client win rate', async () => {
+  const store = new HandStore(':memory:');
+  await store.saveHand({
+    id: 'won-party', partyId: 'won-party', handNumber: 1, stage: 'showdown',
+    players: [{ id: 'player-1', stack: 200 }, { id: 'player-2', stack: 0 }],
+  });
+  await store.saveHand({
+    id: 'lost-party', partyId: 'lost-party', handNumber: 1, stage: 'showdown',
+    players: [{ id: 'player-1', stack: 0 }, { id: 'player-2', stack: 200 }],
+  });
+  await store.recordAnalyticsVisit({ partyId: 'won-party', handId: 'won-party', playerId: 'player-1', clientCookie: 'Alice', ip: '1.1.1.1' }, 1_000);
+  await store.recordAnalyticsVisit({ partyId: 'lost-party', handId: 'lost-party', playerId: 'player-1', clientCookie: 'Alice', ip: '1.1.1.1' }, 2_000);
+
+  const access = (await store.getAnalyticsStats()).accesses[0];
+  expect(access).toMatchObject({ clientCookie: 'Alice', gamesPlayed: 2, winPercent: 50 });
+});
+
 test('expired parties and their started lobbies are forgotten while active parties remain', async () => {
   const store = new HandStore(':memory:');
   await store.saveHand({

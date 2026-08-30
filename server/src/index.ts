@@ -525,6 +525,17 @@ function deviceType(userAgent: string) {
   return 'Desktop';
 }
 
+function clientCookie(req: http.IncomingMessage) {
+  const header = req.headers.cookie ?? '';
+  const value = header.split(';').map((part) => part.trim()).find((part) => part.startsWith('omaha-player-name='));
+  if (!value) return undefined;
+  try {
+    return decodeURIComponent(value.slice('omaha-player-name='.length)).trim().slice(0, 100) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function recordPlayerConnection(
   ws: WebSocket,
   req: http.IncomingMessage,
@@ -549,6 +560,7 @@ async function recordPlayerConnection(
     viewportWidth: finiteClientNumber(client?.viewportWidth, 20000),
     viewportHeight: finiteClientNumber(client?.viewportHeight, 20000),
     pixelRatio: finiteClientNumber(client?.pixelRatio, 20),
+    clientCookie: clientCookie(req),
   });
   const connection = {
     handId: hand.id,
