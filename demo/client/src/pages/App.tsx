@@ -1491,7 +1491,7 @@ function WireframeHand({
             >
               {ui('WAITING', 'ЖДЁМ')}
             </span>
-          ) : actionLabel && isAllIn ? (
+          ) : actionLabel ? (
             <span
               className="wireframe-opponent-thinking wireframe-opponent-action"
               data-testid={`opponent-betting-action-${id}`}
@@ -1846,7 +1846,7 @@ function PlayerSeat({
               ) : null}
             </div>
           ) : null}
-          {!wireframeZone && compact && !isYou && isBetting && isAllIn && actionLabel ? (
+          {!wireframeZone && compact && !isYou && isBetting && actionLabel ? (
             <div
               className="seat-betting-action"
               data-testid={`opponent-betting-action-${id}`}

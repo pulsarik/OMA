@@ -257,9 +257,8 @@ test('opponent betting slot shows the latest action until showdown reveals the c
       action.playerId === 'P2' && ['check', 'call', 'bet', 'raise', 'fold'].includes(action.move)
     ));
   }, { timeout: 30_000 }).toBe(true);
-  // The last action is verified through the server state above. The compact
-  // opponent slot may be replaced by the current-turn indicator immediately.
-  await expect(bettingAction).toHaveCount(0);
+  await expect(bettingAction).toBeVisible();
+  await expect(bettingAction).toHaveText(/^(CHECK|CALL|RAISE|FOLD|BET)( .+)?$/);
   await expect(opponent.locator('.seat-action-bubble')).toHaveCount(0);
   const nameMetrics = await opponent.locator('.seat-topline .seat-name-score').evaluate((element) => {
     const style = getComputedStyle(element);
