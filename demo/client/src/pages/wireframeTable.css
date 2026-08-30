@@ -500,6 +500,47 @@
   /* border: 1px solid #87918a; */
 }
 
+/* A low-contrast identity mark gives the empty felt some character while
+   keeping the board and the pot visually dominant. */
+.wireframe-flop-zone > .table-emblem {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  width: min(360px, 52%);
+  min-width: 220px;
+  color: rgba(244, 194, 92, .23);
+  line-height: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.table-emblem svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px rgba(0, 25, 14, .2));
+}
+
+.table-emblem__ornament { opacity: .8; }
+.table-emblem__suits { font-size: 18px; }
+.table-emblem__title {
+  font: 900 22px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 5px;
+}
+.table-emblem__subtitle {
+  font: 800 8px/1 ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 4px;
+  opacity: .9;
+}
+
+.wireframe-flop-zone > .table-stage,
+.wireframe-flop-zone > .table-board,
+.wireframe-flop-zone > .table-pot {
+  z-index: 1;
+}
+
 /* The flop zone has one stable coordinate system: stage left, board centered,
    pot right. These overrides deliberately do not depend on the old table grid. */
 .wireframe-flop-zone > .table-stage,

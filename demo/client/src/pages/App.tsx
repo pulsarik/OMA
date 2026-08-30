@@ -4,6 +4,7 @@ import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
 import { CityInfo } from '../components/CityInfo';
+import { TableEmblem } from '../components/TableEmblem';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import { playerSeriesStyle } from '../components/playerSeriesStyles';
 import {
@@ -3396,6 +3397,7 @@ function PlayerPage({
           data-testid="flop-zone"
           aria-label={ui('Flop and board', 'Флоп и доска')}
         >
+          <TableEmblem />
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
           <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
           {player.stage === 'showdown' ? (
