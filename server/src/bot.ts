@@ -285,6 +285,13 @@ export function botMove(hand: any, player: any): BotDecision {
   const potOdds = callAmount > 0 ? callAmount / Math.max((hand.potCoins ?? 0) + callAmount, 1) : 0;
   const startScore = startingHandScore(player.hole);
   const premiumPreflop = hand.stage === 'preflop' && startScore >= profile.premiumPreflopScore;
+  const aceKingSuited = player.hole.some((card: string) => card[0] === 'A'
+    && player.hole.some((other: string) => other[0] === 'K' && other[1] === card[1]));
+  const aceKingSupport = player.hole.some((card: string) => ['T', 'J', 'Q'].includes(card[0]));
+  const supportedAceKingPreflop = hand.stage === 'preflop'
+    && aceKingSuited
+    && aceKingSupport
+    && callAmount <= bigBlind * 2;
   const currentCombo = hand.stage !== 'preflop'
     ? evaluatePlayerCombo(player.hole, visibleCommunity(hand))
     : undefined;
@@ -348,6 +355,9 @@ export function botMove(hand: any, player: any): BotDecision {
   );
 
   const mustContinue = premiumPreflop
+    // Suited ace-king with a broadway side card is playable in Omaha at a
+    // reasonable price. Avoid protecting every weak, disconnected A-K hand.
+    || supportedAceKingPreflop
     // A simulation can undervalue a made Omaha hand when several opponents
     // are dealt unknown cards. Do not auto-fold a real made hand at a normal
     // price; equity still controls raises and expensive calls below.

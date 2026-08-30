@@ -1971,7 +1971,6 @@ function latestActionForPlayer(actions: ActionLog[] | undefined, playerId: strin
   return [...(actions ?? [])].reverse().find((action) => (
     action.playerId === playerId
     && action.stage === stage
-    && action.move !== 'fold'
   ));
 }
 
@@ -2756,7 +2755,7 @@ function PlayerPage({
   const [isTabletPortraitTable, setIsTabletPortraitTable] = useState(
     () => window.innerWidth >= 761 && window.innerWidth <= 820,
   );
-  const [streetPause, setStreetPause] = useState<{ action?: ActionLog; version: number } | null>(null);
+  const [streetPause, setStreetPause] = useState<{ actions: ActionLog[]; version: number } | null>(null);
   const [pendingCommand, setPendingCommand] = useState<PendingPlayerCommand | null>(null);
   const pendingCommandRef = useRef<PendingPlayerCommand | null>(null);
   const playerRef = useRef<PlayerView | null>(null);
@@ -2799,12 +2798,15 @@ function PlayerPage({
       && previousPlayer.stage !== nextPlayer.stage
       && isBettingStreetAdvance(previousPlayer.stage, nextPlayer.stage)
     ) {
-      const completedAction = [...nextPlayer.actions].reverse().find((action) => (
-        action.stage === previousPlayer.stage && action.playerId !== playerId
-      ));
+      const pausedActions = nextPlayer.players
+        .filter((seat) => seat.id !== playerId)
+        .map((seat) => [...nextPlayer.actions].reverse().find((action) => (
+          action.stage === previousPlayer.stage && action.playerId === seat.id
+        )))
+        .filter((action): action is ActionLog => Boolean(action));
       const pauseVersion = streetPauseVersionRef.current + 1;
       streetPauseVersionRef.current = pauseVersion;
-      setStreetPause({ action: completedAction, version: pauseVersion });
+      setStreetPause({ actions: pausedActions, version: pauseVersion });
       if (streetPauseTimerRef.current !== null) window.clearTimeout(streetPauseTimerRef.current);
       streetPauseTimerRef.current = window.setTimeout(() => {
         setStreetPause((current) => current?.version === pauseVersion ? null : current);
@@ -3230,9 +3232,8 @@ function PlayerPage({
       resultPlayer={player.stage === 'showdown' ? player.result?.players.find(result => result.id === seat.id) : undefined}
       isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
       isWaitingForNextDeal={player.waitingForPlayers.some(waiting => waiting.id === seat.id)}
-      lastAction={streetPause?.action?.playerId === seat.id
-        ? streetPause.action
-        : latestActionForPlayer(player.actions, seat.id, player.stage)}
+      lastAction={streetPause?.actions.find((action) => action.playerId === seat.id)
+        ?? latestActionForPlayer(player.actions, seat.id, player.stage)}
       folded={seat.folded}
       eliminated={totalScore(player.partyTotals, seat.id) <= 0}
       isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(seat.id))}
@@ -3456,12 +3457,21 @@ function PlayerPage({
               <span>{turnSeconds}s</span>
             </div>
           ) : null}
-          {showActionDock ? <div className="action-dock">
+          {showActionDock ? <div
+            className="action-dock"
+            onPointerDownCapture={(event) => {
+              // A press that starts while controls are unavailable must not
+              // become a click after the turn changes.
+              if (!canAct) event.preventDefault();
+            }}
+          >
             {pendingCommand ? (
               <strong role="status">
                 {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
               </strong>
             ) : null}
+            {canAct ? (
+              <>
             {(currentBet === 0 || raiseCapAvailable) ? (
               <div className="bet-sizes">
                 <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
@@ -3534,6 +3544,12 @@ function PlayerPage({
                   </>
                 )}
               </div>
+            ) : null}
+              </>
+            ) : !pendingCommand ? (
+              <strong role="status">
+                {ui('Waiting for your turn...', '\u0416\u0434\u0451\u043c \u0432\u0430\u0448\u0435\u0433\u043e \u0445\u043e\u0434\u0430...')}
+              </strong>
             ) : null}
           </div> : null}
         </section>

@@ -39,6 +39,17 @@ test('bot calls with a strong two-way draw when the pot price is favorable', () 
   expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
 });
 
+test('bot does not fold supported suited ace-king preflop at a normal price', () => {
+  const hand = dealHand(2, 12345, [], [true, false]);
+  hand.currentPlayerId = 'P1';
+  hand.currentBet = 8;
+  hand.roundBets = { P1: 0, P2: 8 };
+  hand.potCoins = 80;
+  hand.players[0].hole = ['As', 'Ks', 'Jc', '7h'];
+
+  expect(botMove(hand, hand.players[0]).move).not.toBe('fold');
+});
+
 test('bot does not auto-fold a made two-pair hand at a normal price', () => {
   const hand = dealHand(3, 12345, [], [true, true, false]);
   hand.stage = 'turn';
