@@ -13,7 +13,12 @@ async function startTable(page: import('@playwright/test').Page, seats: number) 
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
   await expect(page.getByTestId('opponents-grid')).toBeVisible();
+  await expect.poll(() => page.getByTestId('opponents-grid').locator('[data-player-seat]').count())
+    .toBeGreaterThan(0);
+  await expect(page.getByTestId('flop-zone')).toBeVisible();
+  await expect(page.locator('[data-testid^="wireframe-hand-"]')).toHaveCount(1);
   await expect.poll(() => page.getByTestId('opponents-grid').locator('.deal-card').evaluateAll((cards) => (
+    cards.length > 0 &&
     cards.every((card) => card.getAnimations().every((animation) => animation.playState === 'finished'))
   ))).toBe(true);
 }

@@ -149,9 +149,13 @@ export function getWireframeTableLayout(
   // Phones need a real vertical table. Keeping all opponents in one strip
   // makes every seat microscopic, so mobile uses balanced rows with no more
   // than four seats in a row. Desktop retains the original single-row layout.
-  if (container.width <= MOBILE_LAYOUT_MAX_WIDTH && opponentCount > 4) {
-    const rowCount = opponentCount <= 8 ? 2 : 3;
-    return createScaledLayout(container, opponentCount, rowCount);
+  if (container.width <= MOBILE_LAYOUT_MAX_WIDTH) {
+    const rowCount = opponentCount <= 4 ? 1 : opponentCount <= 8 ? 2 : 3;
+    // The mobile CSS uses compact, stacked zones rather than the desktop
+    // 200/360/200 hint-and-hero row. Do not mark the layout too small based on
+    // that desktop-only width; doing so leaves a blank table on phones.
+    const layout = createScaledLayout(container, opponentCount, rowCount);
+    return { ...layout, fits: true, tooSmall: false, status: 'ready', message: null };
   }
 
   return createScaledLayout(container, opponentCount, 1);

@@ -265,6 +265,63 @@ test('narrow opponent slots switch to a straight, non-overlapping row', async ({
   });
 });
 
+test('opponent cards stay hidden after the turn reaches the user', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startTable(page, 4);
+
+  // The action dock is rendered only when it is the human player's turn.
+  const actionDock = page.locator('.action-dock');
+  await expect(actionDock.getByRole('button').first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('poker-table')).not.toHaveClass(/is-showdown/);
+
+  // Regression guard for delayed/re-rendered reveals: the cards must remain
+  // backs after the turn has been handed to the user, not just immediately.
+  await page.waitForTimeout(2_100);
+
+  const opponentHands = page.locator('[data-testid^="player-cards-"]:not([data-testid="player-cards-P1"])');
+  await expect(opponentHands).toHaveCount(3);
+  await expect(page.getByTestId('poker-table')).not.toHaveClass(/is-showdown/);
+  for (let index = 0; index < await opponentHands.count(); index += 1) {
+    const hand = opponentHands.nth(index);
+    await expect(hand.getByTestId('card-back')).toHaveCount(4);
+    await expect(hand.locator('[data-testid^="card-face-"]')).toHaveCount(0);
+    await expect(hand.locator('.card-rank, .card-suit')).toHaveCount(0);
+  }
+});
+
+test('mobile own turn keeps the table visible above the fixed action dock', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startTable(page, 4);
+
+  await expect(page.locator('.action-dock').getByRole('button').first()).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(2_100);
+  await page.screenshot({ path: 'test-results/mobile-own-turn.png' });
+
+  const state = await page.getByTestId('poker-table').evaluate((table) => {
+    const dock = document.querySelector<HTMLElement>('.action-dock');
+    const hero = table.querySelector<HTMLElement>('[data-testid^="wireframe-hand-"]');
+    const tableBox = table.getBoundingClientRect();
+    const dockBox = dock?.getBoundingClientRect();
+    const point = document.elementFromPoint(tableBox.left + tableBox.width / 2, tableBox.top + 80);
+    return {
+      table: { width: tableBox.width, height: tableBox.height },
+      dock: dockBox ? { top: dockBox.top, bottom: dockBox.bottom, height: dockBox.height } : null,
+      dockCoversTable: Boolean(dockBox && dockBox.top < tableBox.bottom && dockBox.bottom > tableBox.top),
+      pointClass: typeof point?.className === 'string' ? point.className : '',
+      opponents: table.querySelectorAll('[data-testid^="opponent-hand-zone-"]').length,
+      heroCards: hero?.querySelectorAll('[data-testid^="card-face-"], [data-testid="card-back"]').length ?? 0,
+    };
+  });
+
+  expect(state.table.width).toBeGreaterThan(300);
+  expect(state.table.height).toBeGreaterThan(300);
+  expect(state.dock?.height).toBeLessThan(180);
+  expect(state.dockCoversTable).toBe(false);
+  expect(state.pointClass).not.toContain('action-dock');
+  expect(state.opponents).toBeGreaterThan(0);
+  expect(state.heroCards).toBeGreaterThan(0);
+});
+
 test('active turn highlights the name without adding a status label or moving cards', async ({ page }) => {
   await page.setViewportSize({ width: 1558, height: 1037 });
   await startTable(page, 6);
