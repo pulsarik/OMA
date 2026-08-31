@@ -3479,7 +3479,6 @@ function PlayerPage({
                   <button
                     key={option.value}
                     type="button"
-                    disabled={!canAct}
                     onClick={() => setBetSize(option.value)}
                     className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
                   >
@@ -3488,7 +3487,7 @@ function PlayerPage({
                 ))}
               </div>
             ) : null}
-            <fieldset className="main-actions" disabled={!canAct}>
+            <fieldset className="main-actions">
             {callAmount === 0 ? (
               <>
                 <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
@@ -4889,6 +4888,7 @@ const WELCOME_TEXT = {
 
 function WelcomePage() {
   const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
+  const [homeTab, setHomeTab] = useState<'lobby' | 'about'>('lobby');
   const [hostName, setHostName] = useState(storedPlayerName);
   const [seats, setSeats] = useState(4);
   const [pin, setPin] = useState('');
@@ -4998,7 +4998,41 @@ function WelcomePage() {
           <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
         </header>
 
-        <section style={cardStyle}>
+        <nav role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
+          <button
+            role="tab"
+            aria-selected={homeTab === 'lobby'}
+            onClick={() => setHomeTab('lobby')}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
+          >
+            LOBBY
+          </button>
+          <button
+            role="tab"
+            aria-selected={homeTab === 'about'}
+            onClick={() => setHomeTab('about')}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'about' ? '#fff' : '#cbd5e1', background: homeTab === 'about' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
+          >
+            ABOUT / О ПРОЕКТЕ
+          </button>
+        </nav>
+
+        {homeTab === 'about' ? (
+          <section style={{ ...cardStyle, display: 'grid', gap: 10 }}>
+            <h2 style={{ margin: 0 }}>About / О проекте</h2>
+            <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
+              Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
+              <br />
+              Omaha Hi-Lo — многопользовательская покерная игра, где банк делится между лучшей старшей и подходящей младшей комбинациями.
+            </p>
+            <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
+              Questions or feedback? Contact us at{' '}
+              <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+            </p>
+          </section>
+        ) : null}
+
+        {homeTab === 'lobby' ? <section style={cardStyle}>
           <span style={{ color: '#08734d', fontSize: 12, fontWeight: 900, letterSpacing: '.12em', textTransform: 'uppercase' }}>{t.eyebrow}</span>
           <h1 style={{ margin: '8px 0 10px', fontSize: 'clamp(36px, 8vw, 68px)', lineHeight: .95 }}>{t.title}</h1>
           <p style={{ maxWidth: 680, margin: 0, color: '#3f5148', fontSize: 'clamp(17px, 2.5vw, 21px)', lineHeight: 1.5 }}>{t.intro}</p>
@@ -5006,9 +5040,9 @@ function WelcomePage() {
             <strong>{t.differenceTitle}</strong>
             <p style={{ margin: '5px 0 0', color: '#526159', lineHeight: 1.5 }}>{t.difference}</p>
           </div>
-        </section>
+        </section> : null}
 
-        {view === 'choice' ? (
+        {homeTab === 'lobby' && view === 'choice' ? (
           <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
             {([
               ['create', '＋', t.create, t.createHint],
@@ -5029,7 +5063,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {view === 'create' ? (
+        {homeTab === 'lobby' && view === 'create' ? (
           <section style={{ ...cardStyle, display: 'grid', gap: 14 }}>
             <button onClick={() => { setView('choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#08734d', fontWeight: 900 }}>← {t.back}</button>
             <h2 style={{ margin: 0 }}>{t.create}</h2>
@@ -5044,7 +5078,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {view === 'join' ? (
+        {homeTab === 'lobby' && view === 'join' ? (
           <section style={{ ...cardStyle, display: 'grid', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <button onClick={() => { setView('choice'); setNotice(null); }} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900 }}>← {t.back}</button>
@@ -5090,7 +5124,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {view === 'join' && selectedLobby ? (
+        {homeTab === 'lobby' && view === 'join' && selectedLobby ? (
           <div
             role="presentation"
             onMouseDown={(event) => {
