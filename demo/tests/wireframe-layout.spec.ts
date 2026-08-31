@@ -10,7 +10,7 @@ test('wireframe scales up and keeps seven opponents in one row', () => {
   expect(layout.opponentSize.width).toBeCloseTo(WIREFRAME_LAYOUT.opponent.width * layout.scale);
 });
 
-test('wireframe scales down before changing from one row', () => {
+test('wireframe keeps desktop opponents in one row', () => {
   const layout = getWireframeTableLayout({ width: 900, height: 900 }, 7);
   expect(layout.rowCount).toBe(1);
   expect(layout.scale).toBeLessThan(1);
@@ -18,11 +18,11 @@ test('wireframe scales down before changing from one row', () => {
   expect(layout.opponentSize.height).toBeGreaterThanOrEqual(70);
 });
 
-test('wireframe balances two and three opponent rows', () => {
+test('wireframe balances mobile opponent rows', () => {
   const twoRows = getWireframeTableLayout({ width: 700, height: 900 }, 7);
   const threeRows = getWireframeTableLayout({ width: 400, height: 900 }, 7);
-  expect(twoRows.rows.map(row => row.length)).toEqual([7]);
-  expect(threeRows.rows.map(row => row.length)).toEqual([7]);
-  expect(twoRows.mode).toBe('wide');
-  expect(threeRows.mode).toBe('wide');
+  expect(twoRows.rows.map(row => row.length)).toEqual([4, 3]);
+  expect(threeRows.rows.map(row => row.length)).toEqual([4, 3]);
+  expect(twoRows.mode).toBe('narrow');
+  expect(threeRows.mode).toBe('narrow');
 });

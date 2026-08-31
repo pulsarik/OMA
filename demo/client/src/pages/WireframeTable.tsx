@@ -76,6 +76,7 @@ export function WireframeTable({
           className="wireframe-opponents-row"
           data-testid={rowIndex === 0 ? 'opponents-grid' : 'wireframe-opponents-row'}
           data-row-index={rowIndex}
+          data-opponent-count={row.length}
           style={{
             gridTemplateColumns: `repeat(${row.length}, ${slotWidth}px)`,
             width: `${rowWidth}px`,

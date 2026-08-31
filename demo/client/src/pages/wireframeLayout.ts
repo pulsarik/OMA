@@ -14,6 +14,7 @@ export const WIREFRAME_LAYOUT = {
 
 export const OPPONENT_COUNT = 7;
 export const OPPONENT_ROW_LIMIT = 3;
+export const MOBILE_LAYOUT_MAX_WIDTH = 760;
 
 export type OpponentRow = readonly number[];
 
@@ -133,8 +134,8 @@ function createScaledLayout(
 
 /**
  * Calculates the complete table layout from the available poker-table
- * container. Opponents always stay in one row; the whole table scales down
- * when the available width is smaller than the base layout.
+ * container. Desktop opponents stay in one row; narrow containers use
+ * balanced rows so the whole table remains readable.
  */
 export function getWireframeTableLayout(
   container: WireframeContainer,
@@ -143,6 +144,14 @@ export function getWireframeTableLayout(
   assertContainerSize(container);
   if (!Number.isInteger(opponentCount) || opponentCount < 1) {
     throw new RangeError('opponentCount must be a positive integer');
+  }
+
+  // Phones need a real vertical table. Keeping all opponents in one strip
+  // makes every seat microscopic, so mobile uses balanced rows with no more
+  // than four seats in a row. Desktop retains the original single-row layout.
+  if (container.width <= MOBILE_LAYOUT_MAX_WIDTH && opponentCount > 4) {
+    const rowCount = opponentCount <= 8 ? 2 : 3;
+    return createScaledLayout(container, opponentCount, rowCount);
   }
 
   return createScaledLayout(container, opponentCount, 1);
@@ -247,7 +256,7 @@ export const WIREFRAME_LAYOUT_SPEC = {
     rows: 'one while width allows, then two, then three when required',
     balanceRows: true,
     centerShortLastRow: true,
-    mobileSpecificLayout: false,
+    mobileSpecificLayout: true,
   },
   opponentRows: {
     one: [7] as const,
