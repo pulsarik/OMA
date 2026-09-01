@@ -86,7 +86,14 @@ test('analytics reports completed parties and cookie client win rate', async () 
   await store.recordAnalyticsVisit({ partyId: 'lost-party', handId: 'lost-party', playerId: 'player-1', clientCookie: 'Alice', ip: '1.1.1.1' }, 2_000);
 
   const access = (await store.getAnalyticsStats()).accesses[0];
-  expect(access).toMatchObject({ clientCookie: 'Alice', gamesPlayed: 2, winPercent: 50 });
+  expect(access).toMatchObject({
+    clientCookie: 'Alice',
+    gamesPlayed: 2,
+    partiesPlayed: 2,
+    partiesWon: 1,
+    dealsPlayed: 2,
+    winPercent: 50,
+  });
 });
 
 test('analytics aggregates a stable player cookie even when the display name changes', async () => {

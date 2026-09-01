@@ -529,7 +529,12 @@ export default class HandStore {
     const accesses = [...accessGroups.values()].map((access: any) => {
       let gamesPlayed = 0;
       let wins = 0;
+      let dealsPlayed = 0;
       access.playersByParty.forEach((playerId: string, partyId: string) => {
+        dealsPlayed += hands.filter((hand: any) => (
+          (hand.partyId ?? hand.id) === partyId
+          && hand.players?.some((player: any) => player.id === playerId)
+        )).length;
         const finalHand = latestHandByParty.get(partyId);
         const playersWithChips = finalHand?.players?.filter((player: any) => (Number(player.stack) || 0) > 0) ?? [];
         if (!finalHand || finalHand.stage !== 'showdown'
@@ -540,7 +545,14 @@ export default class HandStore {
         if ((Number(finalHand.players.find((player: any) => player.id === playerId)?.stack) || 0) === maxStack) wins += 1;
       });
       const { playersByParty, ...publicAccess } = access;
-      return { ...publicAccess, gamesPlayed, winPercent: gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0 };
+      return {
+        ...publicAccess,
+        gamesPlayed,
+        partiesPlayed: gamesPlayed,
+        partiesWon: wins,
+        dealsPlayed,
+        winPercent: gamesPlayed ? Math.round((wins / gamesPlayed) * 100) : 0,
+      };
     }).sort((a: any, b: any) => b.lastSeen - a.lastSeen).slice(0, 200);
     const parties = new Map<string, any>();
     hands.forEach((hand: any) => {
