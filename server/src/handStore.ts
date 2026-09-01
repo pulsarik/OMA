@@ -108,12 +108,16 @@ export default class HandStore {
         viewport_width INTEGER,
         viewport_height INTEGER,
         pixel_ratio REAL,
-        client_cookie TEXT
+        client_cookie TEXT,
+        player_name TEXT
       )
     `);
     const analyticsVisitColumns = await this.db.all('PRAGMA table_info(analytics_visits)');
     if (!analyticsVisitColumns.some((column: any) => column.name === 'client_cookie')) {
       await this.db.run('ALTER TABLE analytics_visits ADD COLUMN client_cookie TEXT');
+    }
+    if (!analyticsVisitColumns.some((column: any) => column.name === 'player_name')) {
+      await this.db.run('ALTER TABLE analytics_visits ADD COLUMN player_name TEXT');
     }
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_party ON analytics_visits(party_id)');
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_created ON analytics_visits(created DESC)');
@@ -420,14 +424,15 @@ export default class HandStore {
     viewportHeight?: number;
     pixelRatio?: number;
     clientCookie?: string;
+    playerName?: string;
   }, occurredAt = Date.now()) {
     const db = await this.getDb();
     const result = await db.run(`
       INSERT INTO analytics_visits(
         created, last_seen, party_id, hand_id, player_id, ip, user_agent,
         device_type, platform, screen_width, screen_height, viewport_width,
-        viewport_height, pixel_ratio, client_cookie
-      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        viewport_height, pixel_ratio, client_cookie, player_name
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     occurredAt,
     occurredAt,
@@ -443,7 +448,8 @@ export default class HandStore {
     visit.viewportWidth ?? null,
     visit.viewportHeight ?? null,
     visit.pixelRatio ?? null,
-    visit.clientCookie ?? null);
+    visit.clientCookie ?? null,
+    visit.playerName ?? null);
     return result.lastID as number;
   }
 
@@ -465,7 +471,7 @@ export default class HandStore {
         player_id AS playerId, ip, user_agent AS userAgent, device_type AS deviceType,
         platform, screen_width AS screenWidth, screen_height AS screenHeight,
         viewport_width AS viewportWidth, viewport_height AS viewportHeight,
-        pixel_ratio AS pixelRatio, client_cookie AS clientCookie
+        pixel_ratio AS pixelRatio, client_cookie AS clientCookie, player_name AS playerName
         FROM analytics_visits ORDER BY last_seen DESC`),
       db.all(`
         SELECT COALESCE(device_type, 'Unknown') AS deviceType,
@@ -493,13 +499,14 @@ export default class HandStore {
     });
     const accessGroups = new Map<string, any>();
     visitRows.forEach((visit: any) => {
-      const key = [visit.clientCookie, visit.ip, visit.userAgent, visit.deviceType,
+      const key = [visit.clientCookie, visit.playerName, visit.ip, visit.userAgent, visit.deviceType,
         visit.platform, visit.screenWidth, visit.screenHeight, visit.viewportWidth,
         visit.viewportHeight, visit.pixelRatio].map((value) => value ?? '').join('|');
       const access = accessGroups.get(key) ?? {
         firstSeen: visit.created,
         lastSeen: visit.lastSeen,
         clientCookie: visit.clientCookie,
+        playerName: visit.playerName,
         ip: visit.ip,
         userAgent: visit.userAgent,
         deviceType: visit.deviceType,
@@ -515,6 +522,7 @@ export default class HandStore {
       access.connections += 1;
       access.firstSeen = Math.min(access.firstSeen, visit.created);
       access.lastSeen = Math.max(access.lastSeen, visit.lastSeen);
+      if (visit.playerName) access.playerName = visit.playerName;
       if (!access.playersByParty.has(visit.partyId)) access.playersByParty.set(visit.partyId, visit.playerId);
       accessGroups.set(key, access);
     });

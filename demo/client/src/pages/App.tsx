@@ -33,6 +33,7 @@ const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module
 type UiLanguage = 'en' | 'ru';
 
 const PLAYER_NAME_COOKIE = 'omaha-player-name';
+const PLAYER_ID_COOKIE = 'omaha-player-id';
 const TABLE_SEATS_COOKIE = 'omaha-table-seats';
 const PLAYER_NAME_MAX_LENGTH = 30;
 const DEFAULT_TABLE_SEATS = 4;
@@ -40,6 +41,20 @@ const MIN_TABLE_SEATS = 2;
 const MAX_TABLE_SEATS = 10;
 const DESKTOP_TABLE_LAYOUT_MIN_WIDTH = 761;
 const MOBILE_TABLE_LAYOUT_MAX_WIDTH = 560;
+
+function ensurePlayerId() {
+  const existing = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith(`${PLAYER_ID_COOKIE}=`));
+  if (existing?.slice(PLAYER_ID_COOKIE.length + 1)) return;
+
+  const id = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  document.cookie = `${PLAYER_ID_COOKIE}=${encodeURIComponent(id)}; Max-Age=31536000; Path=/; SameSite=Lax`;
+}
+
+ensurePlayerId();
 
 function storedPlayerName() {
   const cookie = document.cookie

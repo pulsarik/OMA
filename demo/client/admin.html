@@ -158,7 +158,7 @@
 
     function table(headers, rows) {
       if (headers.includes('User-Agent')) {
-        headers = [headers[0], 'Cookie', ...headers.slice(1), 'Games played', 'Win rate'];
+        headers = [headers[0], 'Player', 'Cookie', ...headers.slice(1), 'Games played', 'Win rate'];
       }
       return `
         <table>
@@ -211,6 +211,7 @@
         (stats.accesses || []).map((access) => `
           <tr>
             <td>${escapeHtml(formatDate(access.lastSeen))}</td>
+            <td>${escapeHtml(access.playerName)}</td>
             <td>${escapeHtml(access.clientCookie)}</td>
             <td>${escapeHtml(access.ip)}</td>
             <td>${escapeHtml(access.deviceType)}</td>
