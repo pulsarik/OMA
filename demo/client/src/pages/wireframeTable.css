@@ -1356,20 +1356,41 @@
   /* The hero hand is given physical room instead of inheriting the tiny table
      scale used by the desktop seat layout. */
   #root .poker-page .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) {
-    width: min(280px, 100%) !important;
-    height: 124px !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 150px !important;
     overflow: visible !important;
   }
 
   #root .poker-page .wireframe-hero-slot .focal-card-frame {
-    width: 52px !important;
-    height: 75px !important;
-    flex-basis: 52px !important;
+    width: 64px !important;
+    height: 92px !important;
+    flex-basis: 64px !important;
+    margin-left: 0 !important;
   }
 
   #root .poker-page .wireframe-hero-slot .focal-card {
     visibility: visible !important;
-    transform: scale(.57) !important;
+    transform: scale(.70) !important;
+  }
+
+  /* The base hand rules use percentage card slots and shrink them again on
+     narrow tables. Keep the player's four cards at a readable physical size
+     on phones while allowing the row to fit inside the hero slot. */
+  #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot
+    .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame {
+    flex: 0 0 64px !important;
+    width: 64px !important;
+    height: 92px !important;
+    max-width: 64px !important;
+    max-height: 92px !important;
+  }
+
+  #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot
+    .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row {
+    width: 100% !important;
+    overflow: visible !important;
+    justify-content: center !important;
   }
 
   #root .poker-page .wireframe-actions-zone {
@@ -1390,7 +1411,7 @@
     height: auto !important;
     min-height: 0 !important;
     padding: 8px !important;
-    gap: 7px !important;
+    gap: 8px !important;
     border-radius: 16px !important;
     background: rgba(255,255,255,.97) !important;
     box-shadow: 0 -8px 28px rgba(15,23,42,.24) !important;
@@ -1403,9 +1424,9 @@
   }
 
   #root .poker-page .wireframe-actions-zone .main-actions .action-button {
-    min-height: 42px !important;
-    padding: 6px 4px !important;
-    font-size: 12px !important;
+    min-height: 48px !important;
+    padding: 7px 5px !important;
+    font-size: 13px !important;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
   }

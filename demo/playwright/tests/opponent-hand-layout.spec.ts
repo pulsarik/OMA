@@ -310,6 +310,9 @@ test('mobile own turn keeps the table visible above the fixed action dock', asyn
       pointClass: typeof point?.className === 'string' ? point.className : '',
       opponents: table.querySelectorAll('[data-testid^="opponent-hand-zone-"]').length,
       heroCards: hero?.querySelectorAll('[data-testid^="card-face-"], [data-testid="card-back"]').length ?? 0,
+      heroCardWidth: hero?.querySelector<HTMLElement>('.focal-card-frame')?.getBoundingClientRect().width ?? 0,
+      heroCardHeight: hero?.querySelector<HTMLElement>('.focal-card-frame')?.getBoundingClientRect().height ?? 0,
+      actionButtonHeight: document.querySelector<HTMLElement>('.main-actions .action-button')?.getBoundingClientRect().height ?? 0,
     };
   });
 
@@ -320,6 +323,9 @@ test('mobile own turn keeps the table visible above the fixed action dock', asyn
   expect(state.pointClass).not.toContain('action-dock');
   expect(state.opponents).toBeGreaterThan(0);
   expect(state.heroCards).toBeGreaterThan(0);
+  expect(state.heroCardWidth).toBeGreaterThanOrEqual(60);
+  expect(state.heroCardHeight).toBeGreaterThanOrEqual(86);
+  expect(state.actionButtonHeight).toBeGreaterThanOrEqual(46);
 });
 
 test('active turn highlights the name without adding a status label or moving cards', async ({ page }) => {
