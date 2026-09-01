@@ -527,10 +527,16 @@ function deviceType(userAgent: string) {
 
 function clientCookie(req: http.IncomingMessage) {
   const header = req.headers.cookie ?? '';
-  const value = header.split(';').map((part) => part.trim()).find((part) => part.startsWith('omaha-player-name='));
+  // The player name is editable and must not be used as an identity. Keep it
+  // as a fallback so visits from clients predating the stable cookie remain
+  // visible in analytics.
+  const parts = header.split(';').map((part) => part.trim());
+  const value = parts.find((part) => part.startsWith('omaha-player-id='))
+    ?? parts.find((part) => part.startsWith('omaha-player-name='));
   if (!value) return undefined;
   try {
-    return decodeURIComponent(value.slice('omaha-player-name='.length)).trim().slice(0, 100) || undefined;
+    const separator = value.indexOf('=');
+    return decodeURIComponent(value.slice(separator + 1)).trim().slice(0, 100) || undefined;
   } catch {
     return undefined;
   }
@@ -561,6 +567,7 @@ async function recordPlayerConnection(
     viewportHeight: finiteClientNumber(client?.viewportHeight, 20000),
     pixelRatio: finiteClientNumber(client?.pixelRatio, 20),
     clientCookie: clientCookie(req),
+    playerName: typeof player?.name === 'string' ? player.name.slice(0, 100) : undefined,
   });
   const connection = {
     handId: hand.id,

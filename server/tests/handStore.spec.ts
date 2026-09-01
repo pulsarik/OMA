@@ -89,6 +89,27 @@ test('analytics reports completed parties and cookie client win rate', async () 
   expect(access).toMatchObject({ clientCookie: 'Alice', gamesPlayed: 2, winPercent: 50 });
 });
 
+test('analytics aggregates a stable player cookie even when the display name changes', async () => {
+  const store = new HandStore(':memory:');
+  for (const [partyId, stack, at] of [
+    ['party-a', 200, 1_000],
+    ['party-b', 0, 2_000],
+  ] as const) {
+    await store.saveHand({
+      id: partyId, partyId, handNumber: 1, stage: 'showdown',
+      players: [{ id: 'player-1', stack }, { id: 'player-2', stack: stack ? 0 : 200 }],
+    });
+    await store.recordAnalyticsVisit({
+      partyId, handId: partyId, playerId: 'player-1',
+      clientCookie: 'stable-player-id', ip: '1.1.1.1',
+    }, at);
+  }
+
+  const accesses = (await store.getAnalyticsStats()).accesses;
+  expect(accesses).toHaveLength(1);
+  expect(accesses[0]).toMatchObject({ clientCookie: 'stable-player-id', gamesPlayed: 2, winPercent: 50 });
+});
+
 test('expired parties and their started lobbies are forgotten while active parties remain', async () => {
   const store = new HandStore(':memory:');
   await store.saveHand({
