@@ -21,11 +21,32 @@ async function startMobileTable(page: Page, seats = 4) {
   ))).toBe(true);
 }
 
+async function startMobileTableAt(page: Page, width: number, height: number, seats = 4) {
+  await page.setViewportSize({ width, height });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByLabel('Seats at the table').selectOption(String(seats));
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+  await page.getByLabel('Bot name').fill('Anna');
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  await expect(page.getByTestId('poker-table')).toBeVisible();
+  await expect.poll(() => page.getByTestId('opponents-grid').locator('[data-player-seat]').count())
+    .toBeGreaterThan(0);
+}
+
 async function playToRiver(page: Page) {
   test.setTimeout(90_000);
   const board = page.getByTestId('table-board');
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (await board.locator('[data-testid^="card-face-"]').count() >= 5) return;
+    if (await board.locator('[data-testid^="card-face-"]').count() >= 5) {
+      await page.waitForTimeout(800);
+      return;
+    }
     const actionDock = page.locator('.action-dock');
     const action = actionDock.getByRole('button', { name: /^(Check|Call)\b/ }).first();
     if (await action.isVisible().catch(() => false) && await action.isEnabled()) {
@@ -40,6 +61,7 @@ async function playToRiver(page: Page) {
     await page.waitForTimeout(250);
   }
   await expect(board.locator('[data-testid^="card-face-"]')).toHaveCount(5, { timeout: 30_000 });
+  await page.waitForTimeout(800);
 }
 
 test('mobile table screenshot contains a visible populated table, not only the action dock', async ({ page }) => {
@@ -100,6 +122,26 @@ test('mobile River board keeps all five cards in one visible board area', async 
   expect(screenshot.byteLength).toBeGreaterThan(10_000);
 });
 
+test('534px mobile River board stays in one row inside the table board', async ({ page }) => {
+  await startMobileTableAt(page, 534, 900);
+  await playToRiver(page);
+
+  const board = page.getByTestId('table-board');
+  const metrics = await board.evaluate((element) => {
+    const boardBox = element.getBoundingClientRect();
+    const cards = Array.from(element.querySelectorAll<HTMLElement>('[data-testid^="card-face-"]'))
+      .map((card) => card.getBoundingClientRect());
+    return { board: boardBox, cards };
+  });
+  expect(metrics.cards).toHaveLength(5);
+  expect(new Set(metrics.cards.map((card) => Math.round(card.top))).size)
+    .toBe(1);
+  metrics.cards.forEach((card, index) => {
+    expect(card.left, `River card ${index + 1} exits board left`).toBeGreaterThanOrEqual(metrics.board.left - 1);
+    expect(card.right, `River card ${index + 1} exits board right`).toBeLessThanOrEqual(metrics.board.right + 1);
+  });
+});
+
 test('mobile own turn keeps cards, opponents and board visible after two seconds', async ({ page }) => {
   await startMobileTable(page);
   const dock = page.locator('.action-dock');
@@ -157,7 +199,7 @@ test('mobile opponents keep four hidden cards and non-overlapping hand zones', a
   await expect(zones).toHaveCount(3);
   const data = await zones.evaluateAll((items) => items.map((zone) => {
     const zoneBox = zone.getBoundingClientRect();
-    const cards = Array.from(zone.querySelectorAll<HTMLElement>('[data-testid="card-back"]'))
+    const cards = Array.from(zone.querySelectorAll<HTMLElement>('.opponent-card-frame'))
       .map((card) => card.getBoundingClientRect());
     return { zone: zoneBox.toJSON(), backs: cards.length, cards };
   }));

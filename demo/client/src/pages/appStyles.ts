@@ -3906,4 +3906,85 @@ export const PLAYER_PAGE_STYLES = `
       rotate: none !important;
     }
   }
+
+  /* Mobile opponent status contract: keep THINKING/SHUTDOWN/WAITING in the
+     reserved strip below the name and above the cards. Desktop bubbles keep
+     their existing positioning and sizing. */
+  @media (max-width: 760px) {
+    #root .poker-table .opponent-hand-zone .seat-action-bubble {
+      top: 24px !important;
+      left: 50% !important;
+      right: auto !important;
+      width: auto !important;
+      min-width: 0 !important;
+      max-width: calc(100% - 8px) !important;
+      box-sizing: border-box !important;
+      padding: 3px 6px !important;
+      border-radius: 999px !important;
+      font-size: clamp(8px, 2.8cqw, 10px) !important;
+      line-height: 1 !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      transform: translateX(-50%) !important;
+    }
+
+    #root .poker-table .opponent-hand-zone .opponent-hand-content {
+      padding-top: max(44px, calc(48px * var(--opponent-ui-scale, 1))) !important;
+    }
+
+    /* Final mobile-only contract for the wireframe table. */
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board,
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row {
+      width: 100% !important;
+      min-width: 0 !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 2px !important;
+      overflow: hidden !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row > .focal-card-frame {
+      flex: 1 1 0 !important;
+      width: 0 !important;
+      min-width: 0 !important;
+      height: 66px !important;
+      max-width: none !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row > .focal-card-frame > .focal-card {
+      width: 100% !important;
+      height: 100% !important;
+      transform: none !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot .compact-card-row {
+      width: calc(100% - 8px) !important;
+      margin-left: 4px !important;
+      margin-right: 4px !important;
+      overflow: hidden !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-thinking {
+      max-width: calc(100% - 8px) !important;
+      font-size: 10px !important;
+      line-height: 1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      box-sizing: border-box !important;
+    }
+    .wireframe-opponent-thinking {
+      max-width: calc(100% - 8px) !important;
+      width: calc(100% - 8px) !important;
+      display: flex !important;
+      font-size: 10px !important;
+      line-height: 1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      box-sizing: border-box !important;
+    }
+  }
 `;
