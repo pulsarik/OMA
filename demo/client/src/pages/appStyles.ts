@@ -3865,4 +3865,45 @@ export const PLAYER_PAGE_STYLES = `
   #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(6) { transform: translateY(20%) !important; }
   #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(2),
   #root .wireframe-table .wireframe-opponents-row:has(> .wireframe-opponent-slot:nth-child(6)):not(:has(> .wireframe-opponent-slot:nth-child(7))) > .wireframe-opponent-slot:nth-child(5) { transform: translateY(10%) !important; }
+
+  /* Mobile opponent seating is a flat grid. Keep the legacy oval/fan rules
+     above desktop-only and prevent their vertical offsets from leaking into
+     narrow viewports. */
+  @media (max-width: 760px) {
+    #root .poker-table .opponents-row,
+    #root .poker-table .wireframe-opponents-row {
+      display: grid !important;
+      position: static !important;
+      grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)) !important;
+      grid-auto-rows: auto !important;
+      height: auto !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      gap: 8px !important;
+      align-items: start !important;
+    }
+    #root .poker-table .opponents-row .player-seat-wrap,
+    #root .poker-table .wireframe-opponents-row .player-seat-wrap,
+    #root .poker-table .wireframe-opponent-slot {
+      position: static !important;
+      inset: auto !important;
+      width: 100% !important;
+      min-width: 0 !important;
+      margin: 0 !important;
+      align-self: start !important;
+      transform: none !important;
+    }
+    #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      margin: 0 !important;
+      transform: none !important;
+    }
+    #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card-frame,
+    #root .poker-table .opponent-hand-zone .opponent-hand-card-area > .compact-card-row .opponent-card {
+      transform: none !important;
+      rotate: none !important;
+    }
+  }
 `;
