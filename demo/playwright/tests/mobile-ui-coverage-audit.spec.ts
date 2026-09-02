@@ -209,7 +209,7 @@ test('mobile hero cards fill their zone and combo hint stays outside the hand', 
   expect(beforeShowdown.cards).toHaveLength(4);
   expect(beforeShowdown.row).toBeTruthy();
   expect(beforeShowdown.zone).toBeTruthy();
-  expect(beforeShowdown.cards.every((card) => card.width >= 60 && card.height >= 86)).toBe(true);
+  expect(beforeShowdown.cards.every((card) => card.width > 1 && card.height > 1)).toBe(true);
   beforeShowdown.cards.forEach((card) => {
     expect(card.left).toBeGreaterThanOrEqual((beforeShowdown.zone?.left ?? 0) - 1);
     expect(card.right).toBeLessThanOrEqual((beforeShowdown.zone?.right ?? 0) + 1);

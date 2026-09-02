@@ -3930,6 +3930,15 @@ export const PLAYER_PAGE_STYLES = `
       transform: translateX(-50%) !important;
     }
 
+    /* Keep the combination plaques in the outer halves of the mobile row;
+       centering them can make their inner edges touch the hero cards at 390px. */
+    #root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side.high {
+      transform: translateX(-8px) !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side.low {
+      transform: translateX(8px) !important;
+    }
+
     #root .poker-table .opponent-hand-zone .opponent-hand-content {
       padding-top: max(44px, calc(48px * var(--opponent-ui-scale, 1))) !important;
     }
@@ -3985,6 +3994,36 @@ export const PLAYER_PAGE_STYLES = `
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       box-sizing: border-box !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 2px !important;
+      width: 100% !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame {
+      width: auto !important;
+      height: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      aspect-ratio: 92 / 132 !important;
+      flex: none !important;
+      transform: none !important;
+      rotate: none !important;
+      margin: 0 !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame {
+      flex: 1 1 0 !important;
+      width: 0 !important;
+      height: auto !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      aspect-ratio: 92 / 132 !important;
+      transform: none !important;
+      rotate: none !important;
+      margin: 0 !important;
     }
   }
 `;
