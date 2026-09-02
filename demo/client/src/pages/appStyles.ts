@@ -4016,7 +4016,7 @@ export const PLAYER_PAGE_STYLES = `
     }
     #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame {
       flex: 1 1 0 !important;
-      width: 0 !important;
+      width: auto !important;
       height: auto !important;
       min-width: 0 !important;
       max-width: none !important;

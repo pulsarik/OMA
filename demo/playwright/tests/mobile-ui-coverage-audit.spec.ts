@@ -196,6 +196,12 @@ test('mobile hero cards fill their zone and combo hint stays outside the hand', 
   await startMobileTable(page);
   await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(2_100);
+  await expect.poll(() => page.locator('.wireframe-hero-slot .focal-card-frame').evaluateAll((cards) => (
+    cards.length === 4 && cards.every((card) => {
+      const box = card.getBoundingClientRect();
+      return box.width > 1 && box.height > 1;
+    })
+  ))).toBe(true);
 
   const beforeShowdown = await page.getByTestId('poker-table').evaluate((table) => {
     const heroZone = table.querySelector<HTMLElement>('.wireframe-hero-slot');
