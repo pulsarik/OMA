@@ -3998,9 +3998,15 @@ export const PLAYER_PAGE_STYLES = `
     #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row {
       display: grid !important;
       grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      grid-auto-rows: auto !important;
       gap: 2px !important;
-      width: 100% !important;
-      height: 100% !important;
+      width: calc(100% - 4px) !important;
+      margin-inline: 2px !important;
+      /* Avoid a percentage-height sizing loop: frames derive height from
+         their grid-column width and the 92 / 132 aspect ratio. */
+      height: auto !important;
+      min-height: 0 !important;
+      align-content: center !important;
       overflow: hidden !important;
     }
     #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame {
@@ -4015,12 +4021,13 @@ export const PLAYER_PAGE_STYLES = `
       margin: 0 !important;
     }
     #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame {
-      flex: 1 1 0 !important;
-      width: auto !important;
+      flex: none !important;
+      width: 100% !important;
       height: auto !important;
       min-width: 0 !important;
       max-width: none !important;
       aspect-ratio: 92 / 132 !important;
+      align-self: center !important;
       transform: none !important;
       rotate: none !important;
       margin: 0 !important;
