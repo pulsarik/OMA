@@ -1383,6 +1383,7 @@
     width: 100% !important;
     height: 124px !important;
     min-width: 0 !important;
+    overflow: hidden !important;
   }
 
   /* The hero hand is given physical room instead of inheriting the tiny table
@@ -1390,8 +1391,8 @@
   #root .poker-page .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) {
     width: 100% !important;
     max-width: none !important;
-    height: 150px !important;
-    overflow: visible !important;
+    height: 100% !important;
+    overflow: hidden !important;
   }
 
   #root .poker-page .wireframe-hero-slot .focal-card-frame {
@@ -1403,7 +1404,7 @@
 
   #root .poker-page .wireframe-hero-slot .focal-card {
     visibility: visible !important;
-    transform: scale(.70) !important;
+    transform: none !important;
   }
 
   /* The base hand rules use percentage card slots and shrink them again on
@@ -1421,7 +1422,9 @@
   #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot
     .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row {
     width: 100% !important;
-    overflow: visible !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
     justify-content: center !important;
   }
 

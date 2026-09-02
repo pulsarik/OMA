@@ -192,6 +192,46 @@ test('mobile action dock buttons are usable and stay inside the viewport', async
   });
 });
 
+test('mobile hero cards fill their zone and combo hint stays outside the hand', async ({ page }) => {
+  await startMobileTable(page);
+  await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(2_100);
+
+  const beforeShowdown = await page.getByTestId('poker-table').evaluate((table) => {
+    const heroZone = table.querySelector<HTMLElement>('.wireframe-hero-slot');
+    const row = heroZone?.querySelector<HTMLElement>('.compact-card-row');
+    const cards = Array.from(heroZone?.querySelectorAll<HTMLElement>('.focal-card-frame') ?? [])
+      .map((card) => card.getBoundingClientRect());
+    const zone = heroZone?.getBoundingClientRect();
+    const rowBox = row?.getBoundingClientRect();
+    return { zone, row: rowBox, cards };
+  });
+  expect(beforeShowdown.cards).toHaveLength(4);
+  expect(beforeShowdown.row).toBeTruthy();
+  expect(beforeShowdown.zone).toBeTruthy();
+  expect(beforeShowdown.cards.every((card) => card.width >= 60 && card.height >= 86)).toBe(true);
+  beforeShowdown.cards.forEach((card) => {
+    expect(card.left).toBeGreaterThanOrEqual((beforeShowdown.zone?.left ?? 0) - 1);
+    expect(card.right).toBeLessThanOrEqual((beforeShowdown.zone?.right ?? 0) + 1);
+    expect(card.top).toBeGreaterThanOrEqual((beforeShowdown.zone?.top ?? 0) - 1);
+    expect(card.bottom).toBeLessThanOrEqual((beforeShowdown.zone?.bottom ?? 0) + 1);
+    expect(card.width / card.height).toBeCloseTo(92 / 132, 2);
+  });
+
+  await page.getByRole('button', { name: 'Fold' }).click();
+  const hint = page.getByTestId('high-combo-side');
+  await expect(hint).toBeVisible({ timeout: 30_000 });
+  const overlap = await page.getByTestId('poker-table').evaluate((table) => {
+    const hand = table.querySelector<HTMLElement>('.wireframe-hero-slot .compact-card-row')?.getBoundingClientRect();
+    const high = table.querySelector<HTMLElement>('[data-testid="high-combo-side"]')?.getBoundingClientRect();
+    const low = table.querySelector<HTMLElement>('[data-testid="low-combo-side"]')?.getBoundingClientRect();
+    return [high, low].filter(Boolean).map((box) => ({
+      intersects: !!hand && box!.left < hand.right && box!.right > hand.left && box!.top < hand.bottom && box!.bottom > hand.top,
+    }));
+  });
+  expect(overlap.every(({ intersects }) => !intersects)).toBe(true);
+});
+
 test('mobile opponents keep four hidden cards and non-overlapping hand zones', async ({ page }) => {
   await startMobileTable(page);
   const table = page.getByTestId('poker-table');
