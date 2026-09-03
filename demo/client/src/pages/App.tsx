@@ -29,6 +29,8 @@ const WS_URL = isLocalVite
 const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module => ({
   default: module.VoiceChat,
 })));
+// Temporarily hide voice chat from the game views while keeping its implementation available.
+const VOICE_TAB_ENABLED = false;
 
 type UiLanguage = 'en' | 'ru';
 
@@ -3304,7 +3306,7 @@ function PlayerPage({
         >
           {ui('TABLE', 'СТОЛ')}
         </button>
-        <button
+        {VOICE_TAB_ENABLED ? <button
             id="voice-tab"
             type="button"
             role="tab"
@@ -3314,7 +3316,7 @@ function PlayerPage({
             onClick={() => setActiveView('voice')}
           >
             {ui('VOICE', 'ГОЛОС')}
-          </button>
+          </button> : null}
         <button
           id="stats-tab"
           type="button"
@@ -3601,7 +3603,7 @@ function PlayerPage({
       ) : null}
       </section> : null}
 
-      <section
+      {VOICE_TAB_ENABLED ? <section
           id="voice-panel"
           role="tabpanel"
           aria-labelledby="voice-tab"
@@ -3635,7 +3637,7 @@ function PlayerPage({
               {ui('Voice chat is currently unavailable.', 'Голосовой чат сейчас недоступен.')}
             </p>
           )}
-      </section>
+      </section> : null}
 
       {isStatsView ? <section
         id="stats-panel"
