@@ -1832,7 +1832,9 @@ function PlayerSeat({
             >
               {isHighWinner ? (
                 <span
+                  className="winner-badge high winner-badge-label"
                   data-testid={`winner-high-${id}`}
+                  title={ui('High winner', 'Победитель хай')}
                   style={{
                     borderRadius: 999,
                     background: '#dc2626',
@@ -1848,7 +1850,9 @@ function PlayerSeat({
               ) : null}
               {isLowWinner ? (
                 <span
+                  className="winner-badge low winner-badge-label"
                   data-testid={`winner-low-${id}`}
+                  title={ui('Low winner', 'Победитель лоу')}
                   style={{
                     borderRadius: 999,
                     background: '#2563eb',
@@ -3562,10 +3566,6 @@ function PlayerPage({
               </div>
             ) : null}
               </>
-            ) : !pendingCommand ? (
-              <strong role="status">
-                {ui('Waiting for your turn...', '\u0416\u0434\u0451\u043c \u0432\u0430\u0448\u0435\u0433\u043e \u0445\u043e\u0434\u0430...')}
-              </strong>
             ) : null}
           </div> : null}
         </section>

@@ -1683,6 +1683,29 @@ export const PLAYER_PAGE_STYLES = `
     .main-actions .action-button { flex: 1 1 90px; }
     .hero-zone { column-gap: 12px; }
     .combo-side { width: 184px; padding: 6px 5px; }
+
+    /* Save room on phones while retaining the winner meaning in the title. */
+    .winner-badge-label {
+      width: 18px !important;
+      min-width: 18px !important;
+      height: 18px !important;
+      min-height: 18px !important;
+      padding: 0 !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      font-size: 0 !important;
+      line-height: 1 !important;
+    }
+    .winner-badge-label::before {
+      display: block;
+      font-size: 18px;
+      line-height: 1;
+      content: '★';
+    }
+    .winner-badge-label.high { color: #dc2626 !important; }
+    .winner-badge-label.low { color: #2563eb !important; }
   }
   @media (min-width: 761px) and (max-width: 820px) {
     .hero-zone {

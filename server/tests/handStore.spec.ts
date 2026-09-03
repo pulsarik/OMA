@@ -117,6 +117,33 @@ test('analytics aggregates a stable player cookie even when the display name cha
   expect(accesses[0]).toMatchObject({ clientCookie: 'stable-player-id', gamesPlayed: 2, winPercent: 50 });
 });
 
+test('analytics keeps one access row when screen parameters or player name change', async () => {
+  const store = new HandStore(':memory:');
+  const baseVisit = {
+    partyId: 'party-1', handId: 'hand-1', playerId: 'player-1',
+    clientCookie: 'stable-player-id', ip: '1.1.1.1',
+    userAgent: 'Mozilla/5.0', deviceType: 'Desktop', platform: 'Win32',
+  };
+  await store.recordAnalyticsVisit({
+    ...baseVisit, playerName: 'Bob', screenWidth: 2048, screenHeight: 1153,
+    viewportWidth: 1287, viewportHeight: 719,
+  }, 1_000);
+  await store.recordAnalyticsVisit({
+    ...baseVisit, playerName: 'Robert', screenWidth: 1536, screenHeight: 960,
+    viewportWidth: 1287, viewportHeight: 719,
+  }, 2_000);
+
+  const accesses = (await store.getAnalyticsStats()).accesses;
+  expect(accesses).toHaveLength(1);
+  expect(accesses[0]).toMatchObject({
+    clientCookie: 'stable-player-id',
+    playerName: 'Robert',
+    screenWidth: 1536,
+    screenHeight: 960,
+    connections: 2,
+  });
+});
+
 test('expired parties and their started lobbies are forgotten while active parties remain', async () => {
   const store = new HandStore(':memory:');
   await store.saveHand({

@@ -499,9 +499,12 @@ export default class HandStore {
     });
     const accessGroups = new Map<string, any>();
     visitRows.forEach((visit: any) => {
-      const key = [visit.clientCookie, visit.playerName, visit.ip, visit.userAgent, visit.deviceType,
-        visit.platform, visit.screenWidth, visit.screenHeight, visit.viewportWidth,
-        visit.viewportHeight, visit.pixelRatio].map((value) => value ?? '').join('|');
+      // Screen and viewport dimensions are mutable (monitor changes, zoom,
+      // RDP, mobile rotation) and must not split one client into several
+      // access rows. The player name is editable as well, so it is only a
+      // display value, not part of the identity key.
+      const key = [visit.clientCookie, visit.ip, visit.userAgent, visit.deviceType,
+        visit.platform].map((value) => value ?? '').join('|');
       const access = accessGroups.get(key) ?? {
         firstSeen: visit.created,
         lastSeen: visit.lastSeen,
@@ -522,7 +525,7 @@ export default class HandStore {
       access.connections += 1;
       access.firstSeen = Math.min(access.firstSeen, visit.created);
       access.lastSeen = Math.max(access.lastSeen, visit.lastSeen);
-      if (visit.playerName) access.playerName = visit.playerName;
+      if (visit.playerName && visit.lastSeen >= access.lastSeen) access.playerName = visit.playerName;
       if (!access.playersByParty.has(visit.partyId)) access.playersByParty.set(visit.partyId, visit.playerId);
       accessGroups.set(key, access);
     });
