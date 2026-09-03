@@ -3961,8 +3961,12 @@ export const PLAYER_PAGE_STYLES = `
       flex: 1 1 0 !important;
       width: 0 !important;
       min-width: 0 !important;
-      height: 66px !important;
+      height: auto !important;
       max-width: none !important;
+      aspect-ratio: 92 / 132 !important;
+      animation: none !important;
+      transform: none !important;
+      margin: 0 !important;
     }
     #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row > .focal-card-frame > .focal-card {
       width: 100% !important;
@@ -4002,6 +4006,8 @@ export const PLAYER_PAGE_STYLES = `
       gap: 2px !important;
       width: calc(100% - 4px) !important;
       margin-inline: 2px !important;
+      position: relative !important;
+      left: 2.5px !important;
       /* Avoid a percentage-height sizing loop: frames derive height from
          their grid-column width and the 92 / 132 aspect ratio. */
       height: auto !important;

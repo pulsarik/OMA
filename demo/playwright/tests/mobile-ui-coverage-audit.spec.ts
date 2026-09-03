@@ -50,12 +50,14 @@ async function playToRiver(page: Page) {
     const actionDock = page.locator('.action-dock');
     const action = actionDock.getByRole('button', { name: /^(Check|Call)\b/ }).first();
     if (await action.isVisible().catch(() => false) && await action.isEnabled()) {
-      await action.click();
+      await action.click({ timeout: 2_000 }).catch(() => undefined);
+      await page.waitForTimeout(100);
       continue;
     }
     const fallback = actionDock.getByRole('button', { name: /^(Bet|Raise)/ }).first();
     if (await fallback.isVisible().catch(() => false) && await fallback.isEnabled()) {
-      await fallback.click();
+      await fallback.click({ timeout: 2_000 }).catch(() => undefined);
+      await page.waitForTimeout(100);
       continue;
     }
     await page.waitForTimeout(250);
@@ -101,10 +103,10 @@ test('mobile River board keeps all five cards in one visible board area', async 
   const board = page.getByTestId('table-board');
   const metrics = await board.evaluate((element) => {
     const boardBox = element.getBoundingClientRect();
-    const cards = Array.from(element.querySelectorAll<HTMLElement>('[data-testid^="card-face-"]'))
+    const cards = Array.from(element.querySelectorAll<HTMLElement>('.focal-card-frame'))
       .map((card) => {
         const box = card.getBoundingClientRect();
-        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
+        return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height, ratio: box.width / box.height };
       });
     return { board: boardBox.toJSON(), cards };
   });
@@ -117,6 +119,7 @@ test('mobile River board keeps all five cards in one visible board area', async 
     expect(card.right, `River card ${index + 1} exits board right`).toBeLessThanOrEqual(metrics.board.right + 1);
     expect(card.top, `River card ${index + 1} exits board top`).toBeGreaterThanOrEqual(metrics.board.top - 1);
     expect(card.bottom, `River card ${index + 1} exits board bottom`).toBeLessThanOrEqual(metrics.board.bottom + 1);
+    expect(card.ratio, `River card ${index + 1} ratio`).toBeCloseTo(92 / 132, 1);
   });
   const screenshot = await page.screenshot({ path: 'test-results/mobile-river-board.png', fullPage: true });
   expect(screenshot.byteLength).toBeGreaterThan(10_000);
@@ -129,7 +132,7 @@ test('534px mobile River board stays in one row inside the table board', async (
   const board = page.getByTestId('table-board');
   const metrics = await board.evaluate((element) => {
     const boardBox = element.getBoundingClientRect();
-    const cards = Array.from(element.querySelectorAll<HTMLElement>('[data-testid^="card-face-"]'))
+    const cards = Array.from(element.querySelectorAll<HTMLElement>('.focal-card-frame'))
       .map((card) => card.getBoundingClientRect());
     return { board: boardBox, cards };
   });
@@ -139,6 +142,7 @@ test('534px mobile River board stays in one row inside the table board', async (
   metrics.cards.forEach((card, index) => {
     expect(card.left, `River card ${index + 1} exits board left`).toBeGreaterThanOrEqual(metrics.board.left - 1);
     expect(card.right, `River card ${index + 1} exits board right`).toBeLessThanOrEqual(metrics.board.right + 1);
+    expect(card.width / card.height, `River card ${index + 1} ratio`).toBeCloseTo(92 / 132, 1);
   });
 });
 
@@ -256,6 +260,7 @@ test('mobile opponents keep four hidden cards and non-overlapping hand zones', a
       expect(card.width, `opponent ${index + 1} card ${cardIndex + 1} width`).toBeGreaterThan(10);
       expect(card.left).toBeGreaterThanOrEqual(zone.left - 1);
       expect(card.right).toBeLessThanOrEqual(zone.right + 1);
+      expect(card.width / card.height, `opponent ${index + 1} card ${cardIndex + 1} ratio`).toBeCloseTo(92 / 132, 1);
     });
   });
   for (let first = 0; first < data.length; first += 1) {
