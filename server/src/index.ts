@@ -30,6 +30,7 @@ import {
   dealHandFromCode,
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
+  blindLevelForHand,
   isPlayerStillInParty,
   nextPartyHand,
   netResultsAfterPayout,
@@ -443,7 +444,9 @@ async function partyScore(hand: any) {
     const replaySource = partyHand.replayOfHandId
       ? hands.find((candidate: any) => candidate.id === partyHand.replayOfHandId)
       : undefined;
-    const startingStacks = replaySource
+    const startingStacks = partyHand.partyRestarted
+      ? new Map<string, number>(partyHand.players.map((player: any) => [player.id, STARTING_STACK]))
+      : replaySource
       ? new Map<string, number>(replaySource.players.map((player: any) => [player.id, player.stack]))
       : index > 0
         ? stacksAfterPayout(hands[index - 1])
@@ -1338,6 +1341,14 @@ async function restartLobby(ws: WebSocket, message: any) {
       seatedMembers.map(candidate => candidate.isBot),
       replayCode,
     );
+    // Keep one party history across host restarts. The marker separates the
+    // new 1000-chip match from the previous match for net-result calculation.
+    hand.partyId = latestHand.partyId;
+    hand.partyCode = latestHand.partyCode;
+    hand.handNumber = (latestHand.handNumber ?? 0) + 1;
+    hand.previousHandId = latestHand.id;
+    hand.partyRestarted = true;
+    hand.blinds = { ...blindLevelForHand(hand.handNumber) };
     prepareDealAudit(hand);
     prepareHumanTurnClock(hand, true);
     await store.saveHand(hand);
