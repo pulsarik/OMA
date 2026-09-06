@@ -4564,5 +4564,62 @@ export const PLAYER_PAGE_STYLES = `
     #root .poker-page .wireframe-table .wireframe-flop-zone > .table-pot .pot-current-bet {
       display: none !important;
     }
+
+    /* Pocket-card index: rank over suit in the protected upper-left 60% of
+       each face. This replaces the old oversized central suit treatment. */
+    #root .poker-page .wireframe-table .wireframe-hand .card-face--pocket {
+      position: relative !important;
+      display: block !important;
+      align-content: initial !important;
+      justify-items: initial !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hand .card-face--pocket .card-corner-index {
+      position: absolute !important;
+      top: 7% !important;
+      left: 4% !important;
+      z-index: 2 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+      width: 55% !important;
+      max-width: 55% !important;
+      gap: 2px !important;
+      line-height: .88 !important;
+      white-space: nowrap !important;
+      pointer-events: none !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hand .card-face--pocket .card-corner-index .card-rank {
+      position: static !important;
+      width: 100% !important;
+      overflow: hidden !important;
+      font-size: clamp(12px, 40cqw, 34px) !important;
+      line-height: .88 !important;
+      letter-spacing: -.06em !important;
+      text-align: left !important;
+      white-space: nowrap !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hand .card-face--pocket .card-corner-index .card-rank--ten {
+      font-size: clamp(10px, 25cqw, 21px) !important;
+      letter-spacing: -.1em !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hand .card-face--pocket .card-corner-index .card-suit {
+      position: static !important;
+      font-size: clamp(11px, 38cqw, 30px) !important;
+      line-height: .88 !important;
+      text-align: left !important;
+    }
+
+    /* Four pocket cards always retain a 3px gap on the 320px layout. */
+    #root .poker-page .wireframe-table .wireframe-hand > .compact-card-row {
+      gap: 3px !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-hand > .compact-card-row > .focal-card-frame,
+    #root .poker-page .wireframe-table .wireframe-hand > .compact-card-row > .opponent-card-frame {
+      flex: 0 1 calc((100% - 9px) / 4) !important;
+      width: calc((100% - 9px) / 4) !important;
+      max-width: calc((100% - 9px) / 4) !important;
+      margin-left: 0 !important;
+    }
   }
 `;

@@ -613,6 +613,7 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
   const suitSymbol: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
   const isRed = suit === 'h' || suit === 'd';
   const textureVariant = cardTextureVariant(code);
+  const isPocketCard = className?.includes('focal-card') || className?.includes('opponent-card');
 
   return (
     <div
@@ -621,7 +622,7 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
       aria-label={code}
       data-testid={`card-face-${code}`}
       data-card-style="simple"
-      className={`card-face card-face--texture-${textureVariant}${className ? ` ${className}` : ''}`}
+      className={`card-face card-face--texture-${textureVariant}${isPocketCard ? ' card-face--pocket' : ''}${className ? ` ${className}` : ''}`}
       style={{
         width: 92,
         height: 132,
@@ -637,8 +638,19 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
         fontWeight: 900,
       }}
     >
-      <span className="card-rank" style={{ fontSize: 48, lineHeight: 0.95 }}>{rankLabels[rank] ?? rank}</span>
-      <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
+      {isPocketCard ? (
+        <span className="card-corner-index" aria-hidden="true">
+          <span className={`card-rank${rank === '10' || rank === 'T' ? ' card-rank--ten' : ''}`} style={{ fontSize: 48, lineHeight: 0.95 }}>
+            {rankLabels[rank] ?? rank}
+          </span>
+          <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
+        </span>
+      ) : (
+        <>
+          <span className="card-rank" style={{ fontSize: 48, lineHeight: 0.95 }}>{rankLabels[rank] ?? rank}</span>
+          <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
+        </>
+      )}
     </div>
   );
 }

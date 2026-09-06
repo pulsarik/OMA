@@ -1022,6 +1022,20 @@
 .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame:nth-child(3) { z-index: 3; }
 .wireframe-hand:not(.wireframe-opponent-hand) > .compact-card-row > .focal-card-frame:nth-child(4) { z-index: 4; }
 
+/* Pocket cards use a readable four-card strip. Keep a small physical gap
+   between faces so the next card can never cover the index area. */
+.wireframe-hand > .compact-card-row {
+  gap: 3px !important;
+}
+
+.wireframe-hand > .compact-card-row > .focal-card-frame,
+.wireframe-hand > .compact-card-row > .opponent-card-frame {
+  flex: 0 1 calc((100% - 9px) / 4) !important;
+  width: calc((100% - 9px) / 4) !important;
+  max-width: calc((100% - 9px) / 4) !important;
+  margin-left: 0 !important;
+}
+
 .wireframe-hand .focal-card,
 .wireframe-hand .opponent-card {
   width: 100% !important;
@@ -1032,6 +1046,53 @@
   transform-origin: top left !important;
   transform: none !important;
   container-type: inline-size;
+}
+
+.wireframe-hand .card-face--pocket {
+  position: relative !important;
+  display: block !important;
+  align-content: initial !important;
+  justify-items: initial !important;
+}
+
+.wireframe-hand .card-face--pocket .card-corner-index {
+  position: absolute;
+  top: 7%;
+  left: 4%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 55%;
+  max-width: 55%;
+  gap: 2px;
+  line-height: .88;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.wireframe-hand .card-face--pocket .card-corner-index .card-rank {
+  position: static !important;
+  width: 100%;
+  overflow: hidden;
+  font-size: clamp(12px, 40cqw, 34px) !important;
+  line-height: .88 !important;
+  letter-spacing: -.06em;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.wireframe-hand .card-face--pocket .card-corner-index .card-rank--ten {
+  font-size: clamp(10px, 25cqw, 21px) !important;
+  letter-spacing: -.1em;
+}
+
+.wireframe-hand .card-face--pocket .card-corner-index .card-suit {
+  position: static !important;
+  font-size: clamp(11px, 38cqw, 30px) !important;
+  line-height: .88 !important;
+  text-align: left;
 }
 
 .wireframe-hand .opponent-card .card-rank,
