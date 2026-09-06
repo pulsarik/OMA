@@ -4197,6 +4197,34 @@ export const PLAYER_PAGE_STYLES = `
     #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame > .opponent-card {
       filter: saturate(1.08) contrast(1.04) !important;
     }
+
+    /* Keep the opponent identity readable on narrow phones. The old fixed
+       percentage width caused names such as Maria to become "M..." even
+       though the seat still had enough visual space. Let the plaque size to
+       its content and allow it to sit above the neighbouring card gap. */
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .seat-topline {
+      overflow: visible !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .seat-topline > .seat-name-score {
+      width: max-content !important;
+      max-width: none !important;
+      min-width: max-content !important;
+      justify-self: center !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      white-space: nowrap !important;
+      font-size: clamp(10px, 2.8vw, 14px) !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .seat-topline > .seat-name-score > span:first-child {
+      min-width: max-content !important;
+      max-width: none !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      flex: 0 0 auto !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .seat-topline > .seat-name-score > strong {
+      flex: 0 0 auto !important;
+    }
     #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-hand-combination {
       top: auto !important;
       bottom: 0 !important;
