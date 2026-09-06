@@ -66,6 +66,70 @@ async function playToRiver(page: Page) {
   await page.waitForTimeout(800);
 }
 
+async function collectBoardGeometryByStreet(page: Page) {
+  const snapshots: Record<number, { width: number; height: number; ratio: number }[]> = {};
+  const actionDock = page.locator('.action-dock');
+  for (let attempt = 0; attempt < 120 && Object.keys(snapshots).length < 3; attempt += 1) {
+    const frames = page.locator('[data-testid="table-board"] .focal-card-frame');
+    const count = await frames.count();
+    if ([3, 4, 5].includes(count) && !snapshots[count]) {
+      snapshots[count] = await frames.evaluateAll((cards) => cards.map((card) => {
+        const box = card.getBoundingClientRect();
+        return { width: box.width, height: box.height, ratio: box.width / box.height };
+      }));
+      if (Object.keys(snapshots).length === 3) break;
+    }
+    const action = actionDock.getByRole('button', { name: /^(Check|Call)\b/ }).first();
+    const fallback = actionDock.getByRole('button', { name: /^(Bet|Raise)/ }).first();
+    const candidate = await action.isVisible().catch(() => false) && await action.isEnabled().catch(() => false)
+      ? action
+      : fallback;
+    if (await candidate.isVisible().catch(() => false) && await candidate.isEnabled().catch(() => false)) {
+      await candidate.click({ timeout: 2_000 }).catch(() => undefined);
+    }
+    await page.waitForTimeout(250);
+  }
+  return snapshots;
+}
+
+async function collectStreetBadgeGeometry(page: Page) {
+  test.setTimeout(90_000);
+  const snapshots: Record<number, {
+    zone: { left: number; right: number; top: number; bottom: number };
+    badge: { left: number; right: number; top: number; bottom: number };
+    cards: { left: number; right: number; top: number; bottom: number }[];
+  }> = {};
+  const actionDock = page.locator('.action-dock');
+  for (let attempt = 0; attempt < 120 && Object.keys(snapshots).length < 3; attempt += 1) {
+    const board = page.getByTestId('table-board');
+    const count = await board.locator('.focal-card-frame').count();
+    if ([3, 4, 5].includes(count) && !snapshots[count]) {
+      snapshots[count] = await page.getByTestId('flop-zone').evaluate((zone) => {
+        const rect = (element: Element) => {
+          const box = element.getBoundingClientRect();
+          return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+        };
+        return {
+          zone: rect(zone),
+          badge: rect(zone.querySelector('.wireframe-street-badge')!),
+          cards: Array.from(zone.querySelectorAll('.table-board .focal-card-frame')).map(rect),
+        };
+      });
+      if (Object.keys(snapshots).length === 3) break;
+    }
+    const action = actionDock.getByRole('button', { name: /^(Check|Call)\b/ }).first();
+    const fallback = actionDock.getByRole('button', { name: /^(Bet|Raise)/ }).first();
+    const candidate = await action.isVisible().catch(() => false) && await action.isEnabled().catch(() => false)
+      ? action
+      : fallback;
+    if (await candidate.isVisible().catch(() => false) && await candidate.isEnabled().catch(() => false)) {
+      await candidate.click({ timeout: 2_000 }).catch(() => undefined);
+    }
+    await page.waitForTimeout(250);
+  }
+  return snapshots;
+}
+
 test('mobile table screenshot contains a visible populated table, not only the action dock', async ({ page }) => {
   await startMobileTable(page);
   const table = page.getByTestId('poker-table');
@@ -123,6 +187,40 @@ test('mobile River board keeps all five cards in one visible board area', async 
   });
   const screenshot = await page.screenshot({ path: 'test-results/mobile-river-board.png', fullPage: true });
   expect(screenshot.byteLength).toBeGreaterThan(10_000);
+});
+
+test('mobile community card frames keep stable dimensions from flop through river', async ({ page }) => {
+  await startMobileTable(page);
+  const snapshots = await collectBoardGeometryByStreet(page);
+  expect(Object.keys(snapshots).sort()).toEqual(['3', '4', '5']);
+  const reference = snapshots[3][0];
+  [4, 5].forEach((street) => {
+    snapshots[street].forEach((card, index) => {
+      expect(card.width, `street ${street} card ${index + 1} width`).toBeCloseTo(reference.width, 0);
+      expect(card.height, `street ${street} card ${index + 1} height`).toBeCloseTo(reference.height, 0);
+      expect(card.ratio, `street ${street} card ${index + 1} ratio`).toBeCloseTo(92 / 132, 1);
+    });
+  });
+});
+
+test('mobile street badge stays in the free band above the board', async ({ page }) => {
+  for (const width of [390, 534]) {
+    await startMobileTableAt(page, width, 844);
+    const snapshots = await collectStreetBadgeGeometry(page);
+    expect(Object.keys(snapshots).sort(), `${width}px streets`).toEqual(['3', '4', '5']);
+    Object.entries(snapshots).forEach(([street, geometry]) => {
+      const { zone, badge, cards } = geometry;
+      expect(badge.left, `${width}px street ${street} badge exits zone left`).toBeGreaterThanOrEqual(zone.left);
+      expect(badge.right, `${width}px street ${street} badge exits zone right`).toBeLessThanOrEqual(zone.right);
+      expect(badge.top, `${width}px street ${street} badge exits viewport top`).toBeGreaterThanOrEqual(0);
+      expect(badge.bottom, `${width}px street ${street} badge exits viewport bottom`).toBeLessThanOrEqual(844);
+      cards.forEach((card, index) => {
+        const intersects = badge.left < card.right && badge.right > card.left
+          && badge.top < card.bottom && badge.bottom > card.top;
+        expect(intersects, `${width}px street ${street} badge intersects board card ${index + 1}`).toBe(false);
+      });
+    });
+  }
 });
 
 test('534px mobile River board stays in one row inside the table board', async ({ page }) => {
@@ -196,7 +294,7 @@ test('mobile action dock buttons are usable and stay inside the viewport', async
   });
 });
 
-test('mobile hero cards fill their zone and combo hint stays outside the hand', async ({ page }) => {
+test('mobile hero cards fill their zone and combination hints are replaced by outlines', async ({ page }) => {
   await startMobileTable(page);
   await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(2_100);
@@ -230,16 +328,8 @@ test('mobile hero cards fill their zone and combo hint stays outside the hand', 
 
   await page.getByRole('button', { name: 'Fold' }).click();
   const hint = page.getByTestId('high-combo-side');
-  await expect(hint).toBeVisible({ timeout: 30_000 });
-  const overlap = await page.getByTestId('poker-table').evaluate((table) => {
-    const hand = table.querySelector<HTMLElement>('.wireframe-hero-slot .compact-card-row')?.getBoundingClientRect();
-    const high = table.querySelector<HTMLElement>('[data-testid="high-combo-side"]')?.getBoundingClientRect();
-    const low = table.querySelector<HTMLElement>('[data-testid="low-combo-side"]')?.getBoundingClientRect();
-    return [high, low].filter(Boolean).map((box) => ({
-      intersects: !!hand && box!.left < hand.right && box!.right > hand.left && box!.top < hand.bottom && box!.bottom > hand.top,
-    }));
-  });
-  expect(overlap.every(({ intersects }) => !intersects)).toBe(true);
+  await expect(hint).toBeHidden({ timeout: 30_000 });
+  await expect(page.locator('.wireframe-hero-slot .combo-card-high, .wireframe-hero-slot .combo-card-low').first()).toBeVisible();
 });
 
 test('mobile opponents keep four hidden cards and non-overlapping hand zones', async ({ page }) => {

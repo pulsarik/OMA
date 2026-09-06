@@ -914,29 +914,99 @@ export const PLAYER_PAGE_STYLES = `
   .coin-chip {
     z-index: 1;
   }
-  .pot-summary {
-    display: grid;
-    grid-template-columns: minmax(46px, 1fr) auto minmax(46px, 1fr);
+  .pot-bank-visual {
+    display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    min-width: 150px;
-    border: 0;
-    border-radius: 12px;
-    padding: 4px;
+    gap: 5px;
+    width: 120px;
+    height: 30px;
+    min-width: 110px;
+    max-width: 125px;
+    box-sizing: border-box;
+    padding: 2px 5px;
+    border: 1px solid rgba(245, 205, 112, .8);
+    border-radius: 999px;
+    background: rgba(2, 65, 43, .82);
+    box-shadow: 0 3px 8px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.12);
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.55);
+  }
+  .pot-bank-chips {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex: 0 0 42px;
+    width: 42px;
+    height: 19px;
+  }
+  .pot-bank-chip {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 18px;
+    height: 18px;
+    border: 1px solid;
+    border-radius: 50%;
+    box-shadow: 0 1px 0 rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.24);
+  }
+  .pot-bank-chip::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 10px;
+    height: 10px;
+    border: 1px solid rgba(255,255,255,.72);
+    border-radius: 50%;
+    background: var(--chip-color);
+  }
+  .pot-bank-copy {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  .pot-bank-label {
+    color: rgba(255,255,255,.72);
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    line-height: 1;
+  }
+  .pot-bank-amount {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: .01em;
+    white-space: nowrap;
+  }
+  .pot-summary {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    width: max-content;
+    max-width: 100%;
+    border-radius: 16px;
+    padding: 2px;
     cursor: pointer;
     transition: background .16s ease, box-shadow .16s ease;
   }
   .pot-summary:hover,
   .pot-summary:focus-visible,
   .pot-details[open] .pot-summary {
-    background: rgba(255,255,255,.12);
-    box-shadow: 0 0 0 1px rgba(255,255,255,.26);
+    background: rgba(255,255,255,.08);
+    box-shadow: 0 0 0 2px rgba(245,216,164,.48), 0 6px 14px rgba(0,0,0,.16);
     outline: none;
   }
   .pot-current-bet {
-    grid-column: 1;
-    justify-self: end;
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    z-index: 2;
     min-width: 46px;
     box-sizing: border-box;
     border: 1px solid rgba(255,255,255,.5);
@@ -951,7 +1021,10 @@ export const PLAYER_PAGE_STYLES = `
     visibility: hidden;
   }
   .pot-summary .coin-stack {
-    grid-column: 2;
+    grid-column: auto;
+  }
+  .pot-summary .pot-bank-visual {
+    grid-column: auto;
   }
   .pot-summary .coin-stack-total {
     min-width: 48px;
@@ -3962,6 +4035,15 @@ export const PLAYER_PAGE_STYLES = `
       transform: translateX(8px) !important;
     }
 
+    /* Keep the mobile rank readable in the narrow outer hint column. */
+    #root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side .combo-side-title {
+      gap: 3px !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-player-zone > aside.combo-side .combo-side-rank {
+      font-size: 10px !important;
+      letter-spacing: -.02em !important;
+    }
+
     #root .poker-table .opponent-hand-zone .opponent-hand-content {
       padding-top: max(44px, calc(48px * var(--opponent-ui-scale, 1))) !important;
     }
@@ -3981,8 +4063,8 @@ export const PLAYER_PAGE_STYLES = `
       overflow: hidden !important;
     }
     #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row > .focal-card-frame {
-      flex: 1 1 0 !important;
-      width: 0 !important;
+      flex: 0 0 calc((100% - 8px) / 5) !important;
+      width: calc((100% - 8px) / 5) !important;
       min-width: 0 !important;
       height: auto !important;
       max-width: none !important;
@@ -4060,6 +4142,399 @@ export const PLAYER_PAGE_STYLES = `
       transform: none !important;
       rotate: none !important;
       margin: 0 !important;
+    }
+
+    /* The page-level mobile stylesheet is injected after wireframeTable.css;
+       keep the street and pot in their dedicated top side slots here too. */
+    #root .poker-page .wireframe-table .wireframe-flop-zone {
+      height: clamp(112px, 15dvh, 124px) !important;
+      overflow: visible !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-stage {
+      top: 4px !important;
+      left: 8px !important;
+      right: auto !important;
+      transform: none !important;
+      max-width: calc(50% - 10px) !important;
+      z-index: 2 !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-pot {
+      top: 4px !important;
+      left: auto !important;
+      right: 8px !important;
+      max-width: calc(50% - 10px) !important;
+      transform: none !important;
+      z-index: 2 !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board {
+      top: calc(50% + 20px) !important;
+    }
+
+    /* Match the reference hand treatment on phones: four readable, evenly
+       spaced cards followed by one quiet combination plaque. */
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row {
+      display: flex !important;
+      flex-wrap: nowrap !important;
+      gap: 2px !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: visible !important;
+      justify-content: center !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame {
+      flex: 0 1 calc((100% - 6px) / 4) !important;
+      width: calc((100% - 6px) / 4) !important;
+      max-width: calc((100% - 6px) / 4) !important;
+      min-width: 0 !important;
+      height: auto !important;
+      aspect-ratio: 92 / 132 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      border-radius: 7px !important;
+      box-shadow: 0 2px 5px rgba(3,25,18,.28), 0 1px 1px rgba(255,255,255,.75) inset !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame > .opponent-card {
+      filter: saturate(1.08) contrast(1.04) !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-hand-combination {
+      top: auto !important;
+      bottom: 0 !important;
+      max-width: calc(100% - 4px) !important;
+      padding: 3px 6px !important;
+      border: 1px solid rgba(15,23,42,.1) !important;
+      border-radius: 999px !important;
+      background: rgba(255,255,255,.94) !important;
+      color: #0f172a !important;
+      font-size: 9px !important;
+      line-height: 1 !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      box-shadow: 0 2px 5px rgba(0,0,0,.16) !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .wireframe-hand-combination span + span {
+      display: inline !important;
+      margin-left: 4px !important;
+      margin-top: 0 !important;
+    }
+
+    /* On mobile the cards themselves are the High/Low legend. */
+    #root .poker-page .wireframe-table .combo-side,
+    #root .poker-page .wireframe-table .wireframe-hand-combination {
+      display: none !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high {
+      border: 2px solid #dc2626 !important;
+      border-radius: 7px !important;
+      box-sizing: border-box !important;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 7px rgba(220,38,38,.55) !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-low {
+      border: 2px solid #2563eb !important;
+      border-radius: 7px !important;
+      box-sizing: border-box !important;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 7px rgba(37,99,235,.55) !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high.combo-card-low {
+      border-color: #dc2626 !important;
+      box-shadow: 0 0 0 2px #2563eb, 0 0 7px rgba(220,38,38,.55) !important;
+    }
+    #root .poker-page .wireframe-table .table-board .combo-card-high {
+      border: 3px solid #dc2626 !important;
+      border-radius: 10px !important;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 9px rgba(220,38,38,.62) !important;
+    }
+    #root .poker-page .wireframe-table .table-board .combo-card-low {
+      border: 3px solid #2563eb !important;
+      border-radius: 10px !important;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 9px rgba(37,99,235,.62) !important;
+    }
+    #root .poker-page .wireframe-table .table-board .combo-card-high.combo-card-low {
+      border-color: #dc2626 !important;
+      border: 2px solid transparent !important;
+      padding: 2px !important;
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box,
+        linear-gradient(90deg, #dc2626 0 50%, #2563eb 50% 100%) border-box !important;
+      box-shadow: 0 0 7px rgba(37,99,235,.22), 0 0 7px rgba(220,38,38,.22) !important;
+    }
+
+    /* Reference-scale community cards: the flop must stay compact like the
+       hero hand, while River still fits in one clean row. */
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row > .focal-card-frame {
+      flex: 0 0 clamp(44px, 12vw, 48px) !important;
+      width: clamp(44px, 12vw, 48px) !important;
+      max-width: clamp(44px, 12vw, 48px) !important;
+      height: auto !important;
+      aspect-ratio: 92 / 132 !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board .board-row {
+      width: max-content !important;
+      max-width: 100% !important;
+      justify-content: center !important;
+      margin-inline: auto !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-board {
+      left: 50% !important;
+      right: auto !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      transform: translate(-50%, -50%) !important;
+    }
+
+    /* Bright reference-style cards for phones: clean face, strong contrast,
+       and the rank/suit in a predictable top-left reading position. */
+    #root .poker-page .wireframe-table .card-face {
+      background: #f8fafc !important;
+      border: 1px solid #cbd5e1 !important;
+      box-shadow: 0 2px 5px rgba(15,23,42,.28) !important;
+      color: #111827;
+    }
+    #root .poker-page .wireframe-table .card-face::before {
+      display: none !important;
+    }
+    #root .poker-page .wireframe-table .card-face::after {
+      box-shadow: none !important;
+    }
+    #root .poker-page .wireframe-table .card-face .card-rank {
+      position: absolute !important;
+      top: 5px !important;
+      left: 6px !important;
+      font-size: clamp(18px, 38cqw, 32px) !important;
+      line-height: .95 !important;
+      justify-self: auto !important;
+    }
+    #root .poker-page .wireframe-table .card-face .card-suit {
+      position: absolute !important;
+      top: 30px !important;
+      left: 6px !important;
+      font-size: clamp(16px, 31cqw, 27px) !important;
+      line-height: .95 !important;
+      justify-self: auto !important;
+    }
+
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high.combo-card-low,
+    #root .poker-page .wireframe-table .table-board .combo-card-high.combo-card-low {
+      border: 2px solid transparent !important;
+      padding: 2px !important;
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box,
+        linear-gradient(90deg, #dc2626 0 50%, #2563eb 50% 100%) border-box !important;
+      box-shadow: 0 0 7px rgba(37,99,235,.22), 0 0 7px rgba(220,38,38,.22) !important;
+    }
+
+    /* Paint the outline on the card face itself. The outer frame has a
+       different transformed box, which caused the previous halo/blue ears. */
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high,
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-low,
+    #root .poker-page .wireframe-table .table-board .combo-card-high,
+    #root .poker-page .wireframe-table .table-board .combo-card-low {
+      border: 0 !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high > .card-face,
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-low > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-high > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-low > .card-face {
+      border: 3px solid transparent !important;
+      border-radius: 12px !important;
+      box-sizing: border-box !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-high > .card-face {
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box, #dc2626 border-box !important;
+      box-shadow: 0 0 6px rgba(220,38,38,.42) !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-low > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-low > .card-face {
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box, #2563eb border-box !important;
+      box-shadow: 0 0 6px rgba(37,99,235,.42) !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high.combo-card-low > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-high.combo-card-low > .card-face {
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box,
+        linear-gradient(90deg, #dc2626 0 50%, #2563eb 50% 100%) border-box !important;
+      box-shadow: 0 0 6px rgba(220,38,38,.25), 0 0 6px rgba(37,99,235,.25) !important;
+    }
+
+    /* Opponent slots are narrow four-card cells; keep their outline inside
+       the slot while the hero and board retain the stronger 3px outline. */
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .compact-card-row > .combo-card-high > .card-face,
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .compact-card-row > .combo-card-low > .card-face {
+      border-width: 2px !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .compact-card-row > .combo-card-high.combo-card-low > .card-face {
+      border-width: 2px !important;
+    }
+
+    /* Mobile High is yellow; Low remains blue. */
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-high > .card-face {
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box, #facc15 border-box !important;
+      box-shadow: 0 0 6px rgba(250,204,21,.48) !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high.combo-card-low > .card-face,
+    #root .poker-page .wireframe-table .table-board .combo-card-high.combo-card-low > .card-face {
+      background: linear-gradient(#f8fafc, #f8fafc) padding-box,
+        linear-gradient(90deg, #facc15 0 50%, #2563eb 50% 100%) border-box !important;
+      box-shadow: 0 0 6px rgba(250,204,21,.3), 0 0 6px rgba(37,99,235,.25) !important;
+    }
+    #root .poker-page .wireframe-table .winner-badge.high {
+      background: #facc15 !important;
+      border-color: #fef08a !important;
+      color: #422006 !important;
+    }
+
+    /* Keep ALL IN out of the opponent cards; the centered desktop badge is
+       too large for a narrow mobile opponent slot. */
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .wireframe-all-in-badge {
+      top: auto !important;
+      right: 2px !important;
+      bottom: 2px !important;
+      left: auto !important;
+      transform: rotate(-7deg) scale(.55) !important;
+      transform-origin: bottom right !important;
+      padding: 3px 6px !important;
+      font-size: 10px !important;
+      z-index: 24 !important;
+    }
+
+    #root .poker-page .wireframe-table .is-showdown-result .winner-badge {
+      display: none !important;
+    }
+    #root .poker-page .wireframe-table .showdown-net-badge {
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 16px !important;
+      padding: 2px 6px !important;
+      border: 1px solid rgba(255,255,255,.9) !important;
+      border-radius: 999px !important;
+      font-size: 10px !important;
+      font-weight: 950 !important;
+      line-height: 1 !important;
+      white-space: nowrap !important;
+      box-shadow: 0 2px 6px rgba(0,0,0,.24) !important;
+    }
+    #root .poker-page .wireframe-table .showdown-net-badge.is-positive {
+      background: #16a34a !important;
+      color: #fff !important;
+    }
+    #root .poker-page .wireframe-table .showdown-net-badge.is-negative {
+      background: #dc2626 !important;
+      color: #fff !important;
+    }
+
+    /* Three opponents still stay in one row, so make the symbols do more of
+       the work inside each narrow card instead of enlarging the slot. */
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .card-face .card-rank {
+      top: 2px !important;
+      left: 4px !important;
+      font-size: 14px !important;
+      letter-spacing: -.08em !important;
+      white-space: nowrap !important;
+      transform: scaleX(.65) !important;
+      transform-origin: left top !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .card-face .card-suit {
+      top: 16px !important;
+      left: 4px !important;
+      font-size: 9px !important;
+      white-space: nowrap !important;
+    }
+
+    /* One mobile card typography for board and hole cards. */
+    #root .poker-page .wireframe-table .card-face .card-rank,
+    #root .poker-page .wireframe-table .card-face .card-suit {
+      position: absolute !important;
+      left: 6px !important;
+      justify-self: auto !important;
+      line-height: .95 !important;
+    }
+    #root .poker-page .wireframe-table .card-face .card-rank {
+      top: 5px !important;
+      font-size: 30px !important;
+    }
+    #root .poker-page .wireframe-table .card-face .card-suit {
+      top: 30px !important;
+      font-size: 27px !important;
+    }
+
+    /* The old winner outline wrapped the whole hand. On mobile only the
+       individual card outline is used, so remove that legacy outer frame. */
+    #root .poker-page .wireframe-table .compact-card-row.has-winner-border {
+      border: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-high,
+    #root .poker-page .wireframe-table .compact-card-row > .combo-card-low,
+    #root .poker-page .wireframe-table .table-board .combo-card-high,
+    #root .poker-page .wireframe-table .table-board .combo-card-low {
+      border: 0 !important;
+      outline: none !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* Some opponent/card layouts place the combo marker one level deeper;
+       reset every marked outer frame so only .card-face paints the outline. */
+    #root .poker-page .wireframe-table .combo-card-high,
+    #root .poker-page .wireframe-table .combo-card-low {
+      border: 0 !important;
+      outline: none !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    #root .poker-page .wireframe-table .table-board > .board-row > .focal-card-frame.combo-card-high,
+    #root .poker-page .wireframe-table .table-board > .board-row > .focal-card-frame.combo-card-low,
+    #root .poker-page .wireframe-table .table-board > .board-row > .focal-card-frame.combo-card-high.combo-card-low {
+      border: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame.combo-card-high,
+    #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame.combo-card-low {
+      border: 0 !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+
+    /* In showdown the action slot is the result slot. Keep the hero's net
+       result centered under its hand, where Check/Bet normally appears. */
+    #root .poker-page .wireframe-table .wireframe-hand:not(.wireframe-opponent-hand) > .wireframe-opponent-footer {
+      position: absolute !important;
+      left: 50% !important;
+      bottom: 0 !important;
+      width: max-content !important;
+      max-width: 100% !important;
+      padding: 0 !important;
+      transform: translateX(-50%) !important;
+      justify-content: center !important;
+      z-index: 12 !important;
+    }
+
+    /* The mobile pot is a single centered overlay in the flop zone. The
+       board remains in its lower band, so neither the pot nor SHOWDOWN has to
+       share the board's horizontal space. */
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-pot {
+      top: calc(5px * var(--wireframe-scale, 1) - 8px) !important;
+      left: 50% !important;
+      right: auto !important;
+      width: max-content !important;
+      max-width: calc(100% - 16px) !important;
+      transform: translateX(-50%) !important;
+      z-index: 3 !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-flop-zone > .table-pot .pot-current-bet {
+      display: none !important;
     }
   }
 `;

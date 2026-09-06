@@ -292,7 +292,7 @@
   color: #fff !important;
   box-shadow: 0 2px 7px rgba(15, 23, 42, .28) !important;
   position: relative !important;
-  top: 0 !important;
+    top: -24px !important;
   text-overflow: ellipsis !important;
 }
 
@@ -1306,6 +1306,43 @@
     gap: 0 !important;
   }
 
+  /* Three opponents are the common phone layout. Give each hand a little
+     more width so the rank and suit remain legible instead of compressing
+     four cards into postage stamps. The cards still overlap, so the row
+     keeps its compact silhouette. */
+  #root .poker-page .wireframe-opponents-row[data-opponent-count="3"]
+    .compact-card-row > .opponent-card-frame {
+    flex-basis: 32% !important;
+    width: 32% !important;
+    max-width: 32% !important;
+  }
+
+  #root .poker-page .wireframe-opponents-row[data-opponent-count="3"]
+    .compact-card-row > .opponent-card-frame + .opponent-card-frame {
+    margin-left: -9.8% !important;
+  }
+
+  /* The card face is a responsive box now; scale its contents from that box
+     rather than from the table. This prevents a narrow viewport from making
+     the symbols either microscopic or clipped. */
+  #root .poker-page .wireframe-opponent-hand .opponent-card {
+    container-type: inline-size;
+  }
+
+  #root .poker-page .wireframe-opponent-hand .opponent-card .card-rank {
+    font-size: clamp(14px, 42cqw, 30px) !important;
+  }
+
+  #root .poker-page .wireframe-opponent-hand .opponent-card .card-suit {
+    font-size: clamp(12px, 36cqw, 26px) !important;
+  }
+
+  #root .poker-page .wireframe-opponent-hand > .seat-topline > .seat-name-score {
+    min-height: 24px !important;
+    padding: 4px 8px !important;
+    font-size: clamp(12px, 3.4vw, 15px) !important;
+  }
+
   /* Keep the narrow mobile hand readable: the desktop overlap is too tight
      once each opponent receives a small grid slot. */
   #root .poker-page .wireframe-opponent-slot .compact-card-row > .opponent-card-frame + .opponent-card-frame {
@@ -1318,19 +1355,48 @@
   }
 
   #root .poker-page .wireframe-flop-zone {
-    height: clamp(92px, 14dvh, 118px) !important;
+    height: clamp(112px, 15dvh, 124px) !important;
+    overflow: visible !important;
   }
 
-  #root .poker-page .wireframe-flop-zone > .table-board .focal-card-frame {
-    width: 46px !important;
-    height: 66px !important;
+  /* Keep the street marker in its own top band; the board occupies the
+     centered lower band on narrow phones. */
+  #root .poker-page .wireframe-flop-zone > .table-stage {
+    /* Keep the street and pot on opposite sides of the mobile board. */
+    top: 4px !important;
+    left: 8px !important;
+    right: auto !important;
+    transform: none !important;
+    width: max-content !important;
+    max-width: calc(50% - 10px) !important;
+    z-index: 2 !important;
+  }
+
+  #root .poker-page .wireframe-flop-zone > .table-pot {
+    top: 4px !important;
+    left: auto !important;
+    right: 8px !important;
+    width: max-content !important;
+    max-width: calc(50% - 10px) !important;
+    transform: none !important;
+    z-index: 2 !important;
+  }
+
+  #root .poker-page .wireframe-flop-zone > .table-board {
+    top: calc(50% + 20px) !important;
+  }
+
+  #root .poker-page .wireframe-flop-zone .wireframe-street-badge {
+    display: block !important;
+    white-space: nowrap !important;
+    line-height: 1 !important;
   }
 
   /* The community cards are a single compact strip on mobile.  The inline
      board minimum is useful for the desktop table, but it must not make the
      River row wrap inside the narrower mobile board. */
   #root .poker-page .wireframe-flop-zone > .table-board {
-    width: 100% !important;
+    width: calc(100% - 16px) !important;
     min-width: 0 !important;
   }
 
@@ -1342,12 +1408,13 @@
   }
 
   #root .poker-page .wireframe-flop-zone > .table-board .board-row > .focal-card-frame {
-    flex: 1 1 0 !important;
-    width: auto !important;
+    flex: 1 1 72px !important;
+    width: 72px !important;
     min-width: 0 !important;
-    max-width: none !important;
-    height: 66px !important;
-    flex-basis: 0 !important;
+    max-width: 72px !important;
+    height: auto !important;
+    aspect-ratio: 92 / 132 !important;
+    flex-basis: 72px !important;
     box-sizing: border-box !important;
   }
 
@@ -1356,6 +1423,7 @@
     height: 100% !important;
     transform: none !important;
     box-sizing: border-box !important;
+    aspect-ratio: 92 / 132 !important;
   }
 
   #root .poker-page .wireframe-player-zone {
@@ -1518,5 +1586,91 @@
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     box-sizing: border-box !important;
+  }
+
+  /* At showdown the bottom zone becomes the compact result sheet.  Keep the
+     desktop result card in its original results zone outside this media rule. */
+  #root .poker-page .wireframe-results-zone > .showdown-status {
+    display: none !important;
+  }
+
+  #root .poker-page .mobile-result-dock {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    padding: 8px !important;
+    border-radius: 14px !important;
+    background: rgba(255,255,255,.97) !important;
+    box-shadow: 0 6px 18px rgba(15,23,42,.16) !important;
+  }
+
+  #root .poker-page .mobile-result-dock > .showdown-status--mobile-actions {
+    display: grid !important;
+    position: static !important;
+    inset: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    gap: 6px !important;
+    padding: 10px !important;
+    border: 1px solid rgba(15,118,110,.22) !important;
+    border-radius: 10px !important;
+    background: rgba(240,253,250,.96) !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
+
+  #root .poker-page .mobile-result-dock .showdown-status--mobile-actions > strong {
+    max-width: 100% !important;
+    font-size: clamp(16px, 4.5vw, 21px) !important;
+    line-height: 1.1 !important;
+    text-align: center !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  #root .poker-page .mobile-result-dock .showdown-status--mobile-actions > div {
+    color: #334155 !important;
+    font-size: 12px !important;
+  }
+
+  #root .poker-page .mobile-result-dock .showdown-new-deal {
+    width: 100% !important;
+  }
+
+  #root .poker-page .mobile-result-dock .showdown-new-deal .action-button {
+    width: 100% !important;
+    min-height: 42px !important;
+    margin: 0 !important;
+    font-size: 14px !important;
+  }
+
+  /* Show the actual cards used by each hand. The old winner outline around
+     the whole four-card row is intentionally removed on mobile. */
+  #root .poker-page .wireframe-hand .compact-card-row.has-winner-border {
+    border: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  #root .poker-page .wireframe-hand .compact-card-row > .combo-card-high {
+    border: 2px solid #dc2626 !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 8px rgba(220,38,38,.55) !important;
+  }
+
+  #root .poker-page .wireframe-hand .compact-card-row > .combo-card-low {
+    border: 2px solid #2563eb !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 8px rgba(37,99,235,.55) !important;
+  }
+
+  #root .poker-page .wireframe-hand .compact-card-row > .combo-card-high.combo-card-low {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 2px #2563eb, 0 0 8px rgba(220,38,38,.55) !important;
   }
 }

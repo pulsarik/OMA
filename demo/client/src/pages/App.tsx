@@ -687,6 +687,8 @@ function CompactCardRow({
   winnerBorder,
   decisionActions = [],
   boardCards = [],
+  highComboCards = [],
+  lowComboCards = [],
 }: {
   cards: string[];
   testId?: string;
@@ -696,6 +698,8 @@ function CompactCardRow({
   winnerBorder?: string;
   decisionActions?: ActionLog[];
   boardCards?: string[];
+  highComboCards?: string[];
+  lowComboCards?: string[];
 }) {
   const [expanded, setExpanded] = useState(false);
   const frameClass = focal ? 'focal-card-frame' : 'opponent-card-frame';
@@ -736,7 +740,7 @@ function CompactCardRow({
         {cards.map((card, index) => (
           <div
             key={card}
-            className={`${frameClass} deal-card`}
+            className={`${frameClass} deal-card${highComboCards.includes(card) ? ' combo-card-high' : ''}${lowComboCards.includes(card) ? ' combo-card-low' : ''}`}
             data-hand-card-index={index}
             style={{
               '--deal-delay': `${index * 90}ms`,
@@ -991,7 +995,17 @@ function CardBackRow({
   );
 }
 
-function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boolean }) {
+function BoardRow({
+  cards,
+  compact = false,
+  highComboCards = [],
+  lowComboCards = [],
+}: {
+  cards: string[];
+  compact?: boolean;
+  highComboCards?: string[];
+  lowComboCards?: string[];
+}) {
   const width = compact ? FOCAL_CARD_WIDTH : CARD_WIDTH;
   const height = compact ? FOCAL_CARD_HEIGHT : CARD_HEIGHT;
   const scale = compact ? FOCAL_CARD_SCALE : CARD_SCALE;
@@ -1011,7 +1025,7 @@ function BoardRow({ cards, compact = false }: { cards: string[]; compact?: boole
       {cards.map((card, index) => (
         <div
           key={card}
-          className={compact ? 'focal-card-frame deal-card' : 'deal-card'}
+          className={`${compact ? 'focal-card-frame deal-card' : 'deal-card'}${highComboCards.includes(card) ? ' combo-card-high' : ''}${lowComboCards.includes(card) ? ' combo-card-low' : ''}`}
           style={{
             ...(compact ? {} : { width, height }),
             '--deal-delay': `${Math.min(index, 2) * 90}ms`,
@@ -1097,6 +1111,47 @@ function CoinStack({ value, title = 'coins', compact = false, horizontal = false
   );
 }
 
+function PotBankVisual({ value }: { value: number }) {
+  const denominations = [
+    { value: 5000, color: '#f97316', edge: '#9a3412' },
+    { value: 1000, color: '#eab308', edge: '#a16207' },
+    { value: 500, color: '#7c3aed', edge: '#4c1d95' },
+    { value: 100, color: '#20252b', edge: '#090b0f' },
+    { value: 25, color: '#0f9f67', edge: '#087049' },
+    { value: 5, color: '#d9364f', edge: '#891d2e' },
+    { value: 1, color: '#f8fafc', edge: '#94a3b8' },
+  ];
+  let remainder = Math.max(0, Math.round(value));
+  const chips = denominations.filter((chip) => {
+    const present = Math.floor(remainder / chip.value) > 0;
+    remainder %= chip.value;
+    return present;
+  }).slice(0, 3);
+
+  return (
+    <div className="pot-bank-visual">
+      <div className="pot-bank-chips" aria-hidden="true">
+        {chips.map((chip, index) => (
+          <span
+            className="pot-bank-chip"
+            key={chip.label}
+            style={{
+              background: `repeating-conic-gradient(#fff 0 18deg, ${chip.color} 18deg 45deg)`,
+              '--chip-color': chip.color,
+              borderColor: chip.edge,
+              zIndex: chips.length - index,
+              transform: `translateX(${(index - (chips.length - 1) / 2) * 8}px) rotate(${(index - (chips.length - 1) / 2) * 10}deg)`,
+            } as React.CSSProperties}
+          />
+        ))}
+      </div>
+      <div className="pot-bank-copy">
+        <strong className="pot-bank-amount">{formatPotAmount(value)}</strong>
+      </div>
+    </div>
+  );
+}
+
 function PotDisplay({
   value,
   currentBet,
@@ -1150,8 +1205,8 @@ function PotDisplay({
       }}
     >
       <details ref={potDetailsRef} className="pot-details">
-        <summary className="pot-summary" aria-label={`${ui('Pot', 'Банк')} ${formatPoints(value)}. ${ui('Show contributions', 'Показать взносы')}`}>
-          <CoinStack value={value} title={ui('pot', 'банк')} compact horizontal />
+        <summary className="pot-summary" aria-label={`Pot: ${formatPoints(value)}. ${ui('Show contributions', 'Показать взносы')}`}>
+          <PotBankVisual value={value} />
           {showCurrentBet ? <span className="pot-current-bet" aria-hidden={currentBet <= 0}>
             {currentBet > 0 ? <>
               {ui('bet', 'ставка')} {formatPoints(currentBet)}
@@ -1218,6 +1273,7 @@ function PotDisplay({
 function StreetBadge({ stage }: { stage: string }) {
   return (
     <span
+      className="wireframe-street-badge"
       style={{
         border: '1px solid rgba(255,255,255,0.6)',
         borderRadius: 999,
@@ -1372,6 +1428,9 @@ function WireframeHand({
   turnSeconds,
   decisionActions = [],
   boardCards = [],
+  highlightHighCards = [],
+  highlightLowCards = [],
+  showdownNet,
 }: {
   id: string;
   hole?: string[];
@@ -1393,6 +1452,9 @@ function WireframeHand({
   turnSeconds?: number;
   decisionActions?: ActionLog[];
   boardCards?: string[];
+  highlightHighCards?: string[];
+  highlightLowCards?: string[];
+  showdownNet?: number;
 }) {
   const actionLabel = lastAction
     ? `${localizedMove(lastAction.move).toUpperCase()}${lastAction.amount ? ` ${formatPoints(lastAction.amount)}` : ''}`
@@ -1403,10 +1465,13 @@ function WireframeHand({
       ? 'linear-gradient(#dc2626, #dc2626)'
       : isLowWinner
         ? 'linear-gradient(#2563eb, #2563eb)'
-        : undefined;
+      : undefined;
+  const showdownNetLabel = showdownNet === undefined
+    ? undefined
+    : `${showdownNet > 0 ? '+' : ''}${formatPoints(showdownNet)}`;
   return (
     <div
-      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${isThinking ? ' is-thinking' : ''}${folded ? ' is-folded' : ''}${eliminated ? ' is-eliminated' : ''}`}
+      className={`wireframe-hand${isYou ? '' : ' wireframe-opponent-hand'}${isThinking ? ' is-thinking' : ''}${folded ? ' is-folded' : ''}${eliminated ? ' is-eliminated' : ''}${showdownNet !== undefined ? ' is-showdown-result' : ''}`}
       data-player-seat={id}
       data-testid={isYou ? `wireframe-hand-${id}` : `opponent-hand-zone-${id}`}
     >
@@ -1481,6 +1546,10 @@ function WireframeHand({
           winnerBorder={winnerBorder}
           decisionActions={decisionActions}
           boardCards={boardCards}
+          highComboCards={[...(resultPlayer?.highCombo ?? []), ...(resultPlayer?.highCards ?? []).map((code) => ({ code, source: 'hole' as const })), ...highlightHighCards.map((code) => ({ code, source: 'hole' as const }))]
+            .filter((card) => card.source === 'hole').map((card) => card.code)}
+          lowComboCards={[...(resultPlayer?.lowCombo ?? []), ...(resultPlayer?.lowCards ?? []).map((code) => ({ code, source: 'hole' as const })), ...highlightLowCards.map((code) => ({ code, source: 'hole' as const }))]
+            .filter((card) => card.source === 'hole').map((card) => card.code)}
         />
       ) : (
         <CardBackRow count={cardCount} compact={true} focal={isYou} testId={`player-cards-${id}`} />
@@ -1502,7 +1571,14 @@ function WireframeHand({
       ) : null}
       <div className="wireframe-opponent-footer">
         <div className="wireframe-opponent-action-slot">
-          {isWaitingForNextDeal ? (
+          {showdownNetLabel ? (
+            <span
+              className={`showdown-net-badge showdown-net-action ${showdownNet! >= 0 ? 'is-positive' : 'is-negative'}`}
+              data-testid={`showdown-net-action-${id}`}
+            >
+              {showdownNetLabel}
+            </span>
+          ) : isWaitingForNextDeal ? (
             <span
               className="wireframe-opponent-thinking wireframe-opponent-action"
               data-testid={`waiting-for-player-${id}`}
@@ -2067,6 +2143,25 @@ function summaryPoints(summary: ShowdownSummary | undefined, id: string) {
   return summary?.points.find((score) => score.id === id);
 }
 
+function formatPotAmount(value: unknown) {
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return String(value ?? '-');
+  return new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(numericValue);
+}
+
+function showdownPayout(player: PlayerView, id: string) {
+  return playerPoints(player.result, id)?.total
+    ?? summaryPoints(player.showdownSummary, id)?.total
+    ?? (player.players.filter((seat) => !seat.folded).length === 1
+      && player.players.find((seat) => !seat.folded)?.id === id
+      ? player.potCoins ?? 0
+      : 0);
+}
+
+function showdownNet(player: PlayerView, id: string) {
+  return showdownPayout(player, id) - (player.totalContributions?.[id] ?? 0);
+}
+
 function isContestedPot(pot: HiLoResult['sidePots'][number]) {
   return pot.players.filter(player => (player.contributed ?? 0) > 0).length > 1;
 }
@@ -2082,9 +2177,11 @@ function playerWinParts(summary: ShowdownSummary | undefined, playerId: string) 
 function ShowdownStatus({
   player,
   newDealAction,
+  variant,
 }: {
   player: PlayerView;
   newDealAction?: React.ReactNode;
+  variant?: 'mobile-actions';
 }) {
   const activePlayers = player.players.filter((seat) => !seat.folded);
   const foldedWinnerId = activePlayers.length === 1 ? activePlayers[0].id : undefined;
@@ -2094,8 +2191,9 @@ function ShowdownStatus({
   const hasSummary = player.stage === 'showdown' && summaryScore;
   const knownFoldResult = player.folded || Boolean(foldedWinnerId);
   const contributed = player.totalContributions?.[player.playerId] ?? 0;
-  const payout = score?.total ?? summaryScore?.total ?? (foldedWinnerId === player.playerId ? player.potCoins : 0);
-  const net = payout - contributed;
+  const payout = score?.total ?? summaryScore?.total
+    ?? (foldedWinnerId === player.playerId ? player.potCoins : 0);
+  const net = showdownNet(player, player.playerId);
   const winParts = playerWinParts(player.showdownSummary, player.playerId);
   const sharedWin = Boolean(
     player.showdownSummary
@@ -2161,7 +2259,7 @@ function ShowdownStatus({
 
   return (
     <div
-      className="showdown-status"
+      className={`showdown-status${variant ? ` showdown-status--${variant}` : ''}`}
       style={{
         display: 'inline-grid',
         gap: 6,
@@ -2870,12 +2968,11 @@ function PlayerPage({
 
   useEffect(() => {
     if (activeView !== 'stats' || !player) return;
-    const requestKey = `${player.handId}:${player.completedHandCount}:${player.partyFinishedEarly ? 'final' : 'live'}`;
+    const requestKey = `${player.partyId}:${player.handId}:${player.completedHandCount}:${player.partyFinishedEarly ? 'final' : 'live'}`;
     if (partyScoreRequestRef.current === requestKey) return;
 
     partyScoreRequestRef.current = requestKey;
     const controller = new AbortController();
-    setPartyScore(null);
     setPartyScoreLoading(true);
     fetch(`${SERVER_URL}/api/player/${handId}/${playerId}/${token}/score`, { signal: controller.signal })
       .then(async (res) => {
@@ -2883,7 +2980,9 @@ function PlayerPage({
         return res.json() as Promise<PartyScore>;
       })
       .then((nextScore) => {
-        if (!controller.signal.aborted) setPartyScore(nextScore);
+        if (!controller.signal.aborted && partyScoreRequestRef.current === requestKey) {
+          setPartyScore(nextScore);
+        }
       })
       .catch((err) => {
         if (controller.signal.aborted) return;
@@ -3231,12 +3330,17 @@ function PlayerPage({
     ?? player.players.find((seat) => seat.id === player.playerId)
     ?? player.players.find((seat) => seat.name && seat.name === player.playerName);
   const heroPositionId = heroSeat?.id ?? player.playerId;
+  const heroResultPlayer = player.result?.players.find(result => result.id === player.playerId);
   const turnSeconds = typeof player.turnDeadline === 'number'
     ? Math.max(0, Math.ceil((player.turnDeadline - sessionNow) / 1_000))
     : undefined;
   const turnElapsedMs = typeof player.turnDeadline === 'number' && typeof player.turnDurationMs === 'number'
     ? player.turnDurationMs - (player.turnDeadline - sessionNow)
     : 0;
+  const showdownNetFor = (id: string) => {
+    if (player.stage !== 'showdown') return undefined;
+    return showdownNet(player, id);
+  };
   const showTurnCountdown = player.stage !== 'showdown'
     && player.currentPlayerId === player.playerId
     && typeof turnSeconds === 'number'
@@ -3266,6 +3370,7 @@ function PlayerPage({
         ? player.actions.filter((action) => action.playerId === seat.id && Boolean(action.botReason))
         : []}
       boardCards={player.stage === 'showdown' ? player.community : []}
+      showdownNet={showdownNetFor(seat.id)}
     />
   ));
   const submitWager = (move: 'bet' | 'raise') => {
@@ -3291,6 +3396,21 @@ function PlayerPage({
       currentPlayerId={player.playerId}
     />
   );
+  const newDealAction = canContinue ? (
+    <button className="action-button primary" disabled={isCreatingDeal} onClick={startNewDeal}>
+      {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
+    </button>
+  ) : player.nextPlayerLink ? (
+    <button
+      className="action-button primary"
+      onClick={() => {
+        if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
+        else window.location.href = player.nextPlayerLink!.url;
+      }}
+    >
+      {ui('New deal', 'Новая раздача')}
+    </button>
+  ) : undefined;
 
   return (
     <>
@@ -3387,31 +3507,9 @@ function PlayerPage({
           {player.stage === 'showdown' ? (
             <ShowdownStatus
               player={player}
-              newDealAction={canContinue ? (
-                <button
-                  className="action-button primary"
-                  disabled={isCreatingDeal}
-                  onClick={startNewDeal}
-                >
-                  {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
-                </button>
-              ) : player.nextPlayerLink ? (
-                <button
-                  className="action-button primary"
-                  onClick={() => {
-                    if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
-                    else window.location.href = player.nextPlayerLink!.url;
-                  }}
-                >
-                  {ui('New deal', 'Новая раздача')}
-                </button>
-              ) : undefined}
+              newDealAction={newDealAction}
             />
-          ) : (
-            <div className="table-pot" data-testid="table-pot">
-              {potDisplay(false)}
-            </div>
-          )}
+          ) : null}
         </section>
 
         <section
@@ -3421,12 +3519,19 @@ function PlayerPage({
         >
           <TableEmblem />
           <div className="table-stage" data-testid="table-stage"><StreetBadge stage={player.stage} /></div>
-          <div className="table-board" data-testid="table-board"><BoardRow cards={player.community} compact /></div>
-          {player.stage === 'showdown' ? (
-            <div className="table-pot" data-testid="table-pot">
-              {potDisplay(true)}
-            </div>
-          ) : null}
+          <div className="table-board" data-testid="table-board">
+            <BoardRow
+              cards={player.community}
+              compact
+              highComboCards={player.currentCombo?.highCombo?.filter((card) => card.source === 'board').map((card) => card.code)
+                ?? heroResultPlayer?.highCards}
+              lowComboCards={player.currentCombo?.lowCombo?.filter((card) => card.source === 'board').map((card) => card.code)
+                ?? heroResultPlayer?.lowCards}
+            />
+          </div>
+          <div className="table-pot" data-testid="table-pot">
+            {potDisplay(player.stage === 'showdown')}
+          </div>
         </section>
 
         <div
@@ -3450,6 +3555,11 @@ function PlayerPage({
               hole={player.hole}
               cardCount={player.hole.length}
               stack={player.stack}
+              resultPlayer={player.stage === 'showdown' ? heroResultPlayer : undefined}
+              highlightHighCards={player.currentCombo?.highCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
+                ?? heroResultPlayer?.highCards}
+              highlightLowCards={player.currentCombo?.lowCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
+                ?? heroResultPlayer?.lowCards}
               isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(player.playerId))}
               isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(player.playerId))}
               isAllIn={player.stack === 0 && !player.folded}
@@ -3458,6 +3568,7 @@ function PlayerPage({
               isDealer={dealerPlayerId === heroPositionId}
               isThinking={player.stage !== 'showdown' && player.currentPlayerId === player.playerId}
               turnSeconds={turnSeconds}
+              showdownNet={showdownNetFor(player.playerId)}
             />
           </div>
           <PlayerComboSide combo={player.currentCombo} kind="low" />
@@ -3478,7 +3589,15 @@ function PlayerPage({
               <span>{turnSeconds}s</span>
             </div>
           ) : null}
-          {showActionDock ? <div
+          {player.stage === 'showdown' ? (
+            <div className="mobile-result-dock" data-testid="mobile-result-dock">
+              <ShowdownStatus
+                player={player}
+                variant="mobile-actions"
+                newDealAction={newDealAction}
+              />
+            </div>
+          ) : showActionDock ? <div
             className="action-dock"
             onPointerDownCapture={(event) => {
               // A press that starts while controls are unavailable must not

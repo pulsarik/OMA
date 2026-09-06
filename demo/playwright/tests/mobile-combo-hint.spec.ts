@@ -15,24 +15,26 @@ async function startMobileTable(page: Page) {
   await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });
 }
 
-test('mobile combo hints do not intersect the hero hand', async ({ page }) => {
+test('mobile combo hints are replaced by card outlines', async ({ page }) => {
   await startMobileTable(page);
   await page.getByRole('button', { name: 'Fold' }).click();
-  await expect(page.getByTestId('high-combo-side')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('high-combo-side')).toBeHidden({ timeout: 30_000 });
 
-  const metrics = await page.getByTestId('poker-table').evaluate((table) => {
-    const hero = table.querySelector<HTMLElement>('.wireframe-hero-slot .compact-card-row')?.getBoundingClientRect();
-    const hints = Array.from(table.querySelectorAll<HTMLElement>('[data-testid$="-combo-side"]')).map((hint) => {
-      const box = hint.getBoundingClientRect();
-      return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
-    });
-    return { hero: hero?.toJSON() ?? null, hints };
+  const countCombinationOutlines = () => page.getByTestId('poker-table').evaluate((table) => {
+    const hero = table.querySelectorAll('.wireframe-hero-slot .combo-card-high, .wireframe-hero-slot .combo-card-low').length;
+    const board = table.querySelectorAll('.table-board .combo-card-high, .table-board .combo-card-low').length;
+    return hero > 0 && board > 0;
   });
-  expect(metrics.hints.length).toBeGreaterThan(0);
-  expect(metrics.hero).not.toBeNull();
-  for (const hint of metrics.hints) {
-    expect(hint.right <= metrics.hero!.left || hint.left >= metrics.hero!.right
-      || hint.bottom <= metrics.hero!.top || hint.top >= metrics.hero!.bottom,
-    JSON.stringify(metrics)).toBe(true);
-  }
+  await expect.poll(countCombinationOutlines, { timeout: 30_000 }).toBe(true);
+  const metrics = await page.getByTestId('poker-table').evaluate((table) => {
+    return {
+      heroHigh: table.querySelectorAll('.wireframe-hero-slot .combo-card-high').length,
+      heroLow: table.querySelectorAll('.wireframe-hero-slot .combo-card-low').length,
+      boardHigh: table.querySelectorAll('.table-board .combo-card-high').length,
+      boardLow: table.querySelectorAll('.table-board .combo-card-low').length,
+    };
+  });
+  expect(metrics.heroHigh + metrics.heroLow + metrics.boardHigh + metrics.boardLow).toBeGreaterThan(0);
+  expect(metrics.heroHigh + metrics.heroLow).toBeGreaterThan(0);
+  expect(metrics.boardHigh + metrics.boardLow).toBeGreaterThan(0);
 });
