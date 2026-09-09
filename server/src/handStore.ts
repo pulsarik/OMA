@@ -503,8 +503,15 @@ export default class HandStore {
       // RDP, mobile rotation) and must not split one client into several
       // access rows. The player name is editable as well, so it is only a
       // display value, not part of the identity key.
-      const key = [visit.clientCookie, visit.ip, visit.userAgent, visit.deviceType,
-        visit.platform].map((value) => value ?? '').join('|');
+      // A stable client cookie is the identity of a browser. The other
+      // values are observations that can change between connections (and can
+      // be absent when an older client joins), so they must not split one
+      // browser into multiple access rows. Clients without the cookie retain
+      // the legacy composite key as a best-effort fallback.
+      const key = visit.clientCookie
+        ? `cookie:${visit.clientCookie}`
+        : `legacy:${[visit.ip, visit.userAgent, visit.deviceType, visit.platform]
+          .map((value) => value ?? '').join('|')}`;
       const access = accessGroups.get(key) ?? {
         firstSeen: visit.created,
         lastSeen: visit.lastSeen,
@@ -524,8 +531,33 @@ export default class HandStore {
       };
       access.connections += 1;
       access.firstSeen = Math.min(access.firstSeen, visit.created);
-      access.lastSeen = Math.max(access.lastSeen, visit.lastSeen);
-      if (visit.playerName && visit.lastSeen >= access.lastSeen) access.playerName = visit.playerName;
+      const isLatestVisit = visit.lastSeen >= access.lastSeen;
+      if (isLatestVisit) {
+        access.lastSeen = visit.lastSeen;
+        access.playerName = visit.playerName ?? access.playerName;
+        access.ip = visit.ip ?? access.ip;
+        access.userAgent = visit.userAgent ?? access.userAgent;
+        access.deviceType = visit.deviceType ?? access.deviceType;
+        access.platform = visit.platform ?? access.platform;
+        access.screenWidth = visit.screenWidth ?? access.screenWidth;
+        access.screenHeight = visit.screenHeight ?? access.screenHeight;
+        access.viewportWidth = visit.viewportWidth ?? access.viewportWidth;
+        access.viewportHeight = visit.viewportHeight ?? access.viewportHeight;
+        access.pixelRatio = visit.pixelRatio ?? access.pixelRatio;
+      } else {
+        // visitRows are sorted newest first. A newer visit may lack client
+        // metadata, so let an older complete snapshot fill those gaps.
+        access.playerName = access.playerName ?? visit.playerName;
+        access.ip = access.ip ?? visit.ip;
+        access.userAgent = access.userAgent ?? visit.userAgent;
+        access.deviceType = access.deviceType ?? visit.deviceType;
+        access.platform = access.platform ?? visit.platform;
+        access.screenWidth = access.screenWidth ?? visit.screenWidth;
+        access.screenHeight = access.screenHeight ?? visit.screenHeight;
+        access.viewportWidth = access.viewportWidth ?? visit.viewportWidth;
+        access.viewportHeight = access.viewportHeight ?? visit.viewportHeight;
+        access.pixelRatio = access.pixelRatio ?? visit.pixelRatio;
+      }
       if (!access.playersByParty.has(visit.partyId)) access.playersByParty.set(visit.partyId, visit.playerId);
       accessGroups.set(key, access);
     });

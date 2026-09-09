@@ -144,6 +144,31 @@ test('analytics keeps one access row when screen parameters or player name chang
   });
 });
 
+test('analytics keeps one access row when cookie metadata changes', async () => {
+  const store = new HandStore(':memory:');
+  const baseVisit = {
+    partyId: 'party-1', handId: 'hand-1', playerId: 'player-1',
+    clientCookie: 'stable-player-id',
+  };
+  await store.recordAnalyticsVisit({
+    ...baseVisit, ip: '176.77.153.250', userAgent: 'Mozilla/5.0',
+    deviceType: 'Desktop', platform: 'Linux armv81', screenWidth: 1280,
+  }, 1_000);
+  await store.recordAnalyticsVisit({
+    ...baseVisit, ip: '176.77.153.250', userAgent: 'Mozilla/5.0',
+    deviceType: 'Desktop', platform: undefined,
+  }, 2_000);
+
+  const accesses = (await store.getAnalyticsStats()).accesses;
+  expect(accesses).toHaveLength(1);
+  expect(accesses[0]).toMatchObject({
+    clientCookie: 'stable-player-id',
+    connections: 2,
+    platform: 'Linux armv81',
+    screenWidth: 1280,
+  });
+});
+
 test('expired parties and their started lobbies are forgotten while active parties remain', async () => {
   const store = new HandStore(':memory:');
   await store.saveHand({
