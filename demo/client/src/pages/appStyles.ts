@@ -488,6 +488,29 @@ export const PLAYER_PAGE_STYLES = `
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .seat-topline .showdown-net-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-height: 16px;
+    padding: 2px 6px;
+    border: 1px solid rgba(255,255,255,.9);
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 950;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0,0,0,.24);
+  }
+  .seat-topline .showdown-net-badge.is-positive {
+    background: #16a34a;
+    color: #fff;
+  }
+  .seat-topline .showdown-net-badge.is-negative {
+    background: #dc2626;
+    color: #fff;
+  }
   .opponents-row[data-opponent-count="1"] { grid-template-columns: minmax(0, 240px); }
   .opponents-row[data-opponent-count="2"] { grid-template-columns: repeat(2, minmax(0, 240px)); }
   .opponents-row[data-opponent-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -1287,15 +1310,6 @@ export const PLAYER_PAGE_STYLES = `
     font-weight: 800;
   }
   .bet-size-button.is-selected { border: 2px solid #087443; background: #dcfce7; color: #065f46; }
-  .bet-size-explanation {
-    flex: 1 0 100%;
-    order: 3;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 750;
-    text-align: center;
-  }
-  .bet-size-explanation strong { color: #065f46; }
   .action-button.primary { border-color: #047857; background: #087443; color: #fff; min-width: 120px; }
   .action-button.danger { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
   .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
@@ -1389,7 +1403,7 @@ export const PLAYER_PAGE_STYLES = `
     .game-tile { border-radius: 20px; padding: 4px; }
     .poker-table,
     .poker-table.is-crowded {
-      height: max(560px, calc(100dvh - 190px));
+      height: max(420px, calc(100dvh - 190px));
       gap: 8px;
       border-width: 3px;
       border-radius: 34px;
@@ -1779,6 +1793,7 @@ export const PLAYER_PAGE_STYLES = `
     }
     .winner-badge-label.high { color: #dc2626 !important; }
     .winner-badge-label.low { color: #2563eb !important; }
+    .desktop-turn-status { display: none; }
   }
   @media (min-width: 761px) and (max-width: 820px) {
     .hero-zone {
@@ -2082,10 +2097,6 @@ export const PLAYER_PAGE_STYLES = `
       font-size: 12px;
       line-height: 1.08;
       overflow-wrap: anywhere;
-    }
-    .bet-size-explanation {
-      font-size: 10px;
-      line-height: 1.2;
     }
     .pot-popover {
       position: fixed;

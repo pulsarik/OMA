@@ -349,6 +349,13 @@ function localizedBetSize(option: { value: BetSizeOption; label: string }) {
   return 'Пот-лимит';
 }
 
+function compactBetSize(option: { value: BetSizeOption; label: string }) {
+  if (option.value === 'blind') return 'BB';
+  if (option.value === 'quarter') return '¼ POT';
+  if (option.value === 'half') return '½ POT';
+  return 'POT';
+}
+
 const MAX_PLAYERS = 10;
 const DEFAULT_PLAYER_NAMES = ['Dima', 'Anna', 'Ivan', 'Maria', 'Pavel', 'Elena', 'Alex', 'Sofia', 'Nikolai', 'Olga'];
 
@@ -1478,7 +1485,7 @@ function WireframeHand({
       : isLowWinner
         ? 'linear-gradient(#2563eb, #2563eb)'
       : undefined;
-  const showdownNetLabel = showdownNet === undefined
+  const showdownNetLabel = showdownNet === undefined || showdownNet === 0
     ? undefined
     : `${showdownNet > 0 ? '+' : ''}${formatPoints(showdownNet)}`;
   return (
@@ -1514,6 +1521,14 @@ function WireframeHand({
           >
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(stack ?? 0)}</strong>
+            {!isYou && showdownNetLabel ? (
+              <span
+                className={`showdown-net-badge ${showdownNet! >= 0 ? 'is-positive' : 'is-negative'}`}
+                data-testid={`showdown-net-action-${id}`}
+              >
+                {showdownNetLabel}
+              </span>
+            ) : null}
           </span>
            {isYou && (blindLabel || isDealer) ? (
              <div className="wireframe-seat-positions wireframe-hero-position" aria-label={ui('Table positions', 'Позиции за столом')}>
@@ -1575,7 +1590,7 @@ function WireframeHand({
           {ui('OUT', 'ВЫБЫЛ')}
         </span>
       ) : null}
-      {resultPlayer && (resultPlayer.highRank || resultPlayer.lowRank) ? (
+      {!isYou && resultPlayer && (resultPlayer.highRank || resultPlayer.lowRank) ? (
         <div className="wireframe-hand-combination" data-testid={`player-result-${id}`}>
           {resultPlayer.highRank ? <span>{ui('High', 'Хай')}: {localizedRank(resultPlayer.highRank)}</span> : null}
           {resultPlayer.lowRank ? <span>{ui('Low', 'Лоу')}: {localizedRank(resultPlayer.lowRank)}</span> : null}
@@ -1583,14 +1598,7 @@ function WireframeHand({
       ) : null}
       <div className="wireframe-opponent-footer">
         <div className="wireframe-opponent-action-slot">
-          {showdownNetLabel ? (
-            <span
-              className={`showdown-net-badge showdown-net-action ${showdownNet! >= 0 ? 'is-positive' : 'is-negative'}`}
-              data-testid={`showdown-net-action-${id}`}
-            >
-              {showdownNetLabel}
-            </span>
-          ) : isWaitingForNextDeal ? (
+          {showdownNet !== undefined ? null : isWaitingForNextDeal ? (
             <span
               className="wireframe-opponent-thinking wireframe-opponent-action"
               data-testid={`waiting-for-player-${id}`}
@@ -3285,13 +3293,22 @@ function PlayerPage({
   const betAmount = betTargetAmount(betSize, player.potCoins, bigBlind, player.stack);
   const raiseTo = raiseTargetAmount(betSize, player.potCoins, currentBet, yourRoundBet, minimumRaiseIncrement, player.stack);
   const wagerTarget = currentBet > 0 ? raiseTo : betAmount;
-  const betSizeFraction = betSizeFactor(betSize);
-  const potAfterCall = player.potCoins + callAmount;
-  const nominalRaiseSize = Math.ceil(potAfterCall * betSizeFraction);
-  const selectedBetSize = BET_SIZE_OPTIONS.find((option) => option.value === betSize);
-  const selectedBetSizeLabel = selectedBetSize ? localizedBetSize(selectedBetSize) : '';
   const betIsAllIn = isAllInWager(wagerTarget, yourRoundBet, player.stack);
   const raiseIsAllIn = isAllInWager(wagerTarget, yourRoundBet, player.stack);
+  const raiseLabel = raiseIsAllIn ? ui('All-in', 'Олл-ин') : ui('Raise', 'Рейз');
+  const raiseAriaLabel = maxRaises === undefined
+    ? `${raiseLabel} ${formatPoints(wagerTarget)}`
+    : `${raiseLabel} ${formatPoints(wagerTarget)}, ${raiseCount} ${ui('of', 'из')} ${maxRaises} ${ui('raises used', 'рейзов использовано')}`;
+  const raiseProgress = maxRaises === undefined ? null : (
+    <span className="raise-progress" aria-hidden="true">
+      {Array.from({ length: maxRaises }, (_, index) => (
+        <span
+          key={index}
+          className={`raise-progress-segment${index < raiseCount ? ' is-used' : ''}`}
+        />
+      ))}
+    </span>
+  );
   const canCall = canAct && yourRoundBet < currentBet;
   const raiseCapAvailable = maxRaises === undefined || raiseCount < maxRaises;
   const bettingReopened = !player.actedSinceLastFullRaise?.includes(player.playerId);
@@ -3624,78 +3641,71 @@ function PlayerPage({
             ) : null}
             {canAct ? (
               <>
-            {(currentBet === 0 || raiseCapAvailable) ? (
-              <div className="bet-sizes">
-                <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
-                {BET_SIZE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setBetSize(option.value)}
-                    className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
-                  >
-                    {localizedBetSize(option)}
-                  </button>
-                ))}
-              </div>
-            ) : null}
+            <div className="bet-sizes">
+              <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
+              {BET_SIZE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  disabled={!raiseCapAvailable}
+                  onClick={() => setBetSize(option.value)}
+                  className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
+                  aria-label={localizedBetSize(option)}
+                  title={localizedBetSize(option)}
+                >
+                  {compactBetSize(option)}
+                </button>
+              ))}
+            </div>
             <fieldset className="main-actions">
             {callAmount === 0 ? (
               <>
-                <button className="action-button primary" onClick={() => sendMove('check')}>{ui('Check', 'Чек')}</button>
+                <button className="action-button primary" onClick={() => sendMove('check')}>
+                  <span className="action-button-copy">{ui('Check', 'Чек')}</span>
+                </button>
                 {currentBet === 0 ? (
                   <button className="action-button" onClick={() => submitWager('bet')}>
-                    {betIsAllIn ? ui('Bet all-in', 'Олл-ин') : ui('Bet', 'Ставка')} {formatPoints(wagerTarget)}
+                    <span className="action-button-copy">{betIsAllIn ? ui('All-in', 'Олл-ин') : ui('Bet', 'Ставка')}</span>{' '}
+                    <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
                   </button>
                 ) : null}
-                {currentBet > 0 && raiseCapAvailable ? (
-                  <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
-                    {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
+                {currentBet > 0 ? (
+                  <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
+                    <span className="action-button-copy">{raiseLabel}</span>{' '}
+                    <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                    {raiseProgress}
                   </button>
                 ) : null}
                 <button
                   className="action-button danger"
                   onClick={() => sendMove('fold')}
                 >
-                  {ui('Fold', 'Фолд')}
+                  <span className="action-button-copy">{ui('Fold', 'Фолд')}</span>
                 </button>
               </>
             ) : null}
             {callAmount > 0 ? (
               <>
                 <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
-                  {call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')} {formatPoints(call.amount)}
+                  <span className="action-button-copy">{call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')}</span>{' '}
+                  <strong className="action-button-value">{formatPoints(call.amount)}</strong>
                 </button>
-                {raiseCapAvailable ? (
-                  <button className="action-button" disabled={!canRaise} onClick={() => submitWager('raise')}>
-                    {raiseIsAllIn ? ui('Raise all-in to', 'Рейз олл-ин до') : ui('Raise to', 'Рейз до')} {formatPoints(wagerTarget)}{maxRaises === undefined ? '' : ` (${raiseCount}/${maxRaises})`}
+                {currentBet > 0 ? (
+                  <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
+                    <span className="action-button-copy">{raiseLabel}</span>{' '}
+                    <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                    {raiseProgress}
                   </button>
                 ) : null}
                 <button
                   className="action-button danger"
                   onClick={() => sendMove('fold')}
                 >
-                  {ui('Fold', 'Фолд')}
+                  <span className="action-button-copy">{ui('Fold', 'Фолд')}</span>
                 </button>
               </>
             ) : null}
             </fieldset>
-            {betSizeFraction > 0 && betSize !== 'pot' ? (
-              <div className="bet-size-explanation" data-testid="bet-size-explanation">
-                {currentBet > 0 ? (
-                  <>
-                    {ui('Pot after call', 'Банк после колла')}: <strong>{formatPoints(potAfterCall)}</strong>
-                    {' · '}{selectedBetSizeLabel} = <strong>{formatPoints(nominalRaiseSize)}</strong>
-                    {' · '}{ui('Raise to', 'Рейз до')} <strong>{formatPoints(raiseTo)}</strong>
-                  </>
-                ) : (
-                  <>
-                    {ui('Pot', 'Банк')}: <strong>{formatPoints(player.potCoins)}</strong>
-                    {' · '}{selectedBetSizeLabel} = {ui('Bet', 'ставка')} <strong>{formatPoints(betAmount)}</strong>
-                  </>
-                )}
-              </div>
-            ) : null}
               </>
             ) : null}
           </div> : null}
@@ -5124,6 +5134,8 @@ function WelcomePage() {
   };
   const inputStyle: React.CSSProperties = {
     width: '100%',
+    boxSizing: 'border-box',
+    minHeight: 48,
     border: '1px solid #cbd5e1',
     borderRadius: 10,
     background: '#fff',

@@ -174,7 +174,14 @@ test('result layout visual check for 2 and 8 players', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Fold', exact: true }).click();
     await expect(page.getByRole('button', { name: 'New deal', exact: true })).toBeVisible({ timeout: 90_000 });
-    await expect(page.getByTestId('showdown-new-deal')).toBeVisible();
+    await expect(page.getByTestId('results-zone').getByTestId('showdown-new-deal')).toBeVisible();
+    await expect(page.getByTestId('wireframe-hand-P1').getByTestId('player-result-P1')).toHaveCount(0);
+    await expect(page.getByTestId('wireframe-hand-P1').getByTestId('showdown-net-action-P1')).toHaveCount(0);
+    const heroSlotBox = (await page.locator('.wireframe-hero-slot').boundingBox())!;
+    const heroCardsBox = (await page.getByTestId('player-cards-P1').boundingBox())!;
+    expect(Math.abs(
+      (heroSlotBox.x + heroSlotBox.width / 2) - (heroCardsBox.x + heroCardsBox.width / 2),
+    )).toBeLessThanOrEqual(2);
     await page.evaluate(() => {
       const allInSeat = document.querySelector<HTMLElement>('[data-player-seat="P1"]');
       const outSeat = document.querySelector<HTMLElement>('[data-player-seat="P2"]');
@@ -195,7 +202,7 @@ test('result layout visual check for 2 and 8 players', async ({ page }) => {
   }
 });
 
-test('pot details and bet-size math are available on demand', async ({ page, request }) => {
+test('pot details remain available on demand', async ({ page, request }) => {
   const href = await createDefaultHumanVsBotDeal(page);
   const response = await request.get(apiUrlForPlayerLink(href));
   const state = await response.json();
@@ -224,11 +231,6 @@ test('pot details and bet-size math are available on demand', async ({ page, req
     .toContainText(String(state.totalContributions[state.playerId]));
 
   await page.getByRole('button', { name: '1/2 pot' }).click();
-  const callAmount = Math.max(state.currentBet - state.roundBets[state.playerId], 0);
-  const potAfterCall = state.potCoins + callAmount;
-  await expect(page.getByTestId('bet-size-explanation'))
-    .toContainText(`Pot after call: ${potAfterCall} · 1/2 pot = ${Math.ceil(potAfterCall / 2)} · Raise to`);
-
   await page.getByRole('button', { name: '1/4 pot' }).click();
   await page.getByRole('button', { name: /^Raise/ }).click();
   await expect.poll(async () => {
@@ -286,6 +288,7 @@ test('opponent betting slot shows the latest action until showdown reveals the c
   await expect(page.getByRole('button', { name: 'New deal' })).toBeVisible({ timeout: 30_000 });
   await expect(bettingAction).toHaveCount(0);
   await expect(opponent.locator('[data-testid^="player-result-"]')).toBeVisible();
+  await expect(page.getByTestId('mobile-result-dock')).toBeHidden();
 });
 
 test('opponent seats form a stable responsive layout as content changes at every table size', async ({ page }) => {
@@ -426,6 +429,27 @@ test('the table keeps its height in a compact desktop viewport', async ({ page }
   const compactTableBox = await page.getByTestId('poker-table').boundingBox();
   expect(compactTableBox).toBeTruthy();
   expect(compactTableBox!.height).toBeGreaterThanOrEqual(700);
+});
+
+test('opponent names remain visible when the desktop table is vertically compressed', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 760 });
+  await createDefaultHumanVsBotDeal(page, 4);
+
+  const labels = await page.locator('.wireframe-opponent-slot .seat-name-score').evaluateAll((items) => (
+    items.map((item) => {
+      const label = item.getBoundingClientRect();
+      const topline = item.closest('.seat-topline')?.getBoundingClientRect();
+      return topline
+        ? { labelTop: label.top, labelBottom: label.bottom, toplineTop: topline.top, toplineBottom: topline.bottom }
+        : null;
+    })
+  ));
+
+  expect(labels.filter(Boolean)).toHaveLength(3);
+  labels.filter((item): item is NonNullable<typeof item> => Boolean(item)).forEach((item) => {
+    expect(item.labelTop).toBeGreaterThanOrEqual(item.toplineTop - 1);
+    expect(item.labelBottom).toBeLessThanOrEqual(item.toplineBottom + 1);
+  });
 });
 
 test('a bot takes its turn after the human acts', async ({ page, request }) => {
@@ -580,7 +604,7 @@ test('the board stays centered through showdown at a ten-player table', async ({
   expect(Math.abs(
     (boardAfterDeal.y + boardAfterDeal.height / 2) - (boardDuringDeal.y + boardDuringDeal.height / 2),
   )).toBeLessThanOrEqual(2);
-  const showdownNewDeal = page.getByTestId('showdown-new-deal');
+  const showdownNewDeal = page.getByTestId('results-zone').getByTestId('showdown-new-deal');
   await expect(showdownNewDeal).toBeVisible();
   await expect.poll(() => page.getByTestId('poker-table').locator('.deal-card').evaluateAll(cards => (
     cards.every(card => card.getAnimations().every(animation => animation.playState === 'finished'))
@@ -794,7 +818,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const firstState = await firstStateResponse.json();
 
   await page.getByRole('button', { name: 'Fold' }).click();
-  await expect(page.getByText('You lost', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('results-zone').getByText('You lost', { exact: true })).toBeVisible();
   const showdownResponse = await request.get(apiUrlForPlayerLink(href));
   const showdownState = await showdownResponse.json();
   const showdownScore = await (await request.get(partyScoreApiUrlForPlayerLink(href))).json();
@@ -816,10 +840,10 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const contribution = showdownState.totalContributions.P1;
   const payout = showdownState.showdownSummary.points.find((score: any) => score.id === 'P1').total;
   const net = payout - contribution;
-  await expect(page.getByTestId('showdown-contributed')).toHaveText(`Contributed: ${formatResultPoints(contribution)}`);
-  await expect(page.getByTestId('showdown-payout')).toHaveText(`Payout: ${formatResultPoints(payout)}`);
-  await expect(page.getByTestId('showdown-net')).toHaveText(`Net: ${formatResultPoints(net)}`);
-  await expect(page.getByTestId('showdown-winners')).toContainText('Winner: Anna');
+  const desktopResults = page.getByTestId('results-zone');
+  await expect(desktopResults.getByTestId('showdown-contributed')).toHaveText(`Contributed: ${formatResultPoints(contribution)}`);
+  await expect(desktopResults.getByTestId('showdown-payout')).toHaveText(`Payout: ${formatResultPoints(payout)}`);
+  await expect(desktopResults.getByTestId('showdown-net')).toHaveText(`Net: ${formatResultPoints(net)}`);
   await expect(page.getByTestId('player-ineligible-P1')).toHaveCount(0);
   for (const winnerId of showdownState.showdownSummary.highWinners) {
     await expect(page.getByTestId(`winner-high-${winnerId}`)).toHaveText('HIGH');
@@ -828,9 +852,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
     await expect(page.getByTestId(`winner-low-${winnerId}`)).toHaveText('LOW');
   }
   await expect(page.getByRole('button', { name: 'Show cards' })).toHaveCount(0);
-  const foldedTableResult = page.getByTestId('player-result-P1');
-  await expect(foldedTableResult.getByText(/^High: /)).toHaveCount(0);
-  await expect(foldedTableResult.getByText(/^Low: /)).toHaveCount(0);
+  await expect(page.getByTestId('wireframe-hand-P1').getByTestId('player-result-P1')).toHaveCount(0);
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await expect(page.getByTestId('stats-tile')).toBeVisible();
   await expect(page.getByTestId('result-net-P1')).toHaveText(formatResultPoints(net));
