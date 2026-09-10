@@ -12,6 +12,22 @@ test('remembers the host name in the next create-table form', async ({ page }) =
   await expect(page.getByLabel('Your name')).toHaveValue('Cookie Player');
 });
 
+test('mobile host can start a lobby and reach the table', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByLabel('Seats at the table').selectOption('4');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+  await page.getByLabel('Bot name').fill('Anna');
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  await expect(page.getByTestId('poker-table')).toBeVisible();
+});
+
 test('host creates a city table and a friend joins it by PIN', async ({ page, browser }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Omaha Hi-Lo' })).toBeVisible();

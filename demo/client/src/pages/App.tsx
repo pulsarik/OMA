@@ -1521,7 +1521,7 @@ function WireframeHand({
           >
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(stack ?? 0)}</strong>
-            {!isYou && showdownNetLabel ? (
+            {showdownNetLabel ? (
               <span
                 className={`showdown-net-badge ${showdownNet! >= 0 ? 'is-positive' : 'is-negative'}`}
                 data-testid={`showdown-net-action-${id}`}
@@ -2144,6 +2144,12 @@ function decisionBoardForStage(stage: string, board: string[]) {
   return board.slice(0, count);
 }
 
+function comboCardsOnVisibleBoard(combo: ComboCard[] | undefined, visibleBoard: string[], mobile: boolean) {
+  if (!combo || !mobile) return combo;
+  const visible = new Set(visibleBoard);
+  return combo.filter((card) => card.source === 'hole' || visible.has(card.code));
+}
+
 const BETTING_STREETS = ['preflop', 'flop', 'turn', 'river'];
 const STREET_CHANGE_PAUSE_MS = 1_000;
 
@@ -2364,6 +2370,75 @@ function PlayerComboSide({ combo, kind }: { combo?: PlayerCombo; kind: 'high' | 
         <SideComboCards combo={cards} />
       </div>
     </aside>
+  );
+}
+
+function MobileCombinationGuide() {
+  return (
+    <section
+      className="mobile-combination-guide"
+      data-testid="mobile-combination-guide"
+      style={{ display: 'grid' }}
+    >
+      <div className="mobile-combination-guide-heading" style={{ display: 'none' }}>
+        <span className="mobile-combination-guide-icon" aria-hidden="true">?</span>
+        <div>
+          <strong>{ui('Omaha Hi-Lo quick guide', 'Шпаргалка по Omaha Hi-Lo')}</strong>
+          <small>{ui('For beginners', 'Для новичков')}</small>
+        </div>
+      </div>
+      <div className="mobile-combination-guide-columns">
+        <article className="mobile-combination-guide-card high">
+          <div className="mobile-combination-guide-card-title">
+            <span className="mobile-combination-guide-dot" aria-hidden="true" />
+            <strong>{ui('HIGH · strongest hand wins', 'ХАЙ · побеждает сильнейшая')}</strong>
+          </div>
+          <p>{ui('Straight flush → four of a kind → full house → flush → straight → trips → pairs.', 'Стрит-флеш → каре → фулл-хаус → флеш → стрит → сет → пары.')}</p>
+        </article>
+        <article className="mobile-combination-guide-card low">
+          <div className="mobile-combination-guide-card-title">
+            <span className="mobile-combination-guide-dot" aria-hidden="true" />
+            <strong>{ui('LOW · lowest qualifying hand wins', 'ЛОУ · побеждает лучшее младшее')}</strong>
+          </div>
+          <p>{ui('Five different A–8 ranks, no pairs; Ace is low. A-2-3-4-5 is best. 6-low beats 7-low.', 'Пять разных значений A–8, без пар; туз младший. A-2-3-4-5 — лучший Лоу. Лоу до 6 сильнее 7.')}</p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
+function MobileCombinationVisualGuide({ player }: { player: PlayerView }) {
+  const visibleBoard = new Set(player.community);
+  const guideCards = (combo: ComboCard[] | undefined) => {
+    if (!combo) return [];
+    return combo
+      .filter((card) => card.source === 'hole' || visibleBoard.has(card.code))
+      .map((card) => card.code);
+  };
+  const renderCards = (codes: string[]) => (
+    <div className="mobile-combination-visual-cards" style={{ display: 'flex', gap: 2, height: 29, overflow: 'visible' }}>
+      {codes.map((code) => (
+        <span className="mobile-combination-visual-card" key={code} style={{ display: 'block', flex: '0 0 20px', width: 20, height: 29, overflow: 'visible' }}>
+          <Card code={code} scale={0.22} />
+        </span>
+      ))}
+    </div>
+  );
+  const highExample = guideCards(player.currentCombo?.highCombo);
+  const lowExample = guideCards(player.currentCombo?.lowCombo);
+  return (
+    <section className="mobile-combination-guide" data-testid="mobile-combination-guide" style={{ display: 'grid', gap: 5, margin: '6px 2px 0', padding: 7, boxSizing: 'border-box', overflow: 'visible' }}>
+      <div className="mobile-combination-visual-examples" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 5 }}>
+        <article className="mobile-combination-visual-example high" style={{ display: 'grid', gap: 3, minWidth: 0, padding: 6, boxSizing: 'border-box' }}>
+          <strong style={{ fontSize: 10, lineHeight: 1 }}>HIGH</strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
+          {renderCards(highExample)}
+        </article>
+        <article className="mobile-combination-visual-example low" style={{ display: 'grid', gap: 3, minWidth: 0, padding: 6, boxSizing: 'border-box' }}>
+          <strong style={{ fontSize: 10, lineHeight: 1 }}>LOW</strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
+          {renderCards(lowExample)}
+        </article>
+      </div>
+    </section>
   );
 }
 
@@ -3360,6 +3435,8 @@ function PlayerPage({
     ?? player.players.find((seat) => seat.name && seat.name === player.playerName);
   const heroPositionId = heroSeat?.id ?? player.playerId;
   const heroResultPlayer = player.result?.players.find(result => result.id === player.playerId);
+  const mobileHighCombo = comboCardsOnVisibleBoard(player.currentCombo?.highCombo, player.community, isMobileTable);
+  const mobileLowCombo = comboCardsOnVisibleBoard(player.currentCombo?.lowCombo, player.community, isMobileTable);
   const turnSeconds = typeof player.turnDeadline === 'number'
     ? Math.max(0, Math.ceil((player.turnDeadline - sessionNow) / 1_000))
     : undefined;
@@ -3382,7 +3459,7 @@ function PlayerPage({
       cardCount={seat.cardCount}
       isYou={false}
       name={seat.name}
-      stack={seat.stack}
+      stack={totalScore(player.partyTotals, seat.id) <= 0 ? 0 : seat.stack}
       resultPlayer={player.stage === 'showdown' ? player.result?.players.find(result => result.id === seat.id) : undefined}
       isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
       isWaitingForNextDeal={player.waitingForPlayers.some(waiting => waiting.id === seat.id)}
@@ -3515,6 +3592,7 @@ function PlayerPage({
       <WireframeTable
         opponents={opponentNodes}
         opponentCount={otherPlayers.length}
+        mobileBottomReserve={200}
       >
         <section className="opponents-zone" data-testid="opponents-zone" aria-label={ui('Opponents', 'Ð¡Ð¾Ð¿ÐµÑ€Ð½Ð¸ÐºÐ¸')}>
           {player.isReplay || player.replayOfHandId ? <HandBanner player={player} /> : null}
@@ -3552,9 +3630,9 @@ function PlayerPage({
             <BoardRow
               cards={player.community}
               compact
-              highComboCards={player.currentCombo?.highCombo?.filter((card) => card.source === 'board').map((card) => card.code)
+              highComboCards={mobileHighCombo?.filter((card) => card.source === 'board').map((card) => card.code)
                 ?? heroResultPlayer?.highCards}
-              lowComboCards={player.currentCombo?.lowCombo?.filter((card) => card.source === 'board').map((card) => card.code)
+              lowComboCards={mobileLowCombo?.filter((card) => card.source === 'board').map((card) => card.code)
                 ?? heroResultPlayer?.lowCards}
             />
           </div>
@@ -3585,9 +3663,9 @@ function PlayerPage({
               cardCount={player.hole.length}
               stack={player.stack}
               resultPlayer={player.stage === 'showdown' ? heroResultPlayer : undefined}
-              highlightHighCards={player.currentCombo?.highCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
+              highlightHighCards={mobileHighCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
                 ?? heroResultPlayer?.highCards}
-              highlightLowCards={player.currentCombo?.lowCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
+              highlightLowCards={mobileLowCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
                 ?? heroResultPlayer?.lowCards}
               isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(player.playerId))}
               isLowWinner={player.stage === 'showdown' && Boolean(player.result?.lowWinners.includes(player.playerId))}
@@ -3608,6 +3686,7 @@ function PlayerPage({
           data-testid="actions-zone"
           aria-label={ui('Actions and buttons', 'Действия и кнопки')}
         >
+          {isMobileTable ? <MobileCombinationVisualGuide player={player} /> : null}
           {showTurnCountdown ? (
             <div
               className="turn-timer-badge"
@@ -4146,6 +4225,7 @@ function LobbyPage() {
   const [lobbyExpired, setLobbyExpired] = useState(false);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const pendingLobbyActionRef = useRef<{ action: string; extra: Record<string, unknown> } | null>(null);
   const activeStorageKey = `omaha-lobby-${lobbyId}-active`;
   const accessStorageKey = `omaha-lobby-${lobbyId}-access-pin`;
   const playerStorageKey = `omaha-lobby-${lobbyId}-player-url`;
@@ -4193,7 +4273,7 @@ function LobbyPage() {
         ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
       }
     },
-    onMessage: (event) => {
+    onMessage: (event, eventSocket) => {
       const message = JSON.parse(event.data);
       if (message.type === 'lobby_joined') {
         const credentials = {
@@ -4210,6 +4290,11 @@ function LobbyPage() {
         applyLobbySession(message.data.lobby);
         setLobby(message.data.lobby);
         setNotice(null);
+        const pendingAction = pendingLobbyActionRef.current;
+        if (pendingAction && eventSocket.readyState === WebSocket.OPEN) {
+          pendingLobbyActionRef.current = null;
+          eventSocket.send(JSON.stringify({ action: pendingAction.action, lobbyId, ...pendingAction.extra }));
+        }
       } else if (message.type === 'lobby_updated') {
         applyLobbySession(message.data);
         setLobby(message.data);
@@ -4244,8 +4329,16 @@ function LobbyPage() {
     return () => events.forEach(eventName => window.removeEventListener(eventName, sendActivity));
   }, [socket, memberId, lobbyId]);
 
+  useEffect(() => {
+    const pendingAction = pendingLobbyActionRef.current;
+    if (!pendingAction || !socket || !memberId || socket.readyState !== WebSocket.OPEN) return;
+    pendingLobbyActionRef.current = null;
+    socket.send(JSON.stringify({ action: pendingAction.action, lobbyId, ...pendingAction.extra }));
+  }, [socket, socketReady, memberId, lobbyId]);
+
   function send(action: string, extra: Record<string, unknown> = {}) {
     if (!socket || socket.readyState !== WebSocket.OPEN) {
+      if (action === 'lobby_start') pendingLobbyActionRef.current = { action, extra };
       setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
@@ -4491,6 +4584,7 @@ function LobbyPage() {
                     style={{ flex: 1, minWidth: 170, padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8 }}
                   />
                   <button
+                    type="button"
                     onClick={() => {
                       send('lobby_add_bot', { name: botName.trim() });
                       setBotName('');
@@ -4501,6 +4595,7 @@ function LobbyPage() {
                     {ui('Add bot', 'Добавить бота')}
                   </button>
                   <button
+                    type="button"
                     className="lobby-start-button"
                     onClick={() => send('lobby_start')}
                     style={{ padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
@@ -4543,6 +4638,7 @@ function LobbyPage() {
                     </small>
                   </label>
                   <button
+                    type="button"
                     className="lobby-start-button"
                     onClick={() => send('lobby_start')}
                     style={{ padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}

@@ -1,6 +1,7 @@
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   getWireframeTableLayout,
+  MOBILE_LAYOUT_MAX_WIDTH,
   OPPONENT_COUNT,
   WIREFRAME_LAYOUT,
 } from './wireframeLayout';
@@ -16,15 +17,17 @@ type WireframeTableProps = {
   actions?: ReactNode;
   children?: ReactNode;
   opponentCount?: number;
+  mobileBottomReserve?: number;
 };
 
 function viewportHeight() {
   return window.visualViewport?.height ?? window.innerHeight;
 }
 
-function availableTableHeight(table: HTMLDivElement): number {
+function availableTableHeight(table: HTMLDivElement, mobileBottomReserve: number): number {
   const top = table.getBoundingClientRect().top;
-  return Math.max(0, viewportHeight() - top - 8);
+  const mobileReserve = table.clientWidth <= 760 ? mobileBottomReserve : 0;
+  return Math.max(0, viewportHeight() - top - 8 - mobileReserve);
 }
 
 export function WireframeTable({
@@ -37,6 +40,7 @@ export function WireframeTable({
   actions,
   children,
   opponentCount = OPPONENT_COUNT,
+  mobileBottomReserve = 0,
 }: WireframeTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [container, setContainer] = useState({ width: 0, height: 0 });
@@ -46,7 +50,7 @@ export function WireframeTable({
     if (!table) return undefined;
     const measure = () => setContainer({
       width: table.clientWidth,
-      height: availableTableHeight(table),
+      height: availableTableHeight(table, mobileBottomReserve),
     });
     measure();
     const observer = new ResizeObserver(measure);
@@ -58,7 +62,7 @@ export function WireframeTable({
       window.removeEventListener('resize', measure);
       window.visualViewport?.removeEventListener('resize', measure);
     };
-  }, []);
+  }, [mobileBottomReserve]);
 
   const layout = useMemo(() => getWireframeTableLayout(
     { width: Math.max(0, container.width - 4), height: container.height },
@@ -127,6 +131,9 @@ export function WireframeTable({
       '--wireframe-opponent-height': `${WIREFRAME_LAYOUT.opponent.height}px`,
       '--wireframe-required-height': `${layout.requiredHeight}px`,
       '--wireframe-table-height': `${Math.max(0, (layout.requiredHeight - WIREFRAME_LAYOUT.actionHeight - WIREFRAME_LAYOUT.sectionGap) * layout.scale + 4)}px`,
+      ...(container.width <= MOBILE_LAYOUT_MAX_WIDTH && container.height > 0
+        ? { height: `${Math.max(320, container.height)}px`, maxHeight: `${Math.max(320, container.height)}px` }
+        : {}),
     } as React.CSSProperties;
     return (
       <div

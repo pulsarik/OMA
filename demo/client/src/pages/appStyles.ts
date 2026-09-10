@@ -1171,6 +1171,7 @@ export const PLAYER_PAGE_STYLES = `
     letter-spacing: .07em;
   }
   .combo-side-rank { min-width: 0; overflow: hidden; color: #ecfdf5; font-size: 13px; letter-spacing: 0; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-combination-guide { display: none; }
   .side-combo-cards { display: flex; justify-content: center; gap: calc(3px * var(--table-scale, 1)); }
   .side-combo-card {
     width: calc(${SIDE_COMBO_CARD_WIDTH}px * var(--table-scale, 1)) !important;
@@ -1794,6 +1795,54 @@ export const PLAYER_PAGE_STYLES = `
     .winner-badge-label.high { color: #dc2626 !important; }
     .winner-badge-label.low { color: #2563eb !important; }
     .desktop-turn-status { display: none; }
+    .mobile-combination-guide {
+      display: grid;
+      gap: 8px;
+      margin: 8px 2px 0;
+      padding: 10px;
+      border: 1px solid #cbded4;
+      border-radius: 14px;
+      background: #f7fbf8;
+      color: #163c2c;
+    }
+    #root .poker-page .wireframe-actions-zone .mobile-combination-guide { display: grid !important; }
+    .mobile-combination-guide-heading { display: flex; align-items: center; gap: 9px; }
+    .mobile-combination-guide-heading > div { display: grid; gap: 1px; }
+    .mobile-combination-guide-heading small { color: #59756a; font-size: 11px; }
+    .mobile-combination-guide-icon {
+      display: grid;
+      flex: 0 0 28px;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #d9eee3;
+      color: #176044;
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .mobile-combination-guide-footer { margin: 0; color: #365b4d; font-size: 11px; line-height: 1.35; }
+    .mobile-combination-guide-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    .mobile-combination-guide-card {
+      display: grid;
+      gap: 4px;
+      padding: 8px 9px;
+      border: 1px solid #d9e4de;
+      border-radius: 10px;
+      background: #fff;
+    }
+    .mobile-combination-guide-card.high { border-left: 4px solid #d97706; }
+    .mobile-combination-guide-card.low { border-left: 4px solid #0f766e; }
+    .mobile-combination-guide-card-title { display: flex; align-items: center; gap: 6px; font-size: 10px; line-height: 1.2; }
+    .mobile-combination-guide-dot { width: 7px; height: 7px; flex: 0 0 7px; border-radius: 50%; background: #d97706; }
+    .mobile-combination-guide-card.low .mobile-combination-guide-dot { background: #0f766e; }
+    .mobile-combination-guide-card ol { display: grid; gap: 2px; margin: 0; padding-left: 20px; color: #25493b; font-size: 11px; line-height: 1.25; }
+    .mobile-combination-guide-card p { margin: 1px 0 0; color: #60796e; font-size: 10px; line-height: 1.25; }
+    .mobile-combination-guide-footer { color: #176044; font-weight: 800; }
+    #root .poker-page .wireframe-table {
+      height: clamp(390px, calc(100dvh - 350px), 424px) !important;
+      max-height: clamp(390px, calc(100dvh - 350px), 424px) !important;
+    }
   }
   @media (min-width: 761px) and (max-width: 820px) {
     .hero-zone {
@@ -4631,6 +4680,68 @@ export const PLAYER_PAGE_STYLES = `
       width: calc((100% - 9px) / 4) !important;
       max-width: calc((100% - 9px) / 4) !important;
       margin-left: 0 !important;
+    }
+
+    /* Page-level styles are injected after wireframeTable.css. Keep the
+       mobile hero face aligned to its frame so rank and suit are both visible. */
+    #root .poker-page .wireframe-hero-slot,
+    #root .poker-page .wireframe-player-zone,
+    #root .poker-page .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand),
+    #root .poker-page .wireframe-hero-slot .compact-card-row {
+      overflow: visible !important;
+    }
+    #root .poker-page .wireframe-hero-slot,
+    #root .poker-page .wireframe-player-zone,
+    #root .poker-page .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand),
+    #root .poker-page .wireframe-hero-slot .compact-card-row {
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+    }
+    #root .poker-page .wireframe-hero-slot .card-face--pocket {
+      width: 100% !important;
+      height: 100% !important;
+      transform: none !important;
+      box-sizing: border-box !important;
+    }
+    #root .poker-page .wireframe-hero-slot .card-face--pocket .card-corner-index {
+      top: 14% !important;
+      left: 8% !important;
+      width: 82% !important;
+      max-width: 82% !important;
+      gap: 0 !important;
+      overflow: visible !important;
+    }
+    #root .poker-page .wireframe-hero-slot .card-face--pocket .card-corner-index .card-rank,
+    #root .poker-page .wireframe-hero-slot .card-face--pocket .card-corner-index .card-suit {
+      width: 100% !important;
+      max-width: 100% !important;
+      overflow: visible !important;
+      line-height: .9 !important;
+      white-space: nowrap !important;
+    }
+    #root .poker-page .wireframe-hero-slot .card-face--pocket .card-corner-index .card-rank {
+      font-size: clamp(18px, 34cqw, 34px) !important;
+    }
+    #root .poker-page .wireframe-hero-slot .card-face--pocket .card-corner-index .card-suit {
+      font-size: clamp(16px, 30cqw, 30px) !important;
+    }
+  }
+  @media (max-width: 760px) and (max-height: 600px) {
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot,
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .wireframe-hand,
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .compact-card-row {
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+    }
+  }
+  @media (max-width: 760px) {
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot,
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .wireframe-hand,
+    #root .poker-page .wireframe-table .wireframe-player-zone .wireframe-hero-slot .compact-card-row {
+      overflow: visible !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
     }
   }
 `;

@@ -37,6 +37,7 @@ function partyScoreApiUrlForPlayerLink(href: string) {
 }
 
 test('new table shows OUT over the cards of an eliminated player', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
   await createDefaultHumanVsBotDeal(page);
 
   // The real tournament marks a player out when their cumulative party score
@@ -78,6 +79,12 @@ test('new table shows OUT over the cards of an eliminated player', async ({ page
 
   const badge = page.getByTestId('player-eliminated-P2');
   await expect(badge).toHaveText('OUT');
+  await expect(page.getByTestId('player-score-P2')).toHaveText('0');
+  await expect(page.locator('.wireframe-street-badge')).toBeVisible();
+  await expect(page.locator('.pot-summary')).toBeVisible();
+  await expect(page.locator('.wireframe-hero-slot .seat-name-score')).toContainText('Dima');
+  await expect(page.locator('.wireframe-hero-slot .focal-card-frame')).toHaveCount(4);
+  await expect(page.locator('.action-dock')).toBeVisible();
   const geometry = await page.locator('[data-player-seat="P2"]').evaluate((seat) => {
     const badge = seat.querySelector<HTMLElement>('[data-testid="player-eliminated-P2"]')?.getBoundingClientRect();
     const cards = seat.querySelector<HTMLElement>('.compact-card-row')?.getBoundingClientRect();

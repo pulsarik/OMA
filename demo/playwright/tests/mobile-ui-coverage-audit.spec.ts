@@ -294,6 +294,156 @@ test('mobile action dock buttons are usable and stay inside the viewport', async
   });
 });
 
+test('mobile Hi-Lo guide is visible before actions without overlap', async ({ page }) => {
+  await startMobileTable(page);
+  const guide = page.getByTestId('mobile-combination-guide');
+  const dock = page.locator('.action-dock');
+  await expect(guide).toBeVisible();
+  await expect(guide).toContainText('HIGH');
+  await expect(guide).toContainText('LOW');
+  await expect(guide.locator('.mobile-combination-visual-example')).toHaveCount(2);
+  await expect(guide.locator('[data-card-style="simple"]')).toHaveCount(0);
+
+  const geometry = await page.evaluate(() => {
+    const guide = document.querySelector<HTMLElement>('[data-testid="mobile-combination-guide"]')!.getBoundingClientRect();
+    const dock = document.querySelector<HTMLElement>('.action-dock')!.getBoundingClientRect();
+    const table = document.querySelector<HTMLElement>('[data-testid="poker-table"]')!.getBoundingClientRect();
+    return { guide, dock, table, viewportHeight: window.innerHeight };
+  });
+  expect(geometry.guide.top).toBeGreaterThanOrEqual(geometry.table.bottom - 1);
+  expect(geometry.guide.bottom).toBeLessThanOrEqual(geometry.dock.top + 1);
+  expect(geometry.dock.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+});
+
+test('Galaxy S8 viewport keeps all own cards visible', async ({ page }) => {
+  await startMobileTableAt(page, 360, 740);
+  await page.waitForTimeout(2_100);
+  const cards = page.locator('.wireframe-hero-slot .focal-card-frame');
+  await expect(cards).toHaveCount(4);
+  const geometry = await page.getByTestId('poker-table').evaluate((table) => {
+    const zone = table.querySelector<HTMLElement>('.wireframe-hero-slot')?.getBoundingClientRect();
+    const guide = document.querySelector<HTMLElement>('[data-testid="mobile-combination-guide"]')?.getBoundingClientRect();
+    const items = Array.from(table.querySelectorAll<HTMLElement>('.wireframe-hero-slot .focal-card-frame'))
+      .map((card) => ({ frame: card.getBoundingClientRect(), face: card.querySelector<HTMLElement>('.focal-card')?.getBoundingClientRect() }));
+    return { zone, guide, items, viewport: { width: innerWidth, height: innerHeight } };
+  });
+  expect(geometry.items.every(({ frame, face }) => face && face.width >= 20 && face.height >= 28)).toBe(true);
+  geometry.items.forEach(({ frame, face }) => {
+    expect(frame.left).toBeGreaterThanOrEqual((geometry.zone?.left ?? 0) - 1);
+    expect(frame.right).toBeLessThanOrEqual((geometry.zone?.right ?? 0) + 1);
+    expect(frame.top).toBeGreaterThanOrEqual((geometry.zone?.top ?? 0) - 30);
+    expect(frame.bottom).toBeLessThanOrEqual((geometry.guide?.top ?? Number.POSITIVE_INFINITY) - 1);
+    expect(face!.left).toBeGreaterThanOrEqual(frame.left - 1);
+    expect(face!.right).toBeLessThanOrEqual(frame.right + 1);
+    expect(face!.top).toBeGreaterThanOrEqual(frame.top - 1);
+    expect(face!.bottom).toBeLessThanOrEqual(frame.bottom + 1);
+  });
+});
+
+test('Galaxy S8 keeps the essential table information readable', async ({ page }) => {
+  await startMobileTableAt(page, 360, 740);
+  await page.waitForTimeout(2_100);
+  await expect(page.locator('.wireframe-street-badge')).toBeVisible();
+  await expect(page.locator('.pot-summary')).toBeVisible();
+  await expect(page.locator('[data-testid^="player-name-"]')).toHaveCount(4);
+  await expect(page.locator('[data-testid^="player-score-"]')).toHaveCount(4);
+  await expect(page.locator('[data-testid^="wireframe-hand-"] .seat-name-score')).toBeVisible();
+  await expect(page.locator('.wireframe-hero-slot .seat-name-score')).toContainText('Dima');
+  await expect(page.locator('.wireframe-hero-slot .seat-name-score')).toBeVisible();
+  await expect(page.locator('.wireframe-hero-slot .focal-card-frame')).toHaveCount(4);
+  await expect(page.locator('.wireframe-hero-slot [data-testid^="card-face-"]')).toHaveCount(4);
+  await expect(page.locator('.action-dock')).toBeVisible();
+  await expect(page.locator('.action-dock button')).toHaveCount(7);
+  const boxes = await page.locator('[data-testid^="player-name-"], [data-testid^="player-score-"], .wireframe-street-badge, .pot-summary, .wireframe-hero-slot .focal-card-frame, .action-dock button').evaluateAll((items) => items.map((item) => {
+    const box = item.getBoundingClientRect();
+    return { text: item.textContent?.trim(), left: box.left, top: box.top, right: box.right, bottom: box.bottom, width: box.width, height: box.height };
+  }));
+  boxes.forEach((box) => {
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+    expect(box.left).toBeGreaterThanOrEqual(-1);
+    expect(box.right).toBeLessThanOrEqual(361);
+    expect(box.top).toBeGreaterThanOrEqual(-1);
+    expect(box.bottom).toBeLessThanOrEqual(741);
+  });
+});
+
+test('popular phone viewport matrix keeps the mobile table usable', async ({ page }) => {
+  const phones = [
+    ['iPhone SE', 320, 568],
+    ['Galaxy S8', 360, 740],
+    ['iPhone 12', 390, 844],
+    ['Pixel 7', 412, 915],
+  ] as const;
+  for (const [name, width, height] of phones) {
+    await startMobileTableAt(page, width, height);
+    await page.waitForTimeout(2_100);
+    const guide = page.getByTestId('mobile-combination-guide');
+    await expect(guide, `${name}: guide`).toBeVisible();
+    await expect(page.locator('.wireframe-street-badge'), `${name}: street`).toBeVisible();
+    await expect(page.locator('.pot-summary'), `${name}: pot`).toBeVisible();
+    await expect(page.locator('[data-testid^="wireframe-hand-"] .seat-name-score'), `${name}: hero identity`).toBeVisible();
+    await expect(page.locator('.wireframe-hero-slot .focal-card-frame'), `${name}: hero cards`).toHaveCount(4);
+    const cardText = await page.locator('.wireframe-hero-slot .focal-card-frame .card-face--pocket').evaluateAll((faces) => faces.map((face) => {
+      const faceBox = face.getBoundingClientRect();
+      const rank = face.querySelector<HTMLElement>('.card-rank')?.getBoundingClientRect();
+      const suit = face.querySelector<HTMLElement>('.card-suit')?.getBoundingClientRect();
+      const clipped = [rank, suit].some((target) => {
+        if (!target) return true;
+        let parent = face.parentElement;
+        while (parent && parent !== document.body) {
+          const style = getComputedStyle(parent);
+          if (style.overflow !== 'visible' || style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+            const box = parent.getBoundingClientRect();
+            if (target.left < box.left - 1 || target.right > box.right + 1 || target.top < box.top - 1 || target.bottom > box.bottom + 1) {
+              return true;
+            }
+          }
+          parent = parent.parentElement;
+        }
+        return false;
+      });
+      return { face: faceBox, rank, suit, clipped };
+    }));
+    expect(cardText, `${name}: hero card faces`).toHaveLength(4);
+    cardText.forEach(({ face, rank, suit, clipped }, index) => {
+      expect(rank, `${name}: card ${index + 1} rank`).toBeTruthy();
+      expect(suit, `${name}: card ${index + 1} suit`).toBeTruthy();
+      expect(rank!.left).toBeGreaterThanOrEqual(face.left - 1);
+      expect(rank!.right).toBeLessThanOrEqual(face.right + 1);
+      expect(rank!.top).toBeGreaterThanOrEqual(face.top - 1);
+      expect(rank!.bottom).toBeLessThanOrEqual(face.bottom + 1);
+      expect(suit!.left).toBeGreaterThanOrEqual(face.left - 1);
+      expect(suit!.right).toBeLessThanOrEqual(face.right + 1);
+      expect(suit!.top).toBeGreaterThanOrEqual(face.top - 1);
+      expect(suit!.bottom).toBeLessThanOrEqual(face.bottom + 1);
+      expect(face.width).toBeGreaterThan(18);
+      expect(face.height).toBeGreaterThan(26);
+      expect(rank!.width).toBeGreaterThan(0);
+      expect(rank!.height).toBeGreaterThan(0);
+      expect(suit!.width).toBeGreaterThan(0);
+      expect(suit!.height).toBeGreaterThan(0);
+      expect(clipped, `${name}: card ${index + 1} glyph is clipped`).toBe(false);
+    });
+    await expect(page.locator('.action-dock'), `${name}: action dock`).toBeVisible();
+    const overflow = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll<HTMLElement>('.wireframe-table, .mobile-combination-guide, .wireframe-hero-slot .seat-name-score, .wireframe-hero-slot .focal-card-frame, .action-dock'));
+      return items.filter((item) => {
+        const box = item.getBoundingClientRect();
+        return box.left < -1 || box.right > innerWidth + 1 || box.top < -1 || box.bottom > innerHeight + 1;
+      }).map((item) => ({ className: item.className, testId: item.dataset.testid, box: item.getBoundingClientRect().toJSON() }));
+    });
+    expect(overflow, `${name}: an essential element exits viewport`).toEqual([]);
+    const overlap = await page.evaluate(() => {
+      const guide = document.querySelector<HTMLElement>('[data-testid="mobile-combination-guide"]')!.getBoundingClientRect();
+      const cards = Array.from(document.querySelectorAll<HTMLElement>('.wireframe-hero-slot .focal-card-frame'))
+        .map((card) => card.getBoundingClientRect().toJSON());
+      return { count: cards.filter((box) => box.bottom > guide.top && box.top < guide.bottom).length, guide: guide.toJSON(), cards };
+    });
+    expect(overlap.count, `${name}: hero cards overlap guide`).toBe(0);
+  }
+});
+
 test('mobile hero cards fill their zone and combination hints are replaced by outlines', async ({ page }) => {
   await startMobileTable(page);
   await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });

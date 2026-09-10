@@ -1007,10 +1007,13 @@ async function withLobbyLock<T>(lobbyId: string, action: () => Promise<T>) {
 }
 
 async function sendStartedLobby(ws: WebSocket, lobby: Lobby, member: LobbyMember) {
-  if (!lobby.handId || !member.playerId) return;
+  if (!lobby.handId) throw new Error('started lobby has no hand');
   const hand = await store.getHand(lobby.handId);
-  const player = hand?.players.find((candidate: any) => candidate.id === member.playerId);
-  if (!hand || !player) return;
+  if (!hand) throw new Error('started lobby hand not found');
+  const memberIndex = lobby.members.findIndex(candidate => candidate.id === member.id);
+  const playerId = member.playerId ?? (memberIndex >= 0 ? hand.players[memberIndex]?.id : undefined);
+  const player = hand.players.find((candidate: any) => candidate.id === playerId);
+  if (!player) throw new Error('started lobby player not found');
   ws.send(JSON.stringify({
     type: 'lobby_started',
     data: {
@@ -1020,11 +1023,12 @@ async function sendStartedLobby(ws: WebSocket, lobby: Lobby, member: LobbyMember
   }));
 }
 
-async function sendStartedLobbyToMembers(lobby: Lobby) {
+async function sendStartedLobbyToMembers(lobby: Lobby, excludedClient?: WebSocket) {
   const sends: Promise<void>[] = [];
   lobbyConnections.forEach((connection, client) => {
     if (
       connection.lobbyId !== lobby.id
+      || client === excludedClient
       || connectionContexts.get(client)?.scope !== 'lobby'
       || client.readyState !== WebSocket.OPEN
     ) return;
@@ -1310,7 +1314,11 @@ async function startLobby(ws: WebSocket, message: any) {
     broadcastLobby(lobby);
     await broadcastOpenLobbies();
 
-    await sendStartedLobbyToMembers(lobby);
+    // Always answer the socket that requested the start directly. This keeps
+    // the host from remaining on the lobby page if the connection registry is
+    // briefly being refreshed during the start broadcast.
+    await sendStartedLobby(ws, lobby, member);
+    await sendStartedLobbyToMembers(lobby, ws);
     void scheduleTurnTimers(hand.id);
   });
 }
