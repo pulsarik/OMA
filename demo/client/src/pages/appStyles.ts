@@ -34,6 +34,29 @@ export const APP_SHELL_STYLES = `
     background: #fff;
     color: #172033;
   }
+  .about-panel {
+    display: grid;
+    gap: 14px;
+    border: 1px solid #d8e2dc;
+    border-radius: clamp(20px, 3vw, 30px);
+    background: linear-gradient(145deg, #ffffff, #f1f7f3);
+    padding: clamp(18px, 4vw, 32px);
+    box-shadow: 0 12px 32px rgba(31,54,42,.09);
+    color: #17211b;
+  }
+  .about-panel__title,
+  .about-panel__low h3 { margin: 0; }
+  .about-panel__copy,
+  .about-panel__low p { margin: 0; color: #475569; line-height: 1.55; }
+  .about-panel__low {
+    display: grid;
+    gap: 7px;
+    border-left: 4px solid #fbbf24;
+    border-radius: 4px;
+    background: rgba(255,255,255,.58);
+    padding: 12px 14px;
+  }
+  .about-panel__low h3 { color: #065f46; font-size: 16px; }
   .lobby-replay-panel {
     display: grid;
     gap: 14px;

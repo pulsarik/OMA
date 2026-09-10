@@ -27,6 +27,19 @@ async function currentPlayerUrl(page: Page) {
   ));
 }
 
+test('table ABOUT explains LOW and can return to the table', async ({ page }) => {
+  await createDefaultHumanVsBotDeal(page);
+
+  await page.getByRole('tab', { name: 'ABOUT' }).click();
+  await expect(page.getByRole('tab', { name: 'ABOUT' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('about-panel')).toContainText('What is LOW?');
+  await expect(page.getByTestId('about-panel')).toContainText('exactly two hole cards and three board cards');
+  await expect(page.getByTestId('game-tile')).toHaveCount(0);
+
+  await page.getByRole('tab', { name: 'TABLE' }).click();
+  await expect(page.getByTestId('game-tile')).toBeVisible();
+});
+
 function apiUrlForPlayerLink(href: string) {
   const [, , handId, playerId, token] = new URL(href, 'http://localhost:5173').pathname.split('/');
   return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;

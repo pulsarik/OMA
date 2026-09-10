@@ -85,6 +85,32 @@ function ui(en: string, ru: string) {
   return storedLanguage() === 'ru' ? ru : en;
 }
 
+function AboutContent() {
+  return (
+    <>
+      <h2 className="about-panel__title">About / О проекте</h2>
+      <p className="about-panel__copy">
+        Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
+        <br />
+        <span lang="ru">Omaha Hi-Lo — многопользовательская покерная игра, где банк делится между лучшей старшей и подходящей младшей комбинациями.</span>
+      </p>
+      <section className="about-panel__low" aria-labelledby="about-low-title">
+        <h3 id="about-low-title">What is LOW? / Что такое LOW?</h3>
+        <p>
+          LOW is a five-card hand made from exactly two hole cards and three board cards. It qualifies when all five cards have different ranks and are 8 or lower; Ace counts as 1. The best possible LOW is 5-4-3-2-A. If nobody has a qualifying LOW, the high hand takes the whole pot.
+          <br />
+          <span lang="ru">LOW — это комбинация из пяти карт: ровно двух закрытых и трёх общих. Она проходит, если все пять достоинств разные и не выше 8; туз считается за 1. Лучшая LOW — 5-4-3-2-A. Если подходящей LOW нет, весь банк получает HIGH.</span>
+        </p>
+      </section>
+      <p className="about-panel__copy">
+        Questions or feedback? Contact us at <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+        <br />
+        <span lang="ru">Вопросы или предложения? Пишите на <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.</span>
+      </p>
+    </>
+  );
+}
+
 function localizedServerMessage(message: string) {
   if (storedLanguage() !== 'ru') return message;
   const messages: Record<string, string> = {
@@ -2938,7 +2964,7 @@ function PlayerPage({
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
-  const [activeView, setActiveView] = useState<'table' | 'voice' | 'stats'>('table');
+  const [activeView, setActiveView] = useState<'table' | 'voice' | 'stats' | 'about'>('table');
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
@@ -3391,7 +3417,8 @@ function PlayerPage({
   );
   const isVoiceView = activeView === 'voice';
   const isStatsView = activeView === 'stats' && showStatsTile;
-  const isTableView = !isVoiceView && !isStatsView;
+  const isAboutView = activeView === 'about';
+  const isTableView = !isVoiceView && !isStatsView && !isAboutView;
   const playerSeatIndex = player.players.findIndex(seat => seat.id === player.playerId);
   const otherPlayers = playerSeatIndex < 0
     ? player.players.filter(seat => seat.id !== player.playerId)
@@ -3537,6 +3564,17 @@ function PlayerPage({
           onClick={() => setActiveView('stats')}
         >
           {ui('STATISTICS', 'СТАТИСТИКА')}
+        </button>
+        <button
+          id="about-tab"
+          type="button"
+          role="tab"
+          aria-controls="about-panel"
+          aria-selected={isAboutView}
+          className={`view-tab${isAboutView ? ' is-active' : ''}`}
+          onClick={() => setActiveView('about')}
+        >
+          {ui('ABOUT', 'О ПРОЕКТЕ')}
         </button>
       </nav>
 
@@ -3921,6 +3959,16 @@ function PlayerPage({
         canReplay={canContinue}
         onReplayHand={replayDeal}
       /> : null}
+      </section> : null}
+
+      {isAboutView ? <section
+        id="about-panel"
+        role="tabpanel"
+        aria-labelledby="about-tab"
+        className="about-panel"
+        data-testid="about-panel"
+      >
+        <AboutContent />
       </section> : null}
 
       </div>
