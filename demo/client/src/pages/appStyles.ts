@@ -4832,4 +4832,58 @@ export const PLAYER_PAGE_STYLES = `
       transform: translateY(-13px) !important;
     }
   }
+
+  /* A split mobile table uses the same physical seat width in every row.
+     Keep the shorter row centered instead of letting the grid stretch it. */
+  @media (max-width: 760px) {
+    #root .poker-page .wireframe-table .wireframe-opponents-row {
+      display: flex !important;
+      width: auto !important;
+      max-width: none !important;
+      grid-template-columns: none !important;
+      gap: var(--wireframe-opponent-row-gap) !important;
+      margin-inline: auto !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-slot {
+      flex: 0 0 var(--wireframe-opponent-slot-width) !important;
+      width: var(--wireframe-opponent-slot-width) !important;
+      min-width: var(--wireframe-opponent-slot-width) !important;
+      max-width: var(--wireframe-opponent-slot-width) !important;
+    }
+
+    /* Two opponent rows need more felt height. Otherwise the fixed compact
+       table ends before the hero row and the hand spills into the guide. */
+    #root .poker-page .wireframe-table[data-row-count="2"] {
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+  }
+
+  /* The multi-row mobile table must still leave the complete game controls
+     in the viewport. Compact only the reserved vertical bands; card widths
+     and their aspect ratio remain unchanged. */
+  @media (max-width: 760px) {
+    #root .poker-page .wireframe-table[data-row-count="2"] .wireframe-opponent-slot {
+      height: clamp(76px, 10dvh, 96px) !important;
+    }
+    #root .poker-page .wireframe-table[data-row-count="2"] .wireframe-results-zone {
+      height: clamp(45px, 6dvh, 56px) !important;
+    }
+    #root .poker-page .wireframe-table[data-row-count="2"] .wireframe-flop-zone {
+      height: clamp(80px, 11dvh, 100px) !important;
+    }
+    #root .poker-page .wireframe-table[data-row-count="2"] .wireframe-player-zone {
+      height: clamp(132px, 17dvh, 160px) !important;
+    }
+  }
+
+  /* On the short 568px profile remove only decorative bottom spacing. The
+     table, guide and action controls already fit; this prevents page padding
+     from creating a fake scrollbar. */
+  @media (max-width: 760px) and (max-height: 600px) {
+    #root .poker-page { padding-bottom: 0 !important; }
+    #root .poker-page .game-tile { padding-bottom: 0 !important; }
+    #root .poker-page .wireframe-table-stack { padding-bottom: 0 !important; }
+  }
 `;

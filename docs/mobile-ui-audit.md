@@ -54,6 +54,27 @@ npm.cmd run e2e -- --grep "Galaxy S8 keeps the essential"
 npm.cmd run e2e -- --grep "mobile showdown|mobile opponent.*showdown"
 ```
 
+## Обязательное требование: без вертикального скроллинга
+
+На каждом проверяемом мобильном viewport вся игровая механика должна быть
+доступна одновременно, без вертикального скроллинга страницы. Это включает
+зелёный стол, карты героя, карты соперников, street/pot, подсказку HIGH/LOW и
+action dock с кнопками ставки и действиями `Call/Raise/Fold`.
+
+Для multi-row раскладки отдельно проверять 7 и 8 мест: все ряды соперников
+имеют одинаковый размер карт, рука героя находится внутри стола, а action dock
+заканчивается не ниже viewport.
+
+Автоматический критерий: после завершения анимации `document.documentElement.scrollHeight`
+и `document.body.scrollHeight` не превышают `window.innerHeight` более чем на 1px;
+каждый обязательный элемент также проверяется через `getBoundingClientRect()`.
+
+Команда focused-аудита:
+
+```text
+npx.cmd playwright test --config=playwright.config.ts playwright/tests/mobile-multirow-table-layout.spec.ts
+```
+
 Автотесты должны проверять не только наличие DOM-узлов, но и `getBoundingClientRect()` каждого обязательного элемента: `left >= 0`, `top >= 0`, `right <= innerWidth`, `bottom <= innerHeight`. Проверку выполнять после завершения анимации раздачи.
 
 ## Последний результат

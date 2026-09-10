@@ -434,6 +434,13 @@ test('popular phone viewport matrix keeps the mobile table usable', async ({ pag
       }).map((item) => ({ className: item.className, testId: item.dataset.testid, box: item.getBoundingClientRect().toJSON() }));
     });
     expect(overflow, `${name}: an essential element exits viewport`).toEqual([]);
+    const pageLayout = await page.evaluate(() => ({
+      viewportHeight: window.innerHeight,
+      documentHeight: document.documentElement.scrollHeight,
+      bodyHeight: document.body.scrollHeight,
+    }));
+    expect(pageLayout.documentHeight, `${name}: page requires vertical scrolling`).toBeLessThanOrEqual(pageLayout.viewportHeight + 1);
+    expect(pageLayout.bodyHeight, `${name}: body requires vertical scrolling`).toBeLessThanOrEqual(pageLayout.viewportHeight + 1);
     const overlap = await page.evaluate(() => {
       const guide = document.querySelector<HTMLElement>('[data-testid="mobile-combination-guide"]')!.getBoundingClientRect();
       const cards = Array.from(document.querySelectorAll<HTMLElement>('.wireframe-hero-slot .focal-card-frame'))

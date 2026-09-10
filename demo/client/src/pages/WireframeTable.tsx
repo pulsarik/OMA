@@ -69,12 +69,16 @@ export function WireframeTable({
     Math.min(opponentCount, opponents?.length || opponentCount),
   ), [container, opponentCount, opponents?.length]);
 
+  const maxRowLength = Math.max(...layout.rows.map((row) => row.length));
+  const opponentRowGap = container.width <= MOBILE_LAYOUT_MAX_WIDTH ? 6 : 2 * layout.scale;
+  const availableWidth = container.width * 0.9;
+  const maxSlotWidth = 500 * layout.scale;
+  const opponentSlotWidth = Math.min(maxSlotWidth, availableWidth / maxRowLength);
+
   const opponentRows = layout.rows.map((row, rowIndex) => (
     (() => {
-      const availableWidth = container.width * 0.9;
-      const maxSlotWidth = 500 * layout.scale;
-      const slotWidth = Math.min(maxSlotWidth, availableWidth / row.length);
-      const rowWidth = row.length * slotWidth + Math.max(0, row.length - 1) * 2 * layout.scale;
+      const rowWidth = row.length * opponentSlotWidth
+        + Math.max(0, row.length - 1) * opponentRowGap;
       return (
         <div
           className="wireframe-opponents-row"
@@ -82,10 +86,13 @@ export function WireframeTable({
           data-row-index={rowIndex}
           data-opponent-count={row.length}
           style={{
-            gridTemplateColumns: `repeat(${row.length}, ${slotWidth}px)`,
+            display: 'flex',
             width: `${rowWidth}px`,
             marginInline: 'auto',
-          }}
+            gap: `${opponentRowGap}px`,
+            '--wireframe-opponent-slot-width': `${opponentSlotWidth}px`,
+            '--wireframe-opponent-row-gap': `${opponentRowGap}px`,
+          } as React.CSSProperties}
           key={`row-${rowIndex}`}
         >
       {row.map((opponentIndex, index) => {
@@ -97,7 +104,11 @@ export function WireframeTable({
         <div
           className="wireframe-opponent-slot"
           key={`opponent-${opponentIndex}`}
-          style={{ transform: `translateY(${distance * 10}%)` }}
+          style={{
+            flex: `0 0 ${opponentSlotWidth}px`,
+            width: `${opponentSlotWidth}px`,
+            transform: `translateY(${distance * 10}%)`,
+          } as React.CSSProperties}
         >
           {opponents?.[opponentIndex]}
         </div>
