@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('320px pocket cards keep rank and suit in the protected corner', async ({ page }) => {
+test('320px pocket cards use the shared scaled card layout', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Create a table' }).click();
@@ -35,11 +35,10 @@ test('320px pocket cards keep rank and suit in the protected corner', async ({ p
   }));
 
   for (const card of geometry) {
-    const safeRight = card.face.left + card.face.width * 0.6 + 1;
     expect(card.rank.left).toBeGreaterThanOrEqual(card.face.left - 1);
     expect(card.suit.left).toBeGreaterThanOrEqual(card.face.left - 1);
-    expect(card.rank.right).toBeLessThanOrEqual(safeRight);
-    expect(card.suit.right).toBeLessThanOrEqual(safeRight);
+    expect(card.rank.right).toBeLessThanOrEqual(card.face.right + 1);
+    expect(card.suit.right).toBeLessThanOrEqual(card.face.right + 1);
     expect(card.rank.top).toBeGreaterThanOrEqual(card.face.top - 1);
     expect(card.suit.bottom).toBeLessThanOrEqual(card.face.bottom + 1);
     expect(card.rank.bottom).toBeLessThanOrEqual(card.suit.top + 2);

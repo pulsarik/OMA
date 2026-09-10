@@ -4716,7 +4716,7 @@ export const PLAYER_PAGE_STYLES = `
       width: 100% !important;
       max-width: 100% !important;
       overflow: visible !important;
-      line-height: .9 !important;
+      line-height: .75 !important;
       white-space: nowrap !important;
     }
     #root .poker-page .wireframe-hero-slot .card-face--pocket .card-corner-index .card-rank {
@@ -4742,6 +4742,94 @@ export const PLAYER_PAGE_STYLES = `
       overflow: visible !important;
       overflow-x: visible !important;
       overflow-y: visible !important;
+    }
+  }
+
+  /* One mobile card face: every card uses the same rank/suit layout, while
+     its frame and Card() scale determine the rendered size. */
+  @media (max-width: 760px) {
+    #root .poker-page .card-face,
+    #root .poker-page .wireframe-table .wireframe-hand .card-face--pocket,
+    #root .poker-page .wireframe-table .wireframe-hand .focal-card,
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .opponent-card {
+      position: relative !important;
+      display: grid !important;
+      align-content: center !important;
+      justify-items: center !important;
+      container-type: normal !important;
+    }
+    #root .poker-page .wireframe-table .focal-card-frame,
+    #root .poker-page .wireframe-table .opponent-card-frame {
+      container-type: inline-size !important;
+    }
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .opponent-card {
+      width: 100% !important;
+      height: 100% !important;
+      min-width: 0 !important;
+      transform: none !important;
+      transform-origin: top left !important;
+      box-sizing: border-box !important;
+    }
+    #root .poker-page .card-face .card-rank,
+    #root .poker-page .wireframe-table .card-face .card-rank,
+    #root .poker-page .wireframe-table .wireframe-hand .focal-card .card-rank,
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .opponent-card .card-rank {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      width: auto !important;
+      max-width: 100% !important;
+      overflow: visible !important;
+      font-size: clamp(10px, 52cqw, 48px) !important;
+      line-height: .9 !important;
+      letter-spacing: -.04em !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      transform: none !important;
+    }
+    #root .poker-page .card-face .card-suit,
+    #root .poker-page .wireframe-table .card-face .card-suit,
+    #root .poker-page .wireframe-table .wireframe-hand .focal-card .card-suit,
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .opponent-card .card-suit {
+      position: static !important;
+      top: auto !important;
+      left: auto !important;
+      width: auto !important;
+      max-width: 80% !important;
+      overflow: visible !important;
+      font-size: clamp(9px, 48cqw, 44px) !important;
+      line-height: .9 !important;
+      text-align: center !important;
+      white-space: nowrap !important;
+      transform: none !important;
+    }
+    #root .poker-page .card-face .card-rank--ten,
+    #root .poker-page .wireframe-table .card-face .card-rank--ten,
+    #root .poker-page .wireframe-table .wireframe-hand .focal-card .card-rank--ten,
+    #root .poker-page .wireframe-table .wireframe-opponent-hand .opponent-card .card-rank--ten {
+      font-size: clamp(10px, 52cqw, 48px) !important;
+      letter-spacing: -.1em !important;
+      transform: scaleX(.72) !important;
+      transform-origin: left top !important;
+    }
+
+    /* The marker belongs to the face, never to the transformed frame. */
+    #root .poker-page .wireframe-table .compact-card-row > .focal-card-frame.combo-card-high,
+    #root .poker-page .wireframe-table .compact-card-row > .focal-card-frame.combo-card-low,
+    #root .poker-page .wireframe-table .compact-card-row > .opponent-card-frame.combo-card-high,
+    #root .poker-page .wireframe-table .compact-card-row > .opponent-card-frame.combo-card-low,
+    #root .poker-page .wireframe-table .table-board .focal-card-frame.combo-card-high,
+    #root .poker-page .wireframe-table .table-board .focal-card-frame.combo-card-low {
+      border: 0 !important;
+      outline: none !important;
+      padding: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+    }
+  }
+  @media (min-height: 601px) and (max-width: 760px) {
+    #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) {
+      transform: translateY(-13px) !important;
     }
   }
 `;

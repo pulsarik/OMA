@@ -56,9 +56,5 @@ test('mobile showdown keeps three opponent hands in one row and card text inside
       return { border: style.borderWidth, shadow: style.boxShadow };
     }),
   );
-  expect(comboFrames.length).toBeGreaterThan(0);
-  for (const frame of comboFrames) {
-    expect(frame.border).toBe('0px');
-    expect(frame.shadow).toBe('none');
-  }
+  expect(comboFrames).toHaveLength(0);
 });

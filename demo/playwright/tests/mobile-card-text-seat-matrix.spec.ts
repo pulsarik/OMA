@@ -28,7 +28,16 @@ test('mobile opponent card rank and suit stay readable from 3 to 8 seats', async
       const faceBox = face.getBoundingClientRect();
       const rankBox = face.querySelector<HTMLElement>('.card-rank')!.getBoundingClientRect();
       const suitBox = face.querySelector<HTMLElement>('.card-suit')!.getBoundingClientRect();
-      return { face: faceBox.toJSON(), rank: rankBox.toJSON(), suit: suitBox.toJSON() };
+      const rankStyle = getComputedStyle(face.querySelector<HTMLElement>('.card-rank')!);
+      const suitStyle = getComputedStyle(face.querySelector<HTMLElement>('.card-suit')!);
+      return {
+        face: faceBox.toJSON(),
+        rank: rankBox.toJSON(),
+        suit: suitBox.toJSON(),
+        faceWidth: faceBox.width,
+        rankFontSize: parseFloat(rankStyle.fontSize),
+        suitFontSize: parseFloat(suitStyle.fontSize),
+      };
     }));
 
     expect(cards.length).toBeGreaterThan(0);
@@ -40,6 +49,8 @@ test('mobile opponent card rank and suit stay readable from 3 to 8 seats', async
       expect(card.rank.top).toBeGreaterThanOrEqual(card.face.top - 1);
       expect(card.suit.bottom).toBeLessThanOrEqual(card.face.bottom + 1);
       expect(card.rank.bottom).toBeLessThanOrEqual(card.suit.top + 1);
+      expect(card.rankFontSize / card.faceWidth, JSON.stringify(card)).toBeGreaterThanOrEqual(0.5);
+      expect(card.suitFontSize / card.faceWidth, JSON.stringify(card)).toBeGreaterThanOrEqual(0.4);
     }
   }
 });

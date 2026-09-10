@@ -620,7 +620,8 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
   const suitSymbol: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
   const isRed = suit === 'h' || suit === 'd';
   const textureVariant = cardTextureVariant(code);
-  const isPocketCard = className?.includes('focal-card') || className?.includes('opponent-card');
+  const isHandCard = className?.includes('focal-card') || className?.includes('opponent-card');
+  const rankClassName = `card-rank${rank === '10' || rank === 'T' ? ' card-rank--ten' : ''}`;
 
   return (
     <div
@@ -629,7 +630,7 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
       aria-label={code}
       data-testid={`card-face-${code}`}
       data-card-style="simple"
-      className={`card-face card-face--texture-${textureVariant}${isPocketCard ? ' card-face--pocket' : ''}${className ? ` ${className}` : ''}`}
+      className={`card-face card-face--texture-${textureVariant}${isHandCard ? ' card-face--pocket' : ''}${className ? ` ${className}` : ''}`}
       style={{
         width: 92,
         height: 132,
@@ -645,19 +646,10 @@ function Card({ code, scale = CARD_SCALE, className }: { code: string; scale?: n
         fontWeight: 900,
       }}
     >
-      {isPocketCard ? (
-        <span className="card-corner-index" aria-hidden="true">
-          <span className={`card-rank${rank === '10' || rank === 'T' ? ' card-rank--ten' : ''}`} style={{ fontSize: 48, lineHeight: 0.95 }}>
-            {rankLabels[rank] ?? rank}
-          </span>
-          <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
-        </span>
-      ) : (
-        <>
-          <span className="card-rank" style={{ fontSize: 48, lineHeight: 0.95 }}>{rankLabels[rank] ?? rank}</span>
-          <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
-        </>
-      )}
+      <span className={rankClassName} style={{ fontSize: 48, lineHeight: 0.95 }}>
+        {rankLabels[rank] ?? rank}
+      </span>
+      <span className="card-suit" style={{ fontSize: 44, lineHeight: 0.95 }}>{suitSymbol[suit] ?? suit.toUpperCase()}</span>
     </div>
   );
 }
@@ -725,25 +717,12 @@ function CompactCardRow({
   const cardClass = focal ? 'focal-card' : 'opponent-card';
   const scale = focal ? FOCAL_CARD_SCALE : OPPONENT_CARD_SCALE;
   const expansionLabel = ui('Show opponent cards larger', 'Показать карты соперника крупнее');
-  const winnerGlow = winnerBorder?.includes('#dc2626') && winnerBorder.includes('#2563eb')
-    ? '0 0 0 1px rgba(255,255,255,.8), 0 0 10px rgba(220,38,38,.42), 0 0 16px rgba(37,99,235,.34)'
-    : winnerBorder?.includes('#dc2626')
-      ? '0 0 0 1px rgba(255,255,255,.8), 0 0 14px rgba(220,38,38,.5)'
-      : '0 0 0 1px rgba(255,255,255,.8), 0 0 14px rgba(37,99,235,.5)';
 
   return (
     <>
       <div
         data-testid={testId}
-        className={`compact-card-row${expandable ? ' is-expandable' : ''}${winnerBorder ? ' has-winner-border' : ''}`}
-        data-winner-border={winnerBorder ? 'red-blue' : undefined}
-        style={winnerBorder ? {
-          border: '3px solid transparent',
-          borderRadius: 10,
-          background: `linear-gradient(#fff, #fff) padding-box, ${winnerBorder} border-box`,
-          padding: 4,
-          boxShadow: winnerGlow,
-        } : undefined}
+        className={`compact-card-row${expandable ? ' is-expandable' : ''}`}
         role={expandable ? 'button' : undefined}
         tabIndex={expandable ? 0 : undefined}
         aria-label={expandable ? expansionLabel : undefined}
@@ -759,7 +738,7 @@ function CompactCardRow({
         {cards.map((card, index) => (
           <div
             key={card}
-            className={`${frameClass} deal-card${highComboCards.includes(card) ? ' combo-card-high' : ''}${lowComboCards.includes(card) ? ' combo-card-low' : ''}`}
+            className={`${frameClass} deal-card`}
             data-hand-card-index={index}
             style={{
               '--deal-delay': `${index * 90}ms`,
@@ -1044,7 +1023,7 @@ function BoardRow({
       {cards.map((card, index) => (
         <div
           key={card}
-          className={`${compact ? 'focal-card-frame deal-card' : 'deal-card'}${highComboCards.includes(card) ? ' combo-card-high' : ''}${lowComboCards.includes(card) ? ' combo-card-low' : ''}`}
+          className={`${compact ? 'focal-card-frame deal-card' : 'deal-card'}`}
           style={{
             ...(compact ? {} : { width, height }),
             '--deal-delay': `${Math.min(index, 2) * 90}ms`,

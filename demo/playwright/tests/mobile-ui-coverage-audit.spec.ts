@@ -444,7 +444,7 @@ test('popular phone viewport matrix keeps the mobile table usable', async ({ pag
   }
 });
 
-test('mobile hero cards fill their zone and combination hints are replaced by outlines', async ({ page }) => {
+test('mobile hero cards fill their zone and combination hints stay in the guide', async ({ page }) => {
   await startMobileTable(page);
   await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(2_100);
@@ -479,7 +479,7 @@ test('mobile hero cards fill their zone and combination hints are replaced by ou
   await page.getByRole('button', { name: 'Fold' }).click();
   const hint = page.getByTestId('high-combo-side');
   await expect(hint).toBeHidden({ timeout: 30_000 });
-  await expect(page.locator('.wireframe-hero-slot .combo-card-high, .wireframe-hero-slot .combo-card-low').first()).toBeVisible();
+  await expect(page.locator('.wireframe-table .combo-card-high, .wireframe-table .combo-card-low')).toHaveCount(0);
 });
 
 test('mobile opponents keep four hidden cards and non-overlapping hand zones', async ({ page }) => {

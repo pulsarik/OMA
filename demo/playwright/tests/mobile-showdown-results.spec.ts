@@ -28,7 +28,7 @@ test('mobile showdown replaces action buttons with result and New Deal', async (
   await expect(page.getByTestId('actions-zone').locator('.action-dock')).toHaveCount(0);
 
   const combinationCards = page.locator('.wireframe-hand .compact-card-row > [class*="combo-card-"]');
-  await expect(combinationCards).not.toHaveCount(0);
+  await expect(combinationCards).toHaveCount(0);
   const cardStyles = await page.locator('.wireframe-hand .compact-card-row').evaluateAll((rows) => rows.map((row) => ({
     hadWinnerRowClass: row.classList.contains('has-winner-border'),
     borderWidth: getComputedStyle(row).borderWidth,
