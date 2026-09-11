@@ -4909,4 +4909,12 @@ export const PLAYER_PAGE_STYLES = `
     #root .poker-page .game-tile { padding-bottom: 0 !important; }
     #root .poker-page .wireframe-table-stack { padding-bottom: 0 !important; }
   }
+
+  /* At 360px wide the compact table ends immediately above the guide. Move
+     the hero hand a few pixels up so its four cards cannot touch the guide. */
+  @media (min-width: 360px) and (max-width: 360px) and (min-height: 601px) {
+    #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) {
+      transform: translateY(-20px) !important;
+    }
+  }
 `;

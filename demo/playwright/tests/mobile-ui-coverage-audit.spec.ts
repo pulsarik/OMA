@@ -372,6 +372,7 @@ test('popular phone viewport matrix keeps the mobile table usable', async ({ pag
   const phones = [
     ['iPhone SE', 320, 568],
     ['Galaxy S8', 360, 740],
+    ['Galaxy S8 tall', 360, 820],
     ['iPhone 12', 390, 844],
     ['Pixel 7', 412, 915],
   ] as const;

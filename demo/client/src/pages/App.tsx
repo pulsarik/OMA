@@ -20,6 +20,9 @@ import { problemContext } from '../problemContext';
 import './wireframe-actions.css';
 import { WIREFRAME_LAYOUT } from './wireframeLayout';
 import { WireframeTable } from './WireframeTable';
+import { MOBILE_TABLE_ENABLED, MOBILE_TABLE_MAX_PLAYERS, shouldUseMobileTable } from '../mobile-table/feature';
+
+const MobileTable = React.lazy(() => import('../mobile-table/MobileTable'));
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = isLocalVite ? 'http://localhost:4000' : window.location.origin;
@@ -41,8 +44,32 @@ const PLAYER_NAME_MAX_LENGTH = 30;
 const DEFAULT_TABLE_SEATS = 4;
 const MIN_TABLE_SEATS = 2;
 const MAX_TABLE_SEATS = 10;
+const MAX_MOBILE_TABLE_SEATS = 9;
 const DESKTOP_TABLE_LAYOUT_MIN_WIDTH = 761;
 const MOBILE_TABLE_LAYOUT_MAX_WIDTH = 560;
+
+function useMobileTableSeatLimit() {
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => window.innerWidth < DESKTOP_TABLE_LAYOUT_MIN_WIDTH,
+  );
+
+  useEffect(() => {
+    const updateViewport = () => setIsMobileViewport(window.innerWidth < DESKTOP_TABLE_LAYOUT_MIN_WIDTH);
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    window.visualViewport?.addEventListener('resize', updateViewport);
+    return () => {
+      window.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+    };
+  }, []);
+
+  return isMobileViewport ? (MOBILE_TABLE_ENABLED ? MOBILE_TABLE_MAX_PLAYERS : MAX_MOBILE_TABLE_SEATS) : MAX_TABLE_SEATS;
+}
+
+function tableSeatOptions(maxSeats: number) {
+  return Array.from({ length: maxSeats - MIN_TABLE_SEATS + 1 }, (_, index) => index + MIN_TABLE_SEATS);
+}
 
 function ensurePlayerId() {
   const existing = document.cookie
@@ -556,6 +583,7 @@ type VersionInfo = {
 
 type PlayerPageProps = {
   playerUrl?: string;
+  tableName?: string;
   isLobbyHost?: boolean;
   onPlayerUrl?: (url: string) => void;
   onRestartGame?: () => void;
@@ -1158,7 +1186,7 @@ function PotBankVisual({ value }: { value: number }) {
         {chips.map((chip, index) => (
           <span
             className="pot-bank-chip"
-            key={chip.label}
+            key={chip.value}
             style={{
               background: `repeating-conic-gradient(#fff 0 18deg, ${chip.color} 18deg 45deg)`,
               '--chip-color': chip.color,
@@ -2431,15 +2459,21 @@ function MobileCombinationVisualGuide({ player }: { player: PlayerView }) {
   );
   const highExample = guideCards(player.currentCombo?.highCombo);
   const lowExample = guideCards(player.currentCombo?.lowCombo);
+  const highRank = localizedRank(player.currentCombo?.highRank);
+  const lowRank = localizedRank(player.currentCombo?.lowRank);
   return (
     <section className="mobile-combination-guide" data-testid="mobile-combination-guide" style={{ display: 'grid', gap: 5, margin: '6px 2px 0', padding: 7, boxSizing: 'border-box', overflow: 'visible' }}>
       <div className="mobile-combination-visual-examples" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 5 }}>
         <article className="mobile-combination-visual-example high" style={{ display: 'grid', gap: 3, minWidth: 0, padding: 6, boxSizing: 'border-box' }}>
-          <strong style={{ fontSize: 10, lineHeight: 1 }}>HIGH</strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
+          <strong data-testid="mobile-high-combination" title={highRank ?? undefined} style={{ minWidth: 0, overflow: 'hidden', fontSize: 10, lineHeight: 1, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            HIGH{highRank ? ` · ${highRank}` : ''}
+          </strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
           {renderCards(highExample)}
         </article>
         <article className="mobile-combination-visual-example low" style={{ display: 'grid', gap: 3, minWidth: 0, padding: 6, boxSizing: 'border-box' }}>
-          <strong style={{ fontSize: 10, lineHeight: 1 }}>LOW</strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
+          <strong data-testid="mobile-low-combination" title={lowRank ?? undefined} style={{ minWidth: 0, overflow: 'hidden', fontSize: 10, lineHeight: 1, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            LOW{lowRank ? ` · ${lowRank}` : ''}
+          </strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
           {renderCards(lowExample)}
         </article>
       </div>
@@ -2950,6 +2984,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
 
 function PlayerPage({
   playerUrl,
+  tableName,
   isLobbyHost = false,
   onPlayerUrl,
   onRestartGame,
@@ -3523,6 +3558,36 @@ function PlayerPage({
       {ui('New deal', 'Новая раздача')}
     </button>
   ) : undefined;
+
+  if (isTableView && isMobileTable && shouldUseMobileTable(window.innerWidth, player.players.length)) {
+    return <React.Suspense fallback={<p role="status">Loading table… / Загружаем стол…</p>}>
+      <MobileTable
+        player={player}
+        tableName={tableName}
+        dealerId={dealerPlayerId}
+        controls={{
+          canAct, canCall, canRaise, callAmount: call.amount, callIsAllIn: call.isAllIn,
+          wagerTarget, wagerIsAllIn: currentBet > 0 ? raiseIsAllIn : betIsAllIn,
+          betSize, raiseCount, maxRaises, pending: Boolean(pendingCommand), connected: socketReady,
+          creatingDeal: isCreatingDeal, turnSeconds, turnDurationMs: player.turnDurationMs,
+          notice, sessionWarning: showSessionWarning ? sessionCountdown : undefined,
+        }}
+        onMove={sendMove}
+        onBetSize={setBetSize}
+        onNext={canContinue ? startNewDeal : player.nextPlayerLink ? () => {
+          if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
+          else window.location.href = player.nextPlayerLink!.url;
+        } : undefined}
+        onStats={() => setActiveView('stats')}
+        statsAvailable={showStatsTile}
+        onAbout={() => setActiveView('about')}
+        onRestart={onRestartGame}
+        onExit={onExitGame}
+        isHost={isLobbyHost}
+        winnerName={tournamentWinner ? tablePlayerName(tournamentWinner.name, tournamentWinner.id) : undefined}
+      />
+    </React.Suspense>;
+  }
 
   return (
     <>
@@ -4441,6 +4506,7 @@ function LobbyPage() {
     return (
       <PlayerPage
         playerUrl={playerUrl}
+        tableName={lobby?.tableName}
         isLobbyHost={isHost}
         onPlayerUrl={applyPlayerUrl}
         onRestartGame={() => send('lobby_restart')}
@@ -4687,6 +4753,7 @@ function HomePage() {
   const [homeTab, setHomeTab] = useState<'lobby' | 'quick' | 'about'>('lobby');
   const [hostName, setHostName] = useState('Dima');
   const [lobbySeats, setLobbySeats] = useState(storedTableSeats);
+  const maxTableSeats = useMobileTableSeatLimit();
   const [messages, setMessages] = useState<DealMessage[]>([]);
   const [players, setPlayers] = useState(2);
   const [playersText, setPlayersText] = useState('2');
@@ -4696,6 +4763,13 @@ function HomePage() {
   const [homeReplayError, setHomeReplayError] = useState<string | null>(null);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
+
+  useEffect(() => {
+    if (lobbySeats > maxTableSeats) {
+      setLobbySeats(maxTableSeats);
+      rememberTableSeats(maxTableSeats);
+    }
+  }, [lobbySeats, maxTableSeats]);
 
   const { socket: ws, connected: homeSocketReady } = useReliableWebSocket(WS_URL, {
     onOpen: () => {
@@ -4779,7 +4853,7 @@ function HomePage() {
     ws.send(JSON.stringify({
       action: 'create_lobby',
       name: hostName.trim(),
-      maxPlayers: lobbySeats,
+      maxPlayers: Math.min(lobbySeats, maxTableSeats),
     }));
   }
 
@@ -4930,7 +5004,7 @@ function HomePage() {
                 }}
                 style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, background: '#fff' }}
               >
-                {Array.from({ length: 9 }, (_, index) => index + 2).map(value => (
+                {tableSeatOptions(maxTableSeats).map(value => (
                   <option key={value} value={value}>{value} players</option>
                 ))}
               </select>
@@ -5172,6 +5246,7 @@ function WelcomePage() {
   const [homeTab, setHomeTab] = useState<'lobby' | 'about'>('lobby');
   const [hostName, setHostName] = useState(storedPlayerName);
   const [seats, setSeats] = useState(4);
+  const maxTableSeats = useMobileTableSeatLimit();
   const [pin, setPin] = useState('');
   const [selectedLobbyId, setSelectedLobbyId] = useState<string | null>(null);
   const [openLobbies, setOpenLobbies] = useState<OpenLobbyView[]>([]);
@@ -5181,6 +5256,10 @@ function WelcomePage() {
   const pinInputRef = useRef<HTMLInputElement>(null);
   const t = WELCOME_TEXT.en;
   const selectedLobby = openLobbies.find(lobby => lobby.id === selectedLobbyId);
+
+  useEffect(() => {
+    if (seats > maxTableSeats) setSeats(maxTableSeats);
+  }, [maxTableSeats, seats]);
 
   const { socket, connected } = useReliableWebSocket(WS_URL, {
     onOpen: (ws) => {
@@ -5232,7 +5311,7 @@ function WelcomePage() {
       return;
     }
     rememberPlayerName(normalizedName);
-    send('create_lobby', { name: normalizedName, maxPlayers: seats });
+    send('create_lobby', { name: normalizedName, maxPlayers: Math.min(seats, maxTableSeats) });
   }
 
   function findByPin() {
@@ -5353,7 +5432,7 @@ function WelcomePage() {
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.yourName}<input aria-label={t.yourName} autoFocus value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
               <select aria-label={t.seats} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
-                {Array.from({ length: 9 }, (_, index) => index + 2).map(value => <option key={value} value={value}>{value}</option>)}
+                {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
               </select>
             </label>
             <button onClick={createTable} disabled={!connected} style={primaryButton}>{connected ? t.createButton : t.connecting}</button>

@@ -8,4 +8,6 @@ server/build-info.json
 *.sqlite-journal
 *.log
 .env
+.env.*
+!.env.example
 .DS_Store

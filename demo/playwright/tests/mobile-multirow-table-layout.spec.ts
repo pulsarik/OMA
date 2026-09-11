@@ -1,7 +1,7 @@
 import { expect, Page, test } from '@playwright/test';
 
-async function startMobileTable(page: Page, seats: number) {
-  await page.setViewportSize({ width: 510, height: 900 });
+async function startMobileTable(page: Page, seats: number, width = 510, height = 900) {
+  await page.setViewportSize({ width, height });
   await page.goto('/');
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Dima');
@@ -16,8 +16,22 @@ async function startMobileTable(page: Page, seats: number) {
   ))).toBe(true);
 }
 
+test('mobile table creation supports up to nine seats and keeps ten seats desktop-only', async ({ page }) => {
+  await page.setViewportSize({ width: 510, height: 900 });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+
+  const seats = page.getByLabel('Seats at the table');
+  await expect(seats.locator('option')).toHaveCount(8);
+  await expect(seats.locator('option[value="9"]')).toHaveCount(1);
+  await expect(seats.locator('option[value="10"]')).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await expect(seats.locator('option[value="10"]')).toHaveCount(1);
+});
+
 test('mobile multi-row tables keep opponent cards equal and hero cards on the felt', async ({ page }) => {
-  for (const seats of [7, 8]) {
+  for (const seats of [7, 8, 9]) {
     await startMobileTable(page, seats);
 
     const metrics = await page.getByTestId('poker-table').evaluate((table) => {
@@ -75,4 +89,33 @@ test('mobile multi-row tables keep opponent cards equal and hero cards on the fe
     expect(metrics.viewport.documentHeight).toBeLessThanOrEqual(metrics.viewport.height + 1);
     expect(metrics.viewport.bodyHeight).toBeLessThanOrEqual(metrics.viewport.height + 1);
   }
+});
+
+test('nine-seat mobile table fits the narrow 360x820 viewport', async ({ page }) => {
+  await startMobileTable(page, 9, 360, 820);
+
+  const metrics = await page.getByTestId('poker-table').evaluate((table) => {
+    const tableBox = table.getBoundingClientRect();
+    const cards = Array.from(table.querySelectorAll<HTMLElement>('.wireframe-opponents-row .deal-card'))
+      .map((card) => card.getBoundingClientRect());
+    const heroCards = Array.from(table.querySelectorAll<HTMLElement>('.wireframe-hero-slot .deal-card'))
+      .map((card) => card.getBoundingClientRect());
+    return {
+      rowCount: table.querySelectorAll('.wireframe-opponents-row').length,
+      cardsInsideTable: [...cards, ...heroCards].every((card) => (
+        card.left >= tableBox.left - 1
+        && card.right <= tableBox.right + 1
+        && card.top >= tableBox.top - 1
+        && card.bottom <= tableBox.bottom + 1
+      )),
+      documentHeight: document.documentElement.scrollHeight,
+      bodyHeight: document.body.scrollHeight,
+      viewportHeight: window.innerHeight,
+    };
+  });
+
+  expect(metrics.rowCount).toBe(2);
+  expect(metrics.cardsInsideTable).toBe(true);
+  expect(metrics.documentHeight).toBeLessThanOrEqual(metrics.viewportHeight + 1);
+  expect(metrics.bodyHeight).toBeLessThanOrEqual(metrics.viewportHeight + 1);
 });
