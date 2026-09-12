@@ -96,23 +96,14 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
   const act = (event: React.MouseEvent, move: Move) => {
     if (!c.canAct || (event.detail > 0 && press.current !== signature)) return;
     const wager = move === 'bet' || move === 'raise';
-    if (((wager && c.wagerIsAllIn) || (move === 'call' && c.callIsAllIn))
-      && !window.confirm(t('Confirm all-in?', 'Подтвердить олл-ин?'))) return;
     props.onMove(move, wager ? c.wagerTarget : undefined, wager ? c.betSize : undefined);
   };
-  if (player.stage === 'showdown') return <footer className="mt-dock">
-    {props.onNext ? <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
+  if (player.stage === 'showdown') return props.onNext ? <footer className="mt-dock">
+    <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
       {c.creatingDeal ? t('Dealing…', 'Раздаём…') : t('Next deal', 'Следующая раздача')}
-    </button> : <p className="mt-wait">{t('Hand complete', 'Раздача завершена')}</p>}
-  </footer>;
+    </button>
+  </footer> : null;
   return <footer className="mt-dock" data-testid="mt-actions">
-    <div className="mt-action-status" role="status">
-      {!c.connected ? t('Reconnecting… Actions paused', 'Восстанавливаем связь… Действия недоступны')
-        : c.pending ? t('Waiting for confirmation…', 'Ждём подтверждения…')
-          : c.canAct ? t('Your turn', 'Ваш ход') : player.folded ? t('You folded · watching the hand', 'Вы сбросили · наблюдаем раздачу')
-            : t('Waiting for the next action', 'Ждём следующего хода')}
-      {c.canAct && c.turnSeconds !== undefined ? <span className="mt-timer">{c.turnSeconds}s</span> : null}
-    </div>
     <fieldset disabled={!c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
       <div className="mt-bet-sizes" role="group" aria-label={t('Bet size', 'Размер ставки')}>
         {(['blind', 'quarter', 'half', 'pot'] as const).map((size, i) => <button key={size} aria-pressed={c.betSize === size}

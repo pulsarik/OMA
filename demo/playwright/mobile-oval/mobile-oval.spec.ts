@@ -86,18 +86,20 @@ test('live cards stay hidden and duplicate commands are blocked until ack', asyn
   expect(mock.messages.filter(m => m.action === 'new_deal')).toHaveLength(1);
 });
 
-test('short-stack call displays actual all-in amount, confirmation and server command', async ({ page }) => {
+test('short-stack call sends all-in immediately without confirmation', async ({ page }) => {
   const state = fixture(7, false);
   state.stack = 7;
   const mock = await mockTable(page, state);
   await expect(page.getByRole('button', { name: 'All-in 7', exact: true }).first()).toBeEnabled();
-  page.once('dialog', d => d.dismiss());
-  await page.getByRole('button', { name: 'All-in 7', exact: true }).first().click();
-  expect(mock.messages.filter(m => m.action === 'player_move')).toHaveLength(0);
-  page.once('dialog', d => d.accept());
+  const dialogs: string[] = [];
+  page.on('dialog', async dialog => {
+    dialogs.push(dialog.message());
+    await dialog.dismiss();
+  });
   await page.getByRole('button', { name: 'All-in 7', exact: true }).first().click();
   await expect.poll(() => mock.messages.filter(m => m.action === 'player_move').length).toBe(1);
   expect(mock.messages.find(m => m.action === 'player_move')?.move).toBe('call');
+  expect(dialogs).toEqual([]);
 });
 
 test('side-pot results, long names, English and returning from rules', async ({ page }) => {
@@ -130,6 +132,8 @@ test('no-low, folded cards, spectator turns and disconnected controls remain exp
   const state = fixture(7, false);
   state.currentPlayerId = 'P2';
   const mock = await mockTable(page, state);
+  await expect(page.getByTestId('mt-actions').getByRole('status')).toHaveCount(0);
+  await expect(page.getByTestId('mt-actions')).not.toContainText(/Waiting|Your turn|You folded|Reconnecting/);
   await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeDisabled();
   mock.update(fixture(7, false));
   await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
