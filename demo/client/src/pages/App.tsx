@@ -3013,6 +3013,7 @@ function PlayerPage({
   onRestartGame,
   onExitGame,
 }: PlayerPageProps = {}) {
+  const newDesignEnabled = MOBILE_TABLE_ENABLED;
   const [player, setPlayer] = useState<PlayerView | null>(null);
   const [partyScore, setPartyScore] = useState<PartyScore | null>(null);
   const [partyScoreLoading, setPartyScoreLoading] = useState(false);
@@ -3614,7 +3615,7 @@ function PlayerPage({
 
   return (
     <>
-      <div className="poker-page">
+      <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`}>
         <style>{PLAYER_PAGE_STYLES}</style>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
       </div>
@@ -5377,13 +5378,13 @@ function WelcomePage() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #147a58, #064630 48%, #022c20)', color: '#17211b', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', padding: 'clamp(14px, 4vw, 38px)' }}>
-      <main style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
+    <div className="welcome-shell" style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #147a58, #064630 48%, #022c20)', color: '#17211b', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', padding: 'clamp(14px, 4vw, 38px)' }}>
+      <main className="welcome-main" style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
+        <header className="welcome-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
           <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
         </header>
 
-        <nav role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
+        <nav className="welcome-nav" role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
           <button
             role="tab"
             aria-selected={homeTab === 'lobby'}
@@ -5417,18 +5418,18 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {homeTab === 'lobby' ? <section style={cardStyle}>
+        {homeTab === 'lobby' ? <section className="welcome-intro-card" style={cardStyle}>
           <span style={{ color: '#08734d', fontSize: 12, fontWeight: 900, letterSpacing: '.12em', textTransform: 'uppercase' }}>{t.eyebrow}</span>
           <h1 style={{ margin: '8px 0 10px', fontSize: 'clamp(36px, 8vw, 68px)', lineHeight: .95 }}>{t.title}</h1>
           <p style={{ maxWidth: 680, margin: 0, color: '#3f5148', fontSize: 'clamp(17px, 2.5vw, 21px)', lineHeight: 1.5 }}>{t.intro}</p>
-          <div style={{ marginTop: 18, borderLeft: '4px solid #fbbf24', padding: '3px 0 3px 14px' }}>
+          <div className="welcome-difference" style={{ marginTop: 18, borderLeft: '4px solid #fbbf24', padding: '3px 0 3px 14px' }}>
             <strong>{t.differenceTitle}</strong>
             <p style={{ margin: '5px 0 0', color: '#526159', lineHeight: 1.5 }}>{t.difference}</p>
           </div>
         </section> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
+          <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
             {([
               ['create', '＋', t.create, t.createHint],
               ['join', '→', t.join, t.joinHint],
@@ -5436,6 +5437,7 @@ function WelcomePage() {
               <button
                 key={target}
                 onClick={() => setView(target)}
+                className="welcome-choice-card"
                 style={{ ...cardStyle, minHeight: 158, display: 'grid', gridTemplateColumns: '52px 1fr', alignItems: 'center', gap: 14, border: '1px solid #d8e2dc', textAlign: 'left', cursor: 'pointer' }}
               >
                 <span style={{ display: 'grid', placeItems: 'center', width: 52, height: 52, borderRadius: 16, background: '#e8f7ef', color: '#08734d', fontSize: 28, fontWeight: 800 }}>{icon}</span>

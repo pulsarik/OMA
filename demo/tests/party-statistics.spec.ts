@@ -86,10 +86,19 @@ test('counts best high and low hands that received no matching payout', () => {
       points: [{ id: 'P1', high: 10, low: 10 }, { id: 'P2', high: 0, low: 0 }],
       net: [{ id: 'P1', total: 10 }, { id: 'P2', total: -10 }],
     },
+    {
+      handNumber: 3,
+      players: [
+        { id: 'P1', participated: false, highRank: 'flush', lowRank: '6-4-3-2-1' },
+        { id: 'P2', participated: true, highRank: 'straight', lowRank: '7-5-4-3-2' },
+      ],
+      points: [{ id: 'P1', high: 0, low: 0 }, { id: 'P2', high: 10, low: 10 }],
+      net: [{ id: 'P1', total: 0 }, { id: 'P2', total: 0 }],
+    },
   ];
 
-  expect(missedHighCount('P1', missedHands)).toBe(1);
-  expect(missedLowCount('P1', missedHands)).toBe(1);
+  expect(missedHighCount('P1', missedHands)).toBe(2);
+  expect(missedLowCount('P1', missedHands)).toBe(2);
   expect(missedHighCount('P2', missedHands)).toBe(1);
   expect(missedLowCount('P2', missedHands)).toBe(1);
 });

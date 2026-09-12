@@ -13,6 +13,10 @@ export const APP_SHELL_STYLES = `
   .portrait-orientation-guard { display: none; }
   .report-problem-button { touch-action: manipulation; }
 
+  .welcome-choice-card { transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; }
+  .welcome-choice-card:hover { transform: translateY(-2px); border-color: #08734d !important; box-shadow: 0 18px 42px rgba(1,35,25,.16) !important; }
+  .welcome-choice-card:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+
   .lobby-tabs {
     display: flex;
     gap: 4px;
@@ -101,6 +105,58 @@ export const APP_SHELL_STYLES = `
   }
 
   @media (max-width: 560px) {
+    /* The home screen is a compact table rail on phones: identity + two
+       primary actions fit in the first viewport, while the full rules remain
+       behind About. */
+    .welcome-shell {
+      min-height: 100dvh !important;
+      padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    }
+    .welcome-main { gap: 10px !important; }
+    .welcome-header { min-height: 30px; }
+    .welcome-header strong { font-size: 12px; letter-spacing: .16em !important; }
+    .welcome-nav { margin: 0 4px -10px !important; }
+    .welcome-nav button { padding: 7px 11px !important; font-size: 11px; }
+    .welcome-intro-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 4px 12px;
+      padding: 14px 15px !important;
+      border-radius: 17px !important;
+      background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(232,247,239,.98)) !important;
+    }
+    .welcome-intro-card > span { grid-column: 1 / -1; font-size: 10px !important; letter-spacing: .16em !important; }
+    .welcome-intro-card h1 { margin: 0 !important; font-size: 31px !important; line-height: .92 !important; letter-spacing: -.04em; }
+    .welcome-intro-card > p { margin: 0 !important; max-width: 120px !important; font-size: 11px !important; line-height: 1.2 !important; text-align: right; }
+    .welcome-difference {
+      grid-column: 1 / -1;
+      margin-top: 7px !important;
+      border: 1px solid rgba(180,83,9,.24) !important;
+      border-left: 0 !important;
+      border-radius: 9px;
+      background: rgba(255,251,235,.74);
+      padding: 7px 9px !important;
+      font-size: 11px;
+    }
+    .welcome-difference strong { color: #92400e; }
+    .welcome-difference p { display: inline; margin: 0 0 0 4px !important; font-size: 11px; line-height: 1.2 !important; }
+    .welcome-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+    .welcome-choice-card {
+      min-height: 0 !important;
+      grid-template-columns: 1fr !important;
+      justify-items: center;
+      gap: 7px !important;
+      padding: 13px 8px !important;
+      border-radius: 15px !important;
+      text-align: center !important;
+      box-shadow: 0 10px 26px rgba(1,35,25,.12) !important;
+    }
+    .welcome-choice-card > span:first-child { width: 38px !important; height: 38px !important; border-radius: 12px !important; font-size: 22px !important; }
+    .welcome-choice-card strong { font-size: 14px !important; }
+    .welcome-choice-card small { margin-top: 3px !important; font-size: 10px !important; line-height: 1.2 !important; }
+    .welcome-shell > .welcome-main > footer { font-size: 10px !important; }
+
     .lobby-page {
       min-height: 100dvh !important;
       padding:
@@ -4916,5 +4972,104 @@ export const PLAYER_PAGE_STYLES = `
     #root .poker-page .wireframe-table .wireframe-hero-slot .wireframe-hand:not(.wireframe-opponent-hand) {
       transform: translateY(-20px) !important;
     }
+  }
+
+  /* Optional tabletop visual refresh. The class is only added when the
+     design flag is enabled, so the current production skin stays intact. */
+  .poker-page--new-design {
+    --new-ink: #17352b;
+    --new-muted: #6d7567;
+    --new-felt: #073d2d;
+    --new-felt-mid: #0b6545;
+    --new-brass: #c89b45;
+    --new-paper: #f7f0df;
+    --new-paper-deep: #eee3ca;
+    position: relative;
+    isolation: isolate;
+    color: var(--new-ink);
+    background:
+      radial-gradient(circle at 50% -10%, rgba(20, 119, 79, .48), transparent 44%),
+      linear-gradient(135deg, var(--new-felt), #02291e 72%);
+  }
+  .poker-page--new-design::before {
+    position: absolute;
+    z-index: -1;
+    inset: 8px;
+    border: 1px solid rgba(200, 155, 69, .42);
+    border-radius: 18px;
+    box-shadow: inset 0 0 0 5px rgba(67, 39, 16, .25), inset 0 0 48px rgba(0, 0, 0, .2);
+    content: "";
+    pointer-events: none;
+  }
+  .poker-page--new-design .view-tabs { gap: 7px; margin-inline: 22px; }
+  .poker-page--new-design .view-tab {
+    border: 1px solid rgba(200, 155, 69, .55);
+    border-bottom-color: rgba(200, 155, 69, .4);
+    border-radius: 9px 9px 0 0;
+    background: rgba(4, 49, 35, .82);
+    color: #e8d5a7;
+    letter-spacing: .08em;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, .12);
+  }
+  .poker-page--new-design .view-tab.is-active {
+    border-color: var(--new-brass);
+    border-bottom-color: var(--new-paper);
+    background: var(--new-paper);
+    color: var(--new-ink);
+  }
+  .poker-page--new-design .stats-tile,
+  .poker-page--new-design .about-panel {
+    border: 8px solid #5b391e;
+    border-radius: 18px;
+    background: var(--new-paper);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, .26), inset 0 0 0 1px rgba(200, 155, 69, .7);
+  }
+  .poker-page--new-design .stats-tile { padding: clamp(12px, 2vw, 22px); }
+  .poker-page--new-design .about-panel { gap: 18px; padding: clamp(20px, 4vw, 42px); }
+  .poker-page--new-design .about-panel__title,
+  .poker-page--new-design .statistics-dashboard h2,
+  .poker-page--new-design .statistics-dashboard h3,
+  .poker-page--new-design .about-panel__low h3 { color: var(--new-ink); }
+  .poker-page--new-design .about-panel__title,
+  .poker-page--new-design .statistics-dashboard h2 { letter-spacing: -.04em; }
+  .poker-page--new-design .about-panel__copy,
+  .poker-page--new-design .about-panel__low p,
+  .poker-page--new-design .statistics-muted,
+  .poker-page--new-design .statistics-meta { color: var(--new-muted); }
+  .poker-page--new-design .about-panel__low {
+    border: 1px solid rgba(200, 155, 69, .6);
+    border-left: 5px solid var(--new-brass);
+    border-radius: 10px;
+    background: var(--new-paper-deep);
+  }
+  .poker-page--new-design .about-panel a { color: #08704f; font-weight: 700; }
+  .poker-page--new-design .statistics-dashboard {
+    padding: 0;
+    background: transparent;
+    color: var(--new-ink);
+  }
+  .poker-page--new-design .statistics-card {
+    border: 1px solid rgba(123, 91, 42, .25);
+    border-radius: 12px;
+    background: rgba(255, 251, 239, .7);
+    box-shadow: 0 4px 12px rgba(91, 57, 30, .08);
+  }
+  .poker-page--new-design .statistics-player,
+  .poker-page--new-design .statistics-player:hover { background: transparent; }
+  .poker-page--new-design .statistics-player[aria-pressed="true"] { background: #e8ddc2; border-left-color: var(--new-brass); }
+  .poker-page--new-design .statistics-positive { color: #08704f; }
+  .poker-page--new-design .statistics-negative { color: #a83c37; }
+  .poker-page--new-design .statistics-badge { background: #e4d5ac; color: #634617; }
+  .poker-page--new-design .statistics-meter > span { background: var(--new-felt-mid); }
+  .poker-page--new-design .statistics-layout-switch button {
+    border-color: rgba(200, 155, 69, .55);
+    background: #eee3ca;
+    color: var(--new-ink);
+  }
+  .poker-page--new-design .statistics-layout-switch button[aria-pressed="true"] { background: #d9c28d; border-color: var(--new-brass); color: #4f3516; }
+  @media (max-width: 760px) {
+    .poker-page--new-design::before { inset: 4px; }
+    .poker-page--new-design .stats-tile,
+    .poker-page--new-design .about-panel { border-width: 5px; }
   }
 `;

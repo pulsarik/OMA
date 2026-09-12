@@ -12,8 +12,14 @@ async function openCompletedStatistics(page: Page) {
     .toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: /Start game/ }).click();
   await page.getByRole('button', { name: 'Fold' }).click();
-  await expect(page.getByText('You lost', { exact: true })).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await expect(page.getByRole('button', { name: /^(New|Next) deal$/ })).toBeVisible({ timeout: 15_000 });
+  if (await page.getByTestId('mobile-table').isVisible()) {
+    await page.getByLabel('Table menu', { exact: true }).first().click();
+    await page.getByRole('button', { name: 'Statistics', exact: true }).click();
+  } else {
+    await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  }
+  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
   await expect(page.getByTestId('party-metrics-scroll')).toBeVisible();
   await expect(page.getByText('Hand complete', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Results', exact: true })).toHaveCount(0);

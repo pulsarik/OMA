@@ -229,6 +229,8 @@ export default function MobileTable(props: MobileTableProps) {
   const showdown = p.stage === 'showdown';
   const result = showdown ? p.result ?? p.showdownSummary : undefined;
   const payout = result?.points.find(s => s.id === p.playerId);
+  const contributed = p.totalContributions?.[p.playerId] ?? 0;
+  const net = (payout?.total ?? 0) - contributed;
   const heroCombo = showdown ? p.result?.players.find(s => s.id === p.playerId) ?? p.currentCombo : p.currentCombo;
   const hero = { ...p.players.find(s => s.id === p.playerId), id: p.playerId, name: p.playerName, stack: p.stack, folded: p.folded, cardCount: p.hole.length || 4 };
   const finished = Boolean(props.winnerName || p.partyFinishedEarly);
@@ -269,7 +271,7 @@ export default function MobileTable(props: MobileTableProps) {
           <CombinationHint combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
         </div>
         <div className="mt-personal-result" data-testid="mt-personal-result">
-          {payout ? <><strong>{t('Payout', 'Выплата')} {amount(payout.total)}</strong><span>{t('Contributed', 'Внесено')} {amount(p.totalContributions?.[p.playerId] ?? 0)} · {t('Net', 'Итог')} {amount(payout.total - (p.totalContributions?.[p.playerId] ?? 0))}</span></>
+          {payout ? <><strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong><span>{t('Contributed', 'Внесено')}: {amount(contributed)} · {t('Payout', 'Выплата')}: {amount(payout.total)}</span></>
             : <span>{t('Exactly 2 from hand + 3 from board', 'Ровно 2 из руки + 3 с борда')}</span>}
         </div>
       </div>

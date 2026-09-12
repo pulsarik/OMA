@@ -91,7 +91,10 @@ body:has(.mt-page) { margin: 0; background: #041911; }
 .mt-combo .mt-card > span { font-size: clamp(13px, 3.7cqw, 20px); }
 .mt-combo-empty { margin: 6px 0; min-height: 40px; color: #b7c8b8; font-size: 11px; }
 .mt-personal-result { position: absolute; bottom: 1%; left: 15%; width: 70%; text-align: center; display: grid; gap: 3px; }
-.mt-personal-result strong { font-size: clamp(13px, 3.8cqw, 19px); color: #dec58b; font-weight: 600; }
+.mt-scene--showdown .mt-personal-result { bottom: 0; }
+.mt-personal-result strong { font-size: clamp(20px, 5.6cqw, 28px); line-height: 1.1; color: #dec58b; font-weight: 700; }
+.mt-personal-result strong.mt-net--plus { color: #7bc69a; }
+.mt-personal-result strong.mt-net--minus { color: #df8d80; }
 .mt-personal-result > span { font-size: 10px; color: #b3c5b5; }
 .mt-dock { position: sticky; bottom: 0; z-index: 10; background: #041911f5; padding: 6px 12px max(6px, env(safe-area-inset-bottom)); }
 .mt-dock fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }

@@ -56,15 +56,19 @@ function compareLowRank(first?: string, second?: string) {
   return 0;
 }
 
-function advantageByStreet(playerId: string, hand: StatisticsHand) {
-  const player = hand.players.find((entry) => entry.id === playerId && entry.participated);
+function advantageByStreet(playerId: string, hand: StatisticsHand, includeInactivePlayer = false) {
+  // Keep dealt hands for players who are already out of chips: their cards can
+  // still show the best high/low that they missed.
+  const player = hand.players.find((entry) => (
+    entry.id === playerId && (includeInactivePlayer || entry.participated)
+  ));
   if (!player) return { high: false, low: false };
 
   const ranks = hand.players
     .filter((entry) => entry.participated && entry.highRank)
     .map((entry) => HIGH_RANK_STRENGTH.get(entry.highRank!) ?? 0);
   const playerStrength = player.highRank ? (HIGH_RANK_STRENGTH.get(player.highRank) ?? 0) : 0;
-  const high = playerStrength > 0 && playerStrength === Math.max(...ranks);
+  const high = playerStrength > 0 && playerStrength === Math.max(playerStrength, ...ranks);
 
   const lowPlayers = hand.players.filter((entry) => entry.participated && entry.lowRank);
   const low = player.lowRank
@@ -80,14 +84,14 @@ function streetPoints(playerId: string, hand: StatisticsHand, street: 'high' | '
 
 export function missedHighCount(playerId: string, hands: StatisticsHand[]) {
   return hands.filter((hand) => {
-    const advantage = advantageByStreet(playerId, hand);
+    const advantage = advantageByStreet(playerId, hand, true);
     return advantage.high && streetPoints(playerId, hand, 'high') <= 0;
   }).length;
 }
 
 export function missedLowCount(playerId: string, hands: StatisticsHand[]) {
   return hands.filter((hand) => {
-    const advantage = advantageByStreet(playerId, hand);
+    const advantage = advantageByStreet(playerId, hand, true);
     return advantage.low && streetPoints(playerId, hand, 'low') <= 0;
   }).length;
 }

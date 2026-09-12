@@ -7,7 +7,8 @@ test('seven open hands, split winners and both combinations fit the phone', asyn
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(28);
   await expect(page.locator('.mt-award--high')).toHaveCount(3);
   await expect(page.locator('.mt-award--low')).toHaveCount(3);
-  await expect(page.getByTestId('mt-personal-result')).toContainText('Payout 400');
+  await expect(page.getByTestId('mt-personal-result').locator('strong')).toHaveText('NET: +200');
+  await expect(page.getByTestId('mt-personal-result')).toContainText('Contributed: 200 · Payout: 400');
   for (const kind of ['high', 'low']) {
     await expect(page.getByTestId(`mt-hint-${kind}`).locator('[data-card]')).toHaveCount(5);
     await expect(page.getByTestId(`mt-hint-${kind}`).locator('.mt-combo-source--hole [data-card]')).toHaveCount(2);
@@ -27,6 +28,25 @@ test('seven open hands, split winners and both combinations fit the phone', asyn
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: testInfo.outputPath('seven-player-showdown.png'), fullPage: true });
+});
+
+test('personal result emphasizes net loss, localizes labels and keeps zero neutral', async ({ page }) => {
+  const state = fixture();
+  state.totalContributions.P1 = 64;
+  Object.assign(state.result!.points[0], { high: 0, low: 0, total: 0 });
+  const mock = await mockTable(page, state);
+  const result = page.getByTestId('mt-personal-result');
+  await expect(result.locator('strong')).toHaveText('NET: -64');
+  await expect(result.locator('strong')).toHaveCSS('color', 'rgb(223, 141, 128)');
+  await expect(result.locator('span')).toHaveText('Contributed: 64 · Payout: 0');
+  await page.getByLabel('Table menu', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Language · EN / RU' }).click();
+  await expect(result.locator('strong')).toHaveText('ИТОГ: -64');
+  await expect(result.locator('span')).toHaveText('Внесено: 64 · Выплата: 0');
+  state.result!.points[0].total = 64;
+  mock.update(state);
+  await expect(result.locator('strong')).toHaveText('ИТОГ: 0');
+  await expect(result.locator('strong')).toHaveCSS('color', 'rgb(222, 197, 139)');
 });
 
 test('2–7 seats render all hands; larger tables and desktop use legacy layout', async ({ page }) => {
