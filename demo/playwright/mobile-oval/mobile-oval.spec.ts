@@ -7,7 +7,7 @@ test('seven open hands, split winners and both combinations fit the phone', asyn
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(28);
   await expect(page.locator('.mt-award--high')).toHaveCount(3);
   await expect(page.locator('.mt-award--low')).toHaveCount(3);
-  await expect(page.getByTestId('mt-personal-result')).toContainText('Выплата 400');
+  await expect(page.getByTestId('mt-personal-result')).toContainText('Payout 400');
   for (const kind of ['high', 'low']) {
     await expect(page.getByTestId(`mt-hint-${kind}`).locator('[data-card]')).toHaveCount(5);
     await expect(page.getByTestId(`mt-hint-${kind}`).locator('.mt-combo-source--hole [data-card]')).toHaveCount(2);
@@ -49,20 +49,20 @@ test('2–7 seats render all hands; larger tables and desktop use legacy layout'
 
 test('live cards stay hidden and duplicate commands are blocked until ack', async ({ page }, testInfo) => {
   const mock = await mockTable(page, fixture(7, false));
-  await expect(page.getByRole('button', { name: 'Колл 20', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
   await expect(page.locator('.mt-seat:not([data-hero=true]) .mt-card--back')).toHaveCount(24);
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(4);
   await page.screenshot({ path: testInfo.outputPath('seven-player-live.png'), fullPage: true });
-  await page.getByRole('button', { name: 'Колл 20', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Колл 20', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Call 20', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeDisabled();
   const moves = mock.messages.filter(m => m.action === 'player_move');
   expect(moves).toHaveLength(1);
   expect(moves[0]).toMatchObject({ move: 'call', handId: 'mobile-fixture', playerId: 'P1', token: 'token' });
   mock.ack(moves[0].commandId);
   mock.update(fixture());
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(28);
-  await page.getByRole('button', { name: 'Следующая раздача' }).click();
-  await expect(page.getByRole('button', { name: 'Раздаём…' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Next deal' }).click();
+  await expect(page.getByRole('button', { name: 'Dealing…' })).toBeDisabled();
   expect(mock.messages.filter(m => m.action === 'new_deal')).toHaveLength(1);
 });
 
@@ -85,11 +85,20 @@ test('side-pot results, long names, English and returning from rules', async ({ 
   state.players[2].name = 'ОченьДлинноеИмяИгрокаБезПробелов';
   state.result!.sidePots.push({ ...state.result!.sidePots[0], amount: 200 });
   await mockTable(page, state);
-  await page.getByRole('link', { name: 'Побочные банки · 2' }).click();
-  await expect(page.locator('.mt-details')).toHaveAttribute('open', '');
-  await expect(page.locator('.mt-details')).toContainText('Побочный банк 1');
-  await page.getByLabel('Меню стола', { exact: true }).first().click();
-  await page.getByRole('button', { name: 'Русский / English' }).click();
+  await expect(page.getByTestId('mt-pot-splits')).toContainText('Main 1 200 · H 600 / L 600');
+  await page.getByRole('button', { name: 'Side pots · 1 · details' }).click();
+  const potDialog = page.getByRole('dialog', { name: 'Pot 1 200' });
+  await expect(potDialog).toBeVisible();
+  await expect(potDialog).toContainText('Side pot 1');
+  await expect(potDialog).toContainText('Shares: HIGH 100 · LOW 100');
+  await expect(potDialog.locator('.mt-contribution')).toHaveCount(7);
+  await expect(potDialog).toContainText('Contributed this hand');
+  await page.keyboard.press('Escape');
+  await expect(potDialog).toHaveCount(0);
+  await page.getByLabel('Table menu', { exact: true }).first().click();
+  await page.getByRole('button', { name: 'Language · EN / RU' }).click();
+  await expect(page.getByTestId('mobile-table')).toHaveAttribute('lang', 'ru');
+  await page.getByRole('button', { name: 'Language · EN / RU' }).click();
   await expect(page.getByTestId('mobile-table')).toHaveAttribute('lang', 'en');
   await page.getByRole('button', { name: 'About & rules' }).click();
   await expect(page.getByTestId('about-panel')).toBeVisible();
@@ -101,17 +110,18 @@ test('no-low, folded cards, spectator turns and disconnected controls remain exp
   const state = fixture(7, false);
   state.currentPlayerId = 'P2';
   const mock = await mockTable(page, state);
-  await expect(page.getByRole('button', { name: 'Колл 20', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeDisabled();
   mock.update(fixture(7, false));
-  await expect(page.getByRole('button', { name: 'Колл 20', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
   mock.close();
-  await expect(page.getByRole('button', { name: 'Колл 20', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeDisabled();
   await expect(page.locator('.mt-connection--offline')).toBeVisible();
 });
 
 test('no qualifying low and folded players retain visible showdown hands', async ({ page }) => {
   const state = fixture();
   state.players[1].folded = true;
+  state.players[2].isBot = true;
   state.result!.noLow = true;
   state.result!.lowWinners = [];
   state.result!.points.forEach(p => { p.high += p.low; p.low = 0; });
@@ -120,10 +130,50 @@ test('no qualifying low and folded players retain visible showdown hands', async
   delete state.result!.players[0].lowRank;
   delete state.result!.players[0].lowCombo;
   await mockTable(page, state);
-  await expect(page.locator('.mt-pot-caption')).toContainText('НЕТ LOW');
-  await expect(page.getByTestId('mt-hint-low')).toContainText('Нет подходящей LOW');
+  await expect(page.locator('.mt-pot-caption')).toContainText('NO LOW');
+  await expect(page.getByTestId('mt-hint-low')).toContainText('No qualifying low');
   await expect(page.getByTestId('mt-hand-P2').locator('[data-card]')).toHaveCount(4);
+  await expect(page.getByTestId('mt-hand-P2')).toHaveCSS('opacity', '0.38');
+  await expect(page.getByTestId('mobile-table')).not.toContainText('BOT');
   await expect(page.locator('.mt-award--low')).toHaveCount(0);
+});
+
+test('odd pot explains its HIGH and LOW shares', async ({ page }) => {
+  const state = fixture();
+  state.potCoins = 125;
+  state.result!.sidePots[0].amount = 125;
+  const winners = state.result!.points.filter(score => score.total > 0);
+  winners.forEach((score, index) => {
+    score.high = 21;
+    score.low = index < 2 ? 21 : 20;
+    score.total = score.high + score.low;
+  });
+  await mockTable(page, state);
+  await expect(page.locator('.mt-pot-caption')).toHaveText('Shares · H 63 · L 62');
+  await expect(page.locator('.mt-pot-caption')).toHaveAttribute('title', 'An odd chip goes to HIGH');
+});
+
+test('clicking the pot opens contribution breakdown during play', async ({ page }, testInfo) => {
+  const state = fixture(7, false);
+  state.totalContributions = { P1: 80, P2: 120, P3: 120, P4: 40, P5: 20, P6: 0, P7: 0 };
+  state.roundBets = { P1: 20, P2: 40, P3: 40, P4: 0, P5: 0, P6: 0, P7: 0 };
+  state.potCoins = 380;
+  state.potBreakdown = [{ amount: 300, eligiblePlayerIds: ['P1', 'P2', 'P3', 'P4', 'P5'] }, { amount: 80, eligiblePlayerIds: ['P2', 'P3'] }];
+  await mockTable(page, state);
+  const potButton = page.getByRole('button', { name: 'Pot 380' });
+  await expect(potButton).toHaveAttribute('aria-expanded', 'false');
+  await potButton.click();
+  await expect(potButton).toHaveAttribute('aria-expanded', 'true');
+  const dialog = page.getByRole('dialog', { name: 'Pot 380' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toContainText('Main pot');
+  await expect(dialog).toContainText('Side pot 1');
+  await expect(dialog.locator('.mt-contribution').first()).toContainText('120');
+  await expect(dialog).toContainText('This street +40');
+  await dialog.evaluate(async element => { await Promise.all(element.getAnimations({ subtree: true }).map(animation => animation.finished)); });
+  await page.screenshot({ path: testInfo.outputPath('contribution-dialog.png'), fullPage: true });
+  await dialog.getByRole('button', { name: 'Close pot details' }).click();
+  await expect(dialog).toHaveCount(0);
 });
 
 test('finished party shows the winner without offering another hand', async ({ page }) => {
@@ -132,9 +182,9 @@ test('finished party shows the winner without offering another hand', async ({ p
   state.players.forEach(p => { p.stack = p.id === 'P1' ? 7000 : 0; });
   state.stack = 7000;
   await mockTable(page, state);
-  await expect(page.locator('.mt-finished')).toContainText('Победитель');
-  await expect(page.getByRole('button', { name: 'Следующая раздача' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Итоговая статистика' })).toBeVisible();
+  await expect(page.locator('.mt-finished')).toContainText('Winner');
+  await expect(page.getByRole('button', { name: 'Next deal' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Final statistics' })).toBeVisible();
 });
 
 test('real lobby starts an opt-in table, makes a move and deals the next hand', async ({ page }) => {
@@ -146,10 +196,10 @@ test('real lobby starts an opt-in table, makes a move and deals the next hand', 
   await page.getByRole('button', { name: 'Create table', exact: true }).click();
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByTestId('mobile-table')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Фолд', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Фолд', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Следующая раздача' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Fold', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible();
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(8);
-  await page.getByRole('button', { name: 'Следующая раздача' }).click();
+  await page.getByRole('button', { name: 'Next deal' }).click();
   await expect(page.locator('.mt-table-id')).toContainText('№2');
 });

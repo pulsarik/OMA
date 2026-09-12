@@ -4,6 +4,8 @@ import {
   botStyle,
   buildWalletHistory,
   countPlayerCombinations,
+  missedHighCount,
+  missedLowCount,
   type StatisticsHand,
 } from '../client/src/partyStatistics';
 
@@ -15,6 +17,7 @@ const hands: StatisticsHand[] = [
       { id: 'P2', participated: true, highRank: 'pair' },
     ],
     net: [{ id: 'P1', total: -25 }, { id: 'P2', total: 25 }],
+    points: [{ id: 'P1', high: 0, low: 0 }, { id: 'P2', high: 25, low: 0 }],
     wallets: [{ id: 'P1', total: 1025 }, { id: 'P2', total: 975 }],
     actions: [{ playerId: 'P1', move: 'call' }, { playerId: 'P2', move: 'raise' }],
   },
@@ -25,6 +28,7 @@ const hands: StatisticsHand[] = [
       { id: 'P2', participated: true, highRank: 'high card' },
     ],
     net: [{ id: 'P1', total: 50 }, { id: 'P2', total: -50 }],
+    points: [{ id: 'P1', high: 50, low: 0 }, { id: 'P2', high: 0, low: 0 }],
     wallets: [{ id: 'P1', total: 1050 }, { id: 'P2', total: 950 }],
     actions: [{ playerId: 'P1', move: 'bet' }, { playerId: 'P2', move: 'fold' }],
   },
@@ -60,6 +64,34 @@ test('counts each high-hand combination and ignores pairs', () => {
     threeOfAKind: 0,
     twoPair: 0,
   });
+});
+
+test('counts best high and low hands that received no matching payout', () => {
+  const missedHands: StatisticsHand[] = [
+    {
+      handNumber: 1,
+      players: [
+        { id: 'P1', participated: true, highRank: 'flush', lowRank: '6-4-3-2-1' },
+        { id: 'P2', participated: true, highRank: 'straight', lowRank: '7-5-4-3-2' },
+      ],
+      points: [{ id: 'P1', high: 0, low: 0 }, { id: 'P2', high: 10, low: 10 }],
+      net: [{ id: 'P1', total: -10 }, { id: 'P2', total: 10 }],
+    },
+    {
+      handNumber: 2,
+      players: [
+        { id: 'P1', participated: true, highRank: 'straight', lowRank: '7-5-4-3-2' },
+        { id: 'P2', participated: true, highRank: 'flush', lowRank: '6-4-3-2-1' },
+      ],
+      points: [{ id: 'P1', high: 10, low: 10 }, { id: 'P2', high: 0, low: 0 }],
+      net: [{ id: 'P1', total: 10 }, { id: 'P2', total: -10 }],
+    },
+  ];
+
+  expect(missedHighCount('P1', missedHands)).toBe(1);
+  expect(missedLowCount('P1', missedHands)).toBe(1);
+  expect(missedHighCount('P2', missedHands)).toBe(1);
+  expect(missedLowCount('P2', missedHands)).toBe(1);
 });
 
 test('classifies bots by their aggressive-hand share', () => {

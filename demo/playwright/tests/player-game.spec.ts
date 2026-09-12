@@ -811,8 +811,6 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
       await expect(page.getByTestId(`party-win-${player.id}`)).toHaveText(percentage(wins, hands.length));
       await expect(page.getByTestId(`party-loss-${player.id}`)).toHaveText(percentage(losses, hands.length));
       await expect(page.getByTestId(`party-net-${player.id}`)).toHaveText(formatPoints(net));
-      await expect(page.getByTestId(`party-average-${player.id}`))
-        .toHaveText(formatPoints(hands.length ? net / hands.length : 0));
       await expect(page.getByTestId(`party-max-win-${player.id}`))
         .toHaveText(formatPoints(Math.max(0, ...netResults)));
       await expect(page.getByTestId(`party-max-loss-${player.id}`))

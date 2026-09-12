@@ -6,6 +6,7 @@ import { CityIcon } from '../components/CityIcon';
 import { CityInfo } from '../components/CityInfo';
 import { TableEmblem } from '../components/TableEmblem';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
+import { StatisticsPresentation } from '../components/StatisticsPresentation';
 import { playerSeriesStyle } from '../components/playerSeriesStyles';
 import {
   aggressiveHandPercent,
@@ -13,6 +14,8 @@ import {
   COMBINATION_RANKS,
   countPlayerCombinations,
   advantageRealizationPercent,
+  missedHighCount,
+  missedLowCount,
 } from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
@@ -2556,9 +2559,9 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
   }>;
   isFinal: boolean;
 }) {
-  if (!score) return null;
   const [expandedCombination, setExpandedCombination] = useState<string | null>(null);
   const [showRealizationHelp, setShowRealizationHelp] = useState(false);
+  if (!score) return null;
   const completedHands = score.hands
     .filter((hand) => hand.stage === 'showdown')
     .sort((a, b) => b.handNumber - a.handNumber);
@@ -2581,11 +2584,12 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
       hands: hands.length,
       aggressivePercent: `${aggressiveHandPercent(player.id, hands)}%`,
       realizationPercent: `${advantageRealizationPercent(player.id, hands)}%`,
+      missedHigh: missedHighCount(player.id, hands),
+      missedLow: missedLowCount(player.id, hands),
       foldPercent: percentage(folds, hands.length),
       winPercent: percentage(wins, hands.length),
       lossPercent: percentage(losses, hands.length),
       net,
-      average: hands.length ? net / hands.length : 0,
       maxWin: Math.max(0, ...netResults),
       maxLoss: Math.min(0, ...netResults),
       stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
@@ -2595,6 +2599,18 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
   });
 
   return (
+    <StatisticsPresentation
+      metrics={metrics}
+      walletHistory={walletHistory}
+      currentPlayerId={currentPlayerId}
+      completedHands={completedHands.length}
+      replayCode={score.replayCode}
+      isReplay={score.isReplay}
+      isFinal={isFinal}
+      playerName={(id) => playerLabel(players, id)}
+      formatValue={formatPoints}
+      t={ui}
+    >
     <section className="party-summary" data-testid="party-statistics">
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'baseline', flexWrap: 'wrap' }}>
         <div>
@@ -2648,6 +2664,12 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                 ) : null}
               </th>
               <th>{ui('Hands', 'Раздачи')}</th>
+              <th title={ui('Hands with the best high but no high payout', 'Раздачи с лучшим high без выплаты за high')}>
+                {ui('Missed high', 'Упущенный high')}
+              </th>
+              <th title={ui('Hands with the best low but no low payout', 'Раздачи с лучшим low без выплаты за low')}>
+                {ui('Missed low', 'Упущенный low')}
+              </th>
               <th title={ui('Hands with at least one bet or raise', 'Раздачи хотя бы с одной ставкой или рейзом')}>
                 {ui('Bet/Raise', 'Бет/рейз')}
               </th>
@@ -2655,7 +2677,6 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
               <th>{ui('Win', 'Победа')}</th>
               <th>{ui('Loss', 'Проигрыш')}</th>
               <th>{ui('Net', 'Итог')}</th>
-              <th>{ui('Avg/hand', 'Среднее')}</th>
               <th>{ui('Max win', 'Макс. выигрыш')}</th>
               <th>{ui('Max loss', 'Макс. проигрыш')}</th>
               <th>{ui('Stack', 'Стек')}</th>
@@ -2728,13 +2749,14 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                   ) : null}
                 </td>
                 <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
+                <td data-testid={`party-missed-high-${player.id}`} style={{ textAlign: 'right' }}>{player.missedHigh}</td>
+                <td data-testid={`party-missed-low-${player.id}`} style={{ textAlign: 'right' }}>{player.missedLow}</td>
                 <td data-testid={`party-hands-${player.id}`} style={{ textAlign: 'right' }}>{player.hands}</td>
                 <td data-testid={`party-aggression-${player.id}`} style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 800 }}>{player.aggressivePercent}</td>
                 <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
                 <td data-testid={`party-win-${player.id}`} style={{ textAlign: 'right', color: '#047857', fontWeight: 800 }}>{player.winPercent}</td>
                 <td data-testid={`party-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c', fontWeight: 800 }}>{player.lossPercent}</td>
                 <td data-testid={`party-net-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.net)}</td>
-                <td data-testid={`party-average-${player.id}`} style={{ textAlign: 'right' }}>{formatPoints(player.average)}</td>
                 <td data-testid={`party-max-win-${player.id}`} style={{ textAlign: 'right', color: '#047857' }}>{formatPoints(player.maxWin)}</td>
                 <td data-testid={`party-max-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c' }}>{formatPoints(player.maxLoss)}</td>
                 <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
@@ -2754,6 +2776,7 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
         </div>
       </div>
     </section>
+    </StatisticsPresentation>
   );
 }
 

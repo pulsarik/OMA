@@ -7,6 +7,7 @@ export type StatisticsHand = {
     lowRank?: string;
   }>;
   net: Array<{ id: string; total: number }>;
+  points?: Array<{ id: string; high: number; low: number }>;
   wallets?: Array<{ id: string; total: number }>;
   actions?: Array<{ playerId: string; move: string }>;
 };
@@ -55,19 +56,46 @@ function compareLowRank(first?: string, second?: string) {
   return 0;
 }
 
+function advantageByStreet(playerId: string, hand: StatisticsHand) {
+  const player = hand.players.find((entry) => entry.id === playerId && entry.participated);
+  if (!player) return { high: false, low: false };
+
+  const ranks = hand.players
+    .filter((entry) => entry.participated && entry.highRank)
+    .map((entry) => HIGH_RANK_STRENGTH.get(entry.highRank!) ?? 0);
+  const playerStrength = player.highRank ? (HIGH_RANK_STRENGTH.get(player.highRank) ?? 0) : 0;
+  const high = playerStrength > 0 && playerStrength === Math.max(...ranks);
+
+  const lowPlayers = hand.players.filter((entry) => entry.participated && entry.lowRank);
+  const low = player.lowRank
+    ? lowPlayers.every((entry) => compareLowRank(player.lowRank, entry.lowRank) <= 0)
+    : false;
+
+  return { high, low };
+}
+
+function streetPoints(playerId: string, hand: StatisticsHand, street: 'high' | 'low') {
+  return hand.points?.find((result) => result.id === playerId)?.[street] ?? 0;
+}
+
+export function missedHighCount(playerId: string, hands: StatisticsHand[]) {
+  return hands.filter((hand) => {
+    const advantage = advantageByStreet(playerId, hand);
+    return advantage.high && streetPoints(playerId, hand, 'high') <= 0;
+  }).length;
+}
+
+export function missedLowCount(playerId: string, hands: StatisticsHand[]) {
+  return hands.filter((hand) => {
+    const advantage = advantageByStreet(playerId, hand);
+    return advantage.low && streetPoints(playerId, hand, 'low') <= 0;
+  }).length;
+}
+
 export function advantageRealizationPercent(playerId: string, hands: StatisticsHand[]) {
   const advantagedHands = hands.filter((hand) => {
-    const ranks = hand.players
-      .filter((player) => player.participated && player.highRank)
-      .map((player) => HIGH_RANK_STRENGTH.get(player.highRank! ) ?? 0);
-    const player = hand.players.find((entry) => entry.id === playerId && entry.participated);
-    const playerStrength = player?.highRank ? (HIGH_RANK_STRENGTH.get(player.highRank) ?? 0) : 0;
-    const bestHigh = playerStrength > 0 && playerStrength === Math.max(...ranks);
-    const lowPlayers = hand.players.filter((entry) => entry.participated && entry.lowRank);
-    const bestLow = player?.lowRank
-      ? lowPlayers.every((entry) => compareLowRank(player.lowRank, entry.lowRank) <= 0)
-      : false;
-    return bestHigh || bestLow;
+    const advantage = advantageByStreet(playerId, hand);
+    return advantage.high || advantage.low;
   });
   if (!advantagedHands.length) return 0;
   const realized = advantagedHands.filter((hand) => (
