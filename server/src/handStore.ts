@@ -83,6 +83,13 @@ export default class HandStore {
     await this.db.run('CREATE INDEX IF NOT EXISTS lobbies_hand ON lobbies(hand_id)');
     await this.db.run('CREATE INDEX IF NOT EXISTS lobbies_activity ON lobbies(last_activity)');
     await this.db.run(`
+      CREATE TABLE IF NOT EXISTS analytics_hands (
+        id TEXT PRIMARY KEY,
+        created INTEGER NOT NULL,
+        data TEXT NOT NULL
+      )
+    `);
+    await this.db.run(`
       CREATE TABLE IF NOT EXISTS analytics_activity (
         party_id TEXT PRIMARY KEY,
         first_activity INTEGER NOT NULL,
@@ -376,13 +383,30 @@ export default class HandStore {
           cutoff,
         );
         if (!stillExpired) continue;
-        const partyHandRows = await db.all('SELECT id FROM hands WHERE party_id = ?', partyId);
+        const partyHandRows = await db.all('SELECT id, created, data FROM hands WHERE party_id = ?', partyId);
         const partyHandIds = partyHandRows.map((row: any) => row.id as string);
+        // Keep only the fields needed for historical statistics. Expired game
+        // state (cards, actions, etc.) must still be removed from hands.
+        for (const row of partyHandRows) {
+          const hand = JSON.parse(row.data);
+          const summary = {
+            id: row.id,
+            partyId,
+            created: hand.created ?? row.created,
+            partyCode: hand.partyCode,
+            handNumber: hand.handNumber,
+            stage: hand.stage,
+            partyFinishedEarly: hand.partyFinishedEarly,
+            players: hand.players?.map((player: any) => ({ id: player.id, stack: player.stack })),
+          };
+          await db.run(
+            'INSERT INTO analytics_hands(id, created, data) VALUES(?, ?, ?)',
+            row.id, row.created, JSON.stringify(summary),
+          );
+        }
         await db.run('DELETE FROM hands WHERE party_id = ?', partyId);
         deletedPartyIds.push(partyId);
         deletedHandIds.push(...partyHandIds);
-        await db.run('DELETE FROM analytics_visits WHERE party_id = ?', partyId);
-        await db.run('DELETE FROM analytics_activity WHERE party_id = ?', partyId);
         await db.run('DELETE FROM party_sessions WHERE party_id = ?', partyId);
       }
       for (const handId of deletedHandIds) {
@@ -465,7 +489,9 @@ export default class HandStore {
   async getAnalyticsStats(now = Date.now()) {
     const db = await this.getDb();
     const [handRows, activityRows, visitRows, devices, totals] = await Promise.all([
-      db.all('SELECT created, data FROM hands ORDER BY created ASC'),
+      db.all(`SELECT created, data FROM hands
+        UNION ALL SELECT created, data FROM analytics_hands
+        ORDER BY created ASC`),
       db.all('SELECT * FROM analytics_activity'),
       db.all(`SELECT created, last_seen AS lastSeen, party_id AS partyId,
         player_id AS playerId, ip, user_agent AS userAgent, device_type AS deviceType,

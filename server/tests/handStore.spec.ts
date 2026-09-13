@@ -205,6 +205,43 @@ test('expired parties and their started lobbies are forgotten while active parti
   await expect(store.getPartyLastActivity('active-party')).resolves.toBe(10_000);
 });
 
+test('session cleanup preserves historical analytics alongside active parties without double counting', async () => {
+  const store = new HandStore(':memory:');
+  for (const hand of [
+    { id: 'old-1', partyId: 'old', created: 1_000, handNumber: 1, stage: 'preflop' },
+    { id: 'old-2', partyId: 'old', created: 2_000, handNumber: 2, stage: 'showdown', partyFinishedEarly: true },
+    { id: 'recent', partyId: 'recent', created: 100_000, handNumber: 1, stage: 'preflop' },
+  ]) {
+    await store.saveHand({
+      ...hand,
+      players: [{ id: 'p1', stack: 150 }, { id: 'p2', stack: 50 }],
+      actions: [{ move: 'call' }],
+    });
+  }
+  for (const [partyId, at] of [['old', 2_000], ['recent', 100_000]] as const) {
+    await store.recordAnalyticsActivity(partyId, at);
+    await store.recordAnalyticsActivity(partyId, at + 10_000);
+    await store.recordAnalyticsVisit({
+      partyId, handId: partyId === 'old' ? 'old-2' : 'recent', playerId: 'p1',
+      clientCookie: 'browser-1', ip: '203.0.113.10', deviceType: 'Desktop',
+    }, at);
+  }
+  const before = await store.getAnalyticsStats(150_000);
+  expect(before.totals).toMatchObject({ deals: 3, parties: 2, visits: 2, activeMs: 80_000 });
+  expect(before.accesses[0]).toMatchObject({ dealsPlayed: 3, partiesPlayed: 1, partiesWon: 1 });
+
+  await store.deleteExpiredParties(50_000);
+  expect(await store.getAnalyticsStats(150_000)).toEqual(before);
+  expect(await store.listAllHands()).toHaveLength(1);
+  expect(await store.getPartyLastActivity('old')).toBeUndefined();
+  expect(await store.getHand('old-2')).toBeNull();
+
+  await expect(store.deleteExpiredParties(50_000)).resolves.toEqual({ partyIds: [], handIds: [] });
+  await store.deleteExpiredParties(120_000);
+  expect(await store.listAllHands()).toEqual([]);
+  expect(await store.getAnalyticsStats(150_000)).toEqual(before);
+});
+
 test('waiting lobbies are forgotten after their inactivity cutoff', async () => {
   const store = new HandStore(':memory:');
   await store.saveLobby({
