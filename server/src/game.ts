@@ -283,9 +283,15 @@ function legacyContributions(hand: DealtHand) {
   return totals;
 }
 
-function contributionLayers(hand: DealtHand): ContributionLayer[] {
+function contributionLayers(hand: DealtHand, pendingCalls = false): ContributionLayer[] {
+  const contributed = Object.values(hand.totalContributions);
+  const maximum = Math.max(0, ...contributed);
+  // A short player yet to respond can cap eligibility between two existing
+  // contribution levels. Split there without adding their uncommitted chips.
+  const pendingCaps = pendingCalls ? hand.players.filter(player => !player.folded)
+    .map(player => Math.min(maximum, (hand.totalContributions[player.id] ?? 0) + player.stack)) : [];
   const levels = [...new Set(
-    Object.values(hand.totalContributions).filter(amount => amount > 0),
+    [...contributed, ...pendingCaps].filter(amount => amount > 0),
   )].sort((a, b) => a - b);
   const activePlayerIds = hand.players.filter(player => !player.folded).map(player => player.id);
   let previousLevel = 0;
@@ -295,7 +301,8 @@ function contributionLayers(hand: DealtHand): ContributionLayer[] {
       (hand.totalContributions[player.id] ?? 0) >= level
     ));
     const eligibleAtLevel = hand.players
-      .filter(player => !player.folded && (hand.totalContributions[player.id] ?? 0) >= level)
+      .filter(player => !player.folded && (hand.totalContributions[player.id] ?? 0)
+        + (pendingCalls ? player.stack : 0) >= level)
       .map(player => player.id);
     const eligiblePlayerIds = eligibleAtLevel.length ? eligibleAtLevel : activePlayerIds;
     const contributionPerPlayer = level - previousLevel;
@@ -364,6 +371,28 @@ export function currentPotBreakdown(hand: DealtHand): PotBreakdown[] {
     layers[0].amount += hand.potCoins - tracked;
   }
   return layers.map(({ amount, eligiblePlayerIds }) => ({ amount, eligiblePlayerIds }));
+}
+
+/** Pots available after a hypothetical call, without changing the live hand.
+ * Players yet to respond remain eligible, but their future chips are not counted.
+ */
+export function potsAfterCall(hand: DealtHand, playerId: string): { cost: number; pots: PotBreakdown[] } {
+  const player = hand.players.find(candidate => candidate.id === playerId);
+  if (!player) throw new Error('unknown player');
+  const cost = Math.min(player.stack, Math.max(hand.currentBet - (hand.roundBets[playerId] ?? 0), 0));
+  const projected: DealtHand = {
+    ...hand,
+    players: hand.players.map(candidate => candidate.id === playerId ? { ...candidate, stack: candidate.stack - cost } : candidate),
+    totalContributions: { ...hand.totalContributions, [playerId]: (hand.totalContributions[playerId] ?? 0) + cost },
+    potCoins: hand.potCoins + cost,
+  };
+  const layers = contributionLayers(projected, true);
+  const missing = projected.potCoins - layers.reduce((sum, layer) => sum + layer.amount, 0);
+  if (missing > 0) {
+    if (layers.length) layers[0].amount += missing;
+    else return { cost, pots: [{ amount: missing, eligiblePlayerIds: hand.players.filter(p => !p.folded).map(p => p.id) }] };
+  }
+  return { cost, pots: layers.map(({ amount, eligiblePlayerIds }) => ({ amount, eligiblePlayerIds })) };
 }
 
 export function visibleCommunity(hand: Pick<DealtHand, 'fullCommunity' | 'community' | 'stage'>) {
@@ -759,6 +788,26 @@ export function evaluatePlayerCombo(hole: string[], board: string[]): PlayerComb
   };
 }
 
+/** Whether the player's made low cannot be beaten by any unseen two cards. */
+export function hasNutLow(hole: string[], board: string[]): boolean {
+  const own = bestOmahaHands(hole, board).low;
+  if (!own) return false;
+  const known = new Set([...hole, ...board]);
+  // Suits do not affect low; one available card per rank is sufficient.
+  const candidates = ['A', '2', '3', '4', '5', '6', '7', '8'].flatMap(rank => {
+    const suit = SUITS.find(value => !known.has(`${rank}${value}`));
+    return suit ? [{ code: `${rank}${suit}`, source: 'hole' as const }] : [];
+  });
+  const boards = combinations(board.map(code => ({ code, source: 'board' as const })), 3);
+  for (const pair of combinations(candidates, 2)) {
+    for (const community of boards) {
+      const low = evaluateLowFive([...pair, ...community]);
+      if (low && compareScore(low.score, own.score) < 0) return false;
+    }
+  }
+  return true;
+}
+
 export type OmahaHandComparison = {
   /** Positive when the first hand wins high, negative when the second wins. */
   high: number;
@@ -771,16 +820,23 @@ export type OmahaHandComparison = {
  * private prevents callers (including bots) from reimplementing game rules.
  */
 export function compareOmahaHands(firstHole: string[], secondHole: string[], board: string[]): OmahaHandComparison {
+  return compareOmahaField(firstHole, [secondHole], board)[0];
+}
+
+/** Evaluate the hero once per simulated board, even in a multi-way pot. */
+export function compareOmahaField(firstHole: string[], opponentHoles: string[][], board: string[]): OmahaHandComparison[] {
   const first = bestOmahaHands(firstHole, board);
-  const second = bestOmahaHands(secondHole, board);
-  const high = compareScore(first.high?.score ?? [], second.high?.score ?? []);
+  return opponentHoles.map(hole => {
+    const second = bestOmahaHands(hole, board);
+    const high = compareScore(first.high?.score ?? [], second.high?.score ?? []);
 
-  if (!first.low && !second.low) return { high };
-  if (first.low && !second.low) return { high, low: 1 };
-  if (!first.low && second.low) return { high, low: -1 };
+    if (!first.low && !second.low) return { high };
+    if (first.low && !second.low) return { high, low: 1 };
+    if (!first.low && second.low) return { high, low: -1 };
 
-  // A lower low-hand score is better, hence the reversed operands.
-  return { high, low: compareScore(second.low!.score, first.low!.score) };
+    // A lower low-hand score is better, hence the reversed operands.
+    return { high, low: compareScore(second.low!.score, first.low!.score) };
+  });
 }
 
 function winnersInOddChipOrder(hand: DealtHand, winnerIds: string[]) {

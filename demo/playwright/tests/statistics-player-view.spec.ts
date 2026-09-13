@@ -28,6 +28,10 @@ test('player view uses classic values, selects players, and remembers the revers
   ));
   const firstPlayer = await readValues();
   expect(Object.keys(firstPlayer)).toHaveLength(19);
+  const playCard = page.getByRole('heading', { name: 'Play', exact: true }).locator('..');
+  await expect(playCard.getByTestId('party-realization-P1')).toBeVisible();
+  await expect(playCard.getByTestId('party-missed-high-P1')).toBeVisible();
+  await expect(playCard.getByTestId('party-missed-low-P1')).toBeVisible();
   await page.getByTestId('statistics-select-P2').click();
   await expect(page.getByTestId('statistics-player-detail')).toHaveAttribute('data-player-id', 'P2');
   await expect(page.getByTestId('wallet-series-P2')).toHaveAttribute('data-selected', 'true');

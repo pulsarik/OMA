@@ -22,7 +22,7 @@ test('a tester can submit a problem and retrieve it by numeric ID', async ({ pag
   expect(created.id).toBeGreaterThanOrEqual(1000);
   await expect(page.getByRole('status')).toHaveText(`Problem #${created.id} saved`);
 
-  const storedResponse = await request.get(`http://localhost:4000/api/problems/${created.id}`);
+  const storedResponse = await request.get(`http://localhost:4100/api/problems/${created.id}`);
   expect(storedResponse.ok()).toBe(true);
   await expect(storedResponse.json()).resolves.toMatchObject({
     id: created.id,

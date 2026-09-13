@@ -129,18 +129,6 @@ export default class HandStore {
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_party ON analytics_visits(party_id)');
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_created ON analytics_visits(created DESC)');
     await this.db.run(`
-      UPDATE party_sessions
-      SET last_activity = MAX(
-        last_activity,
-        COALESCE(
-          (SELECT analytics_activity.last_activity
-           FROM analytics_activity
-           WHERE analytics_activity.party_id = party_sessions.party_id),
-          last_activity
-        )
-      )
-    `);
-    await this.db.run(`
       CREATE TABLE IF NOT EXISTS problems (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         created INTEGER NOT NULL,
@@ -334,14 +322,17 @@ export default class HandStore {
     };
   }
 
+  async recordGameActivity(partyId: string, occurredAt = Date.now()) {
+    const db = await this.getDb();
+    // A stale client must never recreate an expired session.
+    await db.run(
+      'UPDATE party_sessions SET last_activity = MAX(last_activity, ?) WHERE party_id = ?',
+      occurredAt, partyId,
+    );
+  }
+
   async recordAnalyticsActivity(partyId: string, occurredAt = Date.now()) {
     const db = await this.getDb();
-    await db.run(`
-      INSERT INTO party_sessions(party_id, created, last_activity)
-      VALUES(?, ?, ?)
-      ON CONFLICT(party_id) DO UPDATE SET
-        last_activity = MAX(last_activity, excluded.last_activity)
-    `, partyId, occurredAt, occurredAt);
     await db.run(`
       INSERT INTO analytics_activity(
         party_id, first_activity, last_activity, active_ms, event_count

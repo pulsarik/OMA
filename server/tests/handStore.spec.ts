@@ -186,7 +186,7 @@ test('expired parties and their started lobbies are forgotten while active parti
     partyId: 'active-party',
     created: 1_000,
   });
-  await store.recordAnalyticsActivity('active-party', 10_000);
+  await store.recordGameActivity('active-party', 10_000);
   await store.saveLobby({
     id: 'expired-lobby',
     status: 'started',

@@ -69,6 +69,7 @@ test('2–7 seats render all hands; larger tables and desktop use legacy layout'
 
 test('live cards stay hidden and duplicate commands are blocked until ack', async ({ page }, testInfo) => {
   const mock = await mockTable(page, fixture(7, false));
+  await expect(page.getByTestId('mt-personal-result')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
   await expect(page.locator('.mt-seat:not([data-hero=true]) .mt-card--back')).toHaveCount(24);
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(4);

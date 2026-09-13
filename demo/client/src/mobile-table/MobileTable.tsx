@@ -261,10 +261,10 @@ export default function MobileTable(props: MobileTableProps) {
           <CombinationHint combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
           <CombinationHint combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
         </div>
-        <div className="mt-personal-result" data-testid="mt-personal-result">
-          {payout ? <><strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong><span>{t('Contributed', 'Внесено')}: {amount(contributed)} · {t('Payout', 'Выплата')}: {amount(payout.total)}</span></>
-            : <span>{t('Exactly 2 from hand + 3 from board', 'Ровно 2 из руки + 3 с борда')}</span>}
-        </div>
+        {payout ? <div className="mt-personal-result" data-testid="mt-personal-result">
+          <strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong>
+          <span>{t('Contributed', 'Внесено')}: {amount(contributed)} · {t('Payout', 'Выплата')}: {amount(payout.total)}</span>
+        </div> : null}
       </div>
       {finished ? <section className="mt-finished" role="status">
         <strong>{props.winnerName ? `${t('Winner', 'Победитель')}: ${props.winnerName}` : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>

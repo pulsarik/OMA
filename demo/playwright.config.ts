@@ -11,20 +11,21 @@ export default defineConfig({
   // All scenarios share one in-memory game server. Serial execution prevents
   // unrelated lobbies and reconnect tests from starving each other's sockets.
   workers: 1,
-  use: { headless: true, baseURL: 'http://localhost:5173' },
+  use: { headless: true, baseURL: 'http://localhost:5174' },
   webServer: [
     {
       command: 'node ../server/dist/index.js',
-      url: 'http://localhost:4000/api/version',
+      url: 'http://localhost:4100/api/version',
       timeout: 120_000,
-      reuseExistingServer: true,
-      env: { DATA_FILE: ':memory:' },
+      reuseExistingServer: false,
+      env: { DATA_FILE: ':memory:', PORT: '4100' },
     },
     {
-      command: 'cd client && npm.cmd run dev -- --host localhost',
-      url: 'http://localhost:5173',
+      command: 'node client/node_modules/vite/bin/vite.js client --host localhost --port 5174 --strictPort',
+      url: 'http://localhost:5174',
       timeout: 120_000,
-      reuseExistingServer: true,
+      reuseExistingServer: false,
+      env: { VITE_SERVER_URL: 'http://localhost:4100' },
     },
   ],
 });

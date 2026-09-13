@@ -153,10 +153,6 @@ export function StatisticsDashboard({
                   <Metric label={t('Hands', 'Раздачи')} value={player.hands} testId={`party-hands-${player.id}`} />
                   <Metric label={t('Max win', 'Макс. выигрыш')} value={signed(player.maxWin)} tone={tone(player.maxWin)} testId={`party-max-win-${player.id}`} />
                   <Metric label={t('Max loss', 'Макс. проигрыш')} value={signed(player.maxLoss)} tone={tone(player.maxLoss)} testId={`party-max-loss-${player.id}`} />
-                  <Metric label={t('Missed high', 'Упущенный high')} value={player.missedHigh} testId={`party-missed-high-${player.id}`}
-                    help={t('Hands with the best high but no high payout.', 'Раздачи с лучшим high без выплаты за high.')} />
-                  <Metric label={t('Missed low', 'Упущенный low')} value={player.missedLow} testId={`party-missed-low-${player.id}`}
-                    help={t('Hands with the best low but no low payout.', 'Раздачи с лучшим low без выплаты за low.')} />
                 </dl>
               </section>
               <section className="statistics-card">
@@ -164,6 +160,10 @@ export function StatisticsDashboard({
                 <dl>
                   <Metric label={t('Realization', 'Реализация')} value={player.realizationPercent} percent={parseFloat(player.realizationPercent)} testId={`party-realization-${player.id}`}
                     help={t('Percentage of advantaged hands that produced a positive net result.', 'Процент раздач с преимуществом, которые дали положительный итог.')} />
+                  <Metric label={t('Missed high', 'Упущенный high')} value={player.missedHigh} testId={`party-missed-high-${player.id}`}
+                    help={t('Hands with the best high but no high payout.', 'Раздачи с лучшим high без выплаты за high.')} />
+                  <Metric label={t('Missed low', 'Упущенный low')} value={player.missedLow} testId={`party-missed-low-${player.id}`}
+                    help={t('Hands with the best low but no low payout.', 'Раздачи с лучшим low без выплаты за low.')} />
                   <Metric label={t('Bet / raise', 'Бет / рейз')} value={player.aggressivePercent} percent={parseFloat(player.aggressivePercent)} testId={`party-aggression-${player.id}`} />
                   <Metric label={t('Fold', 'Фолд')} value={player.foldPercent} percent={parseFloat(player.foldPercent)} testId={`party-fold-${player.id}`} />
                   <Metric label={t('Wins', 'Победы')} value={player.winPercent} percent={parseFloat(player.winPercent)} testId={`party-win-${player.id}`} />

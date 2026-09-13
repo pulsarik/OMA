@@ -141,15 +141,16 @@ export const APP_SHELL_STYLES = `
     }
     .welcome-difference strong { color: #92400e; }
     .welcome-difference p { display: inline; margin: 0 0 0 4px !important; font-size: 11px; line-height: 1.2 !important; }
-    .welcome-choice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+    .welcome-choice-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
     .welcome-choice-card {
       min-height: 0 !important;
-      grid-template-columns: 1fr !important;
-      justify-items: center;
+      grid-template-columns: 38px 1fr !important;
+      justify-items: stretch !important;
+      align-items: center;
       gap: 7px !important;
       padding: 13px 8px !important;
       border-radius: 15px !important;
-      text-align: center !important;
+      text-align: left !important;
       box-shadow: 0 10px 26px rgba(1,35,25,.12) !important;
     }
     .welcome-choice-card > span:first-child { width: 38px !important; height: 38px !important; border-radius: 12px !important; font-size: 22px !important; }

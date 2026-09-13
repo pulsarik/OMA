@@ -42,7 +42,7 @@ test('table ABOUT explains LOW and can return to the table', async ({ page }) =>
 
 function apiUrlForPlayerLink(href: string) {
   const [, , handId, playerId, token] = new URL(href, 'http://localhost:5173').pathname.split('/');
-  return `http://localhost:4000/api/player/${handId}/${playerId}/${token}`;
+  return `http://localhost:4100/api/player/${handId}/${playerId}/${token}`;
 }
 
 function partyScoreApiUrlForPlayerLink(href: string) {

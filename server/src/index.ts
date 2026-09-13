@@ -82,10 +82,10 @@ const partyLiveSummaryCache = new Map<string, {
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const HUMAN_TURN_MS = Math.max(1_000, Number(process.env.HUMAN_TURN_MS) || 45_000);
-const SESSION_EXPIRE_MS = Math.max(60_000, Number(process.env.SESSION_EXPIRE_MS) || 2 * 60 * 60_000);
+const SESSION_EXPIRE_MS = Math.max(60_000, Number(process.env.SESSION_EXPIRE_MS) || 60 * 60_000);
 const SESSION_WARNING_MS = Math.min(
   SESSION_EXPIRE_MS - 1,
-  Math.max(0, Number(process.env.SESSION_WARNING_MS) || 60 * 60_000),
+  Math.max(0, Number(process.env.SESSION_WARNING_MS) || 50 * 60_000),
 );
 const SESSION_CLEANUP_MS = Math.max(10_000, Number(process.env.SESSION_CLEANUP_MS) || 60_000);
 const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN;
@@ -252,6 +252,7 @@ function scheduleBotTurns(handId: string) {
         recordPlayerMove(hand, current.id, decision.move, decision.amount, undefined, decision.reason);
         prepareHumanTurnClock(hand, true);
         await store.updateHand(hand);
+        await store.recordGameActivity(hand.partyId ?? hand.id);
         broadcastHandUpdated(hand);
         shouldScheduleNext = hand.stage !== 'showdown';
       });
@@ -605,8 +606,11 @@ function broadcastSessionActivity(partyId: string, timing: any) {
 
 async function cleanupInactiveSessions() {
   const cutoff = Date.now() - SESSION_EXPIRE_MS;
+  const lobbies = await store.listLobbies() as Lobby[];
   const expired = await store.deleteExpiredParties(cutoff);
   const expiredLobbyIds = await store.deleteExpiredWaitingLobbies(cutoff);
+  const expiredHandIds = new Set(expired.handIds);
+  expiredLobbyIds.push(...lobbies.filter(lobby => lobby.handId && expiredHandIds.has(lobby.handId)).map(lobby => lobby.id));
   expired.partyIds.forEach((partyId) => partyLiveSummaryCache.delete(partyId));
   if (!expired.partyIds.length && !expiredLobbyIds.length) return expired;
 
@@ -634,6 +638,7 @@ async function cleanupInactiveSessions() {
     clearBotTurnTimer(handId);
     clearHumanTurnTimer(handId);
   });
+  await broadcastOpenLobbies(false);
   return expired;
 }
 
@@ -888,8 +893,8 @@ function openLobbyState(lobby: Lobby) {
   };
 }
 
-async function listOpenLobbies() {
-  await cleanupInactiveSessions();
+async function listOpenLobbies(cleanup = true) {
+  if (cleanup) await cleanupInactiveSessions();
   const lobbies = await store.listLobbies() as Lobby[];
   return lobbies
     .filter(lobby => (
@@ -901,8 +906,8 @@ async function listOpenLobbies() {
     .map(openLobbyState);
 }
 
-async function broadcastOpenLobbies() {
-  const message = JSON.stringify({ type: 'open_lobbies', data: await listOpenLobbies() });
+async function broadcastOpenLobbies(cleanup = true) {
+  const message = JSON.stringify({ type: 'open_lobbies', data: await listOpenLobbies(cleanup) });
   connectionContexts.forEach((context, client) => {
     if (receivesOpenLobbies(context) && client.readyState === WebSocket.OPEN) client.send(message);
   });
@@ -1156,9 +1161,9 @@ async function joinLobby(ws: WebSocket, message: any) {
         seat: firstOpenLobbySeat(lobby),
       };
       lobby.members.push(member);
+      lobby.lastActivity = Date.now();
     }
 
-    lobby.lastActivity = Date.now();
     await store.updateLobby(lobby);
     bindLobbyClient(ws, lobby, member);
     ws.send(JSON.stringify({
@@ -1182,7 +1187,7 @@ async function authenticatedLobby(ws: WebSocket, message: any) {
   const lobby = await store.getLobby(connection.lobbyId) as Lobby | null;
   const member = lobby?.members.find(candidate => candidate.id === connection.memberId);
   if (!lobby || !member) throw new Error('lobby not found');
-  if ((lobby.lastActivity ?? lobby.created) <= Date.now() - SESSION_EXPIRE_MS) {
+  if (lobby.handId ? !await getActiveHand(lobby.handId) : (lobby.lastActivity ?? lobby.created) <= Date.now() - SESSION_EXPIRE_MS) {
     await cleanupInactiveSessions();
     throw new Error('lobby expired');
   }
@@ -1749,8 +1754,6 @@ wss.on('connection', (ws, req) => {
         await restartLobby(ws, msg);
       } else if (msg.action === 'lobby_activity') {
         const { lobby } = await authenticatedLobby(ws, msg);
-        lobby.lastActivity = Date.now();
-        await store.updateLobby(lobby);
         broadcastLobby(lobby);
       } else if (msg.action === 'request_early_finish') {
         await updateEarlyFinishVote(ws, msg, 'request');
@@ -1851,13 +1854,14 @@ wss.on('connection', (ws, req) => {
           if (!playerConnections.has(ws)) {
             await recordPlayerConnection(ws, req, hand, player, msg.client);
           }
-          await recordBoundPlayerActivity(ws);
           recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount, msg.betSize);
           prepareHumanTurnClock(hand, true);
           if (marker) {
             hand.processedCommandIds = [...(hand.processedCommandIds ?? []), marker].slice(-100);
           }
           await store.updateHand(hand);
+          await store.recordGameActivity(hand.partyId ?? hand.id);
+          await recordBoundPlayerActivity(ws);
           return { hand, player, duplicate: false };
         });
 
