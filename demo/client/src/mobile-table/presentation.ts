@@ -10,6 +10,19 @@ export const OPPONENT_POSITIONS: Record<number, ReadonlyArray<readonly [number, 
   6: [[18, 54], [18, 28], [29, 11], [71, 11], [82, 28], [82, 54]],
 };
 
+// Horizontal oval, in the same clockwise order as the mobile seats.
+export const DESKTOP_OPPONENT_POSITIONS: Record<number, ReadonlyArray<readonly [number, number]>> = {
+  1: [[50, 18]],
+  2: [[25, 20], [75, 20]],
+  3: [[15, 46], [50, 18], [85, 46]],
+  4: [[15, 48], [34, 19], [66, 19], [85, 48]],
+  5: [[15, 48], [28, 19], [50, 18], [72, 19], [85, 48]],
+  6: [[23, 76], [14, 46], [34, 19], [66, 19], [86, 46], [77, 76]],
+  7: [[23, 76], [14, 46], [28, 19], [50, 18], [72, 19], [86, 46], [77, 76]],
+  8: [[23, 78], [12, 57], [16, 31], [36, 17], [64, 17], [84, 31], [88, 57], [77, 78]],
+  9: [[23, 78], [12, 57], [16, 31], [32, 16], [50, 15], [68, 16], [84, 31], [88, 57], [77, 78]],
+};
+
 export function clockwiseOpponents<T extends Seat>(players: T[], heroId: string): T[] {
   const index = players.findIndex(p => p.id === heroId);
   return index < 0 ? players : [...players.slice(index + 1), ...players.slice(0, index)];

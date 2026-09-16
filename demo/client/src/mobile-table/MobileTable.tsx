@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Cards, CombinationHint } from './Cards';
-import { amount, clockwiseOpponents, moveLabel, nameOf, OPPONENT_POSITIONS, rankLabel, stageLabel, words } from './presentation';
+import { amount, clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, moveLabel, nameOf, OPPONENT_POSITIONS, rankLabel, stageLabel, words } from './presentation';
 import type { Language, MobileTableProps, Move, Seat, TableState } from './types';
 import './mobileTable.css';
+import './desktopTable.css';
 
 function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }: {
   seat: Seat; player: TableState; language: Language; hero?: boolean; dealerId?: string; seconds?: number;
@@ -205,9 +206,15 @@ function PotDialog({ player: p, language, open, onClose }: {
 
 export default function MobileTable(props: MobileTableProps) {
   const { player: p, controls: c } = props;
+  const desktop = props.layout === 'desktop';
   const [language, setLanguage] = useState<Language>(() => {
     try { return localStorage.getItem('omaha-mobile-language') === 'ru' ? 'ru' : 'en'; } catch { return 'en'; }
   });
+  const toggleLanguage = () => {
+    const next = language === 'ru' ? 'en' : 'ru';
+    setLanguage(next);
+    try { localStorage.setItem('omaha-mobile-language', next); } catch { /* Private mode. */ }
+  };
   const [potOpen, setPotOpen] = useState(false);
   const potButton = useRef<HTMLButtonElement>(null);
   const closePot = useCallback(() => {
@@ -216,7 +223,7 @@ export default function MobileTable(props: MobileTableProps) {
   }, []);
   const t = (en: string, ru: string) => words(language, en, ru);
   const opponents = clockwiseOpponents(p.players, p.playerId);
-  const positions = OPPONENT_POSITIONS[opponents.length];
+  const positions = (desktop ? DESKTOP_OPPONENT_POSITIONS : OPPONENT_POSITIONS)[opponents.length];
   const showdown = p.stage === 'showdown';
   const result = showdown ? p.result ?? p.showdownSummary : undefined;
   const payout = result?.points.find(s => s.id === p.playerId);
@@ -225,19 +232,29 @@ export default function MobileTable(props: MobileTableProps) {
   const heroCombo = showdown ? p.result?.players.find(s => s.id === p.playerId) ?? p.currentCombo : p.currentCombo;
   const hero = { ...p.players.find(s => s.id === p.playerId), id: p.playerId, name: p.playerName, stack: p.stack, folded: p.folded, cardCount: p.hole.length || 4 };
   const finished = Boolean(props.winnerName || p.partyFinishedEarly);
-  return <main className="mt-page" lang={language} data-testid="mobile-table" data-players={p.players.length}>
+  const hints = <div className="mt-hints">
+    <CombinationHint combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
+    <CombinationHint combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
+  </div>;
+  return <main className={`mt-page${desktop ? ' mt-page--desktop' : ''}`} lang={language} data-testid={desktop ? 'desktop-table' : 'mobile-table'} data-players={p.players.length}>
     <div className="mt-shell">
       <header className="mt-header">
         <span className="mt-brand">OMAHA <b>HI–LO</b></span>
         <span className="mt-table-id" title={props.tableName ?? p.partyCode}>{props.tableName ?? p.partyCode} · №{p.handNumber}</span>
         <span className={`mt-connection${c.connected ? '' : ' mt-connection--offline'}`} role="img" aria-label={t(c.connected ? 'Connected' : 'Disconnected', c.connected ? 'Подключено' : 'Нет связи')} />
-        <details className="mt-menu"><summary aria-label={t('Table menu', 'Меню стола')}>☰</summary>
+        {desktop ? <nav className="dt-nav" aria-label={t('Game views', 'Разделы игры')}>
+          <button aria-current="page">{t('Table', 'Стол')}</button>
+          <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
+          <button onClick={props.onAbout}>{t('Rules', 'Правила')}</button>
+          <button onClick={toggleLanguage}>EN / RU</button>
+        </nav> : null}
+        {!desktop ? <details className="mt-menu"><summary aria-label={t('Table menu', 'Меню стола')}>☰</summary>
           <nav aria-label={t('Table menu', 'Меню стола')}>
             <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
             <button onClick={props.onAbout}>{t('About & rules', 'О проекте и правила')}</button>
-            <button onClick={() => { const next = language === 'ru' ? 'en' : 'ru'; setLanguage(next); try { localStorage.setItem('omaha-mobile-language', next); } catch { /* Private mode. */ } }}>Language · EN / RU</button>
+            <button onClick={toggleLanguage}>Language · EN / RU</button>
           </nav>
-        </details>
+        </details> : null}
       </header>
       {c.sessionWarning ? <p className="mt-alert" role="alert">{t('Table expires in', 'Стол будет удалён через')} {c.sessionWarning}</p> : null}
       {!c.connected ? <p className="mt-alert" role="status">{t('Reconnecting…', 'Восстанавливаем соединение…')}</p> : null}
@@ -257,21 +274,21 @@ export default function MobileTable(props: MobileTableProps) {
             : <span className="mt-pot-caption">{t('Bet', 'Ставка')} {amount(p.currentBet)} · {t('Blinds', 'Блайнды')} {amount(p.blinds?.small)}/{amount(p.blinds?.big)}</span>}
         </section>
         <div className="mt-hero-anchor"><PlayerSeat hero seat={hero} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} /></div>
-        <div className="mt-hints">
-          <CombinationHint combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
-          <CombinationHint combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
-        </div>
+        {!desktop ? hints : null}
         {payout ? <div className="mt-personal-result" data-testid="mt-personal-result">
           <strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong>
           <span>{t('Contributed', 'Внесено')}: {amount(contributed)} · {t('Payout', 'Выплата')}: {amount(payout.total)}</span>
         </div> : null}
       </div>
-      {finished ? <section className="mt-finished" role="status">
-        <strong>{props.winnerName ? `${t('Winner', 'Победитель')}: ${props.winnerName}` : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>
-        {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to home', 'На главную')}</button></div>
-          : <p>{t('Waiting for the host', 'Ждём решения ведущего')}</p>}
-        <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>
-      </section> : <ActionDock props={props} language={language} />}
+      <div className={desktop ? 'dt-bottom-panel' : 'mt-bottom-panel'}>
+        {desktop ? hints : null}
+        {finished ? <section className="mt-finished" role="status">
+          <strong>{props.winnerName ? `${t('Winner', 'Победитель')}: ${props.winnerName}` : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>
+          {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to home', 'На главную')}</button></div>
+            : <p>{t('Waiting for the host', 'Ждём решения ведущего')}</p>}
+          <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>
+        </section> : <ActionDock props={props} language={language} />}
+      </div>
       {c.notice ? <p className="mt-notice" role="status">{c.notice}</p> : null}
       <PotDialog player={p} language={language} open={potOpen} onClose={closePot} />
     </div>

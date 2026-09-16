@@ -3,8 +3,9 @@ import type { TableState } from '../../client/src/mobile-table/types';
 
 export function fixture(count = 7, showdown = true) {
   const holes = [ ['Ac', '2c', '9s', '8s'], ['3d', '3h', 'Jh', '9h'], ['Kh', 'Kd', 'Js', 'Ts'],
-    ['As', '2s', 'Jd', '9d'], ['Ah', '2h', 'Tc', '8c'], ['Qh', 'Qd', '9c', '8d'], ['4c', '4h', 'Td', '7h'] ];
-  const names = ['Вы', 'Лев', 'Иван', 'Алекс', 'Маша', 'Ольга', 'Нина'];
+    ['As', '2s', 'Jd', '9d'], ['Ah', '2h', 'Tc', '8c'], ['Qh', 'Qd', '9c', '8d'], ['4c', '4h', 'Td', '7h'],
+    ['Ad', '2d', '6c', '6d'], ['3s', '4s', '6h', '6s'], ['5c', '5d', '7c', '7d'] ];
+  const names = ['Вы', 'Лев', 'Иван', 'Алекс', 'Маша', 'Ольга', 'Нина', 'Анна', 'Олег', 'Максим'];
   const players = holes.slice(0, count).map((hole, i) => ({ id: `P${i + 1}`, name: names[i], hole, cardCount: 4, stack: 800, folded: false, connected: true }));
   const winnerIds = ['P1', 'P4', 'P5'].filter(id => players.some(p => p.id === id));
   const combo = {
@@ -43,7 +44,7 @@ export async function mockTable(page: Page, initial = fixture()) {
   const messages: Array<Record<string, any>> = [];
   let socket: WebSocketRoute | undefined;
   await page.route('**/api/player/**', route => route.fulfill({ json: state }));
-  await page.routeWebSocket('ws://localhost:4000/**', ws => {
+  await page.routeWebSocket(/ws:\/\/localhost:(4000|4100)\//, ws => {
     socket = ws;
     ws.onMessage(raw => {
       const message = JSON.parse(String(raw));

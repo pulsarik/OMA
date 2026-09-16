@@ -49,7 +49,7 @@ test('personal result emphasizes net loss, localizes labels and keeps zero neutr
   await expect(result.locator('strong')).toHaveCSS('color', 'rgb(222, 197, 139)');
 });
 
-test('2–7 seats render all hands; larger tables and desktop use legacy layout', async ({ page }) => {
+test('2–7 seats render all hands; resizing switches desktop and preserves mobile fallback', async ({ page }) => {
   const mock = await mockTable(page, fixture(2));
   for (let count = 2; count <= 7; count++) {
     mock.update(fixture(count));
@@ -57,7 +57,7 @@ test('2–7 seats render all hands; larger tables and desktop use legacy layout'
     await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(count * 4);
   }
   await page.setViewportSize({ width: 1100, height: 900 });
-  await expect(page.getByTestId('poker-table')).toBeVisible();
+  await expect(page.getByTestId('desktop-table')).toBeVisible();
   await expect(page.getByTestId('mobile-table')).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   const eight = fixture();

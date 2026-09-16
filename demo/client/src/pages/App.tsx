@@ -24,7 +24,7 @@ import { problemContext } from '../problemContext';
 import './wireframe-actions.css';
 import { WIREFRAME_LAYOUT } from './wireframeLayout';
 import { WireframeTable } from './WireframeTable';
-import { MOBILE_TABLE_ENABLED, MOBILE_TABLE_MAX_PLAYERS, shouldUseMobileTable } from '../mobile-table/feature';
+import { MOBILE_TABLE_ENABLED, MOBILE_TABLE_MAX_PLAYERS, shouldUseDesktopTable, shouldUseMobileTable } from '../mobile-table/feature';
 
 const MobileTable = React.lazy(() => import('../mobile-table/MobileTable'));
 
@@ -3584,9 +3584,11 @@ function PlayerPage({
     </button>
   ) : undefined;
 
-  if (isTableView && isMobileTable && shouldUseMobileTable(window.innerWidth, player.players.length)) {
+  if (isTableView && (shouldUseMobileTable(window.innerWidth, player.players.length)
+    || shouldUseDesktopTable(window.innerWidth, player.players.length))) {
     return <React.Suspense fallback={<p role="status">Loading table… / Загружаем стол…</p>}>
       <MobileTable
+        layout={isMobileTable ? 'mobile' : 'desktop'}
         player={player}
         tableName={tableName}
         dealerId={dealerPlayerId}
