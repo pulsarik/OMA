@@ -1,5 +1,5 @@
-// One build-time opt-in for both the mobile and desktop oval tables.
-export const MOBILE_TABLE_ENABLED = import.meta.env.VITE_MOBILE_TABLE_UI === 'true';
+// New oval table UI is enabled by default; set VITE_MOBILE_TABLE_UI=false to keep the legacy look.
+export const MOBILE_TABLE_ENABLED = import.meta.env.VITE_MOBILE_TABLE_UI !== 'false';
 export const MOBILE_TABLE_MAX_PLAYERS = 7;
 export const MOBILE_TABLE_MAX_WIDTH = 760;
 export const DESKTOP_TABLE_MAX_PLAYERS = 10;

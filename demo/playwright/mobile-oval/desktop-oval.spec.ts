@@ -5,11 +5,15 @@ test.use({ viewport: { width: 1440, height: 1000 } });
 
 test('desktop seats, board, hints and actions fit without overlap for 2–10 players', async ({ page }, testInfo) => {
   const mock = await mockTable(page, fixture(8, false));
-  for (const viewport of [{ width: 761, height: 800 }, { width: 1024, height: 768 }, { width: 1440, height: 1000 }, { width: 1920, height: 1080 }]) {
+  test.setTimeout(90_000);
+  for (const viewport of [{ width: 761, height: 800 }, { width: 820, height: 1180 }, { width: 1024, height: 768 }, { width: 1280, height: 632 }, { width: 1440, height: 1000 }, { width: 1920, height: 1080 }, { width: 2560, height: 1440 }]) {
     await page.setViewportSize(viewport);
-    for (const showdown of [false, true]) {
+    for (const mode of ['live', 'showdown', 'side-pots']) {
+      const showdown = mode !== 'live';
       for (let count = 2; count <= 10; count++) {
-        mock.update(fixture(count, showdown));
+        const state = fixture(count, showdown);
+        if (mode === 'side-pots') state.result!.sidePots.push({ ...state.result!.sidePots[0], amount: 200 });
+        mock.update(state);
         await expect(page.getByTestId('desktop-table')).toBeVisible();
         await expect(page.locator('.mt-seat')).toHaveCount(count);
         await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(showdown ? count * 4 : 4);
@@ -22,11 +26,15 @@ test('desktop seats, board, hints and actions fit without overlap for 2–10 pla
             .map(b => [a.name, b.name]));
           const scene = rect(table.querySelector('.mt-scene')!);
           const cards = [...table.querySelectorAll('.mt-scene .mt-card')].map(rect);
-          return { overlaps, inside: cards.every(c => c.left >= scene.left && c.right <= scene.right && c.top >= scene.top && c.bottom <= scene.bottom), overflow: document.documentElement.scrollWidth > innerWidth };
+          return { overlaps, inside: cards.every(c => c.left >= scene.left && c.right <= scene.right && c.top >= scene.top && c.bottom <= scene.bottom), overflow: document.documentElement.scrollWidth > innerWidth,
+            verticalOverflow: document.documentElement.scrollHeight > innerHeight,
+            controlsVisible: [...table.querySelectorAll('.mt-dock button')].every(el => rect(el).bottom <= innerHeight && rect(el).height >= 34) };
         });
-        expect.soft(metrics, `${viewport.width}px, ${count} seats, showdown=${showdown}`).toEqual({ overlaps: [], inside: true, overflow: false });
-        if (count === 8 && viewport.width === 1440) {
-          await page.screenshot({ path: testInfo.outputPath(`desktop-eight-${showdown ? 'showdown' : 'live'}.png`), fullPage: true });
+        expect.soft(metrics, `${viewport.width}x${viewport.height}, ${count} seats, ${mode}`).toEqual({ overlaps: [], inside: true, overflow: false, verticalOverflow: false, controlsVisible: true });
+        if (count === 6 || count === 10) {
+          const path = testInfo.outputPath(`${viewport.width}x${viewport.height}-${count}-${mode}.png`);
+          await page.screenshot({ path });
+          await testInfo.attach('viewport', { path, contentType: 'image/png' });
         }
       }
     }
@@ -63,6 +71,38 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
   await expect(page.getByTestId('desktop-table')).toBeVisible();
   await page.getByRole('button', { name: 'Next deal' }).click();
   expect(mock.messages.filter(m => m.action === 'new_deal')).toHaveLength(1);
+});
+
+test.describe('touch tablet', () => {
+  test.use({ hasTouch: true, deviceScaleFactor: 1.25 });
+
+  test('Russian side pots fit after rotating without losing the hand', async ({ page }, testInfo) => {
+    const state = fixture(10);
+    state.result!.sidePots.push({ ...state.result!.sidePots[0], amount: 200 });
+    state.players[3].name = 'Очень длинное имя игрока';
+    await mockTable(page, state);
+    await page.getByRole('button', { name: 'EN / RU', exact: true }).tap();
+    await expect(page.getByTestId('desktop-table')).toHaveAttribute('lang', 'ru');
+    for (const viewport of [{ width: 1280, height: 632 }, { width: 800, height: 1138 }, { width: 1280, height: 632 }]) {
+      await page.setViewportSize(viewport);
+      await expect(page.locator('.mt-seat')).toHaveCount(10);
+      const metrics = await page.getByTestId('desktop-table').evaluate(table => {
+        const boxes = [...table.querySelectorAll('.mt-seat, .mt-board, .mt-hints, .mt-personal-result, .mt-dock')]
+          .map(el => ({ ...el.getBoundingClientRect().toJSON(), name: el.getAttribute('data-testid') ?? el.className }));
+        return {
+          inside: boxes.every(b => b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight),
+          overlaps: boxes.flatMap((a, i) => boxes.slice(i + 1).filter(b => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
+            && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1).map(b => [a.name, b.name])),
+          overflow: document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth,
+        };
+      });
+      await page.screenshot({ path: testInfo.outputPath(`tablet-ru-${viewport.width}x${viewport.height}.png`) });
+      expect(metrics, JSON.stringify(viewport)).toEqual({ inside: true, overlaps: [], overflow: false });
+    }
+    await page.locator('.mt-side-link').tap();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.locator('.mt-pot-detail')).toHaveCount(2);
+  });
 });
 
 test('real desktop lobby exposes ten seats and plays through to the next hand', async ({ page }) => {

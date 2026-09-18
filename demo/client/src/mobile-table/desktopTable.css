@@ -1,7 +1,8 @@
 /* Desktop is an explicit variant of the opt-in table. Legacy selectors stay untouched. */
 .mt-bottom-panel { display: contents; }
-.mt-page--desktop { padding: 0 20px 16px; }
-.mt-page--desktop .mt-shell { max-width: 1600px; }
+.mt-page--desktop { padding: 0 20px max(8px, env(safe-area-inset-bottom)); }
+.mt-page--desktop .mt-shell { max-width: 1600px; height: calc(100dvh - max(8px, env(safe-area-inset-bottom))); display: flex; flex-direction: column; }
+.mt-page--desktop .mt-shell > :not(.mt-scene) { flex-shrink: 0; }
 .mt-page--desktop .mt-header { height: 64px; gap: 18px; padding: 0 48px 0 12px; border-bottom: 1px solid #c9b67b26; }
 .mt-page--desktop .mt-brand { color: #e4c888; font-size: 23px; letter-spacing: .07em; }
 .mt-page--desktop .mt-table-id { margin: 0 auto; font-size: 14px; }
@@ -9,10 +10,12 @@
 .dt-nav button { border: 0; padding: 8px 0; background: none; color: #cad4c7; font-size: 13px; white-space: nowrap; }
 .dt-nav button[aria-current=page] { color: #e4c888; border-bottom: 1px solid #c8ae73; }
 .dt-nav button:hover { color: #fff4ce; }
-.mt-page--desktop .mt-scene { height: clamp(660px, calc(100svh - 242px), 850px); min-height: 660px; margin: 12px 0; }
-.mt-page--desktop .mt-scene--showdown { height: clamp(780px, calc(100svh - 242px), 900px); min-height: 780px; }
+/* Reserve the actual header/panel height first. Below the readable scene floor,
+   allow scrolling instead of clipping cards or shrinking the controls. */
+.mt-page--desktop .mt-scene { flex: 1 1 0; height: auto; min-height: 420px; max-height: 850px; margin: 8px 0; container-type: size; }
+.mt-page--desktop .mt-scene--showdown { max-height: 900px; }
 .mt-page--desktop .mt-rail { inset: 0; border-radius: 48% / 46%; border-width: 12px; }
-.mt-page--desktop .mt-seat-anchor { width: 15%; max-width: 210px; }
+.mt-page--desktop .mt-seat-anchor { width: min(15%, 25cqh); max-width: 210px; }
 .mt-page--desktop .mt-seat-name { font-size: clamp(12px, 1.2cqw, 18px); gap: 6px; }
 .mt-page--desktop .mt-position-line { min-height: 20px; font-size: 11px; }
 .mt-page--desktop .mt-position { width: 18px; height: 18px; font-size: 9px; }
@@ -23,7 +26,7 @@
 .mt-page--desktop .mt-seat-result { font-size: 13px; min-height: 24px; padding-top: 5px; }
 .mt-page--desktop .mt-award { font-size: 12px; }
 .mt-page--desktop .mt-ranks { font-size: 11px; }
-.mt-page--desktop .mt-board { width: 33%; max-width: 460px; top: 46%; transform: translate(-50%, -50%); gap: 8px; }
+.mt-page--desktop .mt-board { width: min(33%, 50cqh); max-width: 460px; top: 46%; transform: translate(-50%, -50%); gap: 4px; grid-template-columns: minmax(0, 1fr); }
 .mt-page--desktop .mt-board .mt-cards { gap: 8px; }
 .mt-page--desktop .mt-board .mt-card b { font-size: clamp(24px, 2.8cqw, 42px); }
 .mt-page--desktop .mt-board .mt-card > span { font-size: clamp(27px, 3.2cqw, 48px); }
@@ -31,7 +34,7 @@
 .mt-page--desktop .mt-pot { min-width: 160px; justify-content: center; min-height: 34px; font-size: 15px; }
 .mt-page--desktop .mt-pot strong { font-size: 23px; }
 .mt-page--desktop .mt-pot-caption { font-size: 12px; }
-.mt-page--desktop .mt-hero-anchor { top: 79%; width: 22%; max-width: 300px; }
+.mt-page--desktop .mt-hero-anchor { top: 79%; width: min(22%, 38cqh); max-width: 300px; }
 .mt-page--desktop .mt-seat--hero .mt-seat-name { font-size: 19px; }
 .mt-page--desktop .mt-seat--hero .mt-card b { font-size: clamp(23px, 2.6cqw, 36px); }
 .mt-page--desktop .mt-seat--hero .mt-card > span { font-size: clamp(25px, 3cqw, 40px); }
@@ -62,6 +65,36 @@
 .mt-page--desktop .mt-pot-dialog { border: 1px solid #bfa96e55; border-radius: 20px; }
 .mt-page--desktop .mt-pot-dialog::before { display: none; }
 body:has(.mt-page--desktop) .report-problem-button { top: 16px !important; right: max(26px, calc((100vw - 1600px) / 2 + 8px)) !important; }
+/* Cards respond to scene height as well as width; text and controls keep
+   readable floors. These rules apply to short desktop windows too. */
+@container (max-height: 600px) {
+  .mt-page--desktop .mt-seat-name { font-size: 12px; }
+  .mt-page--desktop .mt-position-line { min-height: 18px; }
+  .mt-page--desktop .mt-seat-result { padding-top: 2px; min-height: 18px; font-size: 11px; }
+  .mt-page--desktop .mt-card b { font-size: 17px; }
+  .mt-page--desktop .mt-card > span { font-size: 19px; }
+  .mt-page--desktop .mt-board .mt-card b { font-size: 24px; }
+  .mt-page--desktop .mt-board .mt-card > span { font-size: 27px; }
+  .mt-page--desktop .mt-seat--hero .mt-card b { font-size: 23px; }
+  .mt-page--desktop .mt-seat--hero .mt-card > span { font-size: 25px; }
+  .mt-page--desktop .mt-board { top: 47%; }
+  .mt-page--desktop .mt-street { font-size: 12px; line-height: 14px; }
+  .mt-page--desktop .mt-pot { min-height: 30px; }
+  .mt-page--desktop .mt-pot-splits { display: flex; align-items: center; justify-self: center; gap: 8px; }
+  .mt-page--desktop .mt-personal-result strong { font-size: 17px; }
+  .mt-page--desktop .mt-personal-result { bottom: 0; }
+  .mt-page--desktop .mt-hero-anchor { top: 77%; width: min(22%, 34cqh); }
+}
+@media (max-height: 750px) and (min-width: 761px) {
+  .mt-page--desktop .mt-header { height: 48px; }
+  .dt-bottom-panel { padding: 8px 12px; }
+  .mt-page--desktop .mt-combo .mt-card { max-height: 44px; }
+  .mt-page--desktop .mt-combo .mt-card b { font-size: 16px; }
+  .mt-page--desktop .mt-combo .mt-card > span { font-size: 18px; }
+  .mt-page--desktop .mt-combo-empty { min-height: 44px; }
+  .mt-page--desktop .mt-action-buttons button { min-height: 48px; }
+  .mt-page--desktop .mt-bet-sizes button { min-height: 44px; }
+}
 @media (min-width: 761px) and (max-width: 1100px) {
   .mt-page--desktop { padding-inline: 10px; }
   .mt-page--desktop .mt-header { gap: 10px; }
