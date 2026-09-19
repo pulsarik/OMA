@@ -16,7 +16,6 @@ import {
   countPlayerCombinations,
   advantageRealizationPercent,
   missedHighCount,
-  missedLowCount,
 } from '../partyStatistics';
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
@@ -2586,7 +2585,6 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
       aggressivePercent: `${aggressiveHandPercent(player.id, hands)}%`,
       realizationPercent: `${advantageRealizationPercent(player.id, hands)}%`,
       missedHigh: missedHighCount(player.id, hands),
-      missedLow: missedLowCount(player.id, hands),
       foldPercent: percentage(folds, hands.length),
       winPercent: percentage(wins, hands.length),
       lossPercent: percentage(losses, hands.length),
@@ -2668,9 +2666,6 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
               <th title={ui('Hands with the best high but no high payout', 'Раздачи с лучшим high без выплаты за high')}>
                 {ui('Missed high', 'Упущенный high')}
               </th>
-              <th title={ui('Hands with the best low but no low payout', 'Раздачи с лучшим low без выплаты за low')}>
-                {ui('Missed low', 'Упущенный low')}
-              </th>
               <th title={ui('Hands with at least one bet or raise', 'Раздачи хотя бы с одной ставкой или рейзом')}>
                 {ui('Bet/Raise', 'Бет/рейз')}
               </th>
@@ -2750,9 +2745,8 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                   ) : null}
                 </td>
                 <td data-testid={`party-realization-${player.id}`} style={{ textAlign: 'right', fontWeight: 800 }}>{player.realizationPercent}</td>
-                <td data-testid={`party-missed-high-${player.id}`} style={{ textAlign: 'right' }}>{player.missedHigh}</td>
-                <td data-testid={`party-missed-low-${player.id}`} style={{ textAlign: 'right' }}>{player.missedLow}</td>
                 <td data-testid={`party-hands-${player.id}`} style={{ textAlign: 'right' }}>{player.hands}</td>
+                <td data-testid={`party-missed-high-${player.id}`} style={{ textAlign: 'right' }}>{player.missedHigh}</td>
                 <td data-testid={`party-aggression-${player.id}`} style={{ textAlign: 'right', color: '#7c3aed', fontWeight: 800 }}>{player.aggressivePercent}</td>
                 <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
                 <td data-testid={`party-win-${player.id}`} style={{ textAlign: 'right', color: '#047857', fontWeight: 800 }}>{player.winPercent}</td>

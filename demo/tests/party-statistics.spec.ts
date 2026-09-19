@@ -5,7 +5,6 @@ import {
   buildWalletHistory,
   countPlayerCombinations,
   missedHighCount,
-  missedLowCount,
   type StatisticsHand,
 } from '../client/src/partyStatistics';
 
@@ -66,7 +65,7 @@ test('counts each high-hand combination and ignores pairs', () => {
   });
 });
 
-test('counts best high and low hands that received no matching payout', () => {
+test('counts best high hands that received no matching payout', () => {
   const missedHands: StatisticsHand[] = [
     {
       handNumber: 1,
@@ -98,9 +97,7 @@ test('counts best high and low hands that received no matching payout', () => {
   ];
 
   expect(missedHighCount('P1', missedHands)).toBe(2);
-  expect(missedLowCount('P1', missedHands)).toBe(2);
   expect(missedHighCount('P2', missedHands)).toBe(1);
-  expect(missedLowCount('P2', missedHands)).toBe(1);
 });
 
 test('classifies bots by their aggressive-hand share', () => {

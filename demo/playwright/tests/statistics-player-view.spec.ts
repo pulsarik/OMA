@@ -23,21 +23,20 @@ test('player view uses classic values, selects players, and remembers the revers
   await expect(page.getByTestId('bot-style-P2')).toHaveCount(0);
 
   const readValues = () => page.getByTestId('party-statistics').locator('[data-testid]').evaluateAll(elements => (
-    Object.fromEntries(elements.filter(element => /^party-(realization|missed-high|missed-low|hands|aggression|fold|win|loss|net|max-win|max-loss|stack|combination)-/.test(element.getAttribute('data-testid') ?? ''))
+    Object.fromEntries(elements.filter(element => /^party-(realization|missed-high|hands|aggression|fold|win|loss|net|max-win|max-loss|stack|combination)-/.test(element.getAttribute('data-testid') ?? ''))
       .map(element => [element.getAttribute('data-testid')!, element.textContent!.replace(/^\+/, '')]))
   ));
   const firstPlayer = await readValues();
-  expect(Object.keys(firstPlayer)).toHaveLength(19);
+  expect(Object.keys(firstPlayer)).toHaveLength(18);
   const playCard = page.getByRole('heading', { name: 'Play', exact: true }).locator('..');
   await expect(playCard.getByTestId('party-realization-P1')).toBeVisible();
   await expect(playCard.getByTestId('party-missed-high-P1')).toBeVisible();
-  await expect(playCard.getByTestId('party-missed-low-P1')).toBeVisible();
   await page.getByTestId('statistics-select-P2').click();
   await expect(page.getByTestId('statistics-player-detail')).toHaveAttribute('data-player-id', 'P2');
   await expect(page.getByTestId('wallet-series-P2')).toHaveAttribute('data-selected', 'true');
   await expect(page.getByTestId('wallet-series-P1')).toHaveAttribute('data-selected', 'false');
   const secondPlayer = await readValues();
-  expect(Object.keys(secondPlayer)).toHaveLength(19);
+  expect(Object.keys(secondPlayer)).toHaveLength(18);
 
   const explore = page.getByRole('slider', { name: 'Explore hands' });
   await explore.focus();

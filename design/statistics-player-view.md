@@ -2,7 +2,7 @@
 
 The statistics page defaults to **Player view**. **Classic view** restores the previous table immediately. The choice is stored locally under `omaha-statistics-layout`; it does not affect other players or server data.
 
-Both views receive the same metrics calculated by `PartyStatistics` in `demo/client/src/pages/App.tsx`. The old JSX and `WalletHistoryChart` remain in place. The new view uses the current metric set, including Missed high / Missed low, without adding the average shown in the concept image. UI copy has English and Russian variants; the existing app language is English.
+Both views receive the same metrics calculated by `PartyStatistics` in `demo/client/src/pages/App.tsx`. The old JSX and `WalletHistoryChart` remain in place. The new view uses the current metric set, including Missed high, without adding the average shown in the concept image. UI copy has English and Russian variants; the existing app language is English.
 
 To change the default for browsers without a saved preference, set `DEFAULT_STATISTICS_LAYOUT` to `'classic'` in `demo/client/src/components/statisticsLayout.ts`. A saved preference takes precedence.
 

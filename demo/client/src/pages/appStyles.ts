@@ -5068,6 +5068,76 @@ export const PLAYER_PAGE_STYLES = `
     color: var(--new-ink);
   }
   .poker-page--new-design .statistics-layout-switch button[aria-pressed="true"] { background: #d9c28d; border-color: var(--new-brass); color: #4f3516; }
+  @media (min-width: 761px) {
+    .poker-page--new-design .stats-tile {
+      background: var(--new-paper-deep);
+      box-shadow: 0 18px 38px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(200, 155, 69, .7);
+    }
+    .poker-page--new-design .statistics-presentation {
+      padding: 10px;
+      border: 1px solid rgba(200, 155, 69, .48);
+      border-radius: 11px;
+      background: linear-gradient(145deg, rgba(7, 61, 45, .96), rgba(3, 42, 30, .98));
+      box-shadow: inset 0 0 24px rgba(0, 0, 0, .18);
+    }
+    .poker-page--new-design .statistics-layout-switch { margin-bottom: 10px; }
+    .poker-page--new-design .statistics-layout-switch button {
+      border-color: rgba(200, 155, 69, .62);
+      background: rgba(3, 42, 30, .82);
+      color: #e8d5a7;
+    }
+    .poker-page--new-design .statistics-layout-switch button[aria-pressed="true"] {
+      background: var(--new-paper);
+      color: var(--new-ink);
+    }
+    .poker-page--new-design .statistics-dashboard {
+      padding: 22px;
+      border: 1px solid rgba(200, 155, 69, .52);
+      border-radius: 9px;
+      background: var(--new-paper);
+      box-shadow: inset 0 0 0 1px rgba(91, 57, 30, .12);
+    }
+    .poker-page--new-design .statistics-heading { margin-bottom: 20px; }
+    .poker-page--new-design .statistics-heading h2 { text-transform: uppercase; letter-spacing: .045em; }
+    .poker-page--new-design .statistics-card {
+      border-color: rgba(123, 91, 42, .45);
+      background: rgba(255, 251, 239, .82);
+      box-shadow: 0 5px 14px rgba(91, 57, 30, .11), inset 0 0 0 1px rgba(255, 255, 255, .36);
+    }
+    .poker-page--new-design .statistics-players {
+      border-color: rgba(200, 155, 69, .75);
+      background: linear-gradient(160deg, var(--new-felt-mid), var(--new-felt));
+      color: #f7f0df;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, .18), inset 0 0 0 1px rgba(224, 195, 125, .16);
+    }
+    .poker-page--new-design .statistics-players > h3 { color: #f7f0df; }
+    .poker-page--new-design .statistics-players .statistics-muted,
+    .poker-page--new-design .statistics-player-columns { color: #d8c99c; }
+    .poker-page--new-design .statistics-player { border-top-color: rgba(224, 195, 125, .2); color: #f7f0df; }
+    .poker-page--new-design .statistics-player:hover { background: rgba(247, 240, 223, .1); }
+    .poker-page--new-design .statistics-player[aria-pressed="true"] { background: rgba(247, 240, 223, .16); }
+    .poker-page--new-design .statistics-player-copy small { color: #d8c99c; }
+    .poker-page--new-design .statistics-overview,
+    .poker-page--new-design .statistics-cards .statistics-card { background: rgba(255, 251, 239, .9); }
+    .poker-page--new-design .statistics-chart-heading { border-top-color: rgba(123, 91, 42, .28); }
+    .poker-page--new-design .statistics-chart-grid { stroke: rgba(123, 91, 42, .22); }
+    .poker-page--new-design .statistics-meter { background: rgba(7, 61, 45, .14); }
+    .poker-page--new-design .statistics-metric { border-bottom-color: rgba(123, 91, 42, .18); }
+    .poker-page--new-design .party-summary {
+      border-color: rgba(200, 155, 69, .52);
+      background: var(--new-paper);
+      box-shadow: inset 0 0 0 1px rgba(91, 57, 30, .12);
+    }
+    .poker-page--new-design .wallet-history,
+    .poker-page--new-design .party-metrics-scroll {
+      border-color: rgba(123, 91, 42, .4);
+      background: var(--new-paper-deep);
+    }
+    .poker-page--new-design .party-metrics-scroll .result-points th,
+    .poker-page--new-design .party-metrics-scroll .result-points td { border-color: rgba(123, 91, 42, .22); }
+    .poker-page--new-design .party-metrics-scroll .result-points th:first-child,
+    .poker-page--new-design .party-metrics-scroll .result-points td:first-child { background: var(--new-paper); }
+  }
   @media (max-width: 760px) {
     .poker-page--new-design::before { inset: 4px; }
     .poker-page--new-design .stats-tile,

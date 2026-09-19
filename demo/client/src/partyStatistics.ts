@@ -89,13 +89,6 @@ export function missedHighCount(playerId: string, hands: StatisticsHand[]) {
   }).length;
 }
 
-export function missedLowCount(playerId: string, hands: StatisticsHand[]) {
-  return hands.filter((hand) => {
-    const advantage = advantageByStreet(playerId, hand, true);
-    return advantage.low && streetPoints(playerId, hand, 'low') <= 0;
-  }).length;
-}
-
 export function advantageRealizationPercent(playerId: string, hands: StatisticsHand[]) {
   const advantagedHands = hands.filter((hand) => {
     const advantage = advantageByStreet(playerId, hand);
