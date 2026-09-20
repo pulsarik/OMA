@@ -15,7 +15,6 @@ export type StatisticsPlayer = {
   foldPercent: string;
   winPercent: string;
   lossPercent: string;
-  net: number;
   maxWin: number;
   maxLoss: number;
   stack: number;
@@ -94,7 +93,7 @@ export function StatisticsDashboard({
             <h3>{t('Players', 'Игроки')}</h3>
             <p className="statistics-muted">{t('Choose a player to explore their game.', 'Выберите игрока, чтобы изучить его игру.')}</p>
             <div className="statistics-player-columns" aria-hidden="true">
-              <span>{t('Player', 'Игрок')}</span><span>{t('Net', 'Итог')}</span><span>{t('Stack', 'Стек')}</span>
+              <span>{t('Player', 'Игрок')}</span><span>{t('Stack', 'Стек')}</span>
             </div>
             <div className="statistics-player-list">
               {metrics.map((item, index) => (
@@ -112,7 +111,6 @@ export function StatisticsDashboard({
                       </small> : null}
                     </span>
                   </span>
-                  <strong className={tone(item.net)}><span className="statistics-sr-only">{t('Net', 'Итог')} </span>{signed(item.net)}</strong>
                   <span><span className="statistics-sr-only">{t('Stack', 'Стек')} </span>{formatValue(item.stack)}</span>
                 </button>
               ))}
@@ -126,7 +124,6 @@ export function StatisticsDashboard({
                 {player.id === currentPlayerId ? <span className="statistics-badge">{t('You', 'Вы')}</span> : null}
               </header>
               <dl className="statistics-headlines">
-                <div><dt>{t('Net result', 'Итог')}</dt><dd className={tone(player.net)} data-testid={`party-net-${player.id}`}>{signed(player.net)}</dd></div>
                 <div><dt>{t('Stack', 'Стек')}</dt><dd data-testid={`party-stack-${player.id}`}>{formatValue(player.stack)}</dd></div>
               </dl>
               {walletHistory.some(item => item.points.length) ? <>
