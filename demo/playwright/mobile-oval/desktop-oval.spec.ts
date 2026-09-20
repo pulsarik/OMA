@@ -41,6 +41,43 @@ test('desktop seats, board, hints and actions fit without overlap for 2–10 pla
   }
 });
 
+test('desktop oval table keeps stable geometry when turn status changes', async ({ page }) => {
+  const mock = await mockTable(page, fixture(8, false));
+  await expect(page.getByTestId('desktop-table')).toBeVisible();
+
+  const measure = async (state: Partial<any>) => {
+    mock.update({ ...fixture(8, false), ...state });
+    await page.waitForTimeout(50);
+    return page.getByTestId('desktop-table').evaluate((table) => {
+      const scene = table.querySelector<HTMLElement>('.mt-scene');
+      const heroResult = table.querySelector<HTMLElement>('.mt-seat--hero .mt-seat-result');
+      return {
+        sceneHeight: scene?.getBoundingClientRect().height ?? 0,
+        heroHeight: heroResult?.getBoundingClientRect().height ?? 0,
+        heroText: heroResult?.textContent?.trim() ?? '',
+      };
+    });
+  };
+
+  const before = await measure({
+    currentPlayerId: 'P2',
+    currentBet: 20,
+    actions: [{ playerId: 'P1', stage: 'river', move: 'raise', amount: 20, at: Date.now() }],
+    roundBets: { P1: 0, P2: 20 },
+  });
+  const after = await measure({
+    currentPlayerId: 'P1',
+    currentBet: 20,
+    actions: [{ playerId: 'P1', stage: 'river', move: 'raise', amount: 20, at: Date.now() }],
+    roundBets: { P1: 0, P2: 20 },
+  });
+
+  expect(before.heroText.toLowerCase()).toContain('raise');
+  expect(after.heroText.toLowerCase()).toContain('your turn');
+  expect(Math.abs(after.heroHeight - before.heroHeight)).toBeLessThanOrEqual(2);
+  expect(Math.abs(after.sceneHeight - before.sceneHeight)).toBeLessThanOrEqual(2);
+});
+
 test('desktop actions, pot dialog, localization and resize preserve the hand', async ({ page }) => {
   const mock = await mockTable(page, fixture(8, false));
   await expect(page.locator('.mt-seat:not([data-hero=true]) .mt-card--back')).toHaveCount(28);

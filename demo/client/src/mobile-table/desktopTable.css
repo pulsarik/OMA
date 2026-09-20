@@ -12,7 +12,7 @@
 .dt-nav button:hover { color: #fff4ce; }
 /* Reserve the actual header/panel height first. Below the readable scene floor,
    allow scrolling instead of clipping cards or shrinking the controls. */
-.mt-page--desktop .mt-scene { flex: 1 1 0; height: auto; min-height: 420px; max-height: 850px; margin: 8px 0; container-type: size; }
+.mt-page--desktop .mt-scene { flex: 1 1 0; height: clamp(420px, 62dvh, 850px); min-height: 420px; max-height: 850px; margin: 8px 0; container-type: size; }
 .mt-page--desktop .mt-scene--showdown { max-height: 900px; }
 .mt-page--desktop .mt-rail { inset: 0; border-radius: 48% / 46%; border-width: 12px; }
 .mt-page--desktop .mt-seat-anchor { width: min(15%, 25cqh); max-width: 210px; }
@@ -23,7 +23,7 @@
 .mt-page--desktop .mt-card { border-radius: 5px; }
 .mt-page--desktop .mt-card b { font-size: clamp(17px, 1.9cqw, 27px); }
 .mt-page--desktop .mt-card > span { font-size: clamp(19px, 2.1cqw, 30px); }
-.mt-page--desktop .mt-seat-result { font-size: 13px; min-height: 24px; padding-top: 5px; }
+.mt-page--desktop .mt-seat-result { display: flex; align-items: center; justify-content: center; font-size: 13px; min-height: 24px; height: 24px; padding-top: 5px; white-space: nowrap; }
 .mt-page--desktop .mt-award { font-size: 12px; }
 .mt-page--desktop .mt-ranks { font-size: 11px; }
 .mt-page--desktop .mt-board { width: min(33%, 50cqh); max-width: 460px; top: 46%; transform: translate(-50%, -50%); gap: 4px; grid-template-columns: minmax(0, 1fr); }
@@ -42,7 +42,7 @@
 .mt-page--desktop .mt-personal-result { bottom: 1.5%; left: 30%; width: 40%; }
 .mt-page--desktop .mt-personal-result strong { font-size: 21px; }
 .mt-page--desktop .mt-personal-result > span { font-size: 11px; }
-.dt-bottom-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 22px; padding: 14px 20px; border: 1px solid #b6bd9038; border-radius: 12px; background: linear-gradient(120deg, #0c2b20, #041b14); }
+.dt-bottom-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 22px; min-height: 110px; padding: 14px 20px; border: 1px solid #b6bd9038; border-radius: 12px; background: linear-gradient(120deg, #0c2b20, #041b14); }
 .mt-page--desktop .mt-hints { position: static; width: auto; min-width: 0; gap: 14px; }
 .mt-page--desktop .mt-combo { padding-right: 0; }
 .mt-page--desktop .mt-combo + .mt-combo { padding-left: 14px; }
