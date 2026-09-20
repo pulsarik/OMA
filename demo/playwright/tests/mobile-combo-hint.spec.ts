@@ -8,7 +8,6 @@ async function startMobileTable(page: Page) {
   await page.getByLabel('Seats at the table').selectOption('4');
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
-  await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();

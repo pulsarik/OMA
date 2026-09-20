@@ -3,11 +3,10 @@ import { expect, test } from '@playwright/test';
 test('mobile setup switches modes without losing details and starts with bots', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 862 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
-  await expect(page.getByRole('radio', { name: /With friends/ })).toBeChecked();
+  await page.getByRole('button', { name: 'Play with bots' }).click();
+  await expect(page.getByRole('radio', { name: /With friends/ })).toHaveCount(0);
   await page.getByLabel('Your name').fill('Bob');
   await page.getByLabel('Seats at the table').selectOption('4');
-  await page.getByRole('radio', { name: /With bots/ }).check();
   await expect(page.getByLabel('Your name')).toHaveValue('Bob');
   await expect(page.getByLabel('Seats at the table')).toHaveValue('4');
   await expect(page.getByRole('button', { name: 'Play now' })).toBeEnabled();
@@ -23,14 +22,19 @@ test('mobile setup switches modes without losing details and starts with bots', 
   await expect(page.getByRole('tab', { name: 'TABLE', exact: true })).toBeVisible();
 });
 
-test('bot entry validates the name and can switch back to a waiting friends table', async ({ page }, testInfo) => {
+test('bot entry can start without a name and friends remain a waiting table', async ({ page }, testInfo) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Play with bots' }).click();
-  await expect(page.getByRole('radio', { name: /With bots/ })).toBeChecked();
+  await expect(page.getByRole('radio', { name: /With bots/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Play now' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+  await expect(page.getByRole('tab', { name: 'TABLE', exact: true })).toBeVisible();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create a table' }).click();
+  await expect(page.getByRole('radio', { name: /With friends/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Create table', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Enter your name.');
   await page.getByLabel('Your name').fill('Alice');
-  await page.getByRole('radio', { name: /With friends/ }).check();
   await page.screenshot({ path: testInfo.outputPath('table-setup-desktop.png'), fullPage: true });
   await page.getByRole('button', { name: 'Create table', exact: true }).click();
   await expect(page.getByLabel('Table PIN')).toBeVisible();

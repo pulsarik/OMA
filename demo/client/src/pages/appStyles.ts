@@ -72,6 +72,45 @@ export const APP_SHELL_STYLES = `
   .lobby-replay-panel p,
   .lobby-replay-panel small { margin: 5px 0 0; color: #64748b; }
   .lobby-replay-panel label { display: grid; gap: 6px; font-weight: 800; }
+  .lobby-open-seat-visual {
+    position: relative;
+    width: 58px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+  }
+  .lobby-open-seat-ring {
+    width: 35px;
+    height: 35px;
+    display: grid;
+    place-items: center;
+    border: 2px dashed rgba(255,255,255,.72);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 35%, rgba(255,255,255,.24), rgba(15,23,42,.38));
+    box-shadow: 0 0 0 5px rgba(255,255,255,.07), 0 5px 12px rgba(15,23,42,.2);
+    animation: lobby-open-seat-breathe 2.4s ease-in-out infinite;
+  }
+  .lobby-open-seat-plus {
+    color: #fff;
+    font-size: 24px;
+    font-weight: 400;
+    line-height: 1;
+    text-shadow: 0 1px 3px rgba(15,23,42,.45);
+  }
+  .lobby-open-seat-spark {
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fbbf24;
+    box-shadow: 0 0 8px rgba(251,191,36,.8);
+  }
+  .lobby-open-seat-spark.spark-one { top: 2px; right: 12px; }
+  .lobby-open-seat-spark.spark-two { bottom: 2px; left: 11px; width: 4px; height: 4px; opacity: .72; }
+  @keyframes lobby-open-seat-breathe {
+    0%, 100% { transform: translateY(0); opacity: .82; }
+    50% { transform: translateY(-2px); opacity: 1; }
+  }
   .lobby-replay-panel input {
     width: min(100%, 260px);
     padding: 9px 10px;
@@ -91,6 +130,104 @@ export const APP_SHELL_STYLES = `
   }
   .lobby-start-button:hover { background: #92400e; }
   .lobby-start-button:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+
+  /* The lobby is a table, not a stack of white dashboard cards. */
+  @media (min-width: 561px) {
+    .lobby-page {
+      background:
+        radial-gradient(ellipse at 50% 28%, rgba(35, 139, 92, .32), transparent 52%),
+        radial-gradient(ellipse at 50% 100%, rgba(0, 0, 0, .32), transparent 58%),
+        #062f25 !important;
+      color: #f3f7f2;
+    }
+    .lobby-page > .lobby-main { width: min(100%, 980px) !important; }
+    .lobby-page > .lobby-main > header { color: #ecfdf5; }
+    .lobby-page > .lobby-main > header a { color: #a7f3d0 !important; }
+    .lobby-page .lobby-panel {
+      gap: 12px !important;
+      padding: 0 0 16px !important;
+      border: 0 !important;
+      background: transparent !important;
+    }
+    .lobby-page .lobby-invite-card {
+      border: 1px solid rgba(167, 243, 208, .25) !important;
+      border-radius: 18px !important;
+      background: rgba(3, 30, 24, .58) !important;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, .2);
+    }
+    .lobby-page .lobby-invite-card > strong { color: #d1fae5 !important; }
+    .lobby-page .lobby-table-scroll {
+      padding: 10px 0 18px !important;
+      overflow: visible !important;
+      border-radius: 50%;
+    }
+    .lobby-page .lobby-table-layout {
+      width: min(100%, 900px) !important;
+      min-width: 700px !important;
+      height: 510px !important;
+    }
+    .lobby-page .lobby-felt {
+      inset: 54px 28px !important;
+      border: 12px solid #4a2d1c !important;
+      background:
+        repeating-linear-gradient(8deg, rgba(255,255,255,.018) 0 1px, transparent 1px 5px),
+        radial-gradient(ellipse at 50% 42%, #14915f 0%, #08764d 52%, #045237 100%) !important;
+      box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.18),
+        inset 0 0 0 9px rgba(0,0,0,.16),
+        inset 0 0 48px rgba(0,0,0,.3),
+        0 18px 32px rgba(0,0,0,.35) !important;
+    }
+    .lobby-page .lobby-felt > div:first-child {
+      inset: 16px !important;
+      border-color: rgba(255,255,255,.22) !important;
+    }
+    .lobby-page .lobby-felt > div:last-child strong {
+      font-family: Georgia, serif;
+      font-size: 24px !important;
+      letter-spacing: .16em !important;
+    }
+    .lobby-page .lobby-felt > div:last-child span:last-child {
+      border-color: rgba(255,255,255,.55) !important;
+      background: rgba(2, 44, 34, .32);
+    }
+    .lobby-page .lobby-seat-card {
+      border: 1px solid rgba(255,255,255,.32) !important;
+      border-radius: 12px !important;
+      background: linear-gradient(155deg, rgba(16, 37, 49, .94), rgba(5, 24, 28, .9)) !important;
+      color: #f8fafc !important;
+      padding: 8px 9px !important;
+      box-shadow: 0 7px 16px rgba(0,0,0,.3) !important;
+    }
+    .lobby-page .lobby-seat-card strong { color: #fff !important; }
+    .lobby-page .lobby-seat-card span { color: #a7f3d0 !important; }
+    .lobby-page .lobby-seat[data-lobby-member-id] .lobby-seat-card {
+      border-color: rgba(110,231,183,.55) !important;
+    }
+    .lobby-page .lobby-seat-card:has(+ label) { border-color: rgba(251,191,36,.8) !important; }
+    .lobby-page .lobby-host-actions {
+      justify-content: center;
+      padding: 12px;
+      border: 1px solid rgba(167,243,208,.2);
+      border-radius: 14px;
+      background: rgba(3,30,24,.58);
+    }
+    .lobby-page .lobby-host-actions button {
+      min-width: 190px;
+      min-height: 46px;
+      border-radius: 10px;
+    }
+    .lobby-page .lobby-host-actions .lobby-start-button {
+      position: static;
+      min-height: 46px !important;
+      background: #d6a84f;
+      color: #1f2937 !important;
+    }
+    .lobby-page .lobby-host-actions .lobby-start-button:hover { background: #edc66c; }
+    .lobby-page .lobby-host-actions .lobby-start-button:disabled { opacity: .42; }
+    .lobby-page .lobby-seat select,
+    .lobby-page .lobby-seat button { background: rgba(255,255,255,.92); }
+  }
 
   @media (max-width: 560px) {
     /* Keep the utility control in the top gutter on phones; the lower edge is
@@ -5137,6 +5274,42 @@ export const PLAYER_PAGE_STYLES = `
     .poker-page--new-design .party-metrics-scroll .result-points td { border-color: rgba(123, 91, 42, .22); }
     .poker-page--new-design .party-metrics-scroll .result-points th:first-child,
     .poker-page--new-design .party-metrics-scroll .result-points td:first-child { background: var(--new-paper); }
+    .poker-page--new-design .party-summary {
+      color: var(--new-ink);
+    }
+    .poker-page--new-design .party-summary h2 {
+      color: var(--new-ink);
+      text-transform: uppercase;
+      letter-spacing: .045em;
+    }
+    .poker-page--new-design .party-summary > div > strong {
+      border: 1px solid rgba(200, 155, 69, .65);
+      background: var(--new-paper-deep) !important;
+      color: #634617 !important;
+    }
+    .poker-page--new-design .party-metrics-scroll .result-points {
+      background: rgba(255, 251, 239, .92);
+      color: var(--new-ink);
+    }
+    .poker-page--new-design .party-metrics-scroll .result-points th {
+      background: linear-gradient(180deg, #0b6545, #073d2d);
+      color: #f7f0df;
+      border-color: rgba(200, 155, 69, .62);
+      font-size: 11px;
+      letter-spacing: .025em;
+      text-transform: uppercase;
+    }
+    .poker-page--new-design .party-metrics-scroll .result-points td {
+      border-color: rgba(123, 91, 42, .22);
+      background: rgba(255, 251, 239, .92);
+    }
+    .poker-page--new-design .party-metrics-scroll .result-points tbody tr:nth-child(even) td {
+      background: rgba(238, 227, 202, .5);
+    }
+    .poker-page--new-design .party-metrics-scroll .result-points th:first-child,
+    .poker-page--new-design .party-metrics-scroll .result-points td:first-child {
+      box-shadow: 8px 0 10px -10px rgba(31, 54, 42, .75);
+    }
   }
   @media (max-width: 760px) {
     .poker-page--new-design::before { inset: 4px; }

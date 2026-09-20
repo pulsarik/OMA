@@ -9,12 +9,14 @@ export type LobbyMember = {
   seat?: number;
   playerId?: string;
 };
+export type LobbyMode = 'friends' | 'bots';
 
 export type Lobby = {
   id: string;
   pin: string;
   tableName: string;
   hostMemberId: string;
+  mode: LobbyMode;
   maxPlayers: number;
   status: 'waiting' | 'started';
   members: LobbyMember[];

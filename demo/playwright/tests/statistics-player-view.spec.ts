@@ -6,7 +6,6 @@ async function openStatistics(page: Page, seats = 2) {
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(seats));
   await page.getByRole('button', { name: 'Create table' }).click();
-  await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Start game/ }).click();
@@ -23,11 +22,11 @@ test('player view uses classic values, selects players, and remembers the revers
   await expect(page.getByTestId('bot-style-P2')).toHaveCount(0);
 
   const readValues = () => page.getByTestId('party-statistics').locator('[data-testid]').evaluateAll(elements => (
-    Object.fromEntries(elements.filter(element => /^party-(realization|missed-high|hands|aggression|fold|win|loss|net|max-win|max-loss|stack|combination)-/.test(element.getAttribute('data-testid') ?? ''))
+    Object.fromEntries(elements.filter(element => /^party-(realization|missed-high|hands|aggression|fold|win|loss|max-win|max-loss|stack|combination)-/.test(element.getAttribute('data-testid') ?? ''))
       .map(element => [element.getAttribute('data-testid')!, element.textContent!.replace(/^\+/, '')]))
   ));
   const firstPlayer = await readValues();
-  expect(Object.keys(firstPlayer)).toHaveLength(18);
+  expect(Object.keys(firstPlayer)).toHaveLength(17);
   const playCard = page.getByRole('heading', { name: 'Play', exact: true }).locator('..');
   await expect(playCard.getByTestId('party-realization-P1')).toBeVisible();
   await expect(playCard.getByTestId('party-missed-high-P1')).toBeVisible();
@@ -36,7 +35,7 @@ test('player view uses classic values, selects players, and remembers the revers
   await expect(page.getByTestId('wallet-series-P2')).toHaveAttribute('data-selected', 'true');
   await expect(page.getByTestId('wallet-series-P1')).toHaveAttribute('data-selected', 'false');
   const secondPlayer = await readValues();
-  expect(Object.keys(secondPlayer)).toHaveLength(18);
+  expect(Object.keys(secondPlayer)).toHaveLength(17);
 
   const explore = page.getByRole('slider', { name: 'Explore hands' });
   await explore.focus();
@@ -104,7 +103,6 @@ test('empty history and unavailable storage still allow switching layouts', asyn
   });
   await openStatistics(page);
   await expect(page.getByText('Wallet history will appear after the first completed hand.', { exact: true })).toBeVisible();
-  await expect(page.getByTestId('party-net-P1')).toHaveText('0');
   await expect(page.getByTestId('party-realization-P1')).toHaveText('0%');
   await page.getByRole('button', { name: 'Classic view', exact: true }).click();
   await expect(page.getByTestId('party-metrics-scroll')).toBeVisible();

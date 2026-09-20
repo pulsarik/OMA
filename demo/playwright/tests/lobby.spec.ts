@@ -20,7 +20,6 @@ test('mobile host can start a lobby and reach the table', async ({ page }) => {
   await page.getByLabel('Seats at the table').selectOption('4');
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
-  await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: /Start game/ }).click();
@@ -116,7 +115,6 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   await expect(guest.getByTestId('lobby-table').locator('[data-lobby-seat="1"]')).toContainText('Anna');
   await expect(guest.getByTestId('lobby-table').locator('[data-lobby-seat="2"]')).toContainText('Dima');
 
-  await page.getByLabel('Bot name').fill('Max');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByText('Max', { exact: true })).toBeVisible();
   await expect(guest.getByText('Max', { exact: true })).toBeVisible();

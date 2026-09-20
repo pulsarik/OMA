@@ -8,7 +8,6 @@ async function startTable(page: import('@playwright/test').Page, seats: number) 
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(seats));
   await page.getByRole('button', { name: 'Create table' }).click();
-  await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByTestId('opponents-grid')).toBeVisible();

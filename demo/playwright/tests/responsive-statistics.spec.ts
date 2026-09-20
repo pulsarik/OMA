@@ -6,7 +6,6 @@ async function openCompletedStatistics(page: Page) {
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('2');
   await page.getByRole('button', { name: 'Create table' }).click();
-  await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true }))
     .toBeVisible({ timeout: 15_000 });

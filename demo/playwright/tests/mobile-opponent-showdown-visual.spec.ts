@@ -9,7 +9,6 @@ test('mobile showdown keeps three opponent hands in one row and card text inside
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
   for (const name of ['Anna', 'Boris', 'Clara']) {
-    await page.getByLabel('Bot name').fill(name);
     await page.getByRole('button', { name: 'Add bot' }).click();
   }
   await page.getByRole('button', { name: /Start game/ }).click();

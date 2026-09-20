@@ -157,7 +157,8 @@ function localizedServerMessage(message: string) {
     'host seat is fixed': 'Место ведущего закреплено.',
     'invalid seat': 'Такого места за столом нет.',
     'invalid lobby credentials': 'Не удалось восстановить место за столом.',
-    'host only': 'Это действие доступно только ведущему.',
+      'host only': 'Это действие доступно ведущему.',
+      'at least two players required': 'Для начала игры нужны минимум два игрока.',
     'finish is available after the deal': 'Завершить стол можно только после окончания текущей раздачи.',
     'next deal already started': 'Новая раздача уже началась.',
     'table already finished': 'Стол уже завершён.',
@@ -604,6 +605,7 @@ type LobbyView = {
   pin: string;
   tableName: string;
   hostMemberId: string;
+  mode: 'friends' | 'bots';
   maxPlayers: number;
   status: 'waiting' | 'started';
   replayCode?: string;
@@ -2588,7 +2590,6 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
       foldPercent: percentage(folds, hands.length),
       winPercent: percentage(wins, hands.length),
       lossPercent: percentage(losses, hands.length),
-      net,
       maxWin: Math.max(0, ...netResults),
       maxLoss: Math.min(0, ...netResults),
       stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
@@ -2672,7 +2673,6 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
               <th>{ui('Fold', 'Фолд')}</th>
               <th>{ui('Win', 'Победа')}</th>
               <th>{ui('Loss', 'Проигрыш')}</th>
-              <th>{ui('Net', 'Итог')}</th>
               <th>{ui('Max win', 'Макс. выигрыш')}</th>
               <th>{ui('Max loss', 'Макс. проигрыш')}</th>
               <th>{ui('Stack', 'Стек')}</th>
@@ -2751,7 +2751,6 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                 <td data-testid={`party-fold-${player.id}`} style={{ textAlign: 'right' }}>{player.foldPercent}</td>
                 <td data-testid={`party-win-${player.id}`} style={{ textAlign: 'right', color: '#047857', fontWeight: 800 }}>{player.winPercent}</td>
                 <td data-testid={`party-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c', fontWeight: 800 }}>{player.lossPercent}</td>
-                <td data-testid={`party-net-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.net)}</td>
                 <td data-testid={`party-max-win-${player.id}`} style={{ textAlign: 'right', color: '#047857' }}>{formatPoints(player.maxWin)}</td>
                 <td data-testid={`party-max-loss-${player.id}`} style={{ textAlign: 'right', color: '#b91c1c' }}>{formatPoints(player.maxLoss)}</td>
                 <td data-testid={`party-stack-${player.id}`} style={{ textAlign: 'right', fontWeight: 900 }}>{formatPoints(player.stack)}</td>
@@ -4126,8 +4125,20 @@ function DebugPage() {
 }
 
 function LobbyCardFan({ empty = false }: { empty?: boolean }) {
+  if (empty) {
+    return (
+      <div className="lobby-open-seat-visual" aria-hidden="true">
+        <div className="lobby-open-seat-ring">
+          <span className="lobby-open-seat-plus">+</span>
+        </div>
+        <span className="lobby-open-seat-spark spark-one" />
+        <span className="lobby-open-seat-spark spark-two" />
+      </div>
+    );
+  }
+
   return (
-    <div className="lobby-card-fan" style={{ position: 'relative', width: 58, height: 42, opacity: empty ? 0.28 : 1 }}>
+    <div className="lobby-card-fan" style={{ position: 'relative', width: 58, height: 42 }}>
       {[-18, 0, 18].map((rotation, index) => (
         <div
           key={rotation}
@@ -4328,7 +4339,6 @@ function LobbyPage() {
   const [lobby, setLobby] = useState<LobbyView | null>(null);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState(storedPlayerName);
-  const [botName, setBotName] = useState('');
   const [replayCodeInput, setReplayCodeInput] = useState('');
   const [lobbyTab, setLobbyTab] = useState<'lobby' | 'replay'>('lobby');
   const [notice, setNotice] = useState<string | null>(null);
@@ -4689,32 +4699,25 @@ function LobbyPage() {
               />
 
               {isHost && lobby.status === 'waiting' ? (
-                <div className="lobby-host-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
-                    aria-label={ui('Bot name', 'Имя бота')}
-                    placeholder={ui('Bot name (optional)', 'Имя бота (необязательно)')}
-                    value={botName}
-                    onChange={(event) => setBotName(event.target.value)}
-                    style={{ flex: 1, minWidth: 170, padding: '9px 10px', border: '1px solid #cbd5e1', borderRadius: 8 }}
-                  />
+                <div className="lobby-host-actions" style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
                   <button
                     type="button"
-                    onClick={() => {
-                      send('lobby_add_bot', { name: botName.trim() });
-                      setBotName('');
-                    }}
+                    onClick={() => send('lobby_add_bot')}
                     disabled={lobby.members.length >= lobby.maxPlayers}
-                    style={{ fontWeight: 800 }}
+                    style={{ flex: 1, fontWeight: 800 }}
                   >
-                    {ui('Add bot', 'Добавить бота')}
+                    {ui('Add bot', 'Подсадить бота')}
                   </button>
                   <button
                     type="button"
-                    className="lobby-start-button"
+                    className={lobby.mode === 'bots' ? 'lobby-start-button' : undefined}
+                    disabled={lobby.mode === 'friends' && lobby.members.length < 2}
                     onClick={() => send('lobby_start')}
-                    style={{ padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
+                    style={{ position: lobby.mode === 'friends' ? 'static' : undefined, flex: 1, padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
                   >
-                    {ui('Start game · fill with bots', 'Начать игру · заполнить ботами')}
+                    {lobby.mode === 'friends'
+                      ? ui('Start game', 'Начать игру')
+                      : ui('Start game · fill with bots', 'Начать игру · заполнить ботами')}
                   </button>
                 </div>
               ) : null}
@@ -5349,14 +5352,19 @@ function WelcomePage() {
   function createTable() {
     if (createPendingRef.current || !connected) return;
     const normalizedName = hostName.trim();
-    if (!normalizedName) {
+    if (!normalizedName && mode === 'friends') {
       setNotice(t.enterName);
       return;
     }
-    rememberPlayerName(normalizedName);
+    const playerName = normalizedName || 'You';
+    if (normalizedName) rememberPlayerName(normalizedName);
     createPendingRef.current = true;
     setCreating(true);
-    send('create_lobby', { name: normalizedName, maxPlayers: Math.min(seats, maxTableSeats) });
+    send('create_lobby', {
+      name: playerName,
+      mode,
+      maxPlayers: mode === 'bots' ? Math.min(seats, maxTableSeats) : maxTableSeats,
+    });
   }
 
   function findByPin() {
@@ -5478,13 +5486,15 @@ function WelcomePage() {
         {homeTab === 'lobby' && view === 'create' ? (
           <>
             <button disabled={creating} onClick={() => { setView('choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
-            <TableSetup mode={mode} disabled={creating} onModeChange={next => { setMode(next); setNotice(null); }} language={storedLanguage()}>
-            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.yourName}<input aria-label={t.yourName} autoFocus maxLength={PLAYER_NAME_MAX_LENGTH} disabled={creating} value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
-            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
-              <select aria-label={t.seats} disabled={creating} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
-                {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
-              </select>
-            </label>
+            <TableSetup mode={mode} disabled={creating} showModeSelector={false} onModeChange={next => { setMode(next); setNotice(null); }} language={storedLanguage()}>
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{mode === 'bots' ? ui('Your name (optional)', 'Ваше имя (необязательно)') : t.yourName}<input aria-label={t.yourName} placeholder={mode === 'bots' ? 'You' : undefined} autoFocus maxLength={PLAYER_NAME_MAX_LENGTH} disabled={creating} value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
+            {mode === 'bots' ? (
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
+                <select aria-label={t.seats} disabled={creating} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
+                  {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
+                </select>
+              </label>
+            ) : null}
             <button onClick={createTable} disabled={!connected || creating} style={primaryButton}>{!connected ? t.connecting : creating ? ui('Preparing your table…', 'Готовим ваш стол…') : mode === 'bots' ? ui('Play now', 'Играть сейчас') : t.createButton}</button>
             {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
             </TableSetup>

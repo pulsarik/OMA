@@ -12,6 +12,7 @@ import { emailProblem, problemEmailConfig } from './problemEmail';
 import { ILLUSTRATED_CAPITAL_SLUGS } from './generated/illustratedCapitals';
 import {
   Lobby,
+    LobbyMode,
   LobbyMember,
   WORLD_CAPITALS,
   firstOpenLobbySeat,
@@ -864,6 +865,7 @@ function lobbyState(lobby: Lobby) {
     pin: lobby.pin,
     tableName: lobby.tableName,
     hostMemberId: lobby.hostMemberId,
+    mode: lobby.mode,
     maxPlayers: lobby.maxPlayers,
     status: lobby.status,
     replayCode: lobby.replayCode,
@@ -1089,11 +1091,13 @@ async function createLobby(ws: WebSocket, message: any) {
       joinedAt: Date.now(),
       seat: 0,
     };
+    const mode: LobbyMode = message.mode === 'bots' ? 'bots' : 'friends';
     const lobby: Lobby = {
       id: uuidv4(),
       pin: await newLobbyPin(),
       tableName: await newLobbyTableName(),
       hostMemberId: member.id,
+      mode,
       maxPlayers: Math.min(Math.max(Number(message.maxPlayers) || 2, 2), 10),
       status: 'waiting',
       members: [member],
@@ -1283,8 +1287,11 @@ async function startLobby(ws: WebSocket, message: any) {
     const { lobby, member } = await authenticatedLobby(ws, message);
     if (member.id !== lobby.hostMemberId) throw new Error('host only');
     if (lobby.status !== 'waiting') throw new Error('game already started');
+    if (lobby.mode === 'friends' && lobby.members.length < 2) {
+      throw new Error('at least two players required');
+    }
 
-    while (lobby.members.length < lobby.maxPlayers) {
+    while (lobby.mode === 'bots' && lobby.members.length < lobby.maxPlayers) {
       lobby.members.push({
         id: uuidv4(),
         token: uuidv4(),

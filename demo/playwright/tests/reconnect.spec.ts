@@ -76,7 +76,6 @@ test('lobby restores its authenticated WebSocket after a disconnect', async ({ p
   });
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
 
-  await page.getByLabel('Bot name').fill('After reconnect');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByText('After reconnect', { exact: true })).toBeVisible();
 });
@@ -113,7 +112,6 @@ test('a player command survives refresh without applying twice', async ({ page }
   await page.getByRole('button', { name: 'Create a table' }).click();
   await page.getByLabel('Your name').fill('Reliable player');
   await page.getByRole('button', { name: 'Create table' }).click();
-  await page.getByLabel('Bot name').fill('Anna');
   await page.getByRole('button', { name: 'Add bot' }).click();
   await page.getByRole('button', { name: 'Start game · fill with bots' }).click();
 
