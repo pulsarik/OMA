@@ -27,3 +27,31 @@ services:
       name: omaha-data
       mountPath: /var/data
       sizeGB: 1
+  - type: web
+    name: omaha-hi-lo-newui-stats
+    runtime: node
+    plan: starter
+    branch: NewUIstats
+    autoDeployTrigger: checksPass
+    buildCommand: npm --prefix server ci --include=dev && npm --prefix demo/client ci --include=dev && node server/scripts/write-build-info.cjs && npm --prefix server run build && npm --prefix demo/client run build
+    startCommand: node server/dist/index.js
+    healthCheckPath: /api/version
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_FILE
+        value: /var/data/hands.sqlite
+      - key: ADMIN_API_TOKEN
+        generateValue: true
+      - key: HUMAN_TURN_MS
+        value: "45000"
+      - key: PROBLEM_EMAIL_TO
+        value: pulsarik@gmail.com
+      - key: GMAIL_USER
+        value: pulsarik@gmail.com
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+    disk:
+      name: omaha-stats-data
+      mountPath: /var/data
+      sizeGB: 1
