@@ -1675,6 +1675,20 @@ export const PLAYER_PAGE_STYLES = `
     backdrop-filter: blur(12px);
     min-height: 94px;
   }
+  .action-dock-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 20px;
+    margin: 0;
+    width: 100%;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    box-sizing: border-box;
+  }
   .bet-sizes, .main-actions { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; }
   fieldset.main-actions { border: 0; padding: 0; margin: 0; min-width: 0; }
   .bet-size-button, .action-button {

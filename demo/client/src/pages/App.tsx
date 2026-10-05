@@ -3830,11 +3830,15 @@ function PlayerPage({
               if (!canAct) event.preventDefault();
             }}
           >
-            {pendingCommand ? (
-              <strong role="status">
-                {ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…')}
-              </strong>
-            ) : null}
+            <strong
+              role="status"
+              className="action-dock-status"
+              aria-live="polite"
+              aria-atomic="true"
+              style={{ visibility: pendingCommand ? 'visible' : 'hidden' }}
+            >
+              {pendingCommand ? ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…') : '\u00a0'}
+            </strong>
             {canAct ? (
               <>
             <div className="bet-sizes">
