@@ -3839,75 +3839,79 @@ function PlayerPage({
             >
               {pendingCommand ? ui('Waiting for server confirmation…', 'Ждём подтверждения сервера…') : '\u00a0'}
             </strong>
-            {canAct ? (
-              <>
-            <div className="bet-sizes">
-              <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
-              {BET_SIZE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  disabled={!raiseCapAvailable}
-                  onClick={() => setBetSize(option.value)}
-                  className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
-                  aria-label={localizedBetSize(option)}
-                  title={localizedBetSize(option)}
-                >
-                  {compactBetSize(option)}
-                </button>
-              ))}
+            <div className="action-dock-body" aria-hidden={!canAct}>
+              {canAct ? (
+                <>
+                  <div className="bet-sizes">
+                    <span style={{ color: '#64748b', fontSize: 12, fontWeight: 900, textTransform: 'uppercase' }}>{ui('Bet size', 'Размер ставки')}</span>
+                    {BET_SIZE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        disabled={!raiseCapAvailable}
+                        onClick={() => setBetSize(option.value)}
+                        className={`bet-size-button${betSize === option.value ? ' is-selected' : ''}`}
+                        aria-label={localizedBetSize(option)}
+                        title={localizedBetSize(option)}
+                      >
+                        {compactBetSize(option)}
+                      </button>
+                    ))}
+                  </div>
+                  <fieldset className="main-actions">
+                    {callAmount === 0 ? (
+                      <>
+                        <button className="action-button primary" onClick={() => sendMove('check')}>
+                          <span className="action-button-copy">{ui('Check', 'Чек')}</span>
+                        </button>
+                        {currentBet === 0 ? (
+                          <button className="action-button" onClick={() => submitWager('bet')}>
+                            <span className="action-button-copy">{betIsAllIn ? ui('All-in', 'Олл-ин') : ui('Bet', 'Ставка')}</span>{' '}
+                            <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                          </button>
+                        ) : null}
+                        {currentBet > 0 ? (
+                          <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
+                            <span className="action-button-copy">{raiseLabel}</span>{' '}
+                            <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                            {raiseProgress}
+                          </button>
+                        ) : null}
+                        <button
+                          className="action-button danger"
+                          onClick={() => sendMove('fold')}
+                        >
+                          <span className="action-button-copy">{ui('Fold', 'Фолд')}</span>
+                        </button>
+                      </>
+                    ) : null}
+                    {callAmount > 0 ? (
+                      <>
+                        <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
+                          <span className="action-button-copy">{call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')}</span>{' '}
+                          <strong className="action-button-value">{formatPoints(call.amount)}</strong>
+                        </button>
+                        {currentBet > 0 ? (
+                          <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
+                            <span className="action-button-copy">{raiseLabel}</span>{' '}
+                            <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                            {raiseProgress}
+                          </button>
+                        ) : null}
+                        <button
+                          className="action-button danger"
+                          onClick={() => sendMove('fold')}
+                        >
+                          <span className="action-button-copy">{ui('Fold', 'Фолд')}</span>
+                        </button>
+                      </>
+                    ) : null}
+                  </fieldset>
+                </>
+              ) : (
+                <div className="action-dock-placeholder" aria-hidden="true" />
+              )}
             </div>
-            <fieldset className="main-actions">
-            {callAmount === 0 ? (
-              <>
-                <button className="action-button primary" onClick={() => sendMove('check')}>
-                  <span className="action-button-copy">{ui('Check', 'Чек')}</span>
-                </button>
-                {currentBet === 0 ? (
-                  <button className="action-button" onClick={() => submitWager('bet')}>
-                    <span className="action-button-copy">{betIsAllIn ? ui('All-in', 'Олл-ин') : ui('Bet', 'Ставка')}</span>{' '}
-                    <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
-                  </button>
-                ) : null}
-                {currentBet > 0 ? (
-                  <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
-                    <span className="action-button-copy">{raiseLabel}</span>{' '}
-                    <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
-                    {raiseProgress}
-                  </button>
-                ) : null}
-                <button
-                  className="action-button danger"
-                  onClick={() => sendMove('fold')}
-                >
-                  <span className="action-button-copy">{ui('Fold', 'Фолд')}</span>
-                </button>
-              </>
-            ) : null}
-            {callAmount > 0 ? (
-              <>
-                <button className="action-button primary" disabled={!canCall} onClick={() => sendMove('call')}>
-                  <span className="action-button-copy">{call.isAllIn ? ui('All-in', 'Олл-ин') : ui('Call', 'Колл')}</span>{' '}
-                  <strong className="action-button-value">{formatPoints(call.amount)}</strong>
-                </button>
-                {currentBet > 0 ? (
-                  <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
-                    <span className="action-button-copy">{raiseLabel}</span>{' '}
-                    <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
-                    {raiseProgress}
-                  </button>
-                ) : null}
-                <button
-                  className="action-button danger"
-                  onClick={() => sendMove('fold')}
-                >
-                  <span className="action-button-copy">{ui('Fold', 'Фолд')}</span>
-                </button>
-              </>
-            ) : null}
-            </fieldset>
-              </>
-            ) : null}
           </div> : null}
         </section>
       </WireframeTable>

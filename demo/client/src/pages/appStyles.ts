@@ -1689,6 +1689,21 @@ export const PLAYER_PAGE_STYLES = `
     text-align: center;
     box-sizing: border-box;
   }
+  .action-dock-body {
+    width: 100%;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .action-dock-placeholder {
+    width: 100%;
+    min-height: 58px;
+    border-radius: 12px;
+    background: transparent;
+  }
   .bet-sizes, .main-actions { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; }
   fieldset.main-actions { border: 0; padding: 0; margin: 0; min-width: 0; }
   .bet-size-button, .action-button {
