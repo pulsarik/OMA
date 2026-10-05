@@ -54,19 +54,45 @@ const COMBINATIONS: ArchiveCombination[] = [
 ];
 
 export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
-  const parties = new Map<string, DealtHand[]>();
-  for (const hand of savedHands) {
-    const partyId = hand.partyId || hand.id;
-    const partyHands = parties.get(partyId) ?? [];
-    partyHands.push(hand);
-    parties.set(partyId, partyHands);
-  }
+  const parent = savedHands.map((_hand, index) => index);
+  const find = (index: number): number => {
+    if (parent[index] !== index) parent[index] = find(parent[index]);
+    return parent[index];
+  };
+  const union = (left: number, right: number) => {
+    const leftRoot = find(left);
+    const rightRoot = find(right);
+    if (leftRoot !== rightRoot) parent[rightRoot] = leftRoot;
+  };
 
-  return [...parties.entries()].map(([partyId, hands]) => {
+  const indexByHandId = new Map(savedHands.map((hand, index) => [hand.id, index]));
+  const indexByPartyId = new Map<string, number>();
+  savedHands.forEach((hand, index) => {
+    const partyId = hand.partyId || hand.id;
+    const partyIndex = indexByPartyId.get(partyId);
+    if (partyIndex !== undefined) union(partyIndex, index);
+    else indexByPartyId.set(partyId, index);
+
+    const previousIndex = hand.previousHandId
+      ? indexByHandId.get(hand.previousHandId)
+      : undefined;
+    if (previousIndex !== undefined) union(previousIndex, index);
+  });
+
+  const parties = new Map<number, DealtHand[]>();
+  savedHands.forEach((hand, index) => {
+    const root = find(index);
+    const partyHands = parties.get(root) ?? [];
+    partyHands.push(hand);
+    parties.set(root, partyHands);
+  });
+
+  return [...parties.values()].map(hands => {
     const orderedHands = [...hands].sort((a, b) => (
       (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created
     ));
     const firstHand = orderedHands[0];
+    const partyId = firstHand.partyId || firstHand.id;
     const latestHand = orderedHands[orderedHands.length - 1];
     const completedHands = orderedHands.filter(hand => hand.stage === 'showdown');
     const combinations = Object.fromEntries(

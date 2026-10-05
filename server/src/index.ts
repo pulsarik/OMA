@@ -1186,6 +1186,30 @@ async function joinLobby(ws: WebSocket, message: any) {
   });
 }
 
+async function checkLobbyResume(ws: WebSocket, message: any) {
+  const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
+  return withLobbyLock(lobbyId, async () => {
+    await cleanupInactiveSessions();
+    const lobby = lobbyId ? await store.getLobby(lobbyId) as Lobby | null : null;
+    const member = lobby?.members.find(candidate => (
+      candidate.id === message.memberId
+      && candidate.token === message.token
+      && !candidate.isBot
+    ));
+    const available = Boolean(
+      lobby
+      && member
+      && (lobby.status === 'started'
+        ? lobby.handId && await getActiveHand(lobby.handId)
+        : (lobby.lastActivity ?? lobby.created) > Date.now() - SESSION_EXPIRE_MS),
+    );
+    ws.send(JSON.stringify({
+      type: 'lobby_resume_status',
+      data: { lobbyId, available },
+    }));
+  });
+}
+
 async function authenticatedLobby(ws: WebSocket, message: any) {
   const connection = lobbyConnections.get(ws);
   if (!connection || connection.lobbyId !== message.lobbyId) throw new Error('join lobby first');
@@ -1767,6 +1791,8 @@ wss.on('connection', (ws, req) => {
         await viewLobby(ws, msg);
       } else if (msg.action === 'join_lobby') {
         await joinLobby(ws, msg);
+      } else if (msg.action === 'check_lobby_resume') {
+        await checkLobbyResume(ws, msg);
       } else if (msg.action === 'lobby_add_bot') {
         await addLobbyBot(ws, msg);
       } else if (msg.action === 'lobby_update_host_name') {

@@ -44,6 +44,7 @@ type UiLanguage = 'en' | 'ru';
 const PLAYER_NAME_COOKIE = 'omaha-player-name';
 const PLAYER_ID_COOKIE = 'omaha-player-id';
 const TABLE_SEATS_COOKIE = 'omaha-table-seats';
+const LAST_LOBBY_STORAGE_KEY = 'omaha-last-lobby-id';
 const PLAYER_NAME_MAX_LENGTH = 30;
 const DEFAULT_TABLE_SEATS = 4;
 const MIN_TABLE_SEATS = 2;
@@ -4427,6 +4428,7 @@ function LobbyPage() {
         const personalStorageKey = `omaha-lobby-${lobbyId}-${message.data.memberId}`;
         window.localStorage.setItem(personalStorageKey, JSON.stringify(credentials));
         window.localStorage.setItem(activeStorageKey, JSON.stringify(credentials));
+        window.localStorage.setItem(LAST_LOBBY_STORAGE_KEY, lobbyId);
         window.sessionStorage.setItem(activeStorageKey, JSON.stringify(credentials));
         window.sessionStorage.removeItem(accessStorageKey);
         window.history.replaceState(null, '', `/lobby/${lobbyId}`);
@@ -5396,6 +5398,7 @@ const WELCOME_TEXT = {
     enterName: 'Enter your name.',
     connecting: 'Connecting…',
     copyright: 'All rights reserved.',
+    returnToTable: 'Return to your last table',
   },
   ru: {
     language: 'Язык',
@@ -5431,6 +5434,7 @@ const WELCOME_TEXT = {
     enterName: 'Введите ваше имя.',
     connecting: 'Подключение…',
     copyright: 'Все права защищены.',
+    returnToTable: 'Вернуться за последний стол',
   },
 } as const;
 
@@ -5442,6 +5446,8 @@ function WelcomePage() {
   const createPendingRef = useRef(false);
   const startBotsImmediatelyRef = useRef(false);
   const [homeTab, setHomeTab] = useState<'lobby' | 'about'>('lobby');
+  const [lastLobbyId] = useState(() => window.localStorage.getItem(LAST_LOBBY_STORAGE_KEY));
+  const [canResumeLastLobby, setCanResumeLastLobby] = useState(false);
   const [hostName, setHostName] = useState(storedPlayerName);
   const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [seats, setSeats] = useState(4);
@@ -5472,12 +5478,33 @@ function WelcomePage() {
       setNotice(null);
       setOpenLobbiesLoaded(false);
       ws.send(JSON.stringify({ action: 'list_open_lobbies' }));
+      if (lastLobbyId) {
+        try {
+          const credentials = JSON.parse(window.localStorage.getItem(`omaha-lobby-${lastLobbyId}-active`) ?? 'null');
+          if (typeof credentials?.memberId === 'string' && typeof credentials?.token === 'string') {
+            ws.send(JSON.stringify({
+              action: 'check_lobby_resume',
+              lobbyId: lastLobbyId,
+              memberId: credentials.memberId,
+              token: credentials.token,
+            }));
+          } else {
+            window.localStorage.removeItem(LAST_LOBBY_STORAGE_KEY);
+          }
+        } catch {
+          window.localStorage.removeItem(LAST_LOBBY_STORAGE_KEY);
+        }
+      }
     },
     onMessage: (event, ws) => {
       const message = JSON.parse(event.data);
       if (message.type === 'open_lobbies') {
         setOpenLobbies(message.data);
         setOpenLobbiesLoaded(true);
+      }
+      if (message.type === 'lobby_resume_status' && message.data.lobbyId === lastLobbyId) {
+        setCanResumeLastLobby(message.data.available);
+        if (!message.data.available) window.localStorage.removeItem(LAST_LOBBY_STORAGE_KEY);
       }
       if (message.type === 'lobby_found') {
         window.sessionStorage.setItem(
@@ -5490,6 +5517,7 @@ function WelcomePage() {
         const { lobby, memberId, token } = message.data;
         window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
         window.localStorage.setItem(`omaha-lobby-${lobby.id}-active`, JSON.stringify({ memberId, token }));
+        window.localStorage.setItem(LAST_LOBBY_STORAGE_KEY, lobby.id);
         createdLobbyRef.current = lobby.id;
         if (createPendingRef.current && (mode === 'bots' || startBotsImmediatelyRef.current)) {
           ws.send(JSON.stringify({ action: 'lobby_start', lobbyId: lobby.id }));
@@ -5667,6 +5695,14 @@ function WelcomePage() {
 
         {homeTab === 'lobby' && view === 'choice' ? (
           <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+            {lastLobbyId && canResumeLastLobby ? (
+              <button
+                onClick={() => { window.location.href = `/lobby/${encodeURIComponent(lastLobbyId)}`; }}
+                style={{ ...primaryButton, gridColumn: '1 / -1', justifySelf: 'start' }}
+              >
+                {t.returnToTable}
+              </button>
+            ) : null}
             {([
               ['friends', '♧', t.people, t.peopleHint],
               ['bots', '♠', ui('Play with bots', 'Играть с ботами'), ui('Take a seat. Play right away.', 'Займите место и сразу играйте.')],

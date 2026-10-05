@@ -79,6 +79,28 @@ test('archive includes unfinished deals alongside completed ones in the same gam
   });
 });
 
+test('archive keeps linked hands together when their party IDs differ', () => {
+  const firstHand = showdown('hand-1', 'party-1', 1, 1_000, 'ABC123');
+  const nextHand = showdown('hand-2', 'party-2', 2, 61_000, 'ABC123');
+  nextHand.previousHandId = firstHand.id;
+
+  const rows = buildArchiveRows([firstHand, nextHand]);
+
+  expect(rows).toHaveLength(1);
+  expect(rows[0]).toMatchObject({
+    partyId: 'party-1',
+    hands: 2,
+    replayCode: 'ABC123',
+  });
+});
+
+test('archive does not merge unrelated games that share a replay code', () => {
+  const firstGame = showdown('hand-1', 'party-1', 1, 1_000, 'ABC123');
+  const secondGame = showdown('hand-2', 'party-2', 1, 2_000, 'ABC123');
+
+  expect(buildArchiveRows([firstGame, secondGame])).toHaveLength(2);
+});
+
 test('archive treats an approved early finish as a completed game', () => {
   const hand = showdown('hand-1', 'party-1', 1, 1_000, 'ABC123');
   hand.players[1].stack = 500;

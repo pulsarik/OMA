@@ -14,6 +14,33 @@ test('remembers the host name in the next create-table form', async ({ page }) =
   await expect(page.getByLabel('Your name')).toHaveValue('Cookie Player');
 });
 
+test('shows last-table recovery only when the saved participant can still rejoin', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    window.localStorage.setItem('omaha-last-lobby-id', 'missing-lobby');
+    window.localStorage.setItem('omaha-lobby-missing-lobby-active', JSON.stringify({
+      memberId: 'missing-member',
+      token: 'missing-token',
+    }));
+  });
+  await page.reload();
+  await page.waitForFunction(() => window.localStorage.getItem('omaha-last-lobby-id') === null);
+  await expect(page.getByRole('button', { name: 'Return to your last table' })).toHaveCount(0);
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
+  await page.getByLabel('Your name').fill('Returning host');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+  const lobbyUrl = page.url();
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Return to your last table' }).click();
+  await expect(page).toHaveURL(lobbyUrl);
+  await expect(page.getByTestId('lobby-host-members')).toContainText('Returning host');
+});
+
 test('host gets a simple lobby screen and copied invitation joins its table', async ({ page, browser }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Play with people' }).click();
@@ -56,11 +83,20 @@ test('host gets a simple lobby screen and copied invitation joins its table', as
   await expect(page.getByTestId('lobby-host-members')).toContainText('Direct invite guest');
   await expect(page.getByTestId('lobby-quorum-reached')).toHaveText('Quorum reached — you can start the game.');
   await expect(page.getByRole('button', { name: 'Start game' })).toBeEnabled();
+  await guest.goto('/');
+  await expect(guest.getByRole('button', { name: 'Return to your last table' })).toBeVisible();
+  await guest.getByRole('button', { name: 'Return to your last table' }).click();
+  await expect(guest).toHaveURL(new RegExp(`/lobby/${new URL(tableUrl).pathname.split('/').pop()}$`));
+  await expect(guest.getByText('Direct invite guest')).toBeVisible();
   await page.getByRole('button', { name: 'Add bot' }).click();
   await expect(page.getByTestId('lobby-host-member')).toHaveCount(3);
   await expect(page.getByTestId('lobby-host-members')).toContainText('BOT');
   await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  await expect(guest.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  await guest.goto('/');
+  await expect(guest.getByRole('button', { name: 'Return to your last table' })).toBeVisible();
+  await guest.getByRole('button', { name: 'Return to your last table' }).click();
   await expect(guest.getByRole('tab', { name: 'TABLE' })).toBeVisible();
   await guestContext.close();
 });
