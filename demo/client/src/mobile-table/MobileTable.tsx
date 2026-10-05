@@ -289,7 +289,9 @@ export default function MobileTable(props: MobileTableProps) {
           <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>
         </section> : <ActionDock props={props} language={language} />}
       </div>
-      {c.notice ? <p className="mt-notice" role="status">{c.notice}</p> : null}
+      <p className="mt-notice" role="status" aria-live="polite" aria-atomic="true" style={{ visibility: c.notice ? 'visible' : 'hidden' }}>
+        {c.notice ?? '\u00a0'}
+      </p>
       <PotDialog player={p} language={language} open={potOpen} onClose={closePot} />
     </div>
   </main>;

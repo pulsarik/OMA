@@ -20,7 +20,17 @@ body:has(.mt-page) { margin: 0; background: #041911; }
 .mt-menu button { width: 100%; text-align: left; min-height: 44px; border: 0; background: none; color: #eeeede; padding: 8px; }
 .mt-menu button:hover { background: #ffffff0a; }
 .mt-alert, .mt-notice { font-size: 12px; padding: 8px 14px; margin: 0; background: #493c23; color: #f3deb3; overflow-wrap: anywhere; }
-.mt-notice { background: transparent; color: #bacbbb; }
+.mt-notice {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px 14px;
+  background: transparent;
+  color: #bacbbb;
+  line-height: 1.3;
+}
 
 .mt-scene { position: relative; isolation: isolate; container-type: inline-size; width: 100%; height: clamp(590px, calc(100svh - 157px), 900px); }
 .mt-scene--showdown { height: clamp(640px, calc(100svh - 125px), 920px); }
