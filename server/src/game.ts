@@ -69,6 +69,7 @@ export type DealtHand = {
   previousHandId?: string;
   /** Marks the first hand of a fresh 1000-chip match within the same party. */
   partyRestarted?: boolean;
+  partyFinishedEarly?: boolean;
   enteredPlayerIds?: string[];
   replayOfHandId?: string;
   replayCode?: string;
