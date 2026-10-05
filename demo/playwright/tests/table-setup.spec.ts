@@ -8,6 +8,8 @@ test('people entry offers open tables and creating a table', async ({ page }) =>
 
   await page.getByRole('button', { name: 'Play with people' }).click();
   await expect(page.getByRole('heading', { name: 'Open tables' })).toBeVisible();
+  await expect(page.getByText('No open tables yet', { exact: true })).toBeVisible();
+  await expect(page.getByText('Create a table and it will appear here for other players to join.')).toBeVisible();
   const createTable = page.getByRole('button', { name: 'Create your own table' });
   await expect(createTable).toBeEnabled();
   await createTable.click();

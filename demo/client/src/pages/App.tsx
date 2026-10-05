@@ -4,6 +4,7 @@ import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
 import { TableSetup, type TableMode } from '../components/TableSetup';
+import { HandArchive } from '../components/HandArchive';
 import { CityInfo } from '../components/CityInfo';
 import { TableEmblem } from '../components/TableEmblem';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
@@ -5230,7 +5231,9 @@ const WELCOME_TEXT = {
     createButton: 'Create table',
     openTables: 'Open tables',
     refresh: 'Refresh',
-    empty: 'No tables are waiting right now. Create the first one.',
+    emptyTitle: 'No open tables yet',
+    empty: 'Create a table and it will appear here for other players to join.',
+    loadingOpenTables: 'Checking for open tables…',
     players: 'players',
     seatsFree: 'seats',
     pinLabel: 'Table PIN',
@@ -5256,7 +5259,9 @@ const WELCOME_TEXT = {
     createButton: 'Создать стол',
     openTables: 'Открытые столы',
     refresh: 'Обновить',
-    empty: 'Сейчас никто не ждёт игроков. Создайте первый стол.',
+    emptyTitle: 'Пока нет открытых столов',
+    empty: 'Создайте свой стол — он появится здесь, и другие игроки смогут присоединиться.',
+    loadingOpenTables: 'Ищем открытые столы…',
     players: 'игроки',
     seatsFree: 'мест',
     pinLabel: 'PIN стола',
@@ -5269,11 +5274,12 @@ const WELCOME_TEXT = {
 } as const;
 
 function WelcomePage() {
-  const [view, setView] = useState<'choice' | 'create' | 'join'>('choice');
+  const [view, setView] = useState<'choice' | 'create' | 'join' | 'archive'>('choice');
   const [mode, setMode] = useState<TableMode>('friends');
   const [creating, setCreating] = useState(false);
   const createdLobbyRef = useRef<string | null>(null);
   const createPendingRef = useRef(false);
+  const startBotsImmediatelyRef = useRef(false);
   const [homeTab, setHomeTab] = useState<'lobby' | 'about'>('lobby');
   const [hostName, setHostName] = useState(storedPlayerName);
   const [seats, setSeats] = useState(4);
@@ -5281,6 +5287,7 @@ function WelcomePage() {
   const [pin, setPin] = useState('');
   const [selectedLobbyId, setSelectedLobbyId] = useState<string | null>(null);
   const [openLobbies, setOpenLobbies] = useState<OpenLobbyView[]>([]);
+  const [openLobbiesLoaded, setOpenLobbiesLoaded] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [version, setVersion] = useState<VersionInfo | null>(null);
   const pendingPinRef = useRef('');
@@ -5301,11 +5308,15 @@ function WelcomePage() {
       createPendingRef.current = false;
       setCreating(false);
       setNotice(null);
+      setOpenLobbiesLoaded(false);
       ws.send(JSON.stringify({ action: 'list_open_lobbies' }));
     },
     onMessage: (event, ws) => {
       const message = JSON.parse(event.data);
-      if (message.type === 'open_lobbies') setOpenLobbies(message.data);
+      if (message.type === 'open_lobbies') {
+        setOpenLobbies(message.data);
+        setOpenLobbiesLoaded(true);
+      }
       if (message.type === 'lobby_found') {
         window.sessionStorage.setItem(
           `omaha-lobby-${message.data.lobbyId}-access-pin`,
@@ -5318,15 +5329,20 @@ function WelcomePage() {
         window.localStorage.setItem(`omaha-lobby-${lobby.id}-${memberId}`, JSON.stringify({ memberId, token }));
         window.localStorage.setItem(`omaha-lobby-${lobby.id}-active`, JSON.stringify({ memberId, token }));
         createdLobbyRef.current = lobby.id;
-        if (mode === 'bots' && createPendingRef.current) {
+        if (createPendingRef.current && (mode === 'bots' || startBotsImmediatelyRef.current)) {
           ws.send(JSON.stringify({ action: 'lobby_start', lobbyId: lobby.id }));
         } else {
           window.location.href = `/lobby/${lobby.id}`;
         }
       }
-      if (message.type === 'lobby_started') window.location.href = `/lobby/${message.data.lobby.id}`;
+      if (message.type === 'lobby_started') {
+        createPendingRef.current = false;
+        startBotsImmediatelyRef.current = false;
+        window.location.href = `/lobby/${message.data.lobby.id}`;
+      }
       if (message.type === 'error') {
         createPendingRef.current = false;
+        startBotsImmediatelyRef.current = false;
         setCreating(false);
         if (createdLobbyRef.current) window.location.href = `/lobby/${createdLobbyRef.current}`;
         setNotice(localizedServerMessage(message.message));
@@ -5362,12 +5378,36 @@ function WelcomePage() {
     const playerName = normalizedName || 'You';
     if (normalizedName) rememberPlayerName(normalizedName);
     createPendingRef.current = true;
+    startBotsImmediatelyRef.current = mode === 'bots';
     setCreating(true);
     send('create_lobby', {
       name: playerName,
       mode,
       maxPlayers: mode === 'bots' ? Math.min(seats, maxTableSeats) : maxTableSeats,
     });
+  }
+
+  function replayArchiveGame(code: string, players: number) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      setNotice(t.connecting);
+      return;
+    }
+    if (createPendingRef.current) return;
+
+    createPendingRef.current = true;
+    startBotsImmediatelyRef.current = true;
+    createdLobbyRef.current = null;
+    setMode('bots');
+    setSeats(Math.min(Math.max(players, 2), MAX_PLAYERS));
+    setCreating(true);
+    setNotice(ui('Starting replay with bots…', 'Запускаем повтор с ботами…'));
+    socket.send(JSON.stringify({
+      action: 'create_lobby',
+      name: hostName.trim() || 'You',
+      mode: 'bots',
+      maxPlayers: Math.min(Math.max(players, 2), MAX_PLAYERS),
+      replayCode: code,
+    }));
   }
 
   function findByPin() {
@@ -5450,7 +5490,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {homeTab === 'lobby' ? <section className="welcome-intro-card" style={cardStyle}>
+        {homeTab === 'lobby' && view !== 'archive' ? <section className="welcome-intro-card" style={cardStyle}>
           <span style={{ color: '#08734d', fontSize: 12, fontWeight: 900, letterSpacing: '.12em', textTransform: 'uppercase' }}>{t.eyebrow}</span>
           <h1 style={{ margin: '8px 0 10px', fontSize: 'clamp(36px, 8vw, 68px)', lineHeight: .95 }}>{t.title}</h1>
           <p style={{ maxWidth: 680, margin: 0, color: '#3f5148', fontSize: 'clamp(17px, 2.5vw, 21px)', lineHeight: 1.5 }}>{t.intro}</p>
@@ -5461,14 +5501,16 @@ function WelcomePage() {
         </section> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
-          <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
+          <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
             {([
               ['friends', '♧', t.people, t.peopleHint],
               ['bots', '♠', ui('Play with bots', 'Играть с ботами'), ui('Take a seat. Play right away.', 'Займите место и сразу играйте.')],
+              ['archive', '▤', ui('Statistics', 'Статистика'), ui('Browse the game archive.', 'Посмотреть архив игр.')],
             ] as const).map(([target, icon, title, hint]) => (
               <button
                 key={target}
                 onClick={() => {
+                  if (target === 'archive') { setView('archive'); return; }
                   if (target === 'friends') { setMode('friends'); setView('join'); return; }
                   setMode(target); setView('create');
                 }}
@@ -5483,6 +5525,15 @@ function WelcomePage() {
               </button>
             ))}
           </section>
+        ) : null}
+
+        {homeTab === 'lobby' && view === 'archive' ? (
+          <HandArchive
+            language={storedLanguage()}
+            apiUrl={SERVER_URL}
+            onBack={() => setView('choice')}
+            onReplay={replayArchiveGame}
+          />
         ) : null}
 
         {homeTab === 'lobby' && view === 'create' ? (
@@ -5507,7 +5558,7 @@ function WelcomePage() {
           <section style={{ ...cardStyle, display: 'grid', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
               <button onClick={() => { setView('choice'); setNotice(null); }} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900 }}>← {t.back}</button>
-              <button onClick={() => send('list_open_lobbies')} disabled={!connected} style={{ border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', padding: '7px 10px', fontWeight: 800 }}>{t.refresh}</button>
+              <button onClick={() => { setOpenLobbiesLoaded(false); send('list_open_lobbies'); }} disabled={!connected} style={{ border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', padding: '7px 10px', fontWeight: 800 }}>{t.refresh}</button>
             </div>
             <h2 style={{ margin: 0 }}>{t.openTables}</h2>
             <button onClick={() => { setMode('friends'); setNotice(null); setView('create'); }} disabled={!connected} style={{ ...primaryButton, justifySelf: 'start' }}>{t.createYourOwn}</button>
@@ -5544,7 +5595,15 @@ function WelcomePage() {
                     </span>
                   </span>
                 </button>
-              )) : <p style={{ margin: 0, color: '#65736a' }}>{t.empty}</p>}
+              )) : openLobbiesLoaded ? (
+                <div role="status" style={{ display: 'flex', alignItems: 'flex-start', gap: 14, border: '1px solid #b7e4ce', borderRadius: 14, background: '#f0fdf4', padding: '18px 20px' }}>
+                  <span aria-hidden="true" style={{ display: 'grid', flex: '0 0 38px', placeItems: 'center', width: 38, height: 38, borderRadius: 12, background: '#dcfce7', color: '#08734d', fontSize: 22, fontWeight: 900 }}>♧</span>
+                  <div>
+                    <strong style={{ display: 'block', color: '#14532d', fontSize: 18 }}>{t.emptyTitle}</strong>
+                    <p style={{ margin: '5px 0 0', color: '#526159', lineHeight: 1.5 }}>{t.empty}</p>
+                  </div>
+                </div>
+              ) : <p role="status" style={{ margin: 0, color: '#65736a' }}>{t.loadingOpenTables}</p>}
             </div>
             {!selectedLobby && notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
           </section>

@@ -6,6 +6,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
+import { buildArchiveRows } from './archive';
 import { botMove } from './bot';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
 import { emailProblem, problemEmailConfig } from './problemEmail';
@@ -1584,6 +1585,10 @@ app.get('/api/version', (req, res) => {
     shortCommit: commitSha === 'dev' ? 'dev' : commitSha.slice(0, 7),
     buildTimeGmt,
   });
+});
+app.get('/api/archive', async (_req, res) => {
+  const hands = await store.listAllHands();
+  res.json(buildArchiveRows(hands));
 });
 app.post('/api/problems', async (req, res) => {
   const description = typeof req.body?.description === 'string'
