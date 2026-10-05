@@ -4740,6 +4740,10 @@ function LobbyPage() {
                     <p className="lobby-host-start-note" role="status">
                       {ui('Add at least one more player or a bot to enable the start button.', 'Чтобы начать, пригласите ещё одного игрока или добавьте бота.')}
                     </p>
+                  ) : lobby.mode === 'friends' ? (
+                    <p className="lobby-host-start-note" role="status" data-testid="lobby-quorum-reached">
+                      {ui('Quorum reached — you can start the game.', 'Кворум набран — можно начинать игру.')}
+                    </p>
                   ) : null}
                   <div className="lobby-host-members" data-testid="lobby-host-members">
                     <h2>{ui('At the table', 'За столом')} · {lobby.members.length}/{lobby.maxPlayers}</h2>
@@ -5543,7 +5547,7 @@ function WelcomePage() {
     send('create_lobby', {
       name: playerName,
       mode,
-      maxPlayers: Math.min(seats, maxTableSeats),
+      maxPlayers: mode === 'bots' ? Math.min(seats, maxTableSeats) : maxTableSeats,
     });
   }
 
@@ -5704,12 +5708,14 @@ function WelcomePage() {
             <button disabled={creating} onClick={() => { setView(mode === 'friends' ? 'join' : 'choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
             <TableSetup mode={mode} disabled={creating} showModeSelector={false} onModeChange={next => { setMode(next); setNotice(null); }} language={storedLanguage()}>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{mode === 'bots' ? ui('Your name (optional)', 'Ваше имя (необязательно)') : t.yourName}<input aria-label={t.yourName} placeholder={mode === 'bots' ? 'You' : undefined} autoFocus maxLength={PLAYER_NAME_MAX_LENGTH} disabled={creating} value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
-            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
-              <select aria-label={t.seats} disabled={creating} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
-                {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
-              </select>
-              <small style={{ color: '#d1fae5', fontWeight: 500 }}>{t.seatsHint}</small>
-            </label>
+            {mode === 'bots' ? (
+              <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
+                <select aria-label={t.seats} disabled={creating} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
+                  {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
+                </select>
+                <small style={{ color: '#d1fae5', fontWeight: 500 }}>{t.seatsHint}</small>
+              </label>
+            ) : null}
             <button onClick={createTable} disabled={!connected || creating} style={primaryButton}>{!connected ? t.connecting : creating ? ui('Preparing your table…', 'Готовим ваш стол…') : mode === 'bots' ? ui('Play now', 'Играть сейчас') : t.createButton}</button>
             {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
             </TableSetup>
