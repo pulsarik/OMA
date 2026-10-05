@@ -1220,6 +1220,21 @@ async function addLobbyBot(ws: WebSocket, message: any) {
   });
 }
 
+async function updateLobbyHostName(ws: WebSocket, message: any) {
+  return withLobbyLock(message.lobbyId, async () => {
+    const { lobby, member } = await authenticatedLobby(ws, message);
+    if (member.id !== lobby.hostMemberId) throw new Error('host only');
+    if (lobby.status !== 'waiting') throw new Error('game already started');
+    const name = lobbyName(message.name, '');
+    if (!name) throw new Error('enter your name');
+    member.name = name;
+    lobby.lastActivity = Date.now();
+    await store.updateLobby(lobby);
+    broadcastLobby(lobby);
+    await broadcastOpenLobbies();
+  });
+}
+
 async function removeLobbyBot(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
     const { lobby, member } = await authenticatedLobby(ws, message);
@@ -1754,6 +1769,8 @@ wss.on('connection', (ws, req) => {
         await joinLobby(ws, msg);
       } else if (msg.action === 'lobby_add_bot') {
         await addLobbyBot(ws, msg);
+      } else if (msg.action === 'lobby_update_host_name') {
+        await updateLobbyHostName(ws, msg);
       } else if (msg.action === 'lobby_remove_bot') {
         await removeLobbyBot(ws, msg);
       } else if (msg.action === 'lobby_move_member') {

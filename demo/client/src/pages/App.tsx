@@ -109,7 +109,12 @@ function rememberPlayerName(name: string) {
 }
 
 function storedLanguage(): UiLanguage {
-  return 'en';
+  return window.localStorage.getItem('omaha-language') === 'ru' ? 'ru' : 'en';
+}
+
+function setUiLanguage(language: UiLanguage) {
+  window.localStorage.setItem('omaha-language', language);
+  window.location.reload();
 }
 
 function ui(en: string, ru: string) {
@@ -158,8 +163,11 @@ function localizedServerMessage(message: string) {
     'host seat is fixed': 'Место ведущего закреплено.',
     'invalid seat': 'Такого места за столом нет.',
     'invalid lobby credentials': 'Не удалось восстановить место за столом.',
-      'host only': 'Это действие доступно ведущему.',
-      'at least two players required': 'Для начала игры нужны минимум два игрока.',
+    'enter your name': 'Введите ваше имя.',
+    'host only': 'Это действие доступно ведущему.',
+    'at least two players required': 'Для начала игры нужны минимум два игрока.',
+    'Choose a table first.': 'Сначала выберите стол.',
+    'Enter a 4-digit PIN.': 'Введите PIN из 4 цифр.',
     'finish is available after the deal': 'Завершить стол можно только после окончания текущей раздачи.',
     'next deal already started': 'Новая раздача уже началась.',
     'table already finished': 'Стол уже завершён.',
@@ -4239,7 +4247,11 @@ function LobbyTable({
             }}
           >
             <strong style={{ fontSize: 20, letterSpacing: '.12em' }}>{ui('OMAHA HI-LO', 'ОМАХА ХАЙ-ЛО')}</strong>
-            <span style={{ marginTop: 5, fontSize: 12, fontWeight: 800, opacity: 0.82 }}>{ui('WAITING FOR PLAYERS', 'ОЖИДАЕМ ИГРОКОВ')}</span>
+            <span style={{ marginTop: 5, fontSize: 12, fontWeight: 800, opacity: 0.82 }}>
+              {lobby.status === 'waiting' && lobby.members.length >= 2
+                ? ui('WAITING FOR HOST', 'ЖДЁМ ВЕДУЩЕГО')
+                : ui('WAITING FOR PLAYERS', 'ОЖИДАЕМ ИГРОКОВ')}
+            </span>
             <span style={{ marginTop: 7, border: '1px solid rgba(255,255,255,.4)', borderRadius: 999, padding: '3px 10px', fontWeight: 900 }}>
               {lobby.members.length} / {lobby.maxPlayers}
             </span>
@@ -4292,7 +4304,7 @@ function LobbyTable({
                 </strong>
                 <span style={{ fontSize: 10, fontWeight: 800, color: seat ? '#64748b' : '#cbd5e1' }}>
                   {seat
-                    ? `${seat.isHost ? `${ui('HOST', 'ВЕДУЩИЙ')} · ` : ''}${isYou ? ui('YOU', 'ВЫ') : ui('READY', 'ГОТОВ')}`
+                    ? `${seat.isHost ? `${ui('HOST', 'ВЕДУЩИЙ')} · ` : seat.isBot ? `${ui('BOT', 'БОТ')} · ` : ''}${isYou ? ui('YOU', 'ВЫ') : ui('PLAYER', 'ИГРОК')}`
                     : `${ui('SEAT', 'МЕСТО')} ${physicalSeat + 1}`}
                 </span>
               </div>
@@ -4341,10 +4353,13 @@ function LobbyTable({
 
 function LobbyPage() {
   const [, , lobbyId] = window.location.pathname.split('/');
-  const memberHint = new URLSearchParams(window.location.search).get('member');
+  const searchParams = new URLSearchParams(window.location.search);
+  const memberHint = searchParams.get('member');
+  const invitePin = searchParams.get('pin');
   const [lobby, setLobby] = useState<LobbyView | null>(null);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState(storedPlayerName);
+  const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [replayCodeInput, setReplayCodeInput] = useState('');
   const [lobbyTab, setLobbyTab] = useState<'lobby' | 'replay'>('lobby');
   const [notice, setNotice] = useState<string | null>(null);
@@ -4354,6 +4369,7 @@ function LobbyPage() {
   const [lobbyExpired, setLobbyExpired] = useState(false);
   const [playerUrl, setPlayerUrl] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [hostNameDraft, setHostNameDraft] = useState('');
   const pendingLobbyActionRef = useRef<{ action: string; extra: Record<string, unknown> } | null>(null);
   const activeStorageKey = `omaha-lobby-${lobbyId}-active`;
   const accessStorageKey = `omaha-lobby-${lobbyId}-access-pin`;
@@ -4385,7 +4401,8 @@ function LobbyPage() {
 
   const { socket, connected: socketReady } = useReliableWebSocket(WS_URL, {
     onOpen: (ws) => {
-      const accessPin = window.sessionStorage.getItem(accessStorageKey) ?? undefined;
+      const accessPin = invitePin ?? window.sessionStorage.getItem(accessStorageKey) ?? undefined;
+      if (invitePin) window.sessionStorage.setItem(accessStorageKey, invitePin);
       const saved = window.sessionStorage.getItem(activeStorageKey)
         ?? window.localStorage.getItem(storageKey)
         ?? window.localStorage.getItem(activeStorageKey);
@@ -4477,9 +4494,10 @@ function LobbyPage() {
   async function copyInvitation() {
     if (!lobby) return;
 
+    const invitationUrl = `${window.location.origin}/lobby/${encodeURIComponent(lobby.id)}?pin=${encodeURIComponent(lobby.pin)}`;
     const invitation = ui(
-      `Join my Omaha Hi-Lo table!\nWebsite: ${window.location.origin}\nCity: ${lobby.tableName}\nPIN: ${lobby.pin}`,
-      `Присоединяйтесь к моей игре Omaha хай-ло!\nСайт: ${window.location.origin}\nГород: ${lobby.tableName}\nPIN: ${lobby.pin}`,
+      `Join my Omaha Hi-Lo table!\nOpen this link to go straight to the table: ${invitationUrl}\nCity: ${lobby.tableName}\nPIN: ${lobby.pin}`,
+      `Присоединяйтесь к моей игре Omaha хай-ло!\nОткройте ссылку, чтобы сразу перейти к столу: ${invitationUrl}\nГород: ${lobby.tableName}\nPIN: ${lobby.pin}`,
     );
 
     try {
@@ -4522,6 +4540,25 @@ function LobbyPage() {
   const hostDisplayName = hostMember
     ? tablePlayerName(hostMember.name, hostMember.id)
     : ui('the host', 'ведущий');
+
+  useEffect(() => {
+    if (hostMember && document.activeElement?.id !== 'lobby-host-name') {
+      setHostNameDraft(hostMember.name.replace(/_bot$/i, ''));
+    }
+  }, [hostMember?.id, hostMember?.name]);
+
+  function saveHostName() {
+    const normalizedName = hostNameDraft.trim().slice(0, PLAYER_NAME_MAX_LENGTH);
+    if (!normalizedName) {
+      setNotice(ui('Enter your name.', 'Введите ваше имя.'));
+      setHostNameDraft(hostMember?.name ?? '');
+      return;
+    }
+    if (normalizedName !== hostMember?.name) {
+      rememberPlayerName(normalizedName);
+      send('lobby_update_host_name', { name: normalizedName });
+    }
+  }
   const sessionRemainingMs = sessionDeadline === null
     ? Number.POSITIVE_INFINITY
     : Math.max(0, sessionDeadline - sessionNow);
@@ -4553,8 +4590,8 @@ function LobbyPage() {
   }
 
   return (
-    <div className="lobby-page" style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
-      <main className="lobby-main" style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
+    <div className={`lobby-page${!memberId ? ' lobby-join-page' : ''}${isHost && lobby?.status === 'waiting' ? ' lobby-host-page' : ''}`} style={{ minHeight: '100vh', padding: 20, fontFamily: 'system-ui, sans-serif', background: '#edf3ef' }}>
+      <main className={`lobby-main${!memberId ? ' lobby-join-main' : ''}${isHost && lobby?.status === 'waiting' ? ' lobby-host-main' : ''}`} style={{ width: 'min(100%, 760px)', margin: '0 auto', display: 'grid', gap: 14 }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div>
             <a href="/" style={{ color: '#047857', fontWeight: 800, textDecoration: 'none' }}>← {ui('Omaha Hi-Lo', 'Омаха хай-ло')}</a>
@@ -4563,6 +4600,9 @@ function LobbyPage() {
             <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
               {socketReady ? ui('connected', 'подключено') : ui('connecting…', 'подключение…')}
             </span>
+            <button type="button" onClick={() => setUiLanguage(language === 'en' ? 'ru' : 'en')} style={{ border: '1px solid rgba(167,243,208,.35)', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#ecfdf5', padding: '6px 9px', fontWeight: 900 }}>
+              {language === 'en' ? 'RU' : 'EN'}
+            </button>
           </div>
         </header>
 
@@ -4577,42 +4617,63 @@ function LobbyPage() {
         ) : null}
 
         {!memberId ? (
-          <section style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 12 }}>
-            <h2 style={{ margin: 0 }}>{ui('Join the table', 'Занять место')}</h2>
+          <section className="lobby-join-panel">
             {lobby ? (
-              <>
-                <strong>{ui('Players already here', 'За столом уже сидят')}</strong>
-                <LobbyTable lobby={lobby} />
-                {lobby.status === 'waiting'
-                  ? (
-                    <p style={{ margin: 0 }}>
-                      {storedLanguage() === 'ru'
-                        ? `Введите имя и дождитесь, когда ${hostDisplayName} начнёт игру.`
-                        : `Enter your name and wait for ${hostDisplayName} to start the game.`}
-                    </p>
-                  )
-                  : <p style={{ margin: 0 }}>{ui('This game has already started.', 'Игра за этим столом уже началась.')}</p>}
-              </>
-            ) : <p style={{ margin: 0 }}>{ui('Loading lobby…', 'Загружаем лобби…')}</p>}
-            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>
-              {ui('Your name', 'Ваше имя')}
+              <h1 style={{ margin: 0, color: '#fff8e8', fontFamily: 'Georgia, serif', fontSize: 28 }}>
+                {ui('Join', 'Занять место')} · {lobby.tableName}
+              </h1>
+            ) : (
+              <h1 style={{ margin: 0, color: '#fff8e8', fontFamily: 'Georgia, serif', fontSize: 28 }}>
+                {ui('Join the table', 'Занять место')}
+              </h1>
+            )}
+            <div className="lobby-join-form">
+              <label htmlFor="lobby-join-name">{ui('Your name', 'Ваше имя')}</label>
               <input
+                id="lobby-join-name"
                 aria-label={ui('Your name', 'Ваше имя')}
+                maxLength={PLAYER_NAME_MAX_LENGTH}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') join();
                 }}
-                style={{ padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8 }}
               />
-            </label>
-            <button
-              onClick={join}
-              disabled={!socketReady || !lobby || lobby.status !== 'waiting' || lobby.members.length >= lobby.maxPlayers}
-              style={{ padding: '9px 14px', fontWeight: 900 }}
-            >
-              {ui('Take a seat', 'Занять место')}
-            </button>
+              <button
+                onClick={join}
+                disabled={!socketReady || !lobby || lobby.status !== 'waiting' || lobby.members.length >= lobby.maxPlayers}
+              >
+                {ui('Take a seat', 'Занять место')}
+              </button>
+            </div>
+            {notice ? <p className="lobby-join-notice" role="alert">{notice}</p> : null}
+            {!socketReady ? <p className="lobby-join-notice" role="status">{ui('Connecting…', 'Подключение…')}</p> : null}
+            {lobby ? (
+              <>
+                {lobby.status === 'waiting' && lobby.members.length < lobby.maxPlayers ? (
+                  <p className="lobby-join-host-note">
+                    {ui(
+                      `The game will start when ${hostDisplayName}, the host, starts it.`,
+                      `Игра начнётся, когда её начнёт ведущий — ${hostDisplayName}.`,
+                    )}
+                  </p>
+                ) : null}
+                <div className="lobby-join-members" data-testid="lobby-join-members">
+                  <h2>{ui('Already at the table', 'Уже за столом')} · {lobby.members.length}/{lobby.maxPlayers}</h2>
+                  {lobby.members.map(member => (
+                    <div className="lobby-join-member" data-testid="lobby-join-member" key={member.id}>
+                      <strong>{tablePlayerName(member.name, member.id)}</strong>
+                      {member.isHost ? <span>{ui('HOST', 'ВЕДУЩИЙ')}</span> : null}
+                    </div>
+                  ))}
+                </div>
+                {lobby.status !== 'waiting' ? (
+                  <p className="lobby-join-notice" role="status">{ui('This game has already started.', 'Игра уже началась.')}</p>
+                ) : lobby.members.length >= lobby.maxPlayers ? (
+                  <p className="lobby-join-notice" role="status">{ui('This table is full.', 'За столом нет свободных мест.')}</p>
+                ) : null}
+              </>
+            ) : !notice ? <p className="lobby-join-notice" role="status">{ui('Loading lobby…', 'Загружаем лобби…')}</p> : null}
           </section>
         ) : lobby ? (
           <>
@@ -4636,8 +4697,92 @@ function LobbyPage() {
                 </button>
               ) : null}
             </nav>
-            <section className="lobby-panel" style={{ padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
-              {lobbyTab === 'lobby' || !isHost || lobby.status !== 'waiting' ? (
+            <section className={isHost && lobby.status === 'waiting' ? 'lobby-host-panel' : 'lobby-panel'} style={isHost && lobby.status === 'waiting' ? undefined : { padding: 18, border: '1px solid #cbd5e1', borderRadius: 14, background: '#fff', display: 'grid', gap: 14 }}>
+              {isHost && lobby.status === 'waiting' && lobbyTab === 'lobby' ? (
+                <>
+                  <h1>{ui('Your table', 'Ваш стол')}</h1>
+                  <div className="lobby-host-invitation">
+                    <div>
+                      <small>{ui('TABLE', 'СТОЛ')}</small>
+                      <output aria-label={ui('Table name', 'Название стола')}>{lobby.tableName}</output>
+                      <small style={{ marginTop: 7 }}>PIN</small>
+                      <strong aria-label={ui('Table PIN', 'PIN стола')}>{lobby.pin}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={inviteCopied ? ui('Invitation copied', 'Приглашение скопировано') : ui('Copy invitation', 'Скопировать приглашение')}
+                      onClick={copyInvitation}
+                    >
+                      {inviteCopied ? ui('Copied', 'Скопировано') : ui('Copy invite', 'Скопировать')}
+                    </button>
+                  </div>
+                  <div className="lobby-host-identity">
+                    <label htmlFor="lobby-host-name">{ui('Your name', 'Ваше имя')}</label>
+                    <input
+                      id="lobby-host-name"
+                      aria-label={ui('Your name', 'Ваше имя')}
+                      maxLength={PLAYER_NAME_MAX_LENGTH}
+                      value={hostNameDraft}
+                      onChange={event => setHostNameDraft(event.target.value)}
+                      onBlur={saveHostName}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter') event.currentTarget.blur();
+                      }}
+                    />
+                  </div>
+                  <p className="lobby-host-start-note">
+                    {ui(
+                      'The game will start when you press “Start game”.',
+                      'Игра начнётся, когда вы нажмёте «Начать игру».',
+                    )}
+                  </p>
+                  {lobby.mode === 'friends' && lobby.members.length < 2 ? (
+                    <p className="lobby-host-start-note" role="status">
+                      {ui('Add at least one more player or a bot to enable the start button.', 'Чтобы начать, пригласите ещё одного игрока или добавьте бота.')}
+                    </p>
+                  ) : null}
+                  <div className="lobby-host-members" data-testid="lobby-host-members">
+                    <h2>{ui('At the table', 'За столом')} · {lobby.members.length}/{lobby.maxPlayers}</h2>
+                    {lobby.members.map(member => (
+                      <div className="lobby-host-member" data-testid="lobby-host-member" key={member.id}>
+                        <strong>{tablePlayerName(member.name, member.id)}</strong>
+                        <span>
+                          {member.isHost
+                            ? ui('YOU · HOST', 'ВЫ · ВЕДУЩИЙ')
+                            : member.isBot ? ui('BOT', 'БОТ') : ui('PLAYER', 'ИГРОК')}
+                        </span>
+                        {member.isBot ? (
+                          <button
+                            type="button"
+                            aria-label={`${ui('Remove bot', 'Убрать бота')} ${tablePlayerName(member.name, member.id)}`}
+                            onClick={() => send('lobby_remove_bot', { memberId: member.id })}
+                          >
+                            {ui('Remove', 'Убрать')}
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                  {notice ? <p className="lobby-join-notice" role="alert">{notice}</p> : null}
+                  <div className="lobby-simple-actions">
+                    <button
+                      type="button"
+                      onClick={() => send('lobby_add_bot')}
+                      disabled={lobby.members.length >= lobby.maxPlayers}
+                    >
+                      {ui('Add bot', 'Добавить бота')}
+                    </button>
+                    <button
+                      type="button"
+                      className="lobby-host-start"
+                      disabled={!socketReady || (lobby.mode === 'friends' && lobby.members.length < 2)}
+                      onClick={() => send('lobby_start')}
+                    >
+                      {ui('Start game', 'Начать игру')}
+                    </button>
+                  </div>
+                </>
+              ) : !isHost || lobby.status !== 'waiting' ? (
                 <>
               <div className="lobby-invite-card" style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
                 <strong style={{ display: 'block', color: '#526159', fontSize: 15 }}>
@@ -5228,6 +5373,7 @@ const WELCOME_TEXT = {
     back: 'Back',
     yourName: 'Your name',
     seats: 'Seats at the table',
+    seatsHint: 'Choose how many people can join. You can start with fewer.',
     createButton: 'Create table',
     openTables: 'Open tables',
     refresh: 'Refresh',
@@ -5239,6 +5385,12 @@ const WELCOME_TEXT = {
     pinLabel: 'Table PIN',
     pinPlaceholder: '4 digits',
     find: 'Enter table',
+    selectedTable: 'Selected table',
+    close: 'Close',
+    pinTitle: 'Enter the table PIN',
+    pinHelp: 'Ask the table creator for the four-digit PIN.',
+    chooseTable: 'Choose a table first.',
+    invalidPin: 'Enter a 4-digit PIN.',
     enterName: 'Enter your name.',
     connecting: 'Connecting…',
     copyright: 'All rights reserved.',
@@ -5256,6 +5408,7 @@ const WELCOME_TEXT = {
     back: 'Назад',
     yourName: 'Ваше имя',
     seats: 'Мест за столом',
+    seatsHint: 'Выберите вместимость стола. Начать игру можно и раньше.',
     createButton: 'Создать стол',
     openTables: 'Открытые столы',
     refresh: 'Обновить',
@@ -5267,6 +5420,12 @@ const WELCOME_TEXT = {
     pinLabel: 'PIN стола',
     pinPlaceholder: '4 цифры',
     find: 'Войти за стол',
+    selectedTable: 'Выбранный стол',
+    close: 'Закрыть',
+    pinTitle: 'Введите PIN стола',
+    pinHelp: 'Попросите у создателя стола PIN из четырёх цифр.',
+    chooseTable: 'Сначала выберите стол.',
+    invalidPin: 'Введите PIN из 4 цифр.',
     enterName: 'Введите ваше имя.',
     connecting: 'Подключение…',
     copyright: 'Все права защищены.',
@@ -5282,6 +5441,7 @@ function WelcomePage() {
   const startBotsImmediatelyRef = useRef(false);
   const [homeTab, setHomeTab] = useState<'lobby' | 'about'>('lobby');
   const [hostName, setHostName] = useState(storedPlayerName);
+  const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
   const [seats, setSeats] = useState(4);
   const maxTableSeats = useMobileTableSeatLimit();
   const [pin, setPin] = useState('');
@@ -5383,7 +5543,7 @@ function WelcomePage() {
     send('create_lobby', {
       name: playerName,
       mode,
-      maxPlayers: mode === 'bots' ? Math.min(seats, maxTableSeats) : maxTableSeats,
+      maxPlayers: Math.min(seats, maxTableSeats),
     });
   }
 
@@ -5412,11 +5572,11 @@ function WelcomePage() {
 
   function findByPin() {
     if (!selectedLobbyId) {
-      setNotice('Choose a table first.');
+      setNotice(t.chooseTable);
       return;
     }
     if (pin.length !== 4) {
-      setNotice('Enter a 4-digit PIN.');
+      setNotice(t.invalidPin);
       return;
     }
     pendingPinRef.current = pin;
@@ -5454,6 +5614,9 @@ function WelcomePage() {
       <main className="welcome-main" style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
         <header className="welcome-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
           <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
+          <button type="button" onClick={() => setUiLanguage(language === 'en' ? 'ru' : 'en')} style={{ border: '1px solid rgba(167,243,208,.4)', borderRadius: 9, background: 'rgba(255,255,255,.1)', color: '#fff', padding: '7px 10px', fontWeight: 900 }}>
+            {language === 'en' ? 'RU' : 'EN'}
+          </button>
         </header>
 
         <nav className="welcome-nav" role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
@@ -5541,13 +5704,12 @@ function WelcomePage() {
             <button disabled={creating} onClick={() => { setView(mode === 'friends' ? 'join' : 'choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
             <TableSetup mode={mode} disabled={creating} showModeSelector={false} onModeChange={next => { setMode(next); setNotice(null); }} language={storedLanguage()}>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{mode === 'bots' ? ui('Your name (optional)', 'Ваше имя (необязательно)') : t.yourName}<input aria-label={t.yourName} placeholder={mode === 'bots' ? 'You' : undefined} autoFocus maxLength={PLAYER_NAME_MAX_LENGTH} disabled={creating} value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
-            {mode === 'bots' ? (
-              <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
-                <select aria-label={t.seats} disabled={creating} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
-                  {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
-                </select>
-              </label>
-            ) : null}
+            <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{t.seats}
+              <select aria-label={t.seats} disabled={creating} value={seats} onChange={event => setSeats(Number(event.target.value))} style={inputStyle}>
+                {tableSeatOptions(maxTableSeats).map(value => <option key={value} value={value}>{value}</option>)}
+              </select>
+              <small style={{ color: '#d1fae5', fontWeight: 500 }}>{t.seatsHint}</small>
+            </label>
             <button onClick={createTable} disabled={!connected || creating} style={primaryButton}>{!connected ? t.connecting : creating ? ui('Preparing your table…', 'Готовим ваш стол…') : mode === 'bots' ? ui('Play now', 'Играть сейчас') : t.createButton}</button>
             {notice ? <p role="status" style={{ margin: 0, color: '#b45309', fontWeight: 700 }}>{notice}</p> : null}
             </TableSetup>
@@ -5648,14 +5810,14 @@ function WelcomePage() {
                   <CityIcon city={selectedLobby.tableName} />
                   <div>
                     <small style={{ display: 'block', color: '#65736a', fontWeight: 800 }}>
-                      Selected table
+                      {t.selectedTable}
                     </small>
                     <strong style={{ display: 'block', marginTop: 2, fontSize: 24 }}>{selectedLobby.tableName}</strong>
                   </div>
                 </div>
                 <button
                   type="button"
-                  aria-label="Close"
+                  aria-label={t.close}
                   onClick={() => {
                     setSelectedLobbyId(null);
                     setPin('');
@@ -5667,10 +5829,10 @@ function WelcomePage() {
                 </button>
               </div>
               <h2 id="table-pin-title" style={{ margin: '24px 0 6px', fontSize: 22 }}>
-                Enter the table PIN
+                {t.pinTitle}
               </h2>
               <p style={{ margin: '0 0 16px', color: '#65736a' }}>
-                Ask the table creator for the four-digit PIN.
+                {t.pinHelp}
               </p>
               <input
                 ref={pinInputRef}
@@ -5982,8 +6144,7 @@ function HorizontalTableWidthGuard() {
 
 export default function App() {
   useEffect(() => {
-    window.localStorage.setItem('omaha-language', 'en');
-    document.documentElement.lang = 'en';
+    document.documentElement.lang = storedLanguage();
   }, []);
 
   let page: React.ReactNode;

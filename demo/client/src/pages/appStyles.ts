@@ -131,6 +131,163 @@ export const APP_SHELL_STYLES = `
   .lobby-start-button:hover { background: #92400e; }
   .lobby-start-button:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
 
+  .lobby-join-page,
+  .lobby-host-page {
+    min-height: 100dvh !important;
+    padding: max(18px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important;
+    background:
+      radial-gradient(ellipse at 50% 18%, rgba(35, 139, 92, .34), transparent 50%),
+      radial-gradient(ellipse at 50% 100%, rgba(0, 0, 0, .34), transparent 58%),
+      #062f25 !important;
+    color: #f3f7f2;
+  }
+  .lobby-join-main { width: min(100%, 520px) !important; gap: 20px !important; }
+  .lobby-join-page header { color: #ecfdf5; }
+  .lobby-join-page header a { color: #a7f3d0 !important; }
+  .lobby-join-page header span { color: #a7f3d0 !important; }
+  .lobby-host-page header { color: #ecfdf5; }
+  .lobby-host-page header a { color: #a7f3d0 !important; }
+  .lobby-host-page header span { color: #a7f3d0 !important; }
+  .lobby-page.lobby-host-page > .lobby-host-main { width: min(100%, 600px) !important; }
+  .lobby-join-panel {
+    display: grid;
+    gap: 18px;
+    padding: clamp(18px, 5vw, 28px);
+    border: 1px solid rgba(167, 243, 208, .24);
+    border-radius: 22px;
+    background: rgba(3, 30, 24, .72);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .24);
+    color: #f3f7f2;
+  }
+  .lobby-join-form { display: grid; gap: 10px; }
+  .lobby-join-form label { color: #d1fae5; font-size: 13px; font-weight: 800; }
+  .lobby-join-form input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 50px;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    background: #fff;
+    padding: 11px 13px;
+    color: #17211b;
+    font: inherit;
+  }
+  .lobby-join-form button {
+    min-height: 50px;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #f2d79b, #d9b56d);
+    color: #263222;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .lobby-join-form button:disabled { opacity: .58; cursor: wait; }
+  .lobby-join-host-note { margin: -8px 0 0; color: #b7d6c7; font-size: 13px; line-height: 1.45; }
+  .lobby-join-members { display: grid; gap: 8px; }
+  .lobby-join-members h2 { margin: 0 0 2px; color: #d1fae5; font-size: 15px; }
+  .lobby-join-member {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 11px 13px;
+    border: 1px solid rgba(167, 243, 208, .2);
+    border-radius: 11px;
+    background: rgba(255, 255, 255, .07);
+  }
+  .lobby-join-member strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lobby-join-member span { color: #f2d79b; font-size: 11px; font-weight: 900; }
+  .lobby-join-notice { margin: 0; color: #ffdfa0; font-weight: 700; }
+  .lobby-host-main { width: min(100%, 600px) !important; gap: 16px !important; }
+  .lobby-host-panel {
+    display: grid;
+    gap: 16px;
+    padding: clamp(18px, 5vw, 28px);
+    border: 1px solid rgba(167, 243, 208, .24);
+    border-radius: 22px;
+    background: rgba(3, 30, 24, .72);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .24);
+    color: #f3f7f2;
+  }
+  .lobby-host-panel h1 { margin: 0; color: #fff8e8; font: 500 28px/1.15 Georgia, serif; }
+  .lobby-host-identity { display: grid; gap: 7px; }
+  .lobby-host-identity label { color: #d1fae5; font-size: 13px; font-weight: 800; }
+  .lobby-host-identity input {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 48px;
+    border: 1px solid #a7f3d0;
+    border-radius: 10px;
+    background: #fff;
+    padding: 10px 12px;
+    color: #17211b;
+    font: inherit;
+  }
+  .lobby-host-start-note { margin: -7px 0 0; color: #b7d6c7; font-size: 13px; line-height: 1.45; }
+  .lobby-host-invitation {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid rgba(167, 243, 208, .2);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .07);
+    padding: 11px 13px;
+  }
+  .lobby-host-invitation small { display: block; color: #b7d6c7; font-size: 10px; font-weight: 900; letter-spacing: .1em; }
+  .lobby-host-invitation strong { display: block; margin-top: 3px; color: #fff8e8; font-size: 18px; }
+  .lobby-host-invitation button,
+  .lobby-host-member button {
+    min-height: 38px;
+    border: 1px solid rgba(167, 243, 208, .38);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .1);
+    color: #ecfdf5;
+    padding: 7px 11px;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .lobby-host-members { display: grid; gap: 8px; }
+  .lobby-host-members h2 { margin: 0 0 2px; color: #d1fae5; font-size: 15px; }
+  .lobby-host-member {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(167, 243, 208, .2);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .07);
+  }
+  .lobby-host-member strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lobby-host-member span { margin-left: auto; color: #f2d79b; font-size: 10px; font-weight: 900; }
+  .lobby-host-member button { min-height: 30px; padding: 4px 8px; font-size: 11px; }
+  .lobby-simple-actions { display: grid; grid-template-columns: 1fr 1.35fr; gap: 9px; }
+  .lobby-simple-actions button {
+    min-height: 48px;
+    border: 1px solid rgba(167, 243, 208, .32);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, .1);
+    color: #ecfdf5;
+    padding: 9px 12px;
+    font: inherit;
+    font-weight: 900;
+    cursor: pointer;
+  }
+  .lobby-simple-actions .lobby-host-start {
+    border-color: transparent;
+    background: linear-gradient(180deg, #f2d79b, #d9b56d);
+    color: #263222;
+  }
+  .lobby-simple-actions button:disabled { opacity: .48; cursor: not-allowed; }
+  @media (max-width: 400px) {
+    .lobby-simple-actions { grid-template-columns: 1fr; }
+  }
+
   /* The lobby is a table, not a stack of white dashboard cards. */
   @media (min-width: 561px) {
     .lobby-page {
