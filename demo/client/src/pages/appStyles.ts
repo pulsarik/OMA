@@ -1689,7 +1689,20 @@ export const PLAYER_PAGE_STYLES = `
   .action-button.danger { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
   .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
   .turn-status { text-align: center; color: #92400e; font-weight: 900; letter-spacing: .02em; }
-  .game-notice { margin: 8px 4px; color: #526159; font-size: 13px; font-weight: 750; text-align: center; }
+  .game-notice {
+    min-height: 22px;
+    margin: 8px 4px 0;
+    padding: 0 4px;
+    color: #526159;
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.35;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
   .result-panel {
     border: 1px solid #dce5df;
     border-radius: 16px;

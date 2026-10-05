@@ -3932,11 +3932,9 @@ function PlayerPage({
         </section>
       ) : null}
 
-      {notice ? (
-        <p className="game-notice">
-          {notice}
-        </p>
-      ) : null}
+      <p className="game-notice" aria-live="polite" aria-atomic="true" style={{ visibility: notice ? 'visible' : 'hidden' }}>
+        {notice ?? '\u00a0'}
+      </p>
       </section> : null}
 
       {VOICE_TAB_ENABLED ? <section
