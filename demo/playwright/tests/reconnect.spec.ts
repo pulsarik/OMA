@@ -2,7 +2,8 @@ import { expect, test } from '@playwright/test';
 
 test('opponents see offline only after the last player socket disconnects', async ({ page, browser }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('2');
   await page.getByRole('button', { name: 'Create table' }).click();
@@ -12,7 +13,7 @@ test('opponents see offline only after the last player socket disconnects', asyn
   const guestContext = await browser.newContext();
   let guest = await guestContext.newPage();
   await guest.goto('/');
-  await guest.getByRole('button', { name: 'Join an open table' }).click();
+  await guest.getByRole('button', { name: 'Play with people' }).click();
   await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();
@@ -59,7 +60,8 @@ test('lobby restores its authenticated WebSocket after a disconnect', async ({ p
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Reconnect host');
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
@@ -109,7 +111,8 @@ test('a player command survives refresh without applying twice', async ({ page }
   });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Reliable player');
   await page.getByRole('button', { name: 'Create table' }).click();
   await page.getByRole('button', { name: 'Add bot' }).click();

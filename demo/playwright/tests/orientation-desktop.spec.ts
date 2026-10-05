@@ -7,13 +7,14 @@ test('a narrow desktop window is not treated as a rotated phone', async ({ page 
   await expect(page.locator('html')).toHaveAttribute('translate', 'no');
   await expect(page.locator('meta[name="google"]')).toHaveAttribute('content', 'notranslate');
   await expect(page.getByTestId('portrait-orientation-guard')).toBeHidden();
-  await expect(page.getByRole('button', { name: 'Create a table' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play with people' })).toBeVisible();
 });
 
 test('a narrow desktop table asks for more horizontal space', async ({ page }) => {
   await page.setViewportSize({ width: 600, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('2');
   await page.getByRole('button', { name: 'Create table' }).click();

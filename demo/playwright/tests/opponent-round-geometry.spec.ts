@@ -16,7 +16,8 @@ type HandGeometry = {
 
 async function startFilledTable(page: Page, playerCount: number) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(playerCount));
   await page.getByRole('button', { name: 'Create table' }).click();

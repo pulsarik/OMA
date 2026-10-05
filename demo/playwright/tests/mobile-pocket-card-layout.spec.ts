@@ -3,7 +3,8 @@ import { expect, test } from '@playwright/test';
 test('320px pocket cards use the shared scaled card layout', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('4');
   await page.getByRole('button', { name: 'Create table' }).click();

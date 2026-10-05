@@ -3023,6 +3023,7 @@ function PlayerPage({
   const [sessionNow, setSessionNow] = useState(Date.now());
   const [tableScale, setTableScale] = useState(1);
   const [cardScale, setCardScale] = useState(1);
+  const lastViewportScaleRef = useRef(1);
   const [isMobileTable, setIsMobileTable] = useState(() => window.innerWidth <= 760);
   const [isTabletPortraitTable, setIsTabletPortraitTable] = useState(
     () => window.innerWidth >= 761 && window.innerWidth <= 820,
@@ -3163,6 +3164,8 @@ function PlayerPage({
       setIsMobileTable(window.innerWidth <= 760);
       setIsTabletPortraitTable(window.innerWidth >= 761 && window.innerWidth <= 820);
       if (window.innerWidth <= 430 || isCoarsePortrait) {
+        if (Math.abs(lastViewportScaleRef.current - 1) < 0.01) return;
+        lastViewportScaleRef.current = 1;
         setTableScale(1);
         setCardScale(1);
         return;
@@ -3175,6 +3178,8 @@ function PlayerPage({
       // Scale the base wireframe uniformly in both directions. Extra space
       // may enlarge it; insufficient space may shrink it.
       const viewportScale = Math.max(0.6, Math.min(widthScale, heightScale));
+      if (Math.abs(viewportScale - lastViewportScaleRef.current) < 0.02) return;
+      lastViewportScaleRef.current = viewportScale;
       setTableScale(viewportScale);
       setCardScale(viewportScale);
     };
@@ -5216,10 +5221,9 @@ const WELCOME_TEXT = {
     intro: 'Make your best high hand and your best qualifying low hand. The pot is split between them.',
     differenceTitle: 'How it differs from regular poker',
     difference: 'You receive four private cards and must use exactly two of them with exactly three board cards. A qualifying low uses five different cards ranked eight or lower.',
-    create: 'Create a table',
-    createHint: 'Choose the table size and become the host.',
-    join: 'Join an open table',
-    joinHint: 'Choose a waiting table, then enter its 4-digit PIN.',
+    people: 'Play with people',
+    peopleHint: 'Join an open table or create your own.',
+    createYourOwn: 'Create your own table',
     back: 'Back',
     yourName: 'Your name',
     seats: 'Seats at the table',
@@ -5243,10 +5247,9 @@ const WELCOME_TEXT = {
     intro: 'Соберите лучшую старшую и лучшую подходящую младшую комбинацию — банк делится между ними.',
     differenceTitle: 'Чем отличается от обычного покера',
     difference: 'Вы получаете четыре закрытые карты и обязаны использовать ровно две из них вместе с ровно тремя картами стола. Для лоу нужны пять разных карт достоинством не выше восьмёрки.',
-    create: 'Создать стол',
-    createHint: 'Выберите размер стола и станьте ведущим.',
-    join: 'Войти в открытый стол',
-    joinHint: 'Выберите стол, который ждёт игроков, затем введите его PIN.',
+    people: 'Играть с людьми',
+    peopleHint: 'Войдите за открытый стол или создайте свой.',
+    createYourOwn: 'Создать свой стол',
     back: 'Назад',
     yourName: 'Ваше имя',
     seats: 'Мест за столом',
@@ -5458,16 +5461,15 @@ function WelcomePage() {
         </section> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
-          <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+          <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
             {([
-              ['friends', '♧', t.create, ui('Invite friends and wait for everyone.', 'Пригласите друзей и дождитесь всех.')],
+              ['friends', '♧', t.people, t.peopleHint],
               ['bots', '♠', ui('Play with bots', 'Играть с ботами'), ui('Take a seat. Play right away.', 'Займите место и сразу играйте.')],
-              ['join', '♢', t.join, t.joinHint],
             ] as const).map(([target, icon, title, hint]) => (
               <button
                 key={target}
                 onClick={() => {
-                  if (target === 'join') { setView('join'); return; }
+                  if (target === 'friends') { setMode('friends'); setView('join'); return; }
                   setMode(target); setView('create');
                 }}
                 className="welcome-choice-card"
@@ -5485,7 +5487,7 @@ function WelcomePage() {
 
         {homeTab === 'lobby' && view === 'create' ? (
           <>
-            <button disabled={creating} onClick={() => { setView('choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
+            <button disabled={creating} onClick={() => { setView(mode === 'friends' ? 'join' : 'choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
             <TableSetup mode={mode} disabled={creating} showModeSelector={false} onModeChange={next => { setMode(next); setNotice(null); }} language={storedLanguage()}>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{mode === 'bots' ? ui('Your name (optional)', 'Ваше имя (необязательно)') : t.yourName}<input aria-label={t.yourName} placeholder={mode === 'bots' ? 'You' : undefined} autoFocus maxLength={PLAYER_NAME_MAX_LENGTH} disabled={creating} value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
             {mode === 'bots' ? (
@@ -5508,6 +5510,7 @@ function WelcomePage() {
               <button onClick={() => send('list_open_lobbies')} disabled={!connected} style={{ border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', padding: '7px 10px', fontWeight: 800 }}>{t.refresh}</button>
             </div>
             <h2 style={{ margin: 0 }}>{t.openTables}</h2>
+            <button onClick={() => { setMode('friends'); setNotice(null); setView('create'); }} disabled={!connected} style={{ ...primaryButton, justifySelf: 'start' }}>{t.createYourOwn}</button>
             <div style={{ display: 'grid', gap: 10 }}>
               {openLobbies.length ? openLobbies.map(lobby => (
                 <button

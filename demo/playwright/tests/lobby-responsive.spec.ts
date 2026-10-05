@@ -5,7 +5,8 @@ test.use({ hasTouch: true });
 test('mobile lobby keeps the start CTA visible and table names on one line', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('4');
 

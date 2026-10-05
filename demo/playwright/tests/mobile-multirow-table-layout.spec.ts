@@ -3,7 +3,8 @@ import { expect, Page, test } from '@playwright/test';
 async function startMobileTable(page: Page, seats: number, width = 510, height = 900) {
   await page.setViewportSize({ width, height });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption(String(seats));
   await page.getByRole('button', { name: 'Create table' }).click();
@@ -19,7 +20,8 @@ async function startMobileTable(page: Page, seats: number, width = 510, height =
 test('mobile table creation supports up to nine seats and keeps ten seats desktop-only', async ({ page }) => {
   await page.setViewportSize({ width: 510, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
 
   const seats = page.getByLabel('Seats at the table');
   await expect(seats.locator('option')).toHaveCount(8);

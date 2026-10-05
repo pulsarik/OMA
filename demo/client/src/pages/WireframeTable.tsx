@@ -43,15 +43,24 @@ export function WireframeTable({
   mobileBottomReserve = 0,
 }: WireframeTableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
+  const lastContainerRef = useRef({ width: -1, height: -1 });
   const [container, setContainer] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const table = tableRef.current;
     if (!table) return undefined;
-    const measure = () => setContainer({
-      width: table.clientWidth,
-      height: availableTableHeight(table, mobileBottomReserve),
-    });
+    const measure = () => {
+      const next = {
+        width: table.clientWidth,
+        height: availableTableHeight(table, mobileBottomReserve),
+      };
+      const previous = lastContainerRef.current;
+      const widthChanged = Math.abs(next.width - previous.width) > 2;
+      const heightChanged = Math.abs(next.height - previous.height) > 2;
+      if (!widthChanged && !heightChanged) return;
+      lastContainerRef.current = next;
+      setContainer(next);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(table);

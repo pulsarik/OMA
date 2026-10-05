@@ -2,20 +2,23 @@ import { expect, test } from '@playwright/test';
 
 test('remembers the host name in the next create-table form', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Cookie Player');
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await expect(page.getByLabel('Your name')).toHaveValue('Cookie Player');
 });
 
 test('mobile host can start a lobby and reach the table', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('4');
   await page.getByRole('button', { name: 'Create table' }).click();
@@ -30,7 +33,8 @@ test('mobile host can start a lobby and reach the table', async ({ page }) => {
 test('host creates a city table and a friend joins it by PIN', async ({ page, browser }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Omaha Hi-Lo' })).toBeVisible();
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByLabel('Seats at the table').selectOption('4');
   await page.getByRole('button', { name: 'Create table' }).click();
@@ -74,7 +78,8 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   const secondHostContext = await browser.newContext();
   const secondHost = await secondHostContext.newPage();
   await secondHost.goto('/');
-  await secondHost.getByRole('button', { name: 'Create a table' }).click();
+  await secondHost.getByRole('button', { name: 'Play with people' }).click();
+  await secondHost.getByRole('button', { name: 'Create your own table' }).click();
   await secondHost.getByLabel('Your name').fill('Pavel');
   await secondHost.getByRole('button', { name: 'Create table' }).click();
   await expect(secondHost).toHaveURL(/\/lobby\/[^/?]+$/);
@@ -84,7 +89,7 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
   await guest.goto('/');
-  await guest.getByRole('button', { name: 'Join an open table' }).click();
+  await guest.getByRole('button', { name: 'Play with people' }).click();
   const targetTable = guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' });
   await expect(targetTable).toBeVisible();
   await expect(guest.getByLabel('Table PIN')).toHaveCount(0);

@@ -6,7 +6,8 @@ test('mobile opponent card rank and suit stay readable from 3 to 8 seats', async
 
   for (const seats of [3, 4, 5, 6, 7, 8]) {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Create a table' }).click();
+    await page.getByRole('button', { name: 'Play with people' }).click();
+    await page.getByRole('button', { name: 'Create your own table' }).click();
     await page.getByLabel('Your name').fill('Dima');
     await page.getByLabel('Seats at the table').selectOption(String(seats));
     await page.getByRole('button', { name: 'Create table' }).click();
