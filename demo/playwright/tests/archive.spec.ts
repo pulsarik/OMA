@@ -14,6 +14,7 @@ test('statistics opens the archive and its hand code starts a bot replay', async
       finished: true,
       durationMinutes: 2.5,
       lowPercent: 33.3,
+      lowWins: 1,
       combinations: {
         straightFlush: 0,
         fourOfAKind: 0,
@@ -36,6 +37,7 @@ test('statistics opens the archive and its hand code starts a bot replay', async
       finished: false,
       durationMinutes: 0.5,
       lowPercent: null,
+      lowWins: 0,
       combinations: {
         straightFlush: 0,
         fourOfAKind: 0,
@@ -56,6 +58,12 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('heading', { name: 'Hand archive' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Bots / humans' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Game finished' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Players', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'Low wins', exact: true })).toBeVisible();
+  const rows = page.locator('tbody tr');
+  await expect(rows.nth(0).locator('td').nth(6)).toHaveText('1');
+  await expect(rows.nth(1).locator('td').nth(6)).toHaveText('0');
+  await expect(rows.nth(2).locator('td').nth(5)).toHaveText('0.5');
   await expect(page.getByRole('button', { name: 'ABC123' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'XYZ789' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: 'Game finished: No' })).toBeVisible();

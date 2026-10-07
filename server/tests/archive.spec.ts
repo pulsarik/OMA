@@ -111,3 +111,36 @@ test('archive treats an approved early finish as a completed game', () => {
     replayCode: 'ABC123',
   });
 });
+
+test('archive counts low-winning hands once even when multiple players tie', () => {
+  const low = dealHand(2, 1) as DealtHand;
+  low.id = 'low-hand';
+  low.partyId = 'low-party';
+  low.stage = 'showdown';
+  low.fullCommunity = ['3c', '4d', '5h', 'Ks', 'Qh'];
+  low.community = [...low.fullCommunity];
+  low.players[0].hole = ['As', '2s', 'Jc', 'Tc'];
+  low.players[1].hole = ['Ah', '2h', 'Jd', 'Td'];
+  low.totalContributions = { P1: 50, P2: 50 };
+  low.potCoins = 100;
+
+  const noLow = dealHand(2, 2) as DealtHand;
+  noLow.id = 'no-low-hand';
+  noLow.partyId = low.partyId;
+  noLow.handNumber = 2;
+  noLow.stage = 'showdown';
+  noLow.fullCommunity = ['Kc', 'Qd', 'Jh', '9s', '8h'];
+  noLow.community = [...noLow.fullCommunity];
+
+  const unfinished = dealHand(2, 3) as DealtHand;
+  unfinished.partyId = low.partyId;
+  unfinished.handNumber = 3;
+
+  expect(buildArchiveRows([low, noLow, unfinished])[0]).toMatchObject({
+    hands: 3,
+    lowWins: 1,
+    lowPercent: 50,
+  });
+  expect(buildArchiveRows([noLow])[0].lowWins).toBe(0);
+  expect(buildArchiveRows([unfinished])[0].lowWins).toBe(0);
+});

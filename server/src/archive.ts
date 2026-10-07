@@ -14,6 +14,7 @@ export type ArchiveRow = {
   finished: boolean;
   durationMinutes: number;
   lowPercent: number | null;
+  lowWins: number;
   combinations: Record<ArchiveCombination, number>;
   replayCode?: string;
 };
@@ -137,6 +138,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
         || (latestHand.stage === 'showdown' && remainingPlayers === 1),
       durationMinutes: Math.max(0, (lastActivity - firstHand.created) / 60_000),
       lowPercent: completedHands.length ? (handsWithLow / completedHands.length) * 100 : null,
+      lowWins: handsWithLow,
       combinations,
       replayCode,
     };

@@ -84,12 +84,9 @@ const partyLiveSummaryCache = new Map<string, {
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const HUMAN_TURN_MS = Math.max(1_000, Number(process.env.HUMAN_TURN_MS) || 45_000);
-const SESSION_EXPIRE_MS = Math.max(60_000, Number(process.env.SESSION_EXPIRE_MS) || 60 * 60_000);
-const SESSION_WARNING_MS = Math.min(
-  SESSION_EXPIRE_MS - 1,
-  Math.max(0, Number(process.env.SESSION_WARNING_MS) || 50 * 60_000),
-);
-const SESSION_CLEANUP_MS = Math.max(10_000, Number(process.env.SESSION_CLEANUP_MS) || 60_000);
+// Zero disables session expiry while preserving the session message shape.
+const SESSION_EXPIRE_MS = 0;
+const SESSION_WARNING_MS = 0;
 const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN;
 const voiceConfig = voiceConfigFromEnv();
 const problemEmailDeliveryConfig = problemEmailConfig(process.env);
@@ -606,52 +603,8 @@ function broadcastSessionActivity(partyId: string, timing: any) {
   });
 }
 
-async function cleanupInactiveSessions() {
-  const cutoff = Date.now() - SESSION_EXPIRE_MS;
-  const lobbies = await store.listLobbies() as Lobby[];
-  const expired = await store.deleteExpiredParties(cutoff);
-  const expiredLobbyIds = await store.deleteExpiredWaitingLobbies(cutoff);
-  const expiredHandIds = new Set(expired.handIds);
-  expiredLobbyIds.push(...lobbies.filter(lobby => lobby.handId && expiredHandIds.has(lobby.handId)).map(lobby => lobby.id));
-  expired.partyIds.forEach((partyId) => partyLiveSummaryCache.delete(partyId));
-  if (!expired.partyIds.length && !expiredLobbyIds.length) return expired;
-
-  const expiredPartyIds = new Set(expired.partyIds);
-  playerConnections.forEach((connection, client) => {
-    if (!expiredPartyIds.has(connection.partyId)) return;
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'session_expired' }));
-      client.close(4001, 'Table expired due to inactivity');
-    }
-    playerConnections.delete(client);
-    connectionContexts.delete(client);
-  });
-  const expiredLobbyIdSet = new Set(expiredLobbyIds);
-  lobbyConnections.forEach((connection, client) => {
-    if (!expiredLobbyIdSet.has(connection.lobbyId)) return;
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'session_expired' }));
-      client.close(4001, 'Lobby expired due to inactivity');
-    }
-    lobbyConnections.delete(client);
-    connectionContexts.delete(client);
-  });
-  expired.handIds.forEach((handId) => {
-    clearBotTurnTimer(handId);
-    clearHumanTurnTimer(handId);
-  });
-  await broadcastOpenLobbies(false);
-  return expired;
-}
-
 async function getActiveHand(handId: string) {
-  const hand = await store.getHand(handId);
-  if (!hand) return null;
-  const partyId = hand.partyId ?? hand.id;
-  const lastActivity = await store.getPartyLastActivity(partyId) ?? hand.created ?? 0;
-  if (lastActivity > Date.now() - SESSION_EXPIRE_MS) return hand;
-  await cleanupInactiveSessions();
-  return null;
+  return store.getHand(handId);
 }
 
 async function recordBoundPlayerActivity(ws: WebSocket) {
@@ -896,8 +849,7 @@ function openLobbyState(lobby: Lobby) {
   };
 }
 
-async function listOpenLobbies(cleanup = true) {
-  if (cleanup) await cleanupInactiveSessions();
+async function listOpenLobbies() {
   const lobbies = await store.listLobbies() as Lobby[];
   return lobbies
     .filter(lobby => (
@@ -909,8 +861,8 @@ async function listOpenLobbies(cleanup = true) {
     .map(openLobbyState);
 }
 
-async function broadcastOpenLobbies(cleanup = true) {
-  const message = JSON.stringify({ type: 'open_lobbies', data: await listOpenLobbies(cleanup) });
+async function broadcastOpenLobbies() {
+  const message = JSON.stringify({ type: 'open_lobbies', data: await listOpenLobbies() });
   connectionContexts.forEach((context, client) => {
     if (receivesOpenLobbies(context) && client.readyState === WebSocket.OPEN) client.send(message);
   });
@@ -1080,7 +1032,6 @@ async function markPlayerEntered(hand: any, playerId: string) {
 
 async function createLobby(ws: WebSocket, message: any) {
   return withLobbyLock('__create__', async () => {
-    await cleanupInactiveSessions();
     const requestedReplayCode = typeof message.replayCode === 'string' && message.replayCode.trim()
       ? normalizeReplayCode(message.replayCode)
       : undefined;
@@ -1119,7 +1070,6 @@ async function createLobby(ws: WebSocket, message: any) {
 
 async function viewLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
-    await cleanupInactiveSessions();
     const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
     if (!lobby) throw new Error('lobby not found');
     await validateLobbyPin(lobby, message.pin);
@@ -1132,7 +1082,6 @@ async function findLobbyByPin(ws: WebSocket, message: any) {
   if (!/^\d{4}$/.test(pin)) throw new Error('enter a 4-digit PIN');
   const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
   return withLobbyLock(lobbyId, async () => {
-    await cleanupInactiveSessions();
     const lobby = await store.getLobby(lobbyId) as Lobby | null;
     if (!lobby || lobby.status !== 'waiting') throw new Error('table not found');
     await validateLobbyPin(lobby, pin);
@@ -1143,7 +1092,6 @@ async function findLobbyByPin(ws: WebSocket, message: any) {
 
 async function joinLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
-    await cleanupInactiveSessions();
     const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
     if (!lobby) throw new Error('lobby not found');
 
@@ -1189,7 +1137,6 @@ async function joinLobby(ws: WebSocket, message: any) {
 async function checkLobbyResume(ws: WebSocket, message: any) {
   const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
   return withLobbyLock(lobbyId, async () => {
-    await cleanupInactiveSessions();
     const lobby = lobbyId ? await store.getLobby(lobbyId) as Lobby | null : null;
     const member = lobby?.members.find(candidate => (
       candidate.id === message.memberId
@@ -1201,7 +1148,7 @@ async function checkLobbyResume(ws: WebSocket, message: any) {
       && member
       && (lobby.status === 'started'
         ? lobby.handId && await getActiveHand(lobby.handId)
-        : (lobby.lastActivity ?? lobby.created) > Date.now() - SESSION_EXPIRE_MS),
+        : true),
     );
     ws.send(JSON.stringify({
       type: 'lobby_resume_status',
@@ -1216,8 +1163,7 @@ async function authenticatedLobby(ws: WebSocket, message: any) {
   const lobby = await store.getLobby(connection.lobbyId) as Lobby | null;
   const member = lobby?.members.find(candidate => candidate.id === connection.memberId);
   if (!lobby || !member) throw new Error('lobby not found');
-  if (lobby.handId ? !await getActiveHand(lobby.handId) : (lobby.lastActivity ?? lobby.created) <= Date.now() - SESSION_EXPIRE_MS) {
-    await cleanupInactiveSessions();
+  if (lobby.handId && !await getActiveHand(lobby.handId)) {
     throw new Error('lobby expired');
   }
   return { lobby, member };
@@ -1996,9 +1942,4 @@ server.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
 });
 
-void cleanupInactiveSessions().catch(error => console.error('session cleanup failed', error));
 void recoverTurnTimers().catch(error => console.error('turn timer recovery failed', error));
-const sessionCleanupTimer = setInterval(() => {
-  void cleanupInactiveSessions().catch(error => console.error('session cleanup failed', error));
-}, SESSION_CLEANUP_MS);
-sessionCleanupTimer.unref();

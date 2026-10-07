@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('table activity does not reset expiry; started tables reject new members but allow reconnect', async ({ page }) => {
+test('tables have no inactivity expiry; started tables reject new members but allow reconnect', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
     const sockets: WebSocket[] = [];
@@ -29,6 +29,7 @@ test('table activity does not reset expiry; started tables reject new members bu
       const activity = await request(host, { action: 'lobby_activity', lobbyId: created.lobby.id }, 'lobby_updated');
       const reconnected = await connect();
       const joined = await request(reconnected, { action: 'join_lobby', ...credentials }, 'lobby_joined');
+      await request(reconnected, { action: 'lobby_add_bot', lobbyId: created.lobby.id }, 'lobby_updated');
       await request(reconnected, { action: 'lobby_start', lobbyId: created.lobby.id }, 'lobby_started');
       const guest = await connect();
       const rejected = await request(guest, { action: 'join_lobby', lobbyId: created.lobby.id, pin: created.lobby.pin, name: 'Late guest' }, 'lobby_joined');
@@ -41,7 +42,10 @@ test('table activity does not reset expiry; started tables reject new members bu
       };
     } finally { sockets.forEach(ws => ws.close()); }
   });
-  expect(result.initial.expiresAfterMs).toBe(3_600_000);
+  expect(result.initial.expiresAfterMs).toBe(0);
+  expect(result.initial.warningAfterMs).toBe(0);
+  expect(result.activity.expiresAfterMs).toBe(0);
+  expect(result.reconnect.expiresAfterMs).toBe(0);
   expect(result.activity.lastActivity).toBe(result.initial.lastActivity);
   expect(result.reconnect.lastActivity).toBe(result.initial.lastActivity);
   expect(result.rejected).toMatchObject({ type: 'error', message: 'game already started' });

@@ -3062,6 +3062,10 @@ function PlayerPage({
 
   function applySessionTiming(timing: PlayerView['session'] | undefined) {
     if (!timing) return;
+    if (timing.expiresAfterMs <= 0) {
+      setSessionDeadline(null);
+      return;
+    }
     const elapsedAtReceipt = Math.max(0, timing.serverNow - timing.lastActivity);
     setSessionDeadline(Date.now() + Math.max(0, timing.expiresAfterMs - elapsedAtReceipt));
     setSessionWarningRemainingMs(Math.max(0, timing.expiresAfterMs - timing.warningAfterMs));
@@ -4386,6 +4390,10 @@ function LobbyPage() {
   function applyLobbySession(nextLobby: LobbyView | undefined) {
     const timing = nextLobby?.session;
     if (!timing) return;
+    if (timing.expiresAfterMs <= 0) {
+      setSessionDeadline(null);
+      return;
+    }
     const elapsedAtReceipt = Math.max(0, timing.serverNow - timing.lastActivity);
     setSessionDeadline(Date.now() + Math.max(0, timing.expiresAfterMs - elapsedAtReceipt));
     setSessionWarningRemainingMs(Math.max(0, timing.expiresAfterMs - timing.warningAfterMs));
