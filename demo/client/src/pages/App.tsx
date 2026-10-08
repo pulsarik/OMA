@@ -5932,7 +5932,7 @@ function WelcomePage() {
 
         <footer style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'rgba(255,255,255,.72)', fontSize: 12 }}>
           <span>© {new Date().getFullYear()} Omaha Hi-Lo. {t.copyright}</span>
-          {version ? <span title={version.commit}>{version.shortCommit}</span> : null}
+          {version ? <span title={version.commit}>{version.shortCommit}{version.buildTimeGmt ? ` · ${version.buildTimeGmt}` : ''}</span> : null}
         </footer>
       </main>
     </div>
