@@ -106,7 +106,8 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       if (!result) continue;
       if (result.lowWinners.length > 0) handsWithLow += 1;
       for (const player of result.players) {
-        if (player.folded || !player.highRank) continue;
+        // Count dealt combinations regardless of folds or payouts.
+        if (!player.highRank) continue;
         const combination = COMBINATION_BY_RANK[player.highRank];
         if (combination) combinations[combination] += 1;
       }

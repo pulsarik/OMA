@@ -43,7 +43,28 @@ test('archive summarizes parties and returns newest games first', () => {
     replayCode: 'ABC123',
   });
   expect(rows[1].durationMinutes).toBeCloseTo(1.5);
-  expect(Object.values(rows[1].combinations).reduce((sum, count) => sum + count, 0)).toBe(2);
+  expect(Object.values(rows[1].combinations).reduce((sum, count) => sum + count, 0)).toBe(6);
+});
+
+test('archive counts the best combination of folded players too', () => {
+  const hand = showdown('hand-1', 'party-1', 1, 1_000, 'ABC123');
+  hand.fullCommunity = ['Kc', 'Kd', '5h', '9s', '2h'];
+  hand.community = [...hand.fullCommunity];
+  hand.players[0].hole = ['As', 'Qd', '7c', '6d'];
+  hand.players[1].hole = ['Kh', 'Ks', 'Jc', 'Tc'];
+  hand.players[2].hole = ['9h', '9d', 'Qc', '8c'];
+
+  expect(buildArchiveRows([hand])[0].combinations).toEqual({
+    straightFlush: 0,
+    fourOfAKind: 1,
+    fullHouse: 1,
+    flush: 0,
+    straight: 0,
+    threeOfAKind: 0,
+    twoPair: 0,
+    pair: 1,
+    highCard: 0,
+  });
 });
 
 test('archive keeps unfinished hands and marks the game as incomplete', () => {
