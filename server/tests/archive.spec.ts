@@ -165,3 +165,20 @@ test('archive counts low-winning hands once even when multiple players tie', () 
   expect(buildArchiveRows([noLow])[0].lowWins).toBe(0);
   expect(buildArchiveRows([unfinished])[0].lowWins).toBe(0);
 });
+
+test('archive includes folded low hands in the percentage without counting them as wins', () => {
+  const hand = dealHand(3, 1) as DealtHand;
+  hand.stage = 'showdown';
+  hand.fullCommunity = ['3c', '4d', '5h', 'Ks', 'Qh'];
+  hand.community = [...hand.fullCommunity];
+  hand.players[0].hole = ['Kc', 'Kd', 'Jc', 'Tc'];
+  hand.players[1].hole = ['As', '2s', 'Jh', 'Th'];
+  hand.players[2].hole = ['Ah', '2h', 'Jd', 'Td'];
+  hand.players[1].folded = true;
+  hand.players[2].folded = true;
+
+  expect(buildArchiveRows([hand])[0]).toMatchObject({
+    lowPercent: 100,
+    lowWins: 0,
+  });
+});

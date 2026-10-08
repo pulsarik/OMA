@@ -100,11 +100,13 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       COMBINATIONS.map(combination => [combination, 0]),
     ) as Record<ArchiveCombination, number>;
     let handsWithLow = 0;
+    let lowWins = 0;
 
     for (const hand of completedHands) {
       const result = evaluateOmahaHiLo(hand);
       if (!result) continue;
-      if (result.lowWinners.length > 0) handsWithLow += 1;
+      if (result.players.some(player => player.lowRank)) handsWithLow += 1;
+      if (result.lowWinners.length > 0) lowWins += 1;
       for (const player of result.players) {
         // Count dealt combinations regardless of folds or payouts.
         if (!player.highRank) continue;
@@ -139,7 +141,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
         || (latestHand.stage === 'showdown' && remainingPlayers === 1),
       durationMinutes: Math.max(0, (lastActivity - firstHand.created) / 60_000),
       lowPercent: completedHands.length ? (handsWithLow / completedHands.length) * 100 : null,
-      lowWins: handsWithLow,
+      lowWins,
       combinations,
       replayCode,
     };
