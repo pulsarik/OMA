@@ -1,0 +1,15 @@
+{
+  "samples": 1000000,
+  "seed": 20261011,
+  "counts": {
+    "straightFlush": 906,
+    "fourOfAKind": 4698,
+    "fullHouse": 63870,
+    "flush": 67255,
+    "straight": 112447,
+    "threeOfAKind": 86898,
+    "twoPair": 369125,
+    "pair": 265092,
+    "highCard": 29709
+  }
+}

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import baseline from '../omahaHighBaseline.json';
+import { CombinationFrequency } from './CombinationFrequency';
 
 type ArchiveRow = {
   partyId: string;
@@ -101,6 +103,8 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
   const averageCombination = (key: keyof ArchiveRow['combinations']) => (
     average(row => row.combinations[key]).toFixed(1)
   );
+  const combinationKeys = Object.keys(baseline.counts) as (keyof ArchiveRow['combinations'])[];
+  const totalCombinations = rows?.reduce((sum, row) => sum + combinationKeys.reduce((subtotal, key) => subtotal + row.combinations[key], 0), 0) ?? 0;
 
   return (
     <section style={{ border: '1px solid #cbd5e1', borderRadius: 22, background: 'rgba(255,255,255,.96)', padding: 'clamp(16px, 3vw, 26px)', display: 'grid', gap: 16 }}>
@@ -171,15 +175,16 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                 <td>{average(row => row.durationMinutes).toFixed(1)}</td>
                 <td>{percent(lowMean)}</td>
                 <td>{average(row => row.lowWins).toFixed(1)}</td>
-                <td>{averageCombination('straightFlush')}</td>
-                <td>{averageCombination('fourOfAKind')}</td>
-                <td>{averageCombination('fullHouse')}</td>
-                <td>{averageCombination('flush')}</td>
-                <td>{averageCombination('straight')}</td>
-                <td>{averageCombination('threeOfAKind')}</td>
-                <td>{averageCombination('twoPair')}</td>
-                <td>{averageCombination('pair')}</td>
-                <td>{averageCombination('highCard')}</td>
+                {combinationKeys.map(key => <td key={key}>
+                  <div>{averageCombination(key)}</div>
+                  <CombinationFrequency
+                    count={rows.reduce((sum, row) => sum + row.combinations[key], 0)}
+                    total={totalCombinations}
+                    expected={baseline.counts[key] / baseline.samples * 100}
+                    label={text[key]}
+                    language={language}
+                  />
+                </td>)}
                 <td>—</td>
               </tr>
             </tbody>
