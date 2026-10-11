@@ -49,7 +49,6 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     retry: ru ? 'Повторить' : 'Retry',
     empty: ru ? 'Сохранённых игр пока нет.' : 'No saved games yet.',
     date: ru ? 'Дата записи' : 'Date',
-    botsHumans: ru ? 'Боты / люди' : 'Bots / humans',
     hands: ru ? 'Сдач' : 'Hands',
     finished: ru ? 'Партия доиграна' : 'Game finished',
     duration: ru ? 'Минуты' : 'Minutes',
@@ -126,7 +125,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
             <thead style={{ background: '#f0fdf4' }}>
               <tr>
                 {[
-                  text.date, text.botsHumans, text.hands, text.finished, text.duration, text.low, text.lowWins,
+                  text.date, text.hands, text.finished, text.duration, text.low, text.lowWins,
                   text.straightFlush, text.fourOfAKind, text.fullHouse, text.flush, text.straight, text.threeOfAKind,
                   text.twoPair, text.pair, text.highCard, text.code,
                 ].map(label => <th key={label} scope="col" style={{ padding: 10, borderBottom: '1px solid #d8e2dc', whiteSpace: 'nowrap' }}>{label}</th>)}
@@ -136,7 +135,6 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               {rows.map(row => (
                 <tr key={row.partyId}>
                   <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}</td>
-                  <td>{row.bots} / {row.humans}</td>
                   <td>{row.hands}</td>
                   <td>
                     <input
@@ -169,7 +167,6 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               ))}
               <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
                 <th scope="row" style={{ padding: 9 }}>{text.average}</th>
-                <td>{average(row => row.bots).toFixed(1)} / {average(row => row.humans).toFixed(1)}</td>
                 <td>{average(row => row.hands).toFixed(1)}</td>
                 <td>{percent(rows.filter(row => row.finished).length / rows.length * 100)}</td>
                 <td>{average(row => row.durationMinutes).toFixed(1)}</td>
