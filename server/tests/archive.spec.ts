@@ -39,6 +39,7 @@ test('archive summarizes parties and returns newest games first', () => {
     partyId: 'party-1',
     date: 1_000,
     hands: 2,
+    completedHands: 2,
     finished: true,
     replayCode: 'ABC123',
   });
@@ -77,6 +78,8 @@ test('archive keeps unfinished hands and marks the game as incomplete', () => {
     hands: 1,
     finished: false,
     lowPercent: null,
+    completedHands: 0,
+    handsWithLow: 0,
     durationMinutes: 1.5,
     replayCode: 'ABC123',
   });
@@ -161,6 +164,8 @@ test('archive counts low-winning hands once even when multiple players tie', () 
     hands: 3,
     lowWins: 1,
     lowPercent: 50,
+    completedHands: 2,
+    handsWithLow: 1,
   });
   expect(buildArchiveRows([noLow])[0].lowWins).toBe(0);
   expect(buildArchiveRows([unfinished])[0].lowWins).toBe(0);
@@ -179,6 +184,8 @@ test('archive includes folded low hands in the percentage without counting them 
 
   expect(buildArchiveRows([hand])[0]).toMatchObject({
     lowPercent: 100,
+    completedHands: 1,
+    handsWithLow: 1,
     lowWins: 0,
   });
 });

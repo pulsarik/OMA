@@ -11,6 +11,8 @@ export type ArchiveRow = {
   humans: number;
   players: number;
   hands: number;
+  completedHands: number;
+  handsWithLow: number;
   finished: boolean;
   durationMinutes: number;
   lowPercent: number | null;
@@ -137,6 +139,8 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       humans: firstHand.players.filter(player => !player.isBot).length,
       players: firstHand.players.length,
       hands: orderedHands.length,
+      completedHands: completedHands.length,
+      handsWithLow,
       finished: Boolean(latestHand.partyFinishedEarly)
         || (latestHand.stage === 'showdown' && remainingPlayers === 1),
       durationMinutes: Math.max(0, (lastActivity - firstHand.created) / 60_000),
