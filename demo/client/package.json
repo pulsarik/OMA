@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p src/mobile-table/tsconfig.json",
     "start": "vite preview"
   },

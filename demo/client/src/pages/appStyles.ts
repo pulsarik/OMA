@@ -410,7 +410,7 @@ export const APP_SHELL_STYLES = `
     .welcome-header { min-height: 30px; }
     .welcome-header strong { font-size: 12px; letter-spacing: .16em !important; }
     .welcome-nav { margin: 0 4px -10px !important; }
-    .welcome-nav button { padding: 7px 11px !important; font-size: 11px; }
+    .welcome-nav button, .welcome-nav a { padding: 7px 11px !important; font-size: 11px; }
     .welcome-intro-card {
       display: grid;
       grid-template-columns: 1fr auto;
@@ -433,7 +433,7 @@ export const APP_SHELL_STYLES = `
       padding: 7px 9px !important;
       font-size: 11px;
     }
-    .welcome-difference strong { color: #92400e; }
+    .welcome-difference strong, .welcome-difference h2 { color: #92400e; }
     .welcome-difference p { display: inline; margin: 0 0 0 4px !important; font-size: 11px; line-height: 1.2 !important; }
     .welcome-choice-grid { grid-template-columns: 1fr !important; gap: 8px !important; }
     .welcome-choice-card {

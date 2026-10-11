@@ -156,6 +156,22 @@ function requireContinuationAccess(ws: WebSocket, hand: any, message: any) {
 }
 
 if (staticDir) {
+  // Serve generated public HTML directly; do not redirect extensionless canonicals.
+  app.get('/index.html', (req, res) => {
+    res.redirect(301, '/' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+  });
+  app.get(/^\/(?:ru\/)?(?:rules|omaha-vs-holdem|how-to-play|hand-replay|statistics|poker-hints)(?:\/index\.html)?\/?$/, (req, res) => {
+    const canonicalPath = req.path.replace(/(?:\/index\.html)?\/?$/, '');
+    if (req.path !== canonicalPath) {
+      res.redirect(301, canonicalPath + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+      return;
+    }
+    res.sendFile(path.join(staticDir, canonicalPath, 'index.html'));
+  });
+  app.use(['/player', '/lobby', '/debug', '/admin.html'], (_req, res, next) => {
+    res.setHeader('X-Robots-Tag', 'noindex, follow');
+    next();
+  });
   app.use(express.static(staticDir));
 }
 
@@ -1720,7 +1736,12 @@ if (staticDir) {
       return;
     }
 
-    res.sendFile(path.join(staticDir, 'index.html'));
+    if (/^\/(player|lobby|debug)\//.test(req.path)) {
+      res.sendFile(path.join(staticDir, 'game.html'));
+      return;
+    }
+    res.setHeader('X-Robots-Tag', 'noindex, follow');
+    res.status(404).type('html').send('<!doctype html><html lang="en"><head><meta name="robots" content="noindex"><title>Page not found | Omaha Hi-Lo</title></head><body><h1>Page not found / Страница не найдена</h1><a href="/">Play Omaha Hi-Lo / Играть</a></body></html>');
   });
 }
 

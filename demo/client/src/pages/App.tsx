@@ -7,6 +7,9 @@ import { TableSetup, type TableMode } from '../components/TableSetup';
 import { HandArchive } from '../components/HandArchive';
 import { CityInfo } from '../components/CityInfo';
 import { TableEmblem } from '../components/TableEmblem';
+import { GuideArticle, HomeIntro, LearnLinks, PUBLIC_STYLES } from '../seo/PublicContent';
+import { resolveGuide } from '../seo/content';
+import { updateMetadata } from '../seo/metadata';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import { StatisticsPresentation } from '../components/StatisticsPresentation';
 import { playerSeriesStyle } from '../components/playerSeriesStyles';
@@ -110,11 +113,18 @@ function rememberPlayerName(name: string) {
 }
 
 function storedLanguage(): UiLanguage {
+  const guide = resolveGuide(window.location.pathname);
+  if (guide) return guide.language;
   return window.localStorage.getItem('omaha-language') === 'ru' ? 'ru' : 'en';
 }
 
 function setUiLanguage(language: UiLanguage) {
   window.localStorage.setItem('omaha-language', language);
+  const guide = resolveGuide(window.location.pathname);
+  if (guide) {
+    window.location.href = `${language === 'ru' ? '/ru' : ''}/${guide.guide.slug}`;
+    return;
+  }
   window.location.reload();
 }
 
@@ -5455,13 +5465,16 @@ const WELCOME_TEXT = {
 } as const;
 
 function WelcomePage() {
-  const [view, setView] = useState<'choice' | 'create' | 'join' | 'archive'>('choice');
-  const [mode, setMode] = useState<TableMode>('friends');
+  const publicGuide = resolveGuide(window.location.pathname);
+  const homeParams = new URLSearchParams(window.location.search);
+  const startMode = homeParams.get('start');
+  const [view, setView] = useState<'choice' | 'create' | 'join' | 'archive'>(publicGuide?.guide.slug === 'statistics' ? 'archive' : startMode === 'bots' ? 'create' : startMode === 'friends' ? 'join' : 'choice');
+  const [mode, setMode] = useState<TableMode>(startMode === 'bots' ? 'bots' : 'friends');
   const [creating, setCreating] = useState(false);
   const createdLobbyRef = useRef<string | null>(null);
   const createPendingRef = useRef(false);
   const startBotsImmediatelyRef = useRef(false);
-  const [homeTab, setHomeTab] = useState<'lobby' | 'about'>('lobby');
+  const [homeTab, setHomeTab] = useState<'lobby' | 'about'>(!publicGuide && homeParams.get('view') === 'about' ? 'about' : 'lobby');
   const [lastLobbyId] = useState(() => window.localStorage.getItem(LAST_LOBBY_STORAGE_KEY));
   const [canResumeLastLobby, setCanResumeLastLobby] = useState(false);
   const [hostName, setHostName] = useState(storedPlayerName);
@@ -5478,6 +5491,15 @@ function WelcomePage() {
   const pinInputRef = useRef<HTMLInputElement>(null);
   const t = WELCOME_TEXT[storedLanguage()];
   const selectedLobby = openLobbies.find(lobby => lobby.id === selectedLobbyId);
+
+  function showHomeTab(tab: 'lobby' | 'about') {
+    if (publicGuide) {
+      window.location.href = tab === 'about' ? '/?view=about' : '/';
+      return;
+    }
+    setHomeTab(tab);
+    if (tab === 'lobby' && view === 'archive') setView('choice');
+  }
 
   useEffect(() => {
     if (seats > maxTableSeats) setSeats(maxTableSeats);
@@ -5669,7 +5691,7 @@ function WelcomePage() {
           <button
             role="tab"
             aria-selected={homeTab === 'lobby' && view !== 'archive'}
-            onClick={() => { setHomeTab('lobby'); if (view === 'archive') setView('choice'); }}
+            onClick={() => showHomeTab('lobby')}
             style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' && view !== 'archive' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' && view !== 'archive' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
           >
             LOBBY
@@ -5685,7 +5707,7 @@ function WelcomePage() {
           <button
             role="tab"
             aria-selected={homeTab === 'about'}
-            onClick={() => setHomeTab('about')}
+            onClick={() => showHomeTab('about')}
             style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'about' ? '#fff' : '#cbd5e1', background: homeTab === 'about' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
           >
             ABOUT / О ПРОЕКТЕ
@@ -5707,15 +5729,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {homeTab === 'lobby' && view !== 'archive' ? <section className="welcome-intro-card" style={cardStyle}>
-          <span style={{ color: '#08734d', fontSize: 12, fontWeight: 900, letterSpacing: '.12em', textTransform: 'uppercase' }}>{t.eyebrow}</span>
-          <h1 style={{ margin: '8px 0 10px', fontSize: 'clamp(36px, 8vw, 68px)', lineHeight: .95 }}>{t.title}</h1>
-          <p style={{ maxWidth: 680, margin: 0, color: '#3f5148', fontSize: 'clamp(17px, 2.5vw, 21px)', lineHeight: 1.5 }}>{t.intro}</p>
-          <div className="welcome-difference" style={{ marginTop: 18, borderLeft: '4px solid #fbbf24', padding: '3px 0 3px 14px' }}>
-            <strong>{t.differenceTitle}</strong>
-            <p style={{ margin: '5px 0 0', color: '#526159', lineHeight: 1.5 }}>{t.difference}</p>
-          </div>
-        </section> : null}
+        {!publicGuide && homeTab === 'lobby' && view !== 'archive' ? <HomeIntro text={t} /> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
           <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
@@ -5752,11 +5766,13 @@ function WelcomePage() {
           </section>
         ) : null}
 
+        {publicGuide ? <GuideArticle {...publicGuide} /> : null}
+
         {homeTab === 'lobby' && view === 'archive' ? (
           <HandArchive
             language={storedLanguage()}
             apiUrl={SERVER_URL}
-            onBack={() => setView('choice')}
+            onBack={() => showHomeTab('lobby')}
             onReplay={replayArchiveGame}
           />
         ) : null}
@@ -5938,7 +5954,9 @@ function WelcomePage() {
           </div>
         ) : null}
 
-        <footer style={{ display: 'flex', justifyContent: 'space-between', gap: 10, color: 'rgba(255,255,255,.72)', fontSize: 12 }}>
+        <LearnLinks language={storedLanguage()} />
+
+        <footer style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 10, color: 'rgba(255,255,255,.72)', fontSize: 12 }}>
           <span>© {new Date().getFullYear()} Omaha Hi-Lo. {t.copyright}</span>
           {version ? <span title={version.commit}>{version.shortCommit}{version.buildTimeGmt ? ` · ${version.buildTimeGmt}` : ''}</span> : null}
         </footer>
@@ -6208,7 +6226,7 @@ function HorizontalTableWidthGuard() {
 
 export default function App() {
   useEffect(() => {
-    document.documentElement.lang = storedLanguage();
+    updateMetadata(window.location.pathname, storedLanguage());
   }, []);
 
   let page: React.ReactNode;
@@ -6220,6 +6238,7 @@ export default function App() {
   return (
     <>
       <style>{APP_SHELL_STYLES}</style>
+      <style>{PUBLIC_STYLES}</style>
       {page}
       <ReportProblemButton />
       <PortraitOrientationGuard />
