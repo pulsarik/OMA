@@ -48,9 +48,9 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     hands: ru ? 'Сдач' : 'Hands',
     finished: ru ? 'Партия доиграна' : 'Game finished',
     duration: ru ? 'Минуты' : 'Minutes',
-    low: ru ? 'С лоу' : 'With low',
-    high: ru ? 'Хай' : 'High',
-    lowCombinations: ru ? 'Ло' : 'Low',
+    low: ru ? 'Сдачи с лоу, %' : 'Hands with low, %',
+    high: ru ? 'Хай-комбинации игроков' : 'Player high combinations',
+    lowWins: ru ? 'Сдачи с победой по лоу' : 'Hands with a low win',
     code: ru ? 'Код сдачи' : 'Hand code',
     yes: ru ? 'Да' : 'Yes',
     no: ru ? 'Нет' : 'No',
@@ -110,7 +110,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               <tr>
                 {[
                   text.date, text.hands, text.finished, text.duration, text.low,
-                  text.high, text.lowCombinations, text.code,
+                  text.high, text.lowWins, text.code,
                 ].map(label => <th key={label} scope="col" style={{ padding: 10, borderBottom: '1px solid #d8e2dc', whiteSpace: 'nowrap' }}>{label}</th>)}
               </tr>
             </thead>

@@ -59,8 +59,9 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('columnheader', { name: 'Bots / humans' })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Game finished' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Players', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('columnheader', { name: 'Low', exact: true })).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'High', exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Hands with low, %', exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Hands with a low win', exact: true })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Player high combinations', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Pair', exact: true })).toHaveCount(0);
   await expect(page.getByRole('columnheader')).toHaveCount(8);
   const rows = page.locator('tbody tr');
