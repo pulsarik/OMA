@@ -1143,11 +1143,18 @@ async function checkLobbyResume(ws: WebSocket, message: any) {
       && candidate.token === message.token
       && !candidate.isBot
     ));
+    const hand = lobby?.status === 'started' && lobby.handId
+      ? await getActiveHand(lobby.handId)
+      : null;
+    const gameFinished = Boolean(hand && (
+      hand.partyFinishedEarly
+      || (hand.stage === 'showdown' && [...stacksAfterPayout(hand).values()].filter(stack => stack > 0).length <= 1)
+    ));
     const available = Boolean(
       lobby
       && member
       && (lobby.status === 'started'
-        ? lobby.handId && await getActiveHand(lobby.handId)
+        ? hand && !gameFinished
         : true),
     );
     ws.send(JSON.stringify({

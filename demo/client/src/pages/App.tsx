@@ -5668,12 +5668,20 @@ function WelcomePage() {
         <nav className="welcome-nav" role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
           <button
             role="tab"
-            aria-selected={homeTab === 'lobby'}
-            onClick={() => setHomeTab('lobby')}
-            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
+            aria-selected={homeTab === 'lobby' && view !== 'archive'}
+            onClick={() => { setHomeTab('lobby'); if (view === 'archive') setView('choice'); }}
+            style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' && view !== 'archive' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' && view !== 'archive' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
           >
             LOBBY
           </button>
+            <button
+              role="tab"
+              aria-selected={homeTab === 'lobby' && view === 'archive'}
+              onClick={() => { setHomeTab('lobby'); setView('archive'); }}
+              style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'lobby' && view === 'archive' ? '#fff' : '#cbd5e1', background: homeTab === 'lobby' && view === 'archive' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
+            >
+              {ui('STATISTICS', 'СТАТИСТИКА')}
+            </button>
           <button
             role="tab"
             aria-selected={homeTab === 'about'}
