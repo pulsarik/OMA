@@ -16,8 +16,10 @@ test('a narrow desktop table asks for more horizontal space', async ({ page }) =
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption('2');
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByTestId('lobby-host-member')).toHaveCount(2);
   await page.getByRole('button', { name: /Start game/ }).click();
 
   const widthGuard = page.getByTestId('horizontal-table-width-guard');

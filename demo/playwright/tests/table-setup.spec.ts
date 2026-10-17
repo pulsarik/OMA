@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 
 test('people entry offers open tables and creating a table', async ({ page }) => {
+  await page.routeWebSocket(/ws:\/\/localhost:(4000|4100)\//, socket => {
+    const server = socket.connectToServer();
+    server.onMessage(raw => {
+      const message = JSON.parse(String(raw));
+      socket.send(message.type === 'open_lobbies'
+        ? JSON.stringify({ ...message, data: [] })
+        : raw);
+    });
+  });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Play with bots' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Play with people' })).toHaveCount(1);

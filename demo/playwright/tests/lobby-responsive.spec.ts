@@ -8,14 +8,12 @@ test('mobile lobby keeps the start CTA visible and table names on one line', asy
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption('4');
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
 
   const nameBox = await page.getByLabel('Your name').boundingBox();
-  const seatsBox = await page.getByLabel('Seats at the table').boundingBox();
   expect(nameBox).toBeTruthy();
-  expect(seatsBox).toBeTruthy();
-  expect(Math.abs(nameBox!.width - seatsBox!.width)).toBeLessThanOrEqual(1);
-  expect(Math.abs(nameBox!.height - seatsBox!.height)).toBeLessThanOrEqual(1);
+  expect(nameBox!.x).toBeGreaterThanOrEqual(0);
+  expect(nameBox!.x + nameBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
 
   await page.getByRole('button', { name: 'Create table' }).click();
 

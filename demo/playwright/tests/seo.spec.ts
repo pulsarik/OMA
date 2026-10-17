@@ -3,6 +3,64 @@ import { expect, test } from '@playwright/test';
 const slugs = ['rules', 'omaha-vs-holdem', 'how-to-play', 'hand-replay', 'statistics', 'poker-hints'];
 const origin = 'https://omahahilopoker.com';
 
+for (const javaScriptEnabled of [false, true]) {
+  test(`rules exercises work in both languages with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
+    const context = await browser.newContext({ javaScriptEnabled, viewport: { width: 360, height: 844 } });
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    for (const language of ['en', 'ru']) {
+      await page.goto(`http://localhost:4000${language === 'ru' ? '/ru/rules' : '/rules'}`);
+      await expect(page.locator('.practice-case')).toHaveCount(50);
+      await expect(page.locator('.rules-ranks > li')).toHaveCount(9);
+      const first = page.locator('#practice-1');
+      await expect(first.locator('summary .rules-card')).toHaveCount(9);
+      await expect(first.locator('.practice-body')).toBeHidden();
+      await first.locator('summary').click();
+      await expect(first.locator('.practice-body')).toContainText(language === 'ru' ? 'только одна черва' : 'only one heart');
+      await page.locator('#practice-group-5 > summary').click();
+      const odds = page.locator('#practice-42');
+      await odds.locator('summary').click();
+      await expect(odds.locator('.practice-body')).toContainText('100/300');
+      await odds.scrollIntoViewIfNeeded();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      if (javaScriptEnabled) await page.screenshot({ path: testInfo.outputPath(`practice-${language}-360.png`) });
+      await expect(page.getByRole('link', { name: language === 'ru' ? 'Практиковаться с ботами' : 'Practice with bots', exact: true })).toHaveAttribute('href', '/?start=bots');
+    }
+    if (javaScriptEnabled) {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.locator('#hand-rankings').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath('rules-desktop.png') });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.getByRole('link', { name: 'Практиковаться с ботами', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Играть сейчас', exact: true })).toBeVisible();
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+}
+
+test('homepage explains its features in static HTML and both interactive languages', async ({ browser, page }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const staticPage = await context.newPage();
+  await staticPage.goto('http://localhost:4000/');
+  await expect(staticPage.getByRole('heading', { level: 1 })).toHaveText('Omaha Hi-Lo poker online');
+  await expect(staticPage.getByText('High · 50 chips', { exact: true })).toBeVisible();
+  await expect(staticPage.getByRole('link', { name: /Rules, hand rankings/ })).toHaveAttribute('href', '/rules');
+  await expect(staticPage.locator('.welcome-choice-card').first()).toHaveAttribute('href', '/?start=bots');
+  await context.close();
+  await page.setViewportSize({ width: 360, height: 844 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: /Friends at the table/ })).toBeVisible();
+  const bots = page.getByRole('button', { name: 'Play with bots' });
+  await expect(bots).toBeInViewport();
+  await page.getByRole('button', { name: 'RU', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Омаха хай-ло онлайн');
+  await expect(page.getByRole('heading', { name: 'Друзья за столом и в голосовом чате' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Правила, комбинации и примеры/ })).toHaveAttribute('href', '/ru/rules');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 test('public content and metadata are available without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 360, height: 844 } });
   const page = await context.newPage();

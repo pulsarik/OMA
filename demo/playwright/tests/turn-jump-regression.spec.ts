@@ -11,6 +11,7 @@ async function measureTable(page: Page) {
       actionZoneHeight: actionZone?.getBoundingClientRect().height ?? 0,
       heroZoneHeight: heroZone?.getBoundingClientRect().height ?? 0,
       actionZoneVisible: Boolean(actionZone),
+      actionButtons: actionZone?.querySelectorAll('.action-dock button').length ?? 0,
     };
   });
 }
@@ -28,6 +29,7 @@ test('legacy table height stays stable when the human turn state changes', async
     roundBets: { P1: 0, P2: 20 },
   });
 
+  await expect(page.locator('.action-dock button')).toHaveCount(0);
   const inBetween = await measureTable(page);
 
   mock.update({
@@ -37,9 +39,12 @@ test('legacy table height stays stable when the human turn state changes', async
     roundBets: { P1: 0, P2: 20 },
   });
 
+  await expect(page.locator('.action-dock button').first()).toBeVisible();
   const after = await measureTable(page);
 
-  expect(inBetween.actionZoneVisible).toBe(false);
+  expect(inBetween.actionZoneVisible).toBe(true);
+  expect(inBetween.actionButtons).toBe(0);
+  expect(after.actionButtons).toBeGreaterThan(0);
   expect(after.actionZoneVisible).toBe(true);
   expect(Math.abs(after.tableHeight - before.tableHeight)).toBeLessThanOrEqual(2);
   expect(Math.abs(after.tableHeight - inBetween.tableHeight)).toBeLessThanOrEqual(2);

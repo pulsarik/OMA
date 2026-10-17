@@ -14,7 +14,7 @@ export default defineConfig({
       timeout: 120_000,
       reuseExistingServer: false,
       env: {
-        DATA_FILE: '../data/e2e-bots.sqlite',
+        DATA_FILE: ':memory:',
         BOT_THINK_MS: '100',
       },
     },
@@ -23,6 +23,7 @@ export default defineConfig({
       url: 'http://localhost:5173',
       timeout: 120_000,
       reuseExistingServer: false,
+      env: { VITE_SERVER_URL: 'http://localhost:4000', VITE_MOBILE_TABLE_UI: 'false' },
     },
   ],
 });

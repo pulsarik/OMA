@@ -5,7 +5,7 @@ test('players enter a new deal independently', async ({ page, browser }) => {
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption('2');
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
 
   const pin = (await page.getByLabel('Table PIN').textContent())?.trim() ?? '';

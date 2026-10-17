@@ -5,7 +5,7 @@ test('opponents see offline only after the last player socket disconnects', asyn
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption('2');
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
 
   const pin = (await page.getByLabel('Table PIN').textContent())?.trim() ?? '';
@@ -19,7 +19,7 @@ test('opponents see offline only after the last player socket disconnects', asyn
   await guest.getByRole('button', { name: 'Enter table' }).click();
   await guest.getByLabel('Your name').fill('Anna');
   await guest.getByRole('button', { name: 'Take a seat' }).click();
-  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('lobby-host-member').filter({ hasText: 'Anna' })).toBeVisible();
   await page.getByRole('button', { name: 'Start game' }).click();
 
   await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible({ timeout: 15_000 });
@@ -79,7 +79,8 @@ test('lobby restores its authenticated WebSocket after a disconnect', async ({ p
   await expect(page.getByText('connected', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Add bot' }).click();
-  await expect(page.getByText('After reconnect', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('lobby-host-member')).toHaveCount(2);
+  await expect(page.getByTestId('lobby-host-members')).toContainText('BOT');
 });
 
 test('a player command survives refresh without applying twice', async ({ page }) => {
@@ -116,7 +117,8 @@ test('a player command survives refresh without applying twice', async ({ page }
   await page.getByLabel('Your name').fill('Reliable player');
   await page.getByRole('button', { name: 'Create table' }).click();
   await page.getByRole('button', { name: 'Add bot' }).click();
-  await page.getByRole('button', { name: 'Start game · fill with bots' }).click();
+  await expect(page.getByTestId('lobby-host-member')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Start game', exact: true }).click();
 
   const fold = page.getByRole('button', { name: 'Fold' });
   await expect(fold).toBeVisible({ timeout: 15_000 });

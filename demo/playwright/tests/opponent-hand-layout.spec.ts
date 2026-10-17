@@ -7,9 +7,12 @@ async function startTable(page: import('@playwright/test').Page, seats: number) 
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption(String(seats));
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
-  await page.getByRole('button', { name: 'Add bot' }).click();
+  for (let count = 1; count < seats; count += 1) {
+    await page.getByRole('button', { name: 'Add bot' }).click();
+    await expect(page.getByTestId('lobby-host-member')).toHaveCount(count + 1);
+  }
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByTestId('opponents-grid')).toBeVisible();
   await expect.poll(() => page.getByTestId('opponents-grid').locator('.deal-card').evaluateAll((cards) => (
@@ -140,7 +143,7 @@ test('revealed opponent card typography follows the card scale', async ({ page }
   });
 });
 
-test('narrow desktop crowded tables switch to a multi-row opponent grid', async ({ page }) => {
+test('narrow desktop crowded tables keep all opponents in one readable row', async ({ page }) => {
   await page.setViewportSize({ width: 974, height: 1280 });
   await startTable(page, 7);
 
@@ -176,15 +179,15 @@ test('narrow desktop crowded tables switch to a multi-row opponent grid', async 
       });
     return {
       display: style.display,
-      columns: style.gridTemplateColumns.split(' ').filter(Boolean).length,
+      rows: grid.parentElement!.querySelectorAll('.wireframe-opponents-row').length,
       zones,
     };
   });
 
   const assertGridLayout = async (phase: string) => {
     const result = await readGridLayout();
-    expect(result.display, `${phase}: opponents row should be a grid`).toBe('grid');
-    expect(result.columns, `${phase}: grid column count`).toBe(6);
+    expect(result.display, `${phase}: opponents row should be flex`).toBe('flex');
+    expect(result.rows, `${phase}: desktop row count`).toBe(1);
     expect(result.zones, `${phase}: opponent count`).toHaveLength(6);
     expect(result.zones.every((zone) => zone.zone.width > 0), `${phase}: zones must not collapse`).toBe(true);
 
@@ -299,7 +302,7 @@ test('mobile own turn keeps the table visible above the fixed action dock', asyn
 
   const state = await page.getByTestId('poker-table').evaluate((table) => {
     const dock = document.querySelector<HTMLElement>('.action-dock');
-    const hero = table.querySelector<HTMLElement>('[data-testid^="wireframe-hand-"]');
+    const hero = table.querySelector<HTMLElement>('.wireframe-hero-slot [data-testid^="wireframe-hand-"]');
     const tableBox = table.getBoundingClientRect();
     const dockBox = dock?.getBoundingClientRect();
     const point = document.elementFromPoint(tableBox.left + tableBox.width / 2, tableBox.top + 80);
@@ -312,6 +315,7 @@ test('mobile own turn keeps the table visible above the fixed action dock', asyn
       heroCards: hero?.querySelectorAll('[data-testid^="card-face-"], [data-testid="card-back"]').length ?? 0,
       heroCardWidth: hero?.querySelector<HTMLElement>('.focal-card-frame')?.getBoundingClientRect().width ?? 0,
       heroCardHeight: hero?.querySelector<HTMLElement>('.focal-card-frame')?.getBoundingClientRect().height ?? 0,
+      heroSlotWidth: hero?.parentElement?.getBoundingClientRect().width ?? 0,
       actionButtonHeight: document.querySelector<HTMLElement>('.main-actions .action-button')?.getBoundingClientRect().height ?? 0,
     };
   });
@@ -323,8 +327,9 @@ test('mobile own turn keeps the table visible above the fixed action dock', asyn
   expect(state.pointClass).not.toContain('action-dock');
   expect(state.opponents).toBeGreaterThan(0);
   expect(state.heroCards).toBeGreaterThan(0);
-  expect(state.heroCardWidth).toBeGreaterThanOrEqual(60);
-  expect(state.heroCardHeight).toBeGreaterThanOrEqual(86);
+  expect(state.heroCards).toBe(4);
+  expect(state.heroCardWidth * 4 + 6).toBeGreaterThanOrEqual(state.heroSlotWidth * .95);
+  expect(state.heroCardHeight / state.heroCardWidth).toBeCloseTo(132 / 92, 1);
   expect(state.actionButtonHeight).toBeGreaterThanOrEqual(46);
 });
 

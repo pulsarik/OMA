@@ -19,8 +19,12 @@ async function startFilledTable(page: Page, playerCount: number) {
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption(String(playerCount));
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
+  for (let count = 1; count < playerCount; count += 1) {
+    await page.getByRole('button', { name: 'Add bot' }).click();
+    await expect(page.getByTestId('lobby-host-member')).toHaveCount(count + 1);
+  }
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
   await expect(page.getByTestId('opponents-grid')).toBeVisible();

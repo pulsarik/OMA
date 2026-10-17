@@ -1,5 +1,5 @@
 import React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { GuidePage, HomeSnapshot } from './PublicContent';
 import { guides, guidePath, homeMeta, ORIGIN, type Language } from './content';
 
@@ -7,10 +7,12 @@ const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/"/g, '&quo
 const json = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
 
 export function publicPages() {
+  // Guides are hydrated: preserve React's adjacent-text markers. The homepage
+  // snapshot is replaced by createRoot and does not need hydration markers.
   const pages = [{ path: '/', language: 'en' as Language, ...homeMeta.en, body: renderToStaticMarkup(<HomeSnapshot />), slug: '' },
     ...guides.flatMap(guide => (['en', 'ru'] as const).map(language => ({
       path: guidePath(guide.slug, language), language, title: `${guide[language].title} | Omaha Hi-Lo`,
-      description: guide[language].description, body: renderToStaticMarkup(<GuidePage guide={guide} language={language} />), slug: guide.slug,
+      description: guide[language].description, body: renderToString(<GuidePage guide={guide} language={language} />), slug: guide.slug,
     })))];
   return pages.map(page => {
     const url = `${ORIGIN}${page.path}`;

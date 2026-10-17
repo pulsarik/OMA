@@ -214,12 +214,11 @@ test('finished party shows the winner without offering another hand', async ({ p
 
 test('real lobby starts an opt-in table, makes a move and deals the next hand', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with bots' }).click();
   await expect(page.getByLabel('Seats at the table').locator('option')).toHaveCount(6);
   await page.getByLabel('Your name').fill('Mobile review');
   await page.getByLabel('Seats at the table').selectOption('2');
-  await page.getByRole('button', { name: 'Create table', exact: true }).click();
-  await page.getByRole('button', { name: /Start game/ }).click();
+  await page.getByRole('button', { name: 'Play now', exact: true }).click();
   await expect(page.getByTestId('mobile-table')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Fold', exact: true }).click();

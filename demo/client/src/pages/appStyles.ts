@@ -285,6 +285,7 @@ export const APP_SHELL_STYLES = `
   }
   .lobby-simple-actions button:disabled { opacity: .48; cursor: not-allowed; }
   @media (max-width: 400px) {
+    .lobby-host-panel { gap: 12px; }
     .lobby-simple-actions { grid-template-columns: 1fr; }
   }
 
@@ -407,13 +408,13 @@ export const APP_SHELL_STYLES = `
       padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
     }
     .welcome-main { gap: 10px !important; }
-    .welcome-header { min-height: 30px; }
+    .welcome-header { min-height: 30px; padding-right: 48px; }
     .welcome-header strong { font-size: 12px; letter-spacing: .16em !important; }
     .welcome-nav { margin: 0 4px -10px !important; }
     .welcome-nav button, .welcome-nav a { padding: 7px 11px !important; font-size: 11px; }
     .welcome-intro-card {
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr;
       align-items: center;
       gap: 4px 12px;
       padding: 14px 15px !important;
@@ -421,8 +422,8 @@ export const APP_SHELL_STYLES = `
       background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(232,247,239,.98)) !important;
     }
     .welcome-intro-card > span { grid-column: 1 / -1; font-size: 10px !important; letter-spacing: .16em !important; }
-    .welcome-intro-card h1 { margin: 0 !important; font-size: 31px !important; line-height: .92 !important; letter-spacing: -.04em; }
-    .welcome-intro-card > p { margin: 0 !important; max-width: 120px !important; font-size: 11px !important; line-height: 1.2 !important; text-align: right; }
+    .welcome-intro-card h1 { margin: 6px 0 !important; font-size: 32px !important; line-height: 1.08 !important; letter-spacing: -.035em; }
+    .welcome-intro-card > p { margin: 0 !important; max-width: none !important; font-size: 14px !important; line-height: 1.45 !important; text-align: left; }
     .welcome-difference {
       grid-column: 1 / -1;
       margin-top: 7px !important;
@@ -5276,10 +5277,31 @@ export const PLAYER_PAGE_STYLES = `
     }
   }
 
+  /* Let the calculated zone height override the legacy hero minimum. */
+  #root .poker-page .wireframe-table .wireframe-player-zone {
+    min-height: 0 !important;
+  }
   /* The multi-row mobile table must still leave the complete game controls
      in the viewport. Compact only the reserved vertical bands; card widths
      and their aspect ratio remain unchanged. */
   @media (max-width: 760px) {
+    #root .poker-page .game-notice.is-empty {
+      min-height: 0;
+      height: 0;
+      margin: 0;
+      padding: 0;
+    }
+    #root .poker-page .wireframe-actions-zone .action-dock-body {
+      display: grid;
+      grid-template-columns: minmax(0, 4fr) minmax(0, 3fr);
+      gap: 8px;
+    }
+    #root .poker-page .wireframe-actions-zone .action-dock-placeholder {
+      grid-column: 1 / -1;
+    }
+    #root .poker-page .wireframe-actions-zone .main-actions .action-button.primary {
+      min-width: 0 !important;
+    }
     #root .poker-page .wireframe-table[data-row-count="2"] .wireframe-opponent-slot {
       height: clamp(76px, 10dvh, 96px) !important;
     }

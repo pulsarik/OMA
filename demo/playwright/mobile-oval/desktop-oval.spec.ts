@@ -144,12 +144,11 @@ test.describe('touch tablet', () => {
 
 test('real desktop lobby exposes ten seats and plays through to the next hand', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Create a table' }).click();
+  await page.getByRole('button', { name: 'Play with bots' }).click();
   await expect(page.getByLabel('Seats at the table').locator('option')).toHaveCount(9);
   await page.getByLabel('Your name').fill('Desktop review');
   await page.getByLabel('Seats at the table').selectOption('8');
-  await page.getByRole('button', { name: 'Create table', exact: true }).click();
-  await page.getByRole('button', { name: /Start game/ }).click();
+  await page.getByRole('button', { name: 'Play now', exact: true }).click();
   await expect(page.getByTestId('desktop-table')).toBeVisible();
   await expect(page.locator('.mt-seat')).toHaveCount(8);
   await page.getByRole('button', { name: 'Fold', exact: true }).click();

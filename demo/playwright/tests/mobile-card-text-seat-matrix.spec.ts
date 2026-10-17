@@ -9,10 +9,14 @@ test('mobile opponent card rank and suit stay readable from 3 to 8 seats', async
     await page.getByRole('button', { name: 'Play with people' }).click();
     await page.getByRole('button', { name: 'Create your own table' }).click();
     await page.getByLabel('Your name').fill('Dima');
-    await page.getByLabel('Seats at the table').selectOption(String(seats));
+    await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
     await page.getByRole('button', { name: 'Create table' }).click();
     await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
 
+    for (let count = 1; count < seats; count += 1) {
+      await page.getByRole('button', { name: 'Add bot' }).click();
+      await expect(page.getByTestId('lobby-host-member')).toHaveCount(count + 1);
+    }
     await expect(page.getByRole('button', { name: /Start game/ })).toBeEnabled();
     await page.getByRole('button', { name: /Start game/ }).click();
     await expect(page.getByTestId('poker-table')).toBeVisible();

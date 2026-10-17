@@ -5,14 +5,17 @@ async function openStatistics(page: Page, seats = 2) {
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption(String(seats));
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
-  await page.getByRole('button', { name: 'Add bot' }).click();
-  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
+  for (let count = 1; count < seats; count += 1) {
+    await page.getByRole('button', { name: 'Add bot' }).click();
+    await expect(page.getByTestId('lobby-host-member')).toHaveCount(count + 1);
+  }
   await page.getByRole('button', { name: /Start game/ }).click();
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await page.getByRole('button', { name: 'Player view', exact: true }).click();
   await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
 }
 
@@ -43,7 +46,7 @@ test('player view uses classic values, selects players, and remembers the revers
   await explore.press('Home');
   await expect(explore).toHaveValue('0');
   await expect(page.getByTestId('statistics-chart-readout')).toContainText('Hand 0');
-  await expect(page.getByTestId('statistics-chart-readout')).toContainText('Anna');
+  await expect(page.getByTestId('statistics-chart-readout')).toContainText('Alex');
   await explore.press('End');
   await expect(page.getByTestId('statistics-chart-readout')).toContainText('Hand 1');
   await page.getByRole('group', { name: 'Chart players' }).getByRole('button', { name: 'Dima' }).click();

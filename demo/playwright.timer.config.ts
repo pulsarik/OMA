@@ -25,6 +25,7 @@ export default defineConfig({
       url: 'http://localhost:5173',
       timeout: 120_000,
       reuseExistingServer: false,
+      env: { VITE_SERVER_URL: 'http://localhost:4000', VITE_MOBILE_TABLE_UI: 'false' },
     },
   ],
 });

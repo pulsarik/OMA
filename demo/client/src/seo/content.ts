@@ -3,7 +3,7 @@ export const ORIGIN = 'https://omahahilopoker.com';
 export type Guide = { slug: string; en: { title: string; description: string; sections: [string, string][] }; ru: { title: string; description: string; sections: [string, string][] } };
 export const guides: Guide[] = [
   { slug: 'rules', en: {
-    title: 'Omaha Hi-Lo Rules & Hand Rankings', description: 'Learn Omaha Hi-Lo 8 or Better: exactly two hole cards, qualifying lows, high hand rankings, split pots, scooping and quartering.', sections: [
+    title: 'Omaha Hi-Lo Rules & Hand Rankings', description: 'Learn Omaha Hi-Lo rules with visual hand rankings, split-pot examples and 50 practice situations. Understand low hands, starting cards and call decisions.', sections: [
       ['Four cards, but use exactly two', 'Each player receives four private hole cards. The flop brings three community cards, followed by one on the turn and one on the river. At showdown, every five-card hand must use exactly two hole cards and exactly three community cards. You may choose different pairs of hole cards for high and low. You cannot play the board or use three cards from your hand.'],
       ['High hand rankings', 'From strongest to weakest: straight flush (including royal flush), four of a kind, full house, flush, straight, three of a kind, two pair, one pair, high card. An ace can be high or part of the A-2-3-4-5 straight. With four hearts on the board, one heart in your hand is not enough for a flush: you need two hearts in your hand and three on the board.'],
       ['What qualifies for low?', 'A low needs five different ranks, all eight or lower. Ace counts as one; straights and flushes do not hurt a low. The best low is 5-4-3-2-A. Compare from the highest card down: 6-5-4-3-2 beats 7-4-3-2-A, and 8-5-4-2-A beats 8-6-3-2-A. A pair disqualifies that five-card low.'],
@@ -11,7 +11,7 @@ export const guides: Guide[] = [
       ['Split pots, scooping and quartering', 'When a qualifying low exists, half the pot goes to the best high and half to the best low. If no low qualifies, high takes the whole pot. Scooping means winning both halves, or winning high when there is no low. If two players tie for low, each receives half of the low half: one quarter of the pot. A player who also wins high can receive three quarters. All-in side pots are settled separately among eligible players.'],
       ['A first strategy habit', 'Look for hands that can compete for both halves. A-2 is a promising low start, but it is not a guaranteed winner: if an ace or two arrives, your best low may change, and another player may tie your low. Before calling, check whether you are drawing to the best possible hand and whether you risk sharing only one half. Practice these situations with bots and compare decisions using replay.'],
     ] }, ru: {
-    title: 'Правила Омахи хай-ло и комбинации', description: 'Омаха хай-ло 8 или лучше: две карты руки, подходящее лоу, старшие комбинации, разделение банка, scoop и quartering.', sections: [
+    title: 'Правила Омахи хай-ло и комбинации', description: 'Правила Омахи хай-ло: наглядные комбинации, разделение банка и 50 учебных ситуаций. Разберите лоу, стартовые руки и цену колла на примерах.', sections: [
       ['Четыре карты, но используются ровно две', 'Игрок получает четыре закрытые карты. На флопе открываются три общие карты, на тёрне и ривере — ещё по одной. Каждая комбинация на вскрытии состоит ровно из двух карт руки и трёх общих. Для хай и лоу можно выбрать разные пары карт руки. Нельзя играть только бордом или использовать три закрытые карты.'],
       ['Старшие комбинации', 'От сильнейшей к слабейшей: стрит-флеш (включая роял-флеш), каре, фулл-хаус, флеш, стрит, тройка, две пары, пара, старшая карта. Туз может быть старшим или входить в стрит A-2-3-4-5. Четыре червы на борде и одна в руке не дают флеш: нужны две червы в руке и три на борде.'],
       ['Какое лоу подходит?', 'Нужны пять разных достоинств не выше восьмёрки. Туз считается единицей; стрит и флеш не мешают лоу. Лучшее лоу — 5-4-3-2-A. Сравнение идёт от старшей карты вниз: 6-5-4-3-2 сильнее 7-4-3-2-A, а 8-5-4-2-A сильнее 8-6-3-2-A. Пара делает выбранную комбинацию непригодной для лоу.'],
@@ -82,6 +82,23 @@ export function resolveGuide(pathname: string) {
   return guide ? { guide, language } : null;
 }
 export const homeMeta = {
-  en: { title: 'Play Omaha Hi-Lo Online Free | Bots, Replay & Statistics', description: 'Play Omaha Hi-Lo 8 or Better online for free. Practice against poker bots, play with friends, replay hands, explore statistics and learn the rules.' },
-  ru: { title: 'Омаха хай-ло онлайн бесплатно | Боты, повторы и статистика', description: 'Играйте в Омаху хай-ло 8 или лучше бесплатно. Тренируйтесь с ботами, играйте с друзьями, повторяйте раздачи, изучайте статистику и правила.' },
+  en: { title: 'Free Omaha Hi-Lo Poker Online | Friends & Bots', description: 'Play free Omaha Hi-Lo poker online with friends or bots. Learn with hand hints and split-pot explanations, use voice chat and replay hands. No registration.' },
+  ru: { title: 'Омаха хай-ло онлайн бесплатно — с друзьями и ботами', description: 'Играйте в Омаху хай-ло онлайн бесплатно, без регистрации. Подсказки комбинаций, объяснение разделения банка, голосовой чат и повторы раздач.' },
+};
+
+export const homeCopy = {
+  en: {
+    eyebrow: 'Free · In your browser · No registration',
+    title: 'Omaha Hi-Lo poker online',
+    intro: 'Play with friends or practice with bots. Hand hints and split-pot explanations help you learn as you play.',
+    differenceTitle: 'Four cards. A chance to win both halves.',
+    difference: 'Build your high and low hands using exactly two of your cards and three from the board. New to Hi-Lo? Start with bots and explore the hints.',
+  },
+  ru: {
+    eyebrow: 'Бесплатно · В браузере · Без регистрации',
+    title: 'Омаха хай-ло онлайн',
+    intro: 'Играйте с друзьями или тренируйтесь с ботами. Подсказки комбинаций и объяснение разделения банка помогут разобраться по ходу игры.',
+    differenceTitle: 'Четыре карты. Шанс выиграть обе половины.',
+    difference: 'Собирайте хай и лоу из ровно двух своих карт и трёх карт стола. Впервые играете в хай-ло? Начните с ботами и подсказками.',
+  },
 };

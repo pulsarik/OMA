@@ -6,11 +6,12 @@ test('mobile showdown keeps three opponent hands in one row and card text inside
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption('4');
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
-  for (const name of ['Anna', 'Boris', 'Clara']) {
+  for (let count = 1; count < 4; count += 1) {
     await page.getByRole('button', { name: 'Add bot' }).click();
+    await expect(page.getByTestId('lobby-host-member')).toHaveCount(count + 1);
   }
   await page.getByRole('button', { name: /Start game/ }).click();
   await expect(page.getByRole('button', { name: 'Fold' })).toBeVisible({ timeout: 30_000 });

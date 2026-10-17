@@ -77,7 +77,7 @@ body:has(.mt-page--desktop) .report-problem-button { top: 16px !important; right
   .mt-page--desktop .mt-board .mt-card > span { font-size: 27px; }
   .mt-page--desktop .mt-seat--hero .mt-card b { font-size: 23px; }
   .mt-page--desktop .mt-seat--hero .mt-card > span { font-size: 25px; }
-  .mt-page--desktop .mt-board { top: 47%; }
+  .mt-page--desktop .mt-board { top: 46%; width: min(33%, 40cqh); gap: 2px; }
   .mt-page--desktop .mt-street { font-size: 12px; line-height: 14px; }
   .mt-page--desktop .mt-pot { min-height: 30px; }
   .mt-page--desktop .mt-pot-splits { display: flex; align-items: center; justify-self: center; gap: 8px; }

@@ -5,11 +5,10 @@ async function openCompletedStatistics(page: Page) {
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
-  await page.getByLabel('Seats at the table').selectOption('2');
+  await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table' }).click();
   await page.getByRole('button', { name: 'Add bot' }).click();
-  await expect(page.getByTestId('lobby-table').getByText('Anna', { exact: true }))
-    .toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('lobby-host-member')).toHaveCount(2);
   await page.getByRole('button', { name: /Start game/ }).click();
   await page.getByRole('button', { name: 'Fold' }).click();
   await expect(page.getByRole('button', { name: /^(New|Next) deal$/ })).toBeVisible({ timeout: 15_000 });

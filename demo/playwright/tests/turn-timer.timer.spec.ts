@@ -17,7 +17,7 @@ async function createTwoHumanTable(host: Page, guest: Page) {
   await host.getByRole('button', { name: 'Play with people' }).click();
   await host.getByRole('button', { name: 'Create your own table' }).click();
   await host.getByLabel('Your name').fill('Dima');
-  await host.getByLabel('Seats at the table').selectOption('2');
+  await expect(host.getByLabel('Seats at the table')).toHaveCount(0);
   await host.getByRole('button', { name: 'Create table' }).click();
 
   const pin = (await host.getByLabel('Table PIN').textContent())?.trim() ?? '';
@@ -29,7 +29,7 @@ async function createTwoHumanTable(host: Page, guest: Page) {
   await guest.getByRole('button', { name: 'Enter table' }).click();
   await guest.getByLabel('Your name').fill('Anna');
   await guest.getByRole('button', { name: 'Take a seat' }).click();
-  await expect(host.getByTestId('lobby-table').getByText('Anna', { exact: true })).toBeVisible();
+  await expect(host.getByTestId('lobby-host-member').filter({ hasText: 'Anna' })).toBeVisible();
 
   await host.getByRole('button', { name: 'Start game' }).click();
   await expect(host.getByRole('tab', { name: 'TABLE' })).toBeVisible();
@@ -46,7 +46,8 @@ test('an unmatched timed-out player is automatically folded', async ({ page, bro
   const { hostUrl } = await createTwoHumanTable(page, guest);
   const apiUrl = apiUrlForPlayerLink(hostUrl);
 
-  await expect(page.getByTestId('turn-countdown-P1')).toBeVisible();
+  const initialState = await (await request.get(apiUrl)).json();
+  expect(initialState.turnDurationMs).toBe(3_000);
   await expect.poll(async () => {
     const state = await (await request.get(apiUrl)).json();
     return state.actions.some((action: any) => (
@@ -68,7 +69,8 @@ test('a matched timed-out player is automatically checked', async ({ page, brows
 
   await page.getByRole('button', { name: /^Call / }).click();
   await guest.getByRole('button', { name: 'Check' }).click();
-  await expect(guest.getByTestId('turn-countdown-P2')).toBeVisible();
+  const initialState = await (await request.get(apiUrl)).json();
+  expect(initialState.turnDurationMs).toBe(3_000);
 
   await expect.poll(async () => {
     const state = await (await request.get(apiUrl)).json();

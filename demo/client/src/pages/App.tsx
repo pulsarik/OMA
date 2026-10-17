@@ -7,8 +7,8 @@ import { TableSetup, type TableMode } from '../components/TableSetup';
 import { HandArchive } from '../components/HandArchive';
 import { CityInfo } from '../components/CityInfo';
 import { TableEmblem } from '../components/TableEmblem';
-import { GuideArticle, HomeIntro, LearnLinks, PUBLIC_STYLES } from '../seo/PublicContent';
-import { resolveGuide } from '../seo/content';
+import { GuideArticle, HomeBenefits, HomeIntro, LearnLinks, PUBLIC_STYLES } from '../seo/PublicContent';
+import { homeCopy, resolveGuide } from '../seo/content';
 import { updateMetadata } from '../seo/metadata';
 import { WalletHistoryChart } from '../components/WalletHistoryChart';
 import { StatisticsPresentation } from '../components/StatisticsPresentation';
@@ -39,8 +39,7 @@ const WS_URL = import.meta.env.VITE_SERVER_URL ? SERVER_URL.replace(/^http/, 'ws
 const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module => ({
   default: module.VoiceChat,
 })));
-// Temporarily hide voice chat from the game views while keeping its implementation available.
-const VOICE_TAB_ENABLED = false;
+const VOICE_TAB_ENABLED = true;
 
 type UiLanguage = 'en' | 'ru';
 
@@ -1493,6 +1492,7 @@ function WireframeHand({
   stack,
   resultPlayer,
   isThinking = false,
+  disconnected = false,
   isWaitingForNextDeal = false,
   lastAction,
   folded = false,
@@ -1517,6 +1517,7 @@ function WireframeHand({
   stack?: number;
   resultPlayer?: HiLoResult['players'][number];
   isThinking?: boolean;
+  disconnected?: boolean;
   isWaitingForNextDeal?: boolean;
   lastAction?: ActionLog;
   folded?: boolean;
@@ -1579,6 +1580,7 @@ function WireframeHand({
           >
             <span data-testid={`player-name-${id}`}>{tablePlayerName(name, id)}</span>
             <strong data-testid={`player-score-${id}`} style={{ color: '#fde68a' }}>{formatPoints(stack ?? 0)}</strong>
+            {disconnected ? <span>{ui('OFFLINE', 'НЕ В СЕТИ')}</span> : null}
             {showdownNetLabel ? (
               <span
                 className={`showdown-net-badge ${showdownNet! >= 0 ? 'is-positive' : 'is-negative'}`}
@@ -3550,6 +3552,7 @@ function PlayerPage({
       stack={totalScore(player.partyTotals, seat.id) <= 0 ? 0 : seat.stack}
       resultPlayer={player.stage === 'showdown' ? player.result?.players.find(result => result.id === seat.id) : undefined}
       isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
+      disconnected={seat.connected === false && !seat.isBot}
       isWaitingForNextDeal={player.waitingForPlayers.some(waiting => waiting.id === seat.id)}
       lastAction={streetPause?.actions.find((action) => action.playerId === seat.id)
         ?? latestActionForPlayer(player.actions, seat.id, player.stage)}
@@ -3955,7 +3958,7 @@ function PlayerPage({
         </section>
       ) : null}
 
-      <p className="game-notice" aria-live="polite" aria-atomic="true" style={{ visibility: notice ? 'visible' : 'hidden' }}>
+      <p className={`game-notice${notice ? '' : ' is-empty'}`} aria-live="polite" aria-atomic="true" style={{ visibility: notice ? 'visible' : 'hidden' }}>
         {notice ?? '\u00a0'}
       </p>
       </section> : null}
@@ -4730,7 +4733,7 @@ function LobbyPage() {
                   <div className="lobby-host-invitation">
                     <div>
                       <small>{ui('TABLE', 'СТОЛ')}</small>
-                      <output aria-label={ui('Table name', 'Название стола')}>{lobby.tableName}</output>
+                      <output className="lobby-table-name" aria-label={ui('Table name', 'Название стола')}>{lobby.tableName}</output>
                       <small style={{ marginTop: 7 }}>PIN</small>
                       <strong aria-label={ui('Table PIN', 'PIN стола')}>{lobby.pin}</strong>
                     </div>
@@ -5392,11 +5395,6 @@ function HomePage() {
 const WELCOME_TEXT = {
   en: {
     language: 'Language',
-    eyebrow: 'A split-pot poker game',
-    title: 'Omaha Hi-Lo',
-    intro: 'Make your best high hand and your best qualifying low hand. The pot is split between them.',
-    differenceTitle: 'How it differs from regular poker',
-    difference: 'You receive four private cards and must use exactly two of them with exactly three board cards. A qualifying low uses five different cards ranked eight or lower.',
     people: 'Play with people',
     peopleHint: 'Join an open table or create your own.',
     createYourOwn: 'Create your own table',
@@ -5428,11 +5426,6 @@ const WELCOME_TEXT = {
   },
   ru: {
     language: 'Язык',
-    eyebrow: 'Покер с разделением банка',
-    title: 'Омаха хай-ло',
-    intro: 'Соберите лучшую старшую и лучшую подходящую младшую комбинацию — банк делится между ними.',
-    differenceTitle: 'Чем отличается от обычного покера',
-    difference: 'Вы получаете четыре закрытые карты и обязаны использовать ровно две из них вместе с ровно тремя картами стола. Для лоу нужны пять разных карт достоинством не выше восьмёрки.',
     people: 'Играть с людьми',
     peopleHint: 'Войдите за открытый стол или создайте свой.',
     createYourOwn: 'Создать свой стол',
@@ -5729,7 +5722,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
-        {!publicGuide && homeTab === 'lobby' && view !== 'archive' ? <HomeIntro text={t} /> : null}
+        {!publicGuide && homeTab === 'lobby' && view !== 'archive' ? <HomeIntro text={homeCopy[language]} /> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
           <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
@@ -5742,8 +5735,8 @@ function WelcomePage() {
               </button>
             ) : null}
             {([
-              ['friends', '♧', t.people, t.peopleHint],
-              ['bots', '♠', ui('Play with bots', 'Играть с ботами'), ui('Take a seat. Play right away.', 'Займите место и сразу играйте.')],
+              ['bots', '♠', ui('Play with bots', 'Играть с ботами'), ui('Explore the game with hand hints.', 'Освойте игру с подсказками комбинаций.')],
+              ['friends', '♧', t.people, ui('Invite friends. Talk in voice chat.', 'Пригласите друзей. Общайтесь голосом.')],
               ['archive', '▤', ui('Statistics', 'Статистика'), ui('Browse the game archive.', 'Посмотреть архив игр.')],
             ] as const).map(([target, icon, title, hint]) => (
               <button
@@ -5753,7 +5746,7 @@ function WelcomePage() {
                   if (target === 'friends') { setMode('friends'); setView('join'); return; }
                   setMode(target); setView('create');
                 }}
-                className="welcome-choice-card"
+                className={`welcome-choice-card${target === 'bots' ? ' welcome-choice-card--primary' : ''}`}
                 style={{ ...cardStyle, minHeight: 158, display: 'grid', gridTemplateColumns: '1fr', alignContent: 'start', justifyItems: 'center', gap: 14, border: '1px solid #d8e2dc', textAlign: 'center', cursor: 'pointer' }}
               >
                 <span style={{ display: 'grid', placeItems: 'center', width: 52, height: 52, borderRadius: 16, background: '#e8f7ef', color: '#08734d', fontSize: 28, fontWeight: 800 }}>{icon}</span>
@@ -5766,6 +5759,7 @@ function WelcomePage() {
           </section>
         ) : null}
 
+        {!publicGuide && homeTab === 'lobby' && view === 'choice' ? <HomeBenefits language={language} /> : null}
         {publicGuide ? <GuideArticle {...publicGuide} /> : null}
 
         {homeTab === 'lobby' && view === 'archive' ? (
