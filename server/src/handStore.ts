@@ -3,6 +3,7 @@ import { open, Database } from 'sqlite';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs/promises';
 import path from 'path';
+import { buildArchiveRows, groupArchiveHands } from './archive';
 
 export default class HandStore {
   private db?: Database<sqlite3.Database, sqlite3.Statement>;
@@ -246,6 +247,38 @@ export default class HandStore {
     const db = await this.getDb();
     const rows = await db.all('SELECT data FROM hands ORDER BY created ASC');
     return rows.map((row: any) => JSON.parse(row.data));
+  }
+
+  async getArchivePage(page = 1) {
+    const db = await this.getDb();
+    const pageSize = 20;
+    // Read only grouping metadata for the index; deserialize and score only
+    // the selected parties. Previous links preserve legacy party grouping.
+    const metadata = await db.all<{
+      id: string; partyId: string; previousHandId?: string; created: number; handNumber: number;
+    }[]>(`SELECT id, party_id AS partyId, created,
+      json_extract(data, '$.previousHandId') AS previousHandId,
+      COALESCE(json_extract(data, '$.handNumber'), 1) AS handNumber FROM hands`);
+    const parties = groupArchiveHands(metadata).map(hands => {
+      hands.sort((a, b) => a.handNumber - b.handNumber || a.created - b.created || a.id.localeCompare(b.id));
+      return hands;
+    }).sort((a, b) => b[0].created - a[0].created || a[0].id.localeCompare(b[0].id));
+    const total = parties.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const currentPage = Math.min(Math.max(1, Number.isSafeInteger(page) ? page : 1), totalPages);
+    const selected = parties.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const rows = [];
+    for (const party of selected) {
+      const hands = [];
+      // Batches stay below SQLite's bound-parameter limit for long parties.
+      for (let start = 0; start < party.length; start += 500) {
+        const ids = party.slice(start, start + 500).map(hand => hand.id);
+        const records = await db.all(`SELECT data FROM hands WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
+        hands.push(...records.map(record => JSON.parse(record.data)));
+      }
+      rows.push(...buildArchiveRows(hands));
+    }
+    return { rows, total, page: currentPage, pageSize, totalPages };
   }
 
   async listHandsByParty(partyId: string) {

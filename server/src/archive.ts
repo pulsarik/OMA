@@ -56,7 +56,7 @@ const COMBINATIONS: ArchiveCombination[] = [
   'highCard',
 ];
 
-export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
+export function groupArchiveHands<T extends { id: string; partyId?: string; previousHandId?: string }>(savedHands: T[]): T[][] {
   const parent = savedHands.map((_hand, index) => index);
   const find = (index: number): number => {
     if (parent[index] !== index) parent[index] = find(parent[index]);
@@ -82,7 +82,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
     if (previousIndex !== undefined) union(previousIndex, index);
   });
 
-  const parties = new Map<number, DealtHand[]>();
+  const parties = new Map<number, T[]>();
   savedHands.forEach((hand, index) => {
     const root = find(index);
     const partyHands = parties.get(root) ?? [];
@@ -90,7 +90,11 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
     parties.set(root, partyHands);
   });
 
-  return [...parties.values()].map(hands => {
+  return [...parties.values()];
+}
+
+export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
+  return groupArchiveHands(savedHands).map(hands => {
     const orderedHands = [...hands].sort((a, b) => (
       (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created
     ));

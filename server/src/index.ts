@@ -6,7 +6,6 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
-import { buildArchiveRows } from './archive';
 import { botMove } from './bot';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
 import { emailProblem, problemEmailConfig } from './problemEmail';
@@ -1594,9 +1593,17 @@ app.get('/api/version', (req, res) => {
     buildTimeGmt,
   });
 });
-app.get('/api/archive', async (_req, res) => {
-  const hands = await store.listAllHands();
-  res.json(buildArchiveRows(hands));
+app.get('/api/archive', async (req, res) => {
+  const page = req.query.page === undefined ? 1 : Number(req.query.page);
+  if (!Number.isSafeInteger(page) || page < 1) {
+    return res.status(400).json({ error: 'Page must be a positive integer' });
+  }
+  try {
+    res.json(await store.getArchivePage(page));
+  } catch (error) {
+    console.error('Could not load archive', error);
+    res.status(500).json({ error: 'Could not load archive' });
+  }
 });
 app.post('/api/problems', async (req, res) => {
   const description = typeof req.body?.description === 'string'

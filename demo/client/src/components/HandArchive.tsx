@@ -41,6 +41,8 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
   const [rows, setRows] = useState<ArchiveRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
   const text = {
     title: ru ? 'Архив сдач' : 'Hand archive',
     back: ru ? 'Назад' : 'Back',
@@ -66,29 +68,33 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     code: ru ? 'Код сдачи' : 'Hand code',
     yes: ru ? 'Да' : 'Yes',
     no: ru ? 'Нет' : 'No',
-    average: ru ? 'Среднее' : 'Average',
+    average: ru ? 'Среднее по странице' : 'Page average',
   };
 
   useEffect(() => {
     const controller = new AbortController();
     setRows(null);
     setError(null);
-    fetch(`${apiUrl}/api/archive`, { signal: controller.signal })
+    fetch(`${apiUrl}/api/archive?page=${page}`, { signal: controller.signal })
       .then(async response => {
         if (!response.ok) {
           const result = await response.json().catch(() => ({}));
           throw new Error(result.error || `${response.status} ${response.statusText}`);
         }
-        return response.json() as Promise<ArchiveRow[]>;
+        return response.json() as Promise<{ rows: ArchiveRow[]; page: number; totalPages: number }>;
       })
-      .then(setRows)
+      .then(result => {
+        if (controller.signal.aborted) return;
+        setRows(result.rows);
+        setPagination({ page: result.page, totalPages: result.totalPages });
+      })
       .catch(reason => {
         if (!controller.signal.aborted) {
           setError(reason instanceof Error ? reason.message : text.failed);
         }
       });
     return () => controller.abort();
-  }, [apiUrl, reload]);
+  }, [apiUrl, reload, page]);
 
   const average = (select: (row: ArchiveRow) => number) => (
     rows?.length ? rows.reduce((sum, row) => sum + select(row), 0) / rows.length : 0
@@ -132,6 +138,25 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               </tr>
             </thead>
             <tbody>
+              <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
+                <th scope="row" style={{ padding: 9 }}>{text.average}</th>
+                <td>{average(row => row.hands).toFixed(1)}</td>
+                <td>{percent(rows.filter(row => row.finished).length / rows.length * 100)}</td>
+                <td>{average(row => row.durationMinutes).toFixed(1)}</td>
+                <td>{percent(lowMean)}</td>
+                <td>{average(row => row.lowWins).toFixed(1)}</td>
+                {combinationKeys.map(key => <td key={key}>
+                  <div>{averageCombination(key)}</div>
+                  <CombinationFrequency
+                    count={rows.reduce((sum, row) => sum + row.combinations[key], 0)}
+                    total={totalCombinations}
+                    expected={baseline.counts[key] / baseline.samples * 100}
+                    label={text[key]}
+                    language={language}
+                  />
+                </td>)}
+                <td>—</td>
+              </tr>
               {rows.map(row => (
                 <tr key={row.partyId}>
                   <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}</td>
@@ -165,28 +190,20 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                   </td>
                 </tr>
               ))}
-              <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
-                <th scope="row" style={{ padding: 9 }}>{text.average}</th>
-                <td>{average(row => row.hands).toFixed(1)}</td>
-                <td>{percent(rows.filter(row => row.finished).length / rows.length * 100)}</td>
-                <td>{average(row => row.durationMinutes).toFixed(1)}</td>
-                <td>{percent(lowMean)}</td>
-                <td>{average(row => row.lowWins).toFixed(1)}</td>
-                {combinationKeys.map(key => <td key={key}>
-                  <div>{averageCombination(key)}</div>
-                  <CombinationFrequency
-                    count={rows.reduce((sum, row) => sum + row.combinations[key], 0)}
-                    total={totalCombinations}
-                    expected={baseline.counts[key] / baseline.samples * 100}
-                    label={text[key]}
-                    language={language}
-                  />
-                </td>)}
-                <td>—</td>
-              </tr>
             </tbody>
           </table>
         </div>
+      ) : null}
+      {pagination.totalPages > 1 ? (
+        <nav aria-label={ru ? 'Страницы архива' : 'Archive pages'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <button type="button" disabled={rows === null || pagination.page <= 1} onClick={() => setPage(pagination.page - 1)}>
+            {ru ? 'Предыдущая' : 'Previous'}
+          </button>
+          <span aria-live="polite">{ru ? `Страница ${pagination.page} из ${pagination.totalPages}` : `Page ${pagination.page} of ${pagination.totalPages}`}</span>
+          <button type="button" disabled={rows === null || pagination.page >= pagination.totalPages} onClick={() => setPage(pagination.page + 1)}>
+            {ru ? 'Следующая' : 'Next'}
+          </button>
+        </nav>
       ) : null}
       <small style={{ color: '#65736a' }}>
         {ru

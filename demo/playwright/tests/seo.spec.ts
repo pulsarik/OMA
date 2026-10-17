@@ -94,7 +94,7 @@ for (const width of [360, 390, 400]) {
 }
 
 test('statistics route uses the existing archive and Russian homepage preference survives', async ({ page }) => {
-  await page.route('**/api/archive', route => route.fulfill({ json: [] }));
+  await page.route('**/api/archive?*', route => route.fulfill({ json: { rows: [], page: 1, totalPages: 1 } }));
   await page.goto('/statistics');
   await expect(page.getByRole('heading', { name: 'Hand archive', exact: true })).toBeVisible();
   await expect(page.getByText('No saved games yet.', { exact: true })).toBeVisible();
@@ -130,7 +130,7 @@ test('index.html aliases keep the canonical content after JavaScript loads', asy
 });
 
 test('statistics Back, Lobby and About leave the statistics route', async ({ page }) => {
-  await page.route('**/api/archive', route => route.fulfill({ json: [] }));
+  await page.route('**/api/archive?*', route => route.fulfill({ json: { rows: [], page: 1, totalPages: 1 } }));
   for (const target of ['back', 'lobby', 'about']) {
     await page.goto('/statistics');
     await expect(page.getByRole('heading', { name: 'Hand archive', exact: true })).toBeVisible();
@@ -145,7 +145,7 @@ test('statistics Back, Lobby and About leave the statistics route', async ({ pag
 });
 
 test('a direct visit to translated statistics preserves that language at game entry', async ({ page }) => {
-  await page.route('**/api/archive', route => route.fulfill({ json: [] }));
+  await page.route('**/api/archive?*', route => route.fulfill({ json: { rows: [], page: 1, totalPages: 1 } }));
   for (const language of ['ru', 'en']) {
     await page.goto(language === 'ru' ? '/ru/statistics' : '/statistics');
     await expect(page.locator('html')).toHaveAttribute('lang', language);
