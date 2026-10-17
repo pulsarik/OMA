@@ -76,6 +76,27 @@ test('a premium starting hand does not force a call at any price', () => {
   expect(botMove(hand, hand.players[0]).move).toBe('fold');
 });
 
+test.each([6, 7, 10])('suited A-K-2-7 enters an unopened %i-player pot for one blind', count => {
+  for (const seed of [71, 24680]) {
+    for (const style of ['normal', 'aggressive', 'cautious'] as const) {
+      const hand = dealHand(count, seed);
+      const player = hand.players.find(candidate => candidate.id === hand.currentPlayerId)!;
+      player.hole = ['As', 'Ks', '2s', '7s'];
+      player.botStyle = style;
+      expect(botMove(hand, player).move).not.toBe('fold');
+    }
+  }
+});
+
+test('premium blind entry does not force a short-stack commitment', () => {
+  const hand = dealHand(10, 71);
+  const player = hand.players.find(candidate => candidate.id === hand.currentPlayerId)!;
+  player.hole = ['As', 'Ks', '2s', '7s'];
+  player.botStyle = 'cautious';
+  player.stack = hand.blinds.big;
+  expect(botMove(hand, player).move).toBe('fold');
+});
+
 test('position matters before the river but future betting risk vanishes on the river', () => {
   const hand = dealHand(3, 71);
   hand.stage = 'flop';

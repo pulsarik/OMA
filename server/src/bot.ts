@@ -422,7 +422,17 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
     return explain('check');
   }
 
-  if (realizedEquity < potOdds + margin) return explain('fold');
+  // In an unopened multi-way pot, showdown equity includes players who have
+  // not paid to enter yet, while pot odds include only chips already posted.
+  // Retain a bounded starting-range entry for premium hands at the blind price.
+  // This is not a license to call raises or commit a short stack on hand score.
+  const premiumBlindEntry = premiumPreflop
+    && hand.currentBet <= hand.blinds.big
+    && callAmount <= hand.blinds.big
+    && player.stack >= hand.blinds.big * 20
+    && !hand.actions.some(action => action.stage === 'preflop'
+      && (action.move === 'raise' || action.move === 'bet'));
+  if (realizedEquity < potOdds + margin) return explain(premiumBlindEntry ? 'call' : 'fold');
   if (canRaise && (realizedEquity >= profile.raiseEquity || scoopRate >= profile.raiseScoop)) {
     return explain('raise', potRaiseTo(hand, player, sizeFraction(
       equity >= profile.bigRaiseEquity || scoopRate >= profile.bigRaiseScoop ? 1 : profile.raiseFraction,
