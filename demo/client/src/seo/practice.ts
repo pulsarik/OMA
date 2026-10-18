@@ -125,7 +125,7 @@ export const practiceCases: PracticeCase[] = [
   { id: 36, group: 3, hole: 'As 2d Kc Qh', board: '3c 4d 5s 6h 9s', expectedLow: '5-4-3-2-1',
     question: text('You have the wheel. Why is high vulnerable?', 'У вас колесо. Почему хай уязвим?'),
     answer: text('An opponent with 7-8 can use 4-5-6 for an eight-high straight. Your best low survives, but high can lose. Do not treat the wheel as an automatic claim to the entire pot.', 'Соперник с 7-8 может взять 4-5-6 и собрать стрит до восьмёрки. Лучшее лоу сохраняется, но хай может проиграть. Колесо не даёт автоматического права на весь банк.') },
-  { id: 37, group: 3, hole: 'As Ad 2c 3d', board: 'Ac Kh 8s 7h 6h', expectedLow: '7-6-3-2-1',
+  { id: 37, group: 3, hole: 'As Ad 2c 3d', board: 'Ac Kh 8h 7h 6h', expectedLow: '7-6-3-2-1',
     question: text('A set of aces on a dangerous river: stack off?', 'Сет тузов на опасном ривере: играть на весь стек?'),
     answer: text('The board now supports hearts, straights and low. Your set and seven-low are not guarantees. A decision needs the wager, opponents’ ranges and possible shares; starting with aces is not enough.', 'Стол допускает червовый флеш, стриты и лоу. Сет и лоу до семёрки ничего не гарантируют. Нужны размер ставки, диапазоны соперников и оценка долей банка; одних тузов недостаточно.') },
   { id: 38, group: 3, hole: 'As 2d Kc Qh', board: '3c 4d Kh Qs 9s', expectedLow: null,
