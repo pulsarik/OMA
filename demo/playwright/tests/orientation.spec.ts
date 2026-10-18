@@ -25,7 +25,7 @@ test('portrait seating stays inside the table from two through nine players', as
 
   for (let playerCount = 2; playerCount <= 9; playerCount += 1) {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Play with people' }).click();
+    await page.getByRole('button', { name: 'Play with friends' }).click();
     await page.getByRole('button', { name: 'Create your own table' }).click();
     await page.getByLabel('Your name').fill('Dima');
     await expect(page.getByLabel('Seats at the table')).toHaveCount(0);

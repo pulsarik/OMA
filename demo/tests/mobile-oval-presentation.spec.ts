@@ -1,5 +1,14 @@
 import { expect, test } from '@jest/globals';
-import { clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS } from '../client/src/mobile-table/presentation';
+import { clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, displayedStack } from '../client/src/mobile-table/presentation';
+
+test('showdown displays the settled stack without adding the payout twice', () => {
+  const seat = { id: 'hero', stack: 844 };
+  const player = { stage: 'river', partyTotals: [{ id: 'hero', total: 1006 }] };
+  expect(displayedStack(player, seat)).toBe(844);
+  expect(displayedStack({ ...player, stage: 'showdown' }, seat)).toBe(1006);
+  expect(displayedStack({ stage: 'showdown', partyTotals: [{ id: 'hero', total: 0 }] }, seat)).toBe(0);
+  expect(displayedStack({ stage: 'showdown', partyTotals: [] }, seat)).toBe(844);
+});
 
 test('the hero moves to the bottom without changing clockwise seat order', () => {
   const players = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map(id => ({ id, folded: false, cardCount: 4 }));

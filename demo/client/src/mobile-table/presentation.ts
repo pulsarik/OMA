@@ -1,4 +1,11 @@
-import type { Language, Seat } from './types';
+import type { Language, Seat, TableState } from './types';
+
+// Settlement is calculated by the server; never add the payout again here.
+export function displayedStack(player: Pick<TableState, 'stage' | 'partyTotals'>, seat: Pick<Seat, 'id' | 'stack'>) {
+  return player.stage === 'showdown'
+    ? player.partyTotals.find(total => total.id === seat.id)?.total ?? seat.stack
+    : seat.stack;
+}
 
 // Clockwise from the hero's left; changing counts never changes physical order.
 export const OPPONENT_POSITIONS: Record<number, ReadonlyArray<readonly [number, number]>> = {

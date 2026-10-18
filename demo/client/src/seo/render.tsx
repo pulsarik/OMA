@@ -10,7 +10,7 @@ export function publicPages() {
   // Guides are hydrated: preserve React's adjacent-text markers. The homepage
   // snapshot is replaced by createRoot and does not need hydration markers.
   const pages = [{ path: '/', language: 'en' as Language, ...homeMeta.en, body: renderToStaticMarkup(<HomeSnapshot />), slug: '' },
-    ...guides.flatMap(guide => (['en', 'ru'] as const).map(language => ({
+    ...guides.flatMap(guide => (['en'] as const).map(language => ({
       path: guidePath(guide.slug, language), language, title: `${guide[language].title} | Omaha Hi-Lo`,
       description: guide[language].description, body: renderToString(<GuidePage guide={guide} language={language} />), slug: guide.slug,
     })))];
@@ -24,7 +24,7 @@ export function publicPages() {
       { '@type': 'ListItem', position: 1, name: page.language === 'ru' ? 'Главная' : 'Home', item: `${ORIGIN}/` },
       { '@type': 'ListItem', position: 2, name: guides.find(guide => guide.slug === page.slug)![page.language].title, item: url },
     ] });
-    const alternates = page.slug ? (['en', 'ru'] as const).map(language => `<link rel="alternate" hreflang="${language}" href="${ORIGIN}${guidePath(page.slug, language)}" />`).join('\n') + `\n<link rel="alternate" hreflang="x-default" href="${ORIGIN}/${page.slug}" />` : '';
+    const alternates = '';
     return { ...page, head: `<title>${escape(page.title)}</title>
 <meta name="description" content="${escape(page.description)}" />
 <link rel="canonical" href="${url}" />

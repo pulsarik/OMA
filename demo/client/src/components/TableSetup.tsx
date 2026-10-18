@@ -1,7 +1,7 @@
 import React from 'react';
 import './tableSetup.css';
 
-export type TableMode = 'friends' | 'bots';
+export type TableMode = 'friends' | 'guests' | 'bots';
 
 export function TableSetup({ mode, onModeChange, language, disabled, showModeSelector = true, children }: {
   mode: TableMode;

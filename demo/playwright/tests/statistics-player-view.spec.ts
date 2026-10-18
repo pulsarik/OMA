@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function openStatistics(page: Page, seats = 2) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await expect(page.getByLabel('Seats at the table')).toHaveCount(0);

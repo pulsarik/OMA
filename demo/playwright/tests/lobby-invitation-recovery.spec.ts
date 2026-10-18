@@ -44,7 +44,7 @@ test('missing PIN requests preserve invitations while five wrong guesses still r
 for (const missingPin of [true, false]) {
   test(`guest can recover an invitation with ${missingPin ? 'a missing' : 'an incorrect'} PIN`, async ({ page, browser }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Play with people' }).click();
+    await page.getByRole('button', { name: 'Play with friends' }).click();
     await page.getByRole('button', { name: 'Create your own table' }).click();
     await page.getByLabel('Your name').fill('Invitation host');
     await page.getByRole('button', { name: 'Create table' }).click();

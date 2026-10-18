@@ -328,6 +328,11 @@ export default class HandStore {
     return rows.map((row: any) => JSON.parse(row.data));
   }
 
+  async deleteLobby(id: string) {
+    const db = await this.getDb();
+    await db.run('DELETE FROM lobbies WHERE id = ?', id);
+  }
+
   async saveProblem(description: string, data: any) {
     const db = await this.getDb();
     const created = Date.now();

@@ -12,11 +12,11 @@ test('people entry offers open tables and creating a table', async ({ page }) =>
   });
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Play with bots' })).toHaveCount(1);
-  await expect(page.getByRole('button', { name: 'Play with people' })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: 'Play with friends' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Create a table' })).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Play with people' }).click();
-  await expect(page.getByRole('heading', { name: 'Open tables' })).toBeVisible();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
+  await expect(page.getByRole('heading', { name: "Friends' tables - PIN required" })).toBeVisible();
   await expect(page.getByText('No open tables yet', { exact: true })).toBeVisible();
   await expect(page.getByText('Create a table and it will appear here for other players to join.')).toBeVisible();
   const createTable = page.getByRole('button', { name: 'Create your own table' });
@@ -59,7 +59,7 @@ test('bot entry can start without a name and friends remain a waiting table', as
   await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
   await expect(page.getByRole('tab', { name: 'TABLE', exact: true })).toBeVisible();
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await expect(page.getByRole('radio', { name: /With friends/ })).toHaveCount(0);
   await page.getByRole('button', { name: 'Create table', exact: true }).click();

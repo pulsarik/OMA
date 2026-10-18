@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { HomeChoices } from '../components/HomeChoices';
 import { guides, guidePath, homeCopy, type Guide, type Language } from './content';
 import { APP_SHELL_STYLES } from '../pages/appStyles';
 import { RulesNav, RulesPractice } from './RulesPractice';
@@ -61,9 +62,12 @@ export function GuideArticle({ guide, language }: { guide: Guide; language: Lang
 }
 
 export function GuidePage({ guide, language }: { guide: Guide; language: Language }) {
-  const alternate: Language = language === 'en' ? 'ru' : 'en';
+  useEffect(() => {
+    // Vite loads guide content asynchronously, after the initial anchor navigation.
+    if (window.location.hash) document.getElementById(window.location.hash.slice(1))?.scrollIntoView();
+  }, [guide.slug]);
   return <><style dangerouslySetInnerHTML={{ __html: PUBLIC_STYLES }} /><div className="seo-shell"><main className="seo-main">
-    <header className="seo-header"><a href="/">OMAHA HI-LO</a><a href={guidePath(guide.slug, alternate)} lang={alternate} hrefLang={alternate}>{alternate.toUpperCase()}</a></header>
+    <header className="seo-header"><a href="/">OMAHA HI-LO</a></header>
     <GuideArticle guide={guide} language={language} />
     {guide.slug === 'statistics' && <section className="seo-card"><h2 style={{ marginTop: 0 }}>{language === 'ru' ? 'Архив игр' : 'Game archive'}</h2><p>{language === 'ru' ? 'Архив загружается из сохранённых игр при включённом JavaScript.' : 'The live archive loads saved games when JavaScript is enabled.'}</p></section>}
     <LearnLinks language={language} />
@@ -120,22 +124,14 @@ export function HomeSnapshot() {
     <div className="welcome-shell" style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #147a58, #064630 48%, #022c20)', color: '#17211b', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', padding: 'clamp(14px, 4vw, 38px)' }}>
     <main className="welcome-main" style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
     <header className="welcome-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
-      <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong><span style={{ padding: '7px 10px' }}>RU</span>
+      <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
     </header>
     <nav className="welcome-nav" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
-      {['LOBBY', 'STATISTICS', 'ABOUT / О ПРОЕКТЕ'].map((label, index) => <a key={label} href={index === 1 ? '/statistics' : index === 2 ? '/?view=about' : '/'} style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', background: '#fff', color: '#17211b', textDecoration: 'none', fontWeight: 900 }}>{label}</a>)}
+      {['LOBBY', 'STATISTICS', 'ABOUT'].map((label, index) => <a key={label} href={index === 1 ? '/statistics' : index === 2 ? '/?view=about' : '/'} style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', background: '#fff', color: '#17211b', textDecoration: 'none', fontWeight: 900 }}>{label}</a>)}
     </nav>
     <HomeIntro text={homeCopy.en} />
-    <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
-      {[
-        ['/?start=bots', '♠', 'Play with bots', 'Explore the game with hand hints.'],
-        ['/?start=friends', '♧', 'Play with people', 'Invite friends. Talk in voice chat.'],
-        ['/statistics', '▤', 'Statistics', 'Browse the game archive.'],
-      ].map(([href, icon, title, hint]) => <a key={href} href={href} className={`welcome-choice-card${href === '/?start=bots' ? ' welcome-choice-card--primary' : ''}`} style={{ ...HOME_CARD, minHeight: 158, display: 'grid', gridTemplateColumns: '1fr', alignContent: 'start', justifyItems: 'center', gap: 14, border: '1px solid #d8e2dc', textAlign: 'center', color: 'inherit', textDecoration: 'none' }}>
-        <span style={{ display: 'grid', placeItems: 'center', width: 52, height: 52, borderRadius: 16, background: '#e8f7ef', color: '#08734d', fontSize: 28, fontWeight: 800 }}>{icon}</span>
-        <span><strong style={{ display: 'block', fontSize: 20 }}>{title}</strong><small style={{ display: 'block', marginTop: 6, color: '#65736a', fontSize: 14, lineHeight: 1.4 }}>{hint}</small></span>
-      </a>)}
-    </section>
+    <HomeChoices />
+
     <HomeBenefits language="en" />
     <LearnLinks language="en" />
   </main></div></>;

@@ -4,7 +4,7 @@ import { COMBINATION_RANKS } from '../../client/src/partyStatistics';
 
 async function createDefaultHumanVsBotDeal(page: Page, playerCount = 2) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
@@ -425,7 +425,7 @@ test('opponent seats form a stable responsive layout as content changes at every
 test('the table keeps its height in a compact desktop viewport', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await expect(page.getByLabel('Seats at the table')).toHaveCount(0);

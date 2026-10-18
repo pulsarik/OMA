@@ -9,7 +9,17 @@ export type LobbyMember = {
   seat?: number;
   playerId?: string;
 };
-export type LobbyMode = 'friends' | 'bots';
+export type LobbyMode = 'friends' | 'guests' | 'bots';
+
+export const LOBBY_WAIT_MS = 60 * 60_000;
+
+export function isLobbyExpired(lobby: Lobby, now = Date.now(), waitMs = LOBBY_WAIT_MS) {
+  return lobby.status === 'waiting' && now >= lobby.created + waitMs;
+}
+
+export function requiresLobbyPin(lobby: Pick<Lobby, 'mode'>) {
+  return lobby.mode !== 'guests';
+}
 
 export type Lobby = {
   id: string;

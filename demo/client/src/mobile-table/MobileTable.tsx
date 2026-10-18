@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Cards, CombinationHint } from './Cards';
-import { amount, clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, moveLabel, nameOf, OPPONENT_POSITIONS, rankLabel, stageLabel, words } from './presentation';
+import { displayedStack, amount, clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, moveLabel, nameOf, OPPONENT_POSITIONS, rankLabel, stageLabel, words } from './presentation';
 import type { Language, MobileTableProps, Move, Seat, TableState } from './types';
 import './mobileTable.css';
 import './desktopTable.css';
@@ -26,8 +26,8 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }:
   const cards = hero ? player.hole : showdown ? seat.hole : undefined;
   return <article className={`mt-seat${hero ? ' mt-seat--hero' : ''}${isTurn ? ' mt-seat--turn' : ''}${seat.folded ? ' mt-seat--folded' : ''}`}
     data-testid={`mt-seat-${seat.id}`} data-hero={hero} data-current={isTurn}>
-    <div className="mt-seat-name" title={`${nameOf(seat)} · ${amount(seat.stack)}`}>
-      <span>{hero ? t('You', 'Вы') : nameOf(seat)}</span><span aria-hidden="true">·</span><strong>{amount(seat.stack)}</strong>
+    <div className="mt-seat-name" title={`${nameOf(seat)} · ${amount(displayedStack(player, seat))}`}>
+      <span>{hero ? t('You', 'Вы') : nameOf(seat)}</span><span aria-hidden="true">·</span><strong>{amount(displayedStack(player, seat))}</strong>
     </div>
     <div className="mt-position-line">
       {dealerId === seat.id ? <span className="mt-position mt-position--dealer" title={t('Dealer', 'Дилер')}>D</span> : null}
@@ -207,14 +207,7 @@ function PotDialog({ player: p, language, open, onClose }: {
 export default function MobileTable(props: MobileTableProps) {
   const { player: p, controls: c } = props;
   const desktop = props.layout === 'desktop';
-  const [language, setLanguage] = useState<Language>(() => {
-    try { return localStorage.getItem('omaha-mobile-language') === 'ru' ? 'ru' : 'en'; } catch { return 'en'; }
-  });
-  const toggleLanguage = () => {
-    const next = language === 'ru' ? 'en' : 'ru';
-    setLanguage(next);
-    try { localStorage.setItem('omaha-mobile-language', next); } catch { /* Private mode. */ }
-  };
+  const language: Language = 'en';
   const [potOpen, setPotOpen] = useState(false);
   const potButton = useRef<HTMLButtonElement>(null);
   const closePot = useCallback(() => {
@@ -247,14 +240,12 @@ export default function MobileTable(props: MobileTableProps) {
           {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
           <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
           <button onClick={props.onAbout}>{t('Rules', 'Правила')}</button>
-          <button onClick={toggleLanguage}>EN / RU</button>
         </nav> : null}
         {!desktop ? <details className="mt-menu"><summary aria-label={t('Table menu', 'Меню стола')}>☰</summary>
           <nav aria-label={t('Table menu', 'Меню стола')}>
             {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
             <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
             <button onClick={props.onAbout}>{t('About & rules', 'О проекте и правила')}</button>
-            <button onClick={toggleLanguage}>Language · EN / RU</button>
           </nav>
         </details> : null}
       </header>

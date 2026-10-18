@@ -92,10 +92,8 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
   await page.getByRole('button', { name: 'Pot 1 200' }).click();
   await expect(page.getByRole('dialog').locator('.mt-contribution')).toHaveCount(8);
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'EN / RU', exact: true }).click();
-  await expect(page.getByTestId('desktop-table')).toHaveAttribute('lang', 'ru');
-  await expect(page.getByRole('button', { name: 'Следующая раздача' })).toBeVisible();
-  await page.getByRole('button', { name: 'EN / RU', exact: true }).click();
+  await expect(page.getByTestId('desktop-table')).toHaveAttribute('lang', 'en');
+  await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible();
   await page.getByRole('button', { name: 'Rules', exact: true }).click();
   await expect(page.getByTestId('about-panel')).toBeVisible();
   await page.getByRole('tab', { name: 'TABLE', exact: true }).click();
@@ -113,13 +111,12 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
 test.describe('touch tablet', () => {
   test.use({ hasTouch: true, deviceScaleFactor: 1.25 });
 
-  test('Russian side pots fit after rotating without losing the hand', async ({ page }, testInfo) => {
+  test('English side pots fit after rotating without losing the hand', async ({ page }, testInfo) => {
     const state = fixture(10);
     state.result!.sidePots.push({ ...state.result!.sidePots[0], amount: 200 });
     state.players[3].name = 'Очень длинное имя игрока';
     await mockTable(page, state);
-    await page.getByRole('button', { name: 'EN / RU', exact: true }).tap();
-    await expect(page.getByTestId('desktop-table')).toHaveAttribute('lang', 'ru');
+    await expect(page.getByTestId('desktop-table')).toHaveAttribute('lang', 'en');
     for (const viewport of [{ width: 1280, height: 632 }, { width: 800, height: 1138 }, { width: 1280, height: 632 }]) {
       await page.setViewportSize(viewport);
       await expect(page.locator('.mt-seat')).toHaveCount(10);

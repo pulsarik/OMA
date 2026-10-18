@@ -30,7 +30,7 @@ async function finishCommand(page: Page, action: string) {
 
 test('host can end a completed table only after every player confirms', async ({ page, browser }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await page.getByRole('button', { name: 'Create table' }).click();
@@ -41,7 +41,7 @@ test('host can end a completed table only after every player confirms', async ({
   const guest = await guestContext.newPage();
 
   await guest.goto('/');
-  await guest.getByRole('button', { name: 'Play with people' }).click();
+  await guest.getByRole('button', { name: 'Play with friends' }).click();
   await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();

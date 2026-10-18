@@ -3,7 +3,7 @@ import { expect, Page, test } from '@playwright/test';
 async function startMobileTable(page: Page) {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await expect(page.getByLabel('Seats at the table')).toHaveCount(0);

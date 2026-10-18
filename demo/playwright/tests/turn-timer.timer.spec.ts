@@ -14,7 +14,7 @@ function apiUrlForPlayerLink(href: string) {
 
 async function createTwoHumanTable(host: Page, guest: Page) {
   await host.goto('/');
-  await host.getByRole('button', { name: 'Play with people' }).click();
+  await host.getByRole('button', { name: 'Play with friends' }).click();
   await host.getByRole('button', { name: 'Create your own table' }).click();
   await host.getByLabel('Your name').fill('Dima');
   await expect(host.getByLabel('Seats at the table')).toHaveCount(0);
@@ -23,7 +23,7 @@ async function createTwoHumanTable(host: Page, guest: Page) {
   const pin = (await host.getByLabel('Table PIN').textContent())?.trim() ?? '';
   const tableName = (await host.getByLabel('Table name').textContent())?.trim() ?? '';
   await guest.goto('/');
-  await guest.getByRole('button', { name: 'Play with people' }).click();
+  await guest.getByRole('button', { name: 'Play with friends' }).click();
   await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();

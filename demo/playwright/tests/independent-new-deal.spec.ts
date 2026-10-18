@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('players enter a new deal independently', async ({ page, browser }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Play with people' }).click();
+  await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');
   await expect(page.getByLabel('Seats at the table')).toHaveCount(0);
@@ -14,7 +14,7 @@ test('players enter a new deal independently', async ({ page, browser }) => {
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
   await guest.goto('/');
-  await guest.getByRole('button', { name: 'Play with people' }).click();
+  await guest.getByRole('button', { name: 'Play with friends' }).click();
   await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();

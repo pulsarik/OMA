@@ -20,6 +20,9 @@ import {
   lobbyName,
   normalizeLobbySeats,
   seatedLobbyMembers,
+  isLobbyExpired,
+  requiresLobbyPin,
+  LOBBY_WAIT_MS,
 } from './lobby';
 import {
   MAX_RAISES_PER_STREET,
@@ -86,6 +89,7 @@ const HUMAN_TURN_MS = Math.max(1_000, Number(process.env.HUMAN_TURN_MS) || 45_00
 // Zero disables session expiry while preserving the session message shape.
 const SESSION_EXPIRE_MS = 0;
 const SESSION_WARNING_MS = 0;
+const lobbyWaitMs = Math.max(1_000, Number(process.env.LOBBY_WAIT_MS) || LOBBY_WAIT_MS);
 const ADMIN_API_TOKEN = process.env.ADMIN_API_TOKEN;
 const voiceConfig = voiceConfigFromEnv();
 const problemEmailDeliveryConfig = problemEmailConfig(process.env);
@@ -153,6 +157,10 @@ function requireContinuationAccess(ws: WebSocket, hand: any, message: any) {
   if (!ADMIN_API_TOKEN || message.adminToken === ADMIN_API_TOKEN) return;
   throw new Error('unauthorized continuation');
 }
+
+app.get(/^\/ru\/(rules|omaha-vs-holdem|how-to-play|hand-replay|statistics|poker-hints)(?:\/index\.html)?\/?$/, (req, res) => {
+  res.redirect(302, req.url.replace('/ru/', '/'));
+});
 
 if (staticDir) {
   // Serve generated public HTML directly; do not redirect extensionless canonicals.
@@ -841,9 +849,9 @@ function lobbyState(lobby: Lobby) {
     isReplay: Boolean(lobby.isReplay),
     handId: lobby.handId,
     session: {
-      lastActivity: lobby.lastActivity ?? lobby.created,
-      warningAfterMs: SESSION_WARNING_MS,
-      expiresAfterMs: SESSION_EXPIRE_MS,
+      lastActivity: lobby.status === 'waiting' ? lobby.created : lobby.lastActivity,
+      warningAfterMs: Math.max(0, lobbyWaitMs - 5 * 60_000),
+      expiresAfterMs: lobby.status === 'waiting' ? lobbyWaitMs : 0,
       serverNow,
     },
     members: lobby.members.map(member => ({
@@ -864,13 +872,38 @@ function openLobbyState(lobby: Lobby) {
   };
 }
 
+// Call under the per-lobby lock so expiry cannot race a game start.
+async function getActiveLobby(id: string): Promise<Lobby | null> {
+  const lobby = await store.getLobby(id) as Lobby | null;
+  if (!lobby || !isLobbyExpired(lobby, Date.now(), lobbyWaitMs)) return lobby;
+  await store.deleteLobby(id);
+  lobbyConnections.forEach((connection, client) => {
+    if (connection.lobbyId === id && client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify({ type: 'session_expired' }));
+    }
+  });
+  await broadcastOpenLobbies();
+  return null;
+}
+
+async function expireWaitingLobbies() {
+  const lobbies = await store.listLobbies() as Lobby[];
+  for (const lobby of lobbies) {
+    if (!isLobbyExpired(lobby, Date.now(), lobbyWaitMs)) continue;
+    await withLobbyLock(lobby.id, async () => {
+      await getActiveLobby(lobby.id);
+    });
+  }
+}
+
 async function listOpenLobbies() {
   const lobbies = await store.listLobbies() as Lobby[];
   return lobbies
     .filter(lobby => (
       lobby.status === 'waiting'
+      && !isLobbyExpired(lobby, Date.now(), lobbyWaitMs)
       && lobby.members.length < lobby.maxPlayers
-      && /^\d{4}$/.test(lobby.pin)
+      && lobby.mode !== 'bots'
       && typeof lobby.tableName === 'string'
     ))
     .map(openLobbyState);
@@ -941,6 +974,7 @@ function notifyLobbyHostPinChanged(lobby: Lobby) {
 }
 
 async function validateLobbyPin(lobby: Lobby, suppliedPin: unknown) {
+  if (!requiresLobbyPin(lobby)) return;
   // A bare lobby URL is not a failed guess and must not rotate shared invitations.
   if (suppliedPin == null || suppliedPin === '') throw new Error('enter a 4-digit PIN');
   if (/^\d{4}$/.test(lobby.pin) && suppliedPin === lobby.pin) {
@@ -1060,10 +1094,10 @@ async function createLobby(ws: WebSocket, message: any) {
       joinedAt: Date.now(),
       seat: 0,
     };
-    const mode: LobbyMode = message.mode === 'bots' ? 'bots' : 'friends';
+    const mode: LobbyMode = message.mode === 'bots' ? 'bots' : message.mode === 'guests' ? 'guests' : 'friends';
     const lobby: Lobby = {
       id: uuidv4(),
-      pin: await newLobbyPin(),
+      pin: mode === 'guests' ? '' : await newLobbyPin(),
       tableName: await newLobbyTableName(),
       hostMemberId: member.id,
       mode,
@@ -1087,7 +1121,7 @@ async function createLobby(ws: WebSocket, message: any) {
 
 async function viewLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
-    const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
+    const lobby = await getActiveLobby(message.lobbyId) as Lobby | null;
     if (!lobby) throw new Error('lobby not found');
     await validateLobbyPin(lobby, message.pin);
     ws.send(JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) }));
@@ -1099,7 +1133,7 @@ async function findLobbyByPin(ws: WebSocket, message: any) {
   if (!/^\d{4}$/.test(pin)) throw new Error('enter a 4-digit PIN');
   const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
   return withLobbyLock(lobbyId, async () => {
-    const lobby = await store.getLobby(lobbyId) as Lobby | null;
+    const lobby = await getActiveLobby(lobbyId) as Lobby | null;
     if (!lobby || lobby.status !== 'waiting') throw new Error('table not found');
     await validateLobbyPin(lobby, pin);
     if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
@@ -1109,7 +1143,7 @@ async function findLobbyByPin(ws: WebSocket, message: any) {
 
 async function joinLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
-    const lobby = await store.getLobby(message.lobbyId) as Lobby | null;
+    const lobby = await getActiveLobby(message.lobbyId) as Lobby | null;
     if (!lobby) throw new Error('lobby not found');
 
     let member = lobby.members.find(candidate => (
@@ -1154,7 +1188,7 @@ async function joinLobby(ws: WebSocket, message: any) {
 async function checkLobbyResume(ws: WebSocket, message: any) {
   const lobbyId = typeof message.lobbyId === 'string' ? message.lobbyId : '';
   return withLobbyLock(lobbyId, async () => {
-    const lobby = lobbyId ? await store.getLobby(lobbyId) as Lobby | null : null;
+    const lobby = lobbyId ? await getActiveLobby(lobbyId) as Lobby | null : null;
     const member = lobby?.members.find(candidate => (
       candidate.id === message.memberId
       && candidate.token === message.token
@@ -1184,7 +1218,7 @@ async function checkLobbyResume(ws: WebSocket, message: any) {
 async function authenticatedLobby(ws: WebSocket, message: any) {
   const connection = lobbyConnections.get(ws);
   if (!connection || connection.lobbyId !== message.lobbyId) throw new Error('join lobby first');
-  const lobby = await store.getLobby(connection.lobbyId) as Lobby | null;
+  const lobby = await getActiveLobby(connection.lobbyId) as Lobby | null;
   const member = lobby?.members.find(candidate => candidate.id === connection.memberId);
   if (!lobby || !member) throw new Error('lobby not found');
   if (lobby.handId && !await getActiveHand(lobby.handId)) {
@@ -1297,7 +1331,7 @@ async function startLobby(ws: WebSocket, message: any) {
     const { lobby, member } = await authenticatedLobby(ws, message);
     if (member.id !== lobby.hostMemberId) throw new Error('host only');
     if (lobby.status !== 'waiting') throw new Error('game already started');
-    if (lobby.mode === 'friends' && lobby.members.length < 2) {
+    if (lobby.mode !== 'bots' && lobby.members.length < 2) {
       throw new Error('at least two players required');
     }
 
@@ -1437,7 +1471,7 @@ async function updateEarlyFinishVote(ws: WebSocket, message: any, mode: 'request
   if (!lobby) throw new Error('table is no longer on this deal');
 
   return withLobbyLock(lobby.id, async () => {
-    const currentLobby = await store.getLobby(lobby.id) as Lobby | null;
+    const currentLobby = await getActiveLobby(lobby.id) as Lobby | null;
     if (!currentLobby || currentLobby.handId !== message.handId) {
       throw new Error('table is no longer on this deal');
     }
@@ -1791,8 +1825,10 @@ wss.on('connection', (ws, req) => {
       } else if (msg.action === 'lobby_restart') {
         await restartLobby(ws, msg);
       } else if (msg.action === 'lobby_activity') {
-        const { lobby } = await authenticatedLobby(ws, msg);
-        broadcastLobby(lobby);
+        await withLobbyLock(msg.lobbyId, async () => {
+          const { lobby } = await authenticatedLobby(ws, msg);
+          broadcastLobby(lobby);
+        });
       } else if (msg.action === 'request_early_finish') {
         await updateEarlyFinishVote(ws, msg, 'request');
       } else if (msg.action === 'vote_early_finish') {
@@ -1980,3 +2016,9 @@ server.listen(PORT, () => {
 });
 
 void recoverTurnTimers().catch(error => console.error('turn timer recovery failed', error));
+
+const lobbyExpiryTimer = setInterval(() => {
+  void expireWaitingLobbies().catch(error => console.error('lobby expiry failed', error));
+}, Math.min(30_000, lobbyWaitMs));
+lobbyExpiryTimer.unref();
+void expireWaitingLobbies().catch(error => console.error('lobby expiry recovery failed', error));

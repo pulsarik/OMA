@@ -30,7 +30,7 @@ test('seven open hands, split winners and both combinations fit the phone', asyn
   await page.screenshot({ path: testInfo.outputPath('seven-player-showdown.png'), fullPage: true });
 });
 
-test('personal result emphasizes net loss, localizes labels and keeps zero neutral', async ({ page }) => {
+test('personal result emphasizes net loss, uses English labels and keeps zero neutral', async ({ page }) => {
   const state = fixture();
   state.totalContributions.P1 = 64;
   Object.assign(state.result!.points[0], { high: 0, low: 0, total: 0 });
@@ -40,12 +40,11 @@ test('personal result emphasizes net loss, localizes labels and keeps zero neutr
   await expect(result.locator('strong')).toHaveCSS('color', 'rgb(223, 141, 128)');
   await expect(result.locator('span')).toHaveText('Contributed: 64 · Payout: 0');
   await page.getByLabel('Table menu', { exact: true }).first().click();
-  await page.getByRole('button', { name: 'Language · EN / RU' }).click();
-  await expect(result.locator('strong')).toHaveText('ИТОГ: -64');
-  await expect(result.locator('span')).toHaveText('Внесено: 64 · Выплата: 0');
+  await expect(result.locator('strong')).toHaveText('NET: -64');
+  await expect(result.locator('span')).toHaveText('Contributed: 64 · Payout: 0');
   state.result!.points[0].total = 64;
   mock.update(state);
-  await expect(result.locator('strong')).toHaveText('ИТОГ: 0');
+  await expect(result.locator('strong')).toHaveText('NET: 0');
   await expect(result.locator('strong')).toHaveCSS('color', 'rgb(222, 197, 139)');
 });
 
@@ -119,9 +118,7 @@ test('side-pot results, long names, English and returning from rules', async ({ 
   await page.keyboard.press('Escape');
   await expect(potDialog).toHaveCount(0);
   await page.getByLabel('Table menu', { exact: true }).first().click();
-  await page.getByRole('button', { name: 'Language · EN / RU' }).click();
-  await expect(page.getByTestId('mobile-table')).toHaveAttribute('lang', 'ru');
-  await page.getByRole('button', { name: 'Language · EN / RU' }).click();
+  await expect(page.getByTestId('mobile-table')).toHaveAttribute('lang', 'en');
   await expect(page.getByTestId('mobile-table')).toHaveAttribute('lang', 'en');
   await page.getByRole('button', { name: 'About & rules' }).click();
   await expect(page.getByTestId('about-panel')).toBeVisible();

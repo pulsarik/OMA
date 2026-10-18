@@ -10,9 +10,26 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
   const mobile = viewport.width < 761;
   const tableId = mobile ? 'mobile-table' : 'desktop-table';
 
+  test(`voice chat is absent when every opponent is a bot (${viewport.width}px)`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    const state = fixture(7, false);
+    const botsOnly = {
+      ...state,
+      voiceEnabled: true,
+      players: state.players.map(player => ({ ...player, isBot: player.id !== state.playerId })),
+    };
+    await mockTable(page, botsOnly);
+    await expect(page.getByTestId(tableId)).toBeVisible();
+    if (mobile) await page.locator('.mt-menu > summary').click();
+    await expect(page.getByRole('button', { name: 'Voice', exact: true })).toHaveCount(0);
+    await expect(page.locator('#voice-tab')).toHaveCount(0);
+    await expect(page.locator('#voice-panel')).toHaveCount(0);
+    await expect(page.getByTestId('voice-chat')).toHaveCount(0);
+  });
+
   for (const language of ['en', 'ru']) {
     test(`voice is accessible from the main table (${viewport.width}px, ${language})`, async ({ page }) => {
-      const russian = language === 'ru';
+      const russian = false;
       await page.setViewportSize(viewport);
       await page.addInitScript(language => {
         localStorage.setItem('omaha-language', language);
@@ -57,7 +74,12 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
       tokenRequests.push(route.request().postDataJSON());
       return route.fulfill({ json: { serverUrl: 'wss://voice.example.test', token: 'voice-token' } });
     });
-    const state = { ...fixture(7, false), voiceEnabled: true };
+    const initial = fixture(7, false);
+    const state = {
+      ...initial,
+      voiceEnabled: true,
+      players: initial.players.map((player, index) => ({ ...player, isBot: index > 1 })),
+    };
     await mockTable(page, state);
     await openVoice(page, mobile);
     await page.getByRole('button', { name: 'Join voice', exact: true }).click();

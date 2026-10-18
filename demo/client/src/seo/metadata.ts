@@ -24,9 +24,7 @@ export function updateMetadata(pathname: string, language: Language) {
   for (const [property, content] of Object.entries({ 'og:title': meta.title, 'og:description': meta.description, 'og:url': `${ORIGIN}${path}`, 'og:type': 'website', 'og:site_name': 'Omaha Hi-Lo', 'og:locale': (resolved?.language ?? language) === 'ru' ? 'ru_RU' : 'en_US' })) {
     set(`meta[property="${property}"]`, 'meta', { property, content });
   }
-  if (resolved) for (const lang of ['en', 'ru'] as const) {
-    set(`link[hreflang="${lang}"]`, 'link', { rel: 'alternate', hreflang: lang, href: `${ORIGIN}${guidePath(resolved.guide.slug, lang)}` });
-  }
+  document.head.querySelectorAll('link[hreflang]').forEach(element => element.remove());
   if (isHome) {
     const script = document.head.querySelector('script[type="application/ld+json"]');
     if (script?.textContent) {

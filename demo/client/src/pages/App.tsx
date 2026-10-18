@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
+import { HomeChoices } from '../components/HomeChoices';
+import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
 import { LobbyPinForm } from '../components/LobbyPinForm';
 import { TableSetup, type TableMode } from '../components/TableSetup';
@@ -40,7 +42,6 @@ const WS_URL = import.meta.env.VITE_SERVER_URL ? SERVER_URL.replace(/^http/, 'ws
 const VoiceChat = React.lazy(() => import('../components/VoiceChat').then(module => ({
   default: module.VoiceChat,
 })));
-const VOICE_TAB_ENABLED = true;
 
 type UiLanguage = 'en' | 'ru';
 
@@ -113,19 +114,7 @@ function rememberPlayerName(name: string) {
 }
 
 function storedLanguage(): UiLanguage {
-  const guide = resolveGuide(window.location.pathname);
-  if (guide) return guide.language;
-  return window.localStorage.getItem('omaha-language') === 'ru' ? 'ru' : 'en';
-}
-
-function setUiLanguage(language: UiLanguage) {
-  window.localStorage.setItem('omaha-language', language);
-  const guide = resolveGuide(window.location.pathname);
-  if (guide) {
-    window.location.href = `${language === 'ru' ? '/ru' : ''}/${guide.guide.slug}`;
-    return;
-  }
-  window.location.reload();
+  return 'en';
 }
 
 function ui(en: string, ru: string) {
@@ -135,24 +124,18 @@ function ui(en: string, ru: string) {
 function AboutContent() {
   return (
     <>
-      <h2 className="about-panel__title">About / О проекте</h2>
+      <h2 className="about-panel__title">About</h2>
       <p className="about-panel__copy">
         Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
-        <br />
-        <span lang="ru">Omaha Hi-Lo — многопользовательская покерная игра, где банк делится между лучшей старшей и подходящей младшей комбинациями.</span>
       </p>
       <section className="about-panel__low" aria-labelledby="about-low-title">
-        <h3 id="about-low-title">What is LOW? / Что такое LOW?</h3>
+        <h3 id="about-low-title">What is LOW?</h3>
         <p>
           LOW is a five-card hand made from exactly two hole cards and three board cards. It qualifies when all five cards have different ranks and are 8 or lower; Ace counts as 1. The best possible LOW is 5-4-3-2-A. If nobody has a qualifying LOW, the high hand takes the whole pot.
-          <br />
-          <span lang="ru">LOW — это комбинация из пяти карт: ровно двух закрытых и трёх общих. Она проходит, если все пять достоинств разные и не выше 8; туз считается за 1. Лучшая LOW — 5-4-3-2-A. Если подходящей LOW нет, весь банк получает HIGH.</span>
         </p>
       </section>
       <p className="about-panel__copy">
         Questions or feedback? Contact us at <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
-        <br />
-        <span lang="ru">Вопросы или предложения? Пишите на <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.</span>
       </p>
     </>
   );
@@ -625,7 +608,7 @@ type LobbyView = {
   pin: string;
   tableName: string;
   hostMemberId: string;
-  mode: 'friends' | 'bots';
+  mode: 'friends' | 'guests' | 'bots';
   maxPlayers: number;
   status: 'waiting' | 'started';
   replayCode?: string;
@@ -3497,10 +3480,11 @@ function PlayerPage({
     tournamentWinner || player.partyFinishedEarly || player.stage === 'showdown'
       || player.completedHandCount > 0 || newDealLinks.length
   );
+  const showVoiceChat = player.players.some(seat => seat.id !== player.playerId && !seat.isBot);
   const voiceAvailable = Boolean(
     player.voiceEnabled && (sessionDeadline === null || sessionNow < sessionDeadline)
   );
-  const isVoiceView = activeView === 'voice';
+  const isVoiceView = showVoiceChat && activeView === 'voice';
   const isStatsView = activeView === 'stats' && showStatsTile;
   const isAboutView = activeView === 'about';
   const isTableView = !isVoiceView && !isStatsView && !isAboutView;
@@ -3550,7 +3534,7 @@ function PlayerPage({
       cardCount={seat.cardCount}
       isYou={false}
       name={seat.name}
-      stack={totalScore(player.partyTotals, seat.id) <= 0 ? 0 : seat.stack}
+      stack={displayedStack(player, seat)}
       resultPlayer={player.stage === 'showdown' ? player.result?.players.find(result => result.id === seat.id) : undefined}
       isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
       disconnected={seat.connected === false && !seat.isBot}
@@ -3612,7 +3596,7 @@ function PlayerPage({
 
   const showOvalTable = isTableView && (shouldUseMobileTable(window.innerWidth, player.players.length)
     || shouldUseDesktopTable(window.innerWidth, player.players.length));
-  const ovalTable = showOvalTable ? <React.Suspense fallback={<p role="status">Loading table… / Загружаем стол…</p>}>
+  const ovalTable = showOvalTable ? <React.Suspense fallback={<p role="status">Loading table...</p>}>
       <MobileTable
         layout={isMobileTable ? 'mobile' : 'desktop'}
         player={player}
@@ -3634,7 +3618,7 @@ function PlayerPage({
         onStats={() => setActiveView('stats')}
         statsAvailable={showStatsTile}
         onAbout={() => setActiveView('about')}
-        onVoice={VOICE_TAB_ENABLED ? () => setActiveView('voice') : undefined}
+        onVoice={showVoiceChat ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
         onExit={onExitGame}
         isHost={isLobbyHost}
@@ -3662,7 +3646,7 @@ function PlayerPage({
         >
           {ui('TABLE', 'СТОЛ')}
         </button>
-        {VOICE_TAB_ENABLED ? <button
+        {showVoiceChat ? <button
             id="voice-tab"
             type="button"
             role="tab"
@@ -3798,7 +3782,7 @@ function PlayerPage({
               name={player.playerName}
               hole={player.hole}
               cardCount={player.hole.length}
-              stack={player.stack}
+              stack={displayedStack(player, { id: player.playerId, stack: player.stack })}
               resultPlayer={player.stage === 'showdown' ? heroResultPlayer : undefined}
               highlightHighCards={mobileHighCombo?.filter((card) => card.source === 'hole').map((card) => card.code)
                 ?? heroResultPlayer?.highCards}
@@ -3966,7 +3950,7 @@ function PlayerPage({
       </p>
       </section> : null}
 
-      {VOICE_TAB_ENABLED ? <section
+      {showVoiceChat ? <section
           id="voice-panel"
           role="tabpanel"
           aria-labelledby="voice-tab"
@@ -4387,7 +4371,7 @@ function LobbyPage() {
   const [lobby, setLobby] = useState<LobbyView | null>(null);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState(storedPlayerName);
-  const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
+  const language = storedLanguage();
   const [replayCodeInput, setReplayCodeInput] = useState('');
   const [lobbyTab, setLobbyTab] = useState<'lobby' | 'replay'>('lobby');
   const [notice, setNotice] = useState<string | null>(null);
@@ -4445,12 +4429,10 @@ function LobbyPage() {
         } catch {
           window.sessionStorage.removeItem(activeStorageKey);
           window.localStorage.removeItem(storageKey);
-          if (accessPin) ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
-          else setNeedsPin(true);
+          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
         }
       } else {
-        if (accessPin) ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
-        else setNeedsPin(true);
+        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
       }
     },
     onMessage: (event, eventSocket) => {
@@ -4491,7 +4473,7 @@ function LobbyPage() {
         window.sessionStorage.setItem(playerStorageKey, message.data.playerUrl);
         setPlayerUrl(message.data.playerUrl);
       } else if (message.type === 'error') {
-        setNotice(localizedServerMessage(message.message));
+        setNotice(message.message === 'enter a 4-digit PIN' ? null : localizedServerMessage(message.message));
         if (message.message.startsWith('incorrect table PIN') || message.message === 'enter a 4-digit PIN') {
           setNeedsPin(true);
         }
@@ -4535,9 +4517,9 @@ function LobbyPage() {
   async function copyInvitation() {
     if (!lobby) return;
 
-    const invitationUrl = `${window.location.origin}/lobby/${encodeURIComponent(lobby.id)}?pin=${encodeURIComponent(lobby.pin)}`;
+    const invitationUrl = `${window.location.origin}/lobby/${encodeURIComponent(lobby.id)}${lobby.mode === 'guests' ? '' : `?pin=${encodeURIComponent(lobby.pin)}`}`;
     const invitation = ui(
-      `Join my Omaha Hi-Lo table!\nOpen this link to go straight to the table: ${invitationUrl}\nCity: ${lobby.tableName}\nPIN: ${lobby.pin}`,
+      `Join my Omaha Hi-Lo table!\nOpen this link to go straight to the table: ${invitationUrl}\nCity: ${lobby.tableName}${lobby.mode === 'guests' ? '\nNo PIN needed.' : `\nPIN: ${lobby.pin}`}`,
       `Присоединяйтесь к моей игре Omaha хай-ло!\nОткройте ссылку, чтобы сразу перейти к столу: ${invitationUrl}\nГород: ${lobby.tableName}\nPIN: ${lobby.pin}`,
     );
 
@@ -4651,23 +4633,21 @@ function LobbyPage() {
             <span style={{ color: socketReady ? '#166534' : '#64748b', fontWeight: 800 }}>
               {socketReady ? ui('connected', 'подключено') : ui('connecting…', 'подключение…')}
             </span>
-            <button type="button" onClick={() => setUiLanguage(language === 'en' ? 'ru' : 'en')} style={{ border: '1px solid rgba(167,243,208,.35)', borderRadius: 8, background: 'rgba(255,255,255,.08)', color: '#ecfdf5', padding: '6px 9px', fontWeight: 900 }}>
-              {language === 'en' ? 'RU' : 'EN'}
-            </button>
+            {sessionDeadline !== null && !lobbyExpired ? <small title="Waiting tables close one hour after creation">Start within {sessionCountdown}</small> : null}
           </div>
         </header>
 
         {lobbyExpired ? (
           <p className="session-warning" role="alert" style={{ margin: 0, border: '1px solid #f59e0b', borderRadius: 12, padding: '9px 12px', background: '#fffbeb', color: '#92400e', fontWeight: 800, textAlign: 'center' }}>
-            {ui('This lobby closed after an hour without table actions.', 'Стол закрыт после часа без действий за столом.')}
+            {ui('This table closed because the game did not start within one hour.', 'Стол закрыт после часа без действий за столом.')}
           </p>
         ) : showSessionWarning ? (
           <p className="session-warning" role="alert" style={{ margin: 0, border: '1px solid #f59e0b', borderRadius: 12, padding: '9px 12px', background: '#fffbeb', color: '#92400e', fontWeight: 800, textAlign: 'center' }}>
-            {ui('No table actions. This lobby will close in', 'Нет действий за столом. Стол закроется через')} {sessionCountdown}.
+            {ui('Start the game before this table closes in', 'Нет действий за столом. Стол закроется через')} {sessionCountdown}.
           </p>
         ) : null}
 
-        {!memberId ? (
+        {lobbyExpired ? <a href="/">Back to lobby</a> : !memberId ? (
           <section className="lobby-join-panel">
             {lobby ? (
               <h1 style={{ margin: 0, color: '#fff8e8', fontFamily: 'Georgia, serif', fontSize: 28 }}>
@@ -4757,8 +4737,10 @@ function LobbyPage() {
                     <div>
                       <small>{ui('TABLE', 'СТОЛ')}</small>
                       <output className="lobby-table-name" aria-label={ui('Table name', 'Название стола')}>{lobby.tableName}</output>
-                      <small style={{ marginTop: 7 }}>PIN</small>
-                      <strong aria-label={ui('Table PIN', 'PIN стола')}>{lobby.pin}</strong>
+                      {lobby.mode === 'guests' ? <small>Public table · no PIN</small> : <>
+                        <small style={{ marginTop: 7 }}>PIN</small>
+                        <strong aria-label="Table PIN">{lobby.pin}</strong>
+                      </>}
                     </div>
                     <button
                       type="button"
@@ -4788,11 +4770,11 @@ function LobbyPage() {
                       'Игра начнётся, когда вы нажмёте «Начать игру».',
                     )}
                   </p>
-                  {lobby.mode === 'friends' && lobby.members.length < 2 ? (
+                  {lobby.mode !== 'bots' && lobby.members.length < 2 ? (
                     <p className="lobby-host-start-note" role="status">
                       {ui('Add at least one more player or a bot to enable the start button.', 'Чтобы начать, пригласите ещё одного игрока или добавьте бота.')}
                     </p>
-                  ) : lobby.mode === 'friends' ? (
+                  ) : lobby.mode !== 'bots' ? (
                     <p className="lobby-host-start-note" role="status" data-testid="lobby-quorum-reached">
                       {ui('Quorum reached — you can start the game.', 'Кворум набран — можно начинать игру.')}
                     </p>
@@ -4831,7 +4813,7 @@ function LobbyPage() {
                     <button
                       type="button"
                       className="lobby-host-start"
-                      disabled={!socketReady || (lobby.mode === 'friends' && lobby.members.length < 2)}
+                      disabled={!socketReady || (lobby.mode !== 'bots' && lobby.members.length < 2)}
                       onClick={() => send('lobby_start')}
                     >
                       {ui('Start game', 'Начать игру')}
@@ -4842,7 +4824,7 @@ function LobbyPage() {
                 <>
               <div className="lobby-invite-card" style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
                 <strong style={{ display: 'block', color: '#526159', fontSize: 15 }}>
-                  {ui('Tell your friends the table name and PIN', 'Сообщите друзьям название стола и PIN')}
+                  {lobby.mode === 'guests' ? 'Share this open table - no PIN needed' : 'Tell your friends the table name and PIN'}
                 </strong>
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 12, flexWrap: 'wrap', marginTop: 11 }}>
                   <div style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 13, borderRadius: 13, background: '#08734d', padding: '11px 16px', color: '#fff' }}>
@@ -4862,13 +4844,13 @@ function LobbyPage() {
                     </div>
                   </div>
                   <div style={{ flex: '0 1 190px', border: '2px solid #6ee7b7', borderRadius: 13, background: '#fff', padding: '9px 16px', color: '#065f46' }}>
-                    <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em' }}>PIN</span>
+                    <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em' }}>{lobby.mode === 'guests' ? 'PUBLIC TABLE' : 'PIN'}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <output
-                      aria-label={ui('Table PIN', 'PIN стола')}
+                      aria-label={lobby.mode === 'guests' ? 'Table access' : 'Table PIN'}
                       style={{ display: 'block', marginTop: 2, font: '900 clamp(27px, 5vw, 40px)/1.05 ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing: '.16em' }}
                     >
-                      {lobby.pin}
+                      {lobby.mode === 'guests' ? 'Open' : lobby.pin}
                     </output>
                       <button
                         type="button"
@@ -4918,11 +4900,11 @@ function LobbyPage() {
                   <button
                     type="button"
                     className={lobby.mode === 'bots' ? 'lobby-start-button' : undefined}
-                    disabled={lobby.mode === 'friends' && lobby.members.length < 2}
+                    disabled={lobby.mode !== 'bots' && lobby.members.length < 2}
                     onClick={() => send('lobby_start')}
-                    style={{ position: lobby.mode === 'friends' ? 'static' : undefined, flex: 1, padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
+                    style={{ position: lobby.mode !== 'bots' ? 'static' : undefined, flex: 1, padding: '9px 16px', color: '#fff', border: 0, borderRadius: 8, fontWeight: 900 }}
                   >
-                    {lobby.mode === 'friends'
+                    {lobby.mode !== 'bots'
                       ? ui('Start game', 'Начать игру')
                       : ui('Start game · fill with bots', 'Начать игру · заполнить ботами')}
                   </button>
@@ -5186,17 +5168,15 @@ function HomePage() {
             onClick={() => setHomeTab('about')}
             style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'about' ? '#fff' : '#cbd5e1', background: homeTab === 'about' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
           >
-            ABOUT / О ПРОЕКТЕ
+            ABOUT
           </button>
         </nav>
 
         {homeTab === 'about' ? (
           <section style={{ border: '1px solid #cbd5e1', borderRadius: 12, background: '#fff', padding: 18, display: 'grid', gap: 10 }}>
-            <h2 style={{ margin: 0 }}>About / О проекте</h2>
+            <h2 style={{ margin: 0 }}>About</h2>
             <p style={{ margin: 0, color: '#475569' }}>
               Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
-              <br />
-              Omaha Hi-Lo — многопользовательская покерная игра, где банк делится между лучшей старшей и подходящей младшей комбинациями.
             </p>
             <p style={{ margin: 0, color: '#475569' }}>
               Questions or feedback? Contact us at{' '}
@@ -5484,8 +5464,8 @@ function WelcomePage() {
   const publicGuide = resolveGuide(window.location.pathname);
   const homeParams = new URLSearchParams(window.location.search);
   const startMode = homeParams.get('start');
-  const [view, setView] = useState<'choice' | 'create' | 'join' | 'archive'>(publicGuide?.guide.slug === 'statistics' ? 'archive' : startMode === 'bots' ? 'create' : startMode === 'friends' ? 'join' : 'choice');
-  const [mode, setMode] = useState<TableMode>(startMode === 'bots' ? 'bots' : 'friends');
+  const [view, setView] = useState<'choice' | 'create' | 'join' | 'archive'>(publicGuide?.guide.slug === 'statistics' ? 'archive' : startMode === 'bots' ? 'create' : startMode === 'friends' || startMode === 'guests' ? 'join' : 'choice');
+  const [mode, setMode] = useState<TableMode>(startMode === 'bots' ? 'bots' : startMode === 'guests' ? 'guests' : 'friends');
   const [creating, setCreating] = useState(false);
   const createdLobbyRef = useRef<string | null>(null);
   const createPendingRef = useRef(false);
@@ -5494,7 +5474,7 @@ function WelcomePage() {
   const [lastLobbyId] = useState(() => window.localStorage.getItem(LAST_LOBBY_STORAGE_KEY));
   const [canResumeLastLobby, setCanResumeLastLobby] = useState(false);
   const [hostName, setHostName] = useState(storedPlayerName);
-  const [language, setLanguage] = useState<UiLanguage>(storedLanguage);
+  const language = storedLanguage();
   const [seats, setSeats] = useState(4);
   const maxTableSeats = useMobileTableSeatLimit();
   const [pin, setPin] = useState('');
@@ -5506,7 +5486,8 @@ function WelcomePage() {
   const pendingPinRef = useRef('');
   const pinInputRef = useRef<HTMLInputElement>(null);
   const t = WELCOME_TEXT[storedLanguage()];
-  const selectedLobby = openLobbies.find(lobby => lobby.id === selectedLobbyId);
+  const visibleLobbies = openLobbies.filter(lobby => lobby.mode === mode);
+  const selectedLobby = visibleLobbies.find(lobby => lobby.id === selectedLobbyId);
 
   function showHomeTab(tab: 'lobby' | 'about') {
     if (publicGuide) {
@@ -5615,7 +5596,7 @@ function WelcomePage() {
   function createTable() {
     if (createPendingRef.current || !connected) return;
     const normalizedName = hostName.trim();
-    if (!normalizedName && mode === 'friends') {
+    if (!normalizedName && mode !== 'bots') {
       setNotice(t.enterName);
       return;
     }
@@ -5698,9 +5679,6 @@ function WelcomePage() {
       <main className="welcome-main" style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
         <header className="welcome-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
           <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
-          <button type="button" onClick={() => setUiLanguage(language === 'en' ? 'ru' : 'en')} style={{ border: '1px solid rgba(167,243,208,.4)', borderRadius: 9, background: 'rgba(255,255,255,.1)', color: '#fff', padding: '7px 10px', fontWeight: 900 }}>
-            {language === 'en' ? 'RU' : 'EN'}
-          </button>
         </header>
 
         <nav className="welcome-nav" role="tablist" aria-label="Home views" style={{ display: 'flex', gap: 4, margin: '0 12px -18px', zIndex: 1 }}>
@@ -5726,17 +5704,15 @@ function WelcomePage() {
             onClick={() => showHomeTab('about')}
             style={{ padding: '8px 18px', borderRadius: '12px 12px 0 0', border: '1px solid #cbd5e1', borderBottomColor: homeTab === 'about' ? '#fff' : '#cbd5e1', background: homeTab === 'about' ? '#fff' : '#f1f5f9', fontWeight: 900, cursor: 'pointer' }}
           >
-            ABOUT / О ПРОЕКТЕ
+            ABOUT
           </button>
         </nav>
 
         {homeTab === 'about' ? (
           <section style={{ ...cardStyle, display: 'grid', gap: 10 }}>
-            <h2 style={{ margin: 0 }}>About / О проекте</h2>
+            <h2 style={{ margin: 0 }}>About</h2>
             <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
               Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
-              <br />
-              Omaha Hi-Lo — многопользовательская покерная игра, где банк делится между лучшей старшей и подходящей младшей комбинациями.
             </p>
             <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
               Questions or feedback? Contact us at{' '}
@@ -5748,7 +5724,11 @@ function WelcomePage() {
         {!publicGuide && homeTab === 'lobby' && view !== 'archive' ? <HomeIntro text={homeCopy[language]} /> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
-          <section className="welcome-choice-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+          <HomeChoices onChoose={target => {
+            setNotice(null); setSelectedLobbyId(null);
+            if (target === 'archive') { setView('archive'); return; }
+            setMode(target); setView(target === 'bots' ? 'create' : 'join');
+          }}>
             {lastLobbyId && canResumeLastLobby ? (
               <button
                 onClick={() => { window.location.href = `/lobby/${encodeURIComponent(lastLobbyId)}`; }}
@@ -5757,29 +5737,7 @@ function WelcomePage() {
                 {t.returnToTable}
               </button>
             ) : null}
-            {([
-              ['bots', '♠', ui('Play with bots', 'Играть с ботами'), ui('Explore the game with hand hints.', 'Освойте игру с подсказками комбинаций.')],
-              ['friends', '♧', t.people, ui('Invite friends. Talk in voice chat.', 'Пригласите друзей. Общайтесь голосом.')],
-              ['archive', '▤', ui('Statistics', 'Статистика'), ui('Browse the game archive.', 'Посмотреть архив игр.')],
-            ] as const).map(([target, icon, title, hint]) => (
-              <button
-                key={target}
-                onClick={() => {
-                  if (target === 'archive') { setView('archive'); return; }
-                  if (target === 'friends') { setMode('friends'); setView('join'); return; }
-                  setMode(target); setView('create');
-                }}
-                className={`welcome-choice-card${target === 'bots' ? ' welcome-choice-card--primary' : ''}`}
-                style={{ ...cardStyle, minHeight: 158, display: 'grid', gridTemplateColumns: '1fr', alignContent: 'start', justifyItems: 'center', gap: 14, border: '1px solid #d8e2dc', textAlign: 'center', cursor: 'pointer' }}
-              >
-                <span style={{ display: 'grid', placeItems: 'center', width: 52, height: 52, borderRadius: 16, background: '#e8f7ef', color: '#08734d', fontSize: 28, fontWeight: 800 }}>{icon}</span>
-                <span>
-                  <strong style={{ display: 'block', fontSize: 20 }}>{title}</strong>
-                  <small style={{ display: 'block', marginTop: 6, color: '#65736a', fontSize: 14, lineHeight: 1.4 }}>{hint}</small>
-                </span>
-              </button>
-            ))}
-          </section>
+          </HomeChoices>
         ) : null}
 
         {!publicGuide && homeTab === 'lobby' && view === 'choice' ? <HomeBenefits language={language} /> : null}
@@ -5796,7 +5754,7 @@ function WelcomePage() {
 
         {homeTab === 'lobby' && view === 'create' ? (
           <>
-            <button disabled={creating} onClick={() => { setView(mode === 'friends' ? 'join' : 'choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
+            <button disabled={creating} onClick={() => { setView(mode !== 'bots' ? 'join' : 'choice'); setNotice(null); }} style={{ justifySelf: 'start', border: 0, background: 'transparent', color: '#e7d4a9', fontWeight: 900 }}>← {t.back}</button>
             <TableSetup mode={mode} disabled={creating} showModeSelector={false} onModeChange={next => { setMode(next); setNotice(null); }} language={storedLanguage()}>
             <label style={{ display: 'grid', gap: 6, fontWeight: 800 }}>{mode === 'bots' ? ui('Your name (optional)', 'Ваше имя (необязательно)') : t.yourName}<input aria-label={t.yourName} placeholder={mode === 'bots' ? 'You' : undefined} autoFocus maxLength={PLAYER_NAME_MAX_LENGTH} disabled={creating} value={hostName} onChange={event => setHostName(event.target.value)} style={inputStyle} /></label>
             {mode === 'bots' ? (
@@ -5819,14 +5777,15 @@ function WelcomePage() {
               <button onClick={() => { setView('choice'); setNotice(null); }} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900 }}>← {t.back}</button>
               <button onClick={() => { setOpenLobbiesLoaded(false); send('list_open_lobbies'); }} disabled={!connected} style={{ border: '1px solid #cbd5e1', borderRadius: 9, background: '#fff', padding: '7px 10px', fontWeight: 800 }}>{t.refresh}</button>
             </div>
-            <h2 style={{ margin: 0 }}>{t.openTables}</h2>
-            <button onClick={() => { setMode('friends'); setNotice(null); setView('create'); }} disabled={!connected} style={{ ...primaryButton, justifySelf: 'start' }}>{t.createYourOwn}</button>
+            <h2 style={{ margin: 0 }}>{mode === 'guests' ? 'Open guest tables - no PIN' : "Friends' tables - PIN required"}</h2>
+            <button onClick={() => { setNotice(null); setView('create'); }} disabled={!connected} style={{ ...primaryButton, justifySelf: 'start' }}>{t.createYourOwn}</button>
             <div style={{ display: 'grid', gap: 10 }}>
-              {openLobbies.length ? openLobbies.map(lobby => (
+              {visibleLobbies.length ? visibleLobbies.map(lobby => (
                 <button
                   key={lobby.id}
                   aria-pressed={selectedLobbyId === lobby.id}
                   onClick={() => {
+                    if (lobby.mode === 'guests') { window.location.href = `/lobby/${lobby.id}`; return; }
                     setSelectedLobbyId(lobby.id);
                     setPin('');
                     setNotice(null);

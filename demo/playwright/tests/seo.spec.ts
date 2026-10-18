@@ -4,7 +4,7 @@ const slugs = ['rules', 'omaha-vs-holdem', 'how-to-play', 'hand-replay', 'statis
 const origin = 'https://omahahilopoker.com';
 
 for (const javaScriptEnabled of [false, true]) {
-  test(`rules exercises work in both languages with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
+  test(`rules exercises and old translated URLs use English with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ javaScriptEnabled, viewport: { width: 360, height: 844 } });
     const page = await context.newPage();
     const errors: string[] = [];
@@ -17,7 +17,7 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(first.locator('summary .rules-card')).toHaveCount(9);
       await expect(first.locator('.practice-body')).toBeHidden();
       await first.locator('summary').click();
-      await expect(first.locator('.practice-body')).toContainText(language === 'ru' ? 'только одна черва' : 'only one heart');
+      await expect(first.locator('.practice-body')).toContainText('only one heart');
       await page.locator('#practice-group-5 > summary').click();
       const odds = page.locator('#practice-42');
       await odds.locator('summary').click();
@@ -25,22 +25,22 @@ for (const javaScriptEnabled of [false, true]) {
       await odds.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       if (javaScriptEnabled) await page.screenshot({ path: testInfo.outputPath(`practice-${language}-360.png`) });
-      await expect(page.getByRole('link', { name: language === 'ru' ? 'Практиковаться с ботами' : 'Practice with bots', exact: true })).toHaveAttribute('href', '/?start=bots');
+      await expect(page.getByRole('link', { name: 'Practice with bots', exact: true })).toHaveAttribute('href', '/?start=bots');
     }
     if (javaScriptEnabled) {
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.locator('#hand-rankings').scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath('rules-desktop.png') });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      await page.getByRole('link', { name: 'Практиковаться с ботами', exact: true }).click();
-      await expect(page.getByRole('button', { name: 'Играть сейчас', exact: true })).toBeVisible();
+      await page.getByRole('link', { name: 'Practice with bots', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Play now', exact: true })).toBeVisible();
     }
     expect(errors).toEqual([]);
     await context.close();
   });
 }
 
-test('homepage explains its features in static HTML and both interactive languages', async ({ browser, page }) => {
+test('homepage explains its features in static HTML and English', async ({ browser, page }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await context.newPage();
   await staticPage.goto('http://localhost:4000/');
@@ -54,10 +54,7 @@ test('homepage explains its features in static HTML and both interactive languag
   await expect(page.getByRole('heading', { name: /Friends at the table/ })).toBeVisible();
   const bots = page.getByRole('button', { name: 'Play with bots' });
   await expect(bots).toBeInViewport();
-  await page.getByRole('button', { name: 'RU', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Омаха хай-ло онлайн');
-  await expect(page.getByRole('heading', { name: 'Друзья за столом и в голосовом чате' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Правила, комбинации и примеры/ })).toHaveAttribute('href', '/ru/rules');
+  await expect(page.getByRole('button', { name: 'RU', exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
@@ -65,7 +62,7 @@ test('public content and metadata are available without JavaScript', async ({ br
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 360, height: 844 } });
   const page = await context.newPage();
   const titles = new Set<string>();
-  for (const path of ['/', ...slugs.map(slug => `/${slug}`), ...slugs.map(slug => `/ru/${slug}`)]) {
+  for (const path of ['/', ...slugs.map(slug => `/${slug}`)]) {
     const response = await page.goto(`http://localhost:4000${path}`);
     expect(response?.status()).toBe(200);
     await expect(page.locator('h1')).toHaveCount(1);
@@ -81,8 +78,7 @@ test('public content and metadata are available without JavaScript', async ({ br
     expect(JSON.parse(schema!)['@graph'].some((item: { '@type': string }) => item['@type'] === 'WebPage')).toBe(true);
     if (path !== '/') {
       await expect(page.locator('h2')).not.toHaveCount(0);
-      await expect(page.locator('link[hreflang="en"]')).toHaveCount(1);
-      await expect(page.locator('link[hreflang="ru"]')).toHaveCount(1);
+      await expect(page.locator('link[hreflang]')).toHaveCount(0);
     }
     await expect(page.locator('a[href="/rules"], a[href="/ru/rules"]')).not.toHaveCount(0);
   }
@@ -98,7 +94,7 @@ test('sitemap, robots, redirects and private/error routing use correct responses
   expect(sitemap.status()).toBe(200);
   expect(sitemap.headers()['content-type']).toContain('xml');
   const xml = await sitemap.text();
-  expect(xml.match(/<loc>/g)).toHaveLength(13);
+  expect(xml.match(/<loc>/g)).toHaveLength(7);
   expect(xml).not.toMatch(/player|lobby|debug|admin/);
   for (const match of xml.matchAll(/<loc>(.*?)<\/loc>/g)) {
     expect((await request.get(match[1].replace(origin, ''))).status()).toBe(200);
@@ -106,7 +102,7 @@ test('sitemap, robots, redirects and private/error routing use correct responses
   const redirect = await request.get('/rules/?source=test', { maxRedirects: 0 });
   expect(redirect.status()).toBe(301);
   expect(redirect.headers().location).toBe('/rules?source=test');
-  for (const path of ['/', ...slugs.map(slug => `/${slug}`), ...slugs.map(slug => `/ru/${slug}`)]) {
+  for (const path of ['/', ...slugs.map(slug => `/${slug}`)]) {
     const alias = `${path === '/' ? '' : path}/index.html?source=test`;
     const response = await request.get(alias, { maxRedirects: 0 });
     expect(response.status()).toBe(301);
@@ -142,31 +138,29 @@ for (const width of [360, 390, 400]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       if (path === '/rules') await page.screenshot({ path: testInfo.outputPath(`rules-${width}.png`), fullPage: true });
     }
-    await page.getByRole('link', { name: 'EN', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'EN', exact: true })).toHaveCount(0);
     await expect(page).toHaveURL(/\/rules$/);
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await page.getByRole('link', { name: 'Play Omaha Hi-Lo', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Play with people' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Play with friends' })).toBeVisible();
     expect(errors).toEqual([]);
   });
 }
 
-test('statistics route uses the existing archive and Russian homepage preference survives', async ({ page }) => {
+test('old translated statistics redirects to English and ignores saved language', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('omaha-language', 'ru'));
   await page.route('**/api/archive?*', route => route.fulfill({ json: { rows: [], page: 1, totalPages: 1 } }));
-  await page.goto('/statistics');
+  await page.goto('/ru/statistics');
+  await expect(page).toHaveURL(/\/statistics$/);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await expect(page.getByRole('heading', { name: 'Hand archive', exact: true })).toBeVisible();
-  await expect(page.getByText('No saved games yet.', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'RU', exact: true }).click();
-  await expect(page).toHaveURL(/\/ru\/statistics$/);
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'Играть с ботами' })).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+  await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
 });
 
 test('static homepage entry links open existing setup and the built game still starts', async ({ page }) => {
   await page.goto('/?start=friends');
-  await expect(page.getByRole('heading', { name: 'Open tables', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: "Friends' tables - PIN required", exact: true })).toBeVisible();
   await page.goto('/?start=bots');
   await expect(page.getByRole('button', { name: 'Play now', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Play now', exact: true }).click();
@@ -180,10 +174,10 @@ test('static homepage entry links open existing setup and the built game still s
 test('index.html aliases keep the canonical content after JavaScript loads', async ({ page }) => {
   for (const path of ['/rules', '/ru/rules']) {
     await page.goto(`${path}/index.html`);
-    await expect(page).toHaveURL(new RegExp(`${path}$`));
-    await expect(page.locator('h1')).toContainText(path.startsWith('/ru/') ? 'Правила' : 'Rules');
+    await expect(page).toHaveURL(new RegExp(`${path.replace('/ru/', '/')}$`));
+    await expect(page.locator('h1')).toContainText('Rules');
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'index, follow');
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', origin + path);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', origin + path.replace('/ru/', '/'));
   }
 });
 
@@ -197,18 +191,18 @@ test('statistics Back, Lobby and About leave the statistics route', async ({ pag
     await expect(page).toHaveURL(target === 'about' ? 'http://localhost:4000/?view=about' : 'http://localhost:4000/');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${origin}/`);
     await expect(page.getByRole('heading', { name: 'Omaha Hi-Lo Statistics & Hand Archive', exact: true })).toHaveCount(0);
-    if (target === 'about') await expect(page.getByRole('heading', { name: 'About / О проекте', exact: true })).toBeVisible();
+    if (target === 'about') await expect(page.getByRole('heading', { name: 'About', exact: true })).toBeVisible();
     else await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
   }
 });
 
-test('a direct visit to translated statistics preserves that language at game entry', async ({ page }) => {
+test('translated statistics redirects to English at game entry', async ({ page }) => {
   await page.route('**/api/archive?*', route => route.fulfill({ json: { rows: [], page: 1, totalPages: 1 } }));
   for (const language of ['ru', 'en']) {
     await page.goto(language === 'ru' ? '/ru/statistics' : '/statistics');
-    await expect(page.locator('html')).toHaveAttribute('lang', language);
-    await page.getByRole('link', { name: language === 'ru' ? 'Играть в Омаху хай-ло' : 'Play Omaha Hi-Lo', exact: true }).click();
-    await expect(page.getByRole('button', { name: language === 'ru' ? 'Играть с ботами' : 'Play with bots' })).toBeVisible();
-    await expect(page.locator('html')).toHaveAttribute('lang', language);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await page.getByRole('link', { name: 'Play Omaha Hi-Lo', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   }
 });

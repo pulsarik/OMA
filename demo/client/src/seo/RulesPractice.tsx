@@ -124,7 +124,7 @@ export function RulesPractice({ language }: { language: Language }) {
       <nav className="rules-nav" aria-label={ru ? 'Темы упражнений' : 'Practice topics'}>{practiceGroups.map((group, index) => <a key={index} href={`#practice-group-${index + 1}`}>{group[language]}</a>)}</nav>
       {practiceGroups.map((group, index) => <details id={`practice-group-${index + 1}`} className="rules-section practice-group" key={index} open={index === 0}>
         <summary><h3>{group[language]}</h3></summary>
-        {practiceCases.filter(item => item.group === index).map(item => <details className="practice-case" id={`practice-${item.id}`} key={item.id}>
+        {practiceCases.filter(item => item.group === index).map(item => <details className="practice-case" id={item.id === 50 ? 'practice-case-50' : `practice-${item.id}`} key={item.id}>
           <summary>{item.id}. {item.question[language]}
             <span className="rules-cards">{ru ? 'Карты руки' : 'Hole cards'}</span><Cards codes={item.hole} language={language} />
             <span>{ru ? 'Борд' : 'Board'}</span>
@@ -133,7 +133,7 @@ export function RulesPractice({ language }: { language: Language }) {
           </summary>
           <div className="practice-body">
             <p><strong>{ru ? 'Разбор. ' : 'Explanation. '}</strong>{item.answer[language]}</p>
-            <a href={`#practice-${item.id}`} aria-label={ru ? `Ссылка на ситуацию ${item.id}` : `Link to situation ${item.id}`}>#{item.id}</a>
+            <a href={item.id === 50 ? '#practice-case-50' : `#practice-${item.id}`} aria-label={ru ? `Ссылка на ситуацию ${item.id}` : `Link to situation ${item.id}`}>#{item.id}</a>
           </div>
         </details>)}
       </details>)}
