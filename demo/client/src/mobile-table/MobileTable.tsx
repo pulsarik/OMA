@@ -244,12 +244,14 @@ export default function MobileTable(props: MobileTableProps) {
         <span className={`mt-connection${c.connected ? '' : ' mt-connection--offline'}`} role="img" aria-label={t(c.connected ? 'Connected' : 'Disconnected', c.connected ? 'Подключено' : 'Нет связи')} />
         {desktop ? <nav className="dt-nav" aria-label={t('Game views', 'Разделы игры')}>
           <button aria-current="page">{t('Table', 'Стол')}</button>
+          {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
           <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
           <button onClick={props.onAbout}>{t('Rules', 'Правила')}</button>
           <button onClick={toggleLanguage}>EN / RU</button>
         </nav> : null}
         {!desktop ? <details className="mt-menu"><summary aria-label={t('Table menu', 'Меню стола')}>☰</summary>
           <nav aria-label={t('Table menu', 'Меню стола')}>
+            {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
             <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
             <button onClick={props.onAbout}>{t('About & rules', 'О проекте и правила')}</button>
             <button onClick={toggleLanguage}>Language · EN / RU</button>

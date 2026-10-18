@@ -941,6 +941,8 @@ function notifyLobbyHostPinChanged(lobby: Lobby) {
 }
 
 async function validateLobbyPin(lobby: Lobby, suppliedPin: unknown) {
+  // A bare lobby URL is not a failed guess and must not rotate shared invitations.
+  if (suppliedPin == null || suppliedPin === '') throw new Error('enter a 4-digit PIN');
   if (/^\d{4}$/.test(lobby.pin) && suppliedPin === lobby.pin) {
     if (lobby.failedPinAttempts) {
       lobby.failedPinAttempts = 0;

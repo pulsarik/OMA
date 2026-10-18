@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { CityIcon } from '../components/CityIcon';
+import { LobbyPinForm } from '../components/LobbyPinForm';
 import { TableSetup, type TableMode } from '../components/TableSetup';
 import { HandArchive } from '../components/HandArchive';
 import { CityInfo } from '../components/CityInfo';
@@ -3609,9 +3610,9 @@ function PlayerPage({
     </button>
   ) : undefined;
 
-  if (isTableView && (shouldUseMobileTable(window.innerWidth, player.players.length)
-    || shouldUseDesktopTable(window.innerWidth, player.players.length))) {
-    return <React.Suspense fallback={<p role="status">Loading table… / Загружаем стол…</p>}>
+  const showOvalTable = isTableView && (shouldUseMobileTable(window.innerWidth, player.players.length)
+    || shouldUseDesktopTable(window.innerWidth, player.players.length));
+  const ovalTable = showOvalTable ? <React.Suspense fallback={<p role="status">Loading table… / Загружаем стол…</p>}>
       <MobileTable
         layout={isMobileTable ? 'mobile' : 'desktop'}
         player={player}
@@ -3633,18 +3634,20 @@ function PlayerPage({
         onStats={() => setActiveView('stats')}
         statsAvailable={showStatsTile}
         onAbout={() => setActiveView('about')}
+        onVoice={VOICE_TAB_ENABLED ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
         onExit={onExitGame}
         isHost={isLobbyHost}
         winnerName={tournamentWinner ? tablePlayerName(tournamentWinner.name, tournamentWinner.id) : undefined}
       />
-    </React.Suspense>;
-  }
+    </React.Suspense> : null;
 
   return (
     <>
-      <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`}>
-        <style>{PLAYER_PAGE_STYLES}</style>
+      {ovalTable}
+      {/* Keep the voice room mounted when returning to either table layout. */}
+      <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
+        {!showOvalTable ? <style>{PLAYER_PAGE_STYLES}</style> : null}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
       </div>
       <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
@@ -3695,7 +3698,7 @@ function PlayerPage({
         </button>
       </nav>
 
-      {isTableView ? <section
+      {isTableView && !showOvalTable ? <section
         id="table-panel"
         role="tabpanel"
         aria-labelledby="table-tab"
@@ -4380,6 +4383,7 @@ function LobbyPage() {
   const searchParams = new URLSearchParams(window.location.search);
   const memberHint = searchParams.get('member');
   const invitePin = searchParams.get('pin');
+  const [needsPin, setNeedsPin] = useState(false);
   const [lobby, setLobby] = useState<LobbyView | null>(null);
   const [memberId, setMemberId] = useState<string | null>(null);
   const [name, setName] = useState(storedPlayerName);
@@ -4441,10 +4445,12 @@ function LobbyPage() {
         } catch {
           window.sessionStorage.removeItem(activeStorageKey);
           window.localStorage.removeItem(storageKey);
-          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
+          if (accessPin) ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
+          else setNeedsPin(true);
         }
       } else {
-        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
+        if (accessPin) ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
+        else setNeedsPin(true);
       }
     },
     onMessage: (event, eventSocket) => {
@@ -4462,6 +4468,7 @@ function LobbyPage() {
         window.sessionStorage.removeItem(accessStorageKey);
         window.history.replaceState(null, '', `/lobby/${lobbyId}`);
         setMemberId(message.data.memberId);
+        setNeedsPin(false);
         applyLobbySession(message.data.lobby);
         setLobby(message.data.lobby);
         setNotice(null);
@@ -4473,6 +4480,8 @@ function LobbyPage() {
       } else if (message.type === 'lobby_updated') {
         applyLobbySession(message.data);
         setLobby(message.data);
+        setNeedsPin(false);
+        if (!memberId) setNotice(null);
       } else if (message.type === 'lobby_pin_changed') {
         setNotice(ui(
           `Security alert: after 5 incorrect attempts, the table PIN was changed to ${message.data.pin}.`,
@@ -4483,6 +4492,9 @@ function LobbyPage() {
         setPlayerUrl(message.data.playerUrl);
       } else if (message.type === 'error') {
         setNotice(localizedServerMessage(message.message));
+        if (message.message.startsWith('incorrect table PIN') || message.message === 'enter a 4-digit PIN') {
+          setNeedsPin(true);
+        }
       } else if (message.type === 'session_expired') {
         setLobbyExpired(true);
       }
@@ -4551,7 +4563,17 @@ function LobbyPage() {
     }
   }
 
+  function openLobbyWithPin(pin: string) {
+    window.sessionStorage.setItem(accessStorageKey, pin);
+    const url = new URL(window.location.href);
+    url.searchParams.set('pin', pin);
+    window.history.replaceState(null, '', url);
+    setNotice(null);
+    send('view_lobby', { pin });
+  }
+
   function join() {
+    if (needsPin || !lobby) return;
     const normalizedName = name.trim();
     if (!normalizedName) {
       setNotice(ui('Enter your name.', 'Введите ваше имя.'));
@@ -4670,12 +4692,13 @@ function LobbyPage() {
               />
               <button
                 onClick={join}
-                disabled={!socketReady || !lobby || lobby.status !== 'waiting' || lobby.members.length >= lobby.maxPlayers}
+                disabled={!socketReady || needsPin || !lobby || lobby.status !== 'waiting' || lobby.members.length >= lobby.maxPlayers}
               >
                 {ui('Take a seat', 'Занять место')}
               </button>
             </div>
             {notice ? <p className="lobby-join-notice" role="alert">{notice}</p> : null}
+            {needsPin ? <LobbyPinForm language={language} connected={socketReady} onSubmit={openLobbyWithPin} /> : null}
             {!socketReady ? <p className="lobby-join-notice" role="status">{ui('Connecting…', 'Подключение…')}</p> : null}
             {lobby ? (
               <>
@@ -4702,7 +4725,7 @@ function LobbyPage() {
                   <p className="lobby-join-notice" role="status">{ui('This table is full.', 'За столом нет свободных мест.')}</p>
                 ) : null}
               </>
-            ) : !notice ? <p className="lobby-join-notice" role="status">{ui('Loading lobby…', 'Загружаем лобби…')}</p> : null}
+            ) : !notice && !needsPin ? <p className="lobby-join-notice" role="status">{ui('Loading lobby…', 'Загружаем лобби…')}</p> : null}
           </section>
         ) : lobby ? (
           <>

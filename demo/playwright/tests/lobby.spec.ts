@@ -119,7 +119,7 @@ test('mobile host can start a lobby and reach the table', async ({ page }) => {
 
 test('host creates a city table and a friend joins it by PIN', async ({ page, browser }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Omaha Hi-Lo' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Omaha Hi-Lo', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Play with people' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
   await page.getByLabel('Your name').fill('Dima');

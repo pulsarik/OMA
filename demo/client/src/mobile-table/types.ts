@@ -53,6 +53,6 @@ export type MobileTableProps = {
   onMove: (move: Move, amount?: number, size?: BetSize) => void;
   onBetSize: (size: BetSize) => void;
   onNext?: () => void; onStats: () => void; statsAvailable: boolean;
-  onAbout: () => void; onRestart?: () => void; onExit?: () => void;
+  onAbout: () => void; onVoice?: () => void; onRestart?: () => void; onExit?: () => void;
   winnerName?: string; isHost: boolean;
 };
