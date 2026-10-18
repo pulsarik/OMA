@@ -3,7 +3,7 @@ import { open, Database } from 'sqlite';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs/promises';
 import path from 'path';
-import { buildArchiveRows, groupArchiveHands } from './archive';
+import { addArchiveRow, buildArchiveRows, createArchiveSummary, groupArchiveHands } from './archive';
 
 export default class HandStore {
   private db?: Database<sqlite3.Database, sqlite3.Statement>;
@@ -252,8 +252,8 @@ export default class HandStore {
   async getArchivePage(page = 1) {
     const db = await this.getDb();
     const pageSize = 20;
-    // Read only grouping metadata for the index; deserialize and score only
-    // the selected parties. Previous links preserve legacy party grouping.
+    // Previous links preserve legacy party grouping. Aggregate one party at a
+    // time so the summary covers every game without retaining the full archive.
     const metadata = await db.all<{
       id: string; partyId: string; previousHandId?: string; created: number; handNumber: number;
     }[]>(`SELECT id, party_id AS partyId, created,
@@ -266,9 +266,10 @@ export default class HandStore {
     const total = parties.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const currentPage = Math.min(Math.max(1, Number.isSafeInteger(page) ? page : 1), totalPages);
-    const selected = parties.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const pageStart = (currentPage - 1) * pageSize;
+    const summary = createArchiveSummary();
     const rows = [];
-    for (const party of selected) {
+    for (const [index, party] of parties.entries()) {
       const hands = [];
       // Batches stay below SQLite's bound-parameter limit for long parties.
       for (let start = 0; start < party.length; start += 500) {
@@ -276,9 +277,11 @@ export default class HandStore {
         const records = await db.all(`SELECT data FROM hands WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
         hands.push(...records.map(record => JSON.parse(record.data)));
       }
-      rows.push(...buildArchiveRows(hands));
+      const partyRows = buildArchiveRows(hands);
+      for (const row of partyRows) addArchiveRow(summary, row);
+      if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
     }
-    return { rows, total, page: currentPage, pageSize, totalPages };
+    return { rows, summary, total, page: currentPage, pageSize, totalPages };
   }
 
   async listHandsByParty(partyId: string) {

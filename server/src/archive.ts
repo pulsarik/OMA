@@ -56,6 +56,30 @@ const COMBINATIONS: ArchiveCombination[] = [
   'highCard',
 ];
 
+export function createArchiveSummary() {
+  return {
+    games: 0,
+    hands: 0,
+    completedHands: 0,
+    handsWithLow: 0,
+    finishedGames: 0,
+    durationMinutes: 0,
+    lowWins: 0,
+    combinations: Object.fromEntries(COMBINATIONS.map(key => [key, 0])) as Record<ArchiveCombination, number>,
+  };
+}
+
+export function addArchiveRow(summary: ReturnType<typeof createArchiveSummary>, row: ArchiveRow) {
+  summary.games += 1;
+  summary.hands += row.hands;
+  summary.completedHands += row.completedHands;
+  summary.handsWithLow += row.handsWithLow;
+  summary.finishedGames += Number(row.finished);
+  summary.durationMinutes += row.durationMinutes;
+  summary.lowWins += row.lowWins;
+  for (const key of COMBINATIONS) summary.combinations[key] += row.combinations[key];
+}
+
 export function groupArchiveHands<T extends { id: string; partyId?: string; previousHandId?: string }>(savedHands: T[]): T[][] {
   const parent = savedHands.map((_hand, index) => index);
   const find = (index: number): number => {

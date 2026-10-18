@@ -36,9 +36,15 @@ type Props = {
   onReplay: (code: string, players: number) => void;
 };
 
+type ArchiveSummary = Pick<ArchiveRow, 'hands' | 'completedHands' | 'handsWithLow' | 'durationMinutes' | 'lowWins' | 'combinations'> & {
+  games: number;
+  finishedGames: number;
+};
+
 export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
   const ru = language === 'ru';
   const [rows, setRows] = useState<ArchiveRow[] | null>(null);
+  const [summary, setSummary] = useState<ArchiveSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
   const [page, setPage] = useState(1);
@@ -68,12 +74,13 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     code: ru ? 'Код сдачи' : 'Hand code',
     yes: ru ? 'Да' : 'Yes',
     no: ru ? 'Нет' : 'No',
-    average: ru ? 'Среднее по странице' : 'Page average',
+    average: ru ? 'Среднее по всем играм' : 'All games average',
   };
 
   useEffect(() => {
     const controller = new AbortController();
     setRows(null);
+    setSummary(null);
     setError(null);
     fetch(`${apiUrl}/api/archive?page=${page}`, { signal: controller.signal })
       .then(async response => {
@@ -81,11 +88,12 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
           const result = await response.json().catch(() => ({}));
           throw new Error(result.error || `${response.status} ${response.statusText}`);
         }
-        return response.json() as Promise<{ rows: ArchiveRow[]; page: number; totalPages: number }>;
+        return response.json() as Promise<{ rows: ArchiveRow[]; summary: ArchiveSummary; page: number; totalPages: number }>;
       })
       .then(result => {
         if (controller.signal.aborted) return;
         setRows(result.rows);
+        setSummary(result.summary);
         setPagination({ page: result.page, totalPages: result.totalPages });
       })
       .catch(reason => {
@@ -96,20 +104,19 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     return () => controller.abort();
   }, [apiUrl, reload, page]);
 
-  const average = (select: (row: ArchiveRow) => number) => (
-    rows?.length ? rows.reduce((sum, row) => sum + select(row), 0) / rows.length : 0
+  const average = (total: number) => (
+    summary?.games ? total / summary.games : 0
   );
-  const completedHands = rows?.reduce((sum, row) => sum + row.completedHands, 0) ?? 0;
-  const lowMean = completedHands
-    ? (rows!.reduce((sum, row) => sum + row.handsWithLow, 0) / completedHands) * 100
+  const lowMean = summary?.completedHands
+    ? (summary.handsWithLow / summary.completedHands) * 100
     : null;
   const percent = (value: number | null) => value === null ? '—' : `${value.toFixed(1)}%`;
   const date = (value: number) => new Date(value).toLocaleString(ru ? 'ru-RU' : 'en-GB');
   const averageCombination = (key: keyof ArchiveRow['combinations']) => (
-    average(row => row.combinations[key]).toFixed(1)
+    average(summary?.combinations[key] ?? 0).toFixed(1)
   );
   const combinationKeys = Object.keys(baseline.counts) as (keyof ArchiveRow['combinations'])[];
-  const totalCombinations = rows?.reduce((sum, row) => sum + combinationKeys.reduce((subtotal, key) => subtotal + row.combinations[key], 0), 0) ?? 0;
+  const totalCombinations = summary ? combinationKeys.reduce((sum, key) => sum + summary.combinations[key], 0) : 0;
 
   return (
     <section style={{ border: '1px solid #cbd5e1', borderRadius: 22, background: 'rgba(255,255,255,.96)', padding: 'clamp(16px, 3vw, 26px)', display: 'grid', gap: 16 }}>
@@ -138,17 +145,17 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               </tr>
             </thead>
             <tbody>
-              <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
+              {summary ? <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
                 <th scope="row" style={{ padding: 9 }}>{text.average}</th>
-                <td>{average(row => row.hands).toFixed(1)}</td>
-                <td>{percent(rows.filter(row => row.finished).length / rows.length * 100)}</td>
-                <td>{average(row => row.durationMinutes).toFixed(1)}</td>
+                <td>{average(summary.hands).toFixed(1)}</td>
+                <td>{percent(average(summary.finishedGames) * 100)}</td>
+                <td>{average(summary.durationMinutes).toFixed(1)}</td>
                 <td>{percent(lowMean)}</td>
-                <td>{average(row => row.lowWins).toFixed(1)}</td>
+                <td>{average(summary.lowWins).toFixed(1)}</td>
                 {combinationKeys.map(key => <td key={key}>
                   <div>{averageCombination(key)}</div>
                   <CombinationFrequency
-                    count={rows.reduce((sum, row) => sum + row.combinations[key], 0)}
+                    count={summary.combinations[key]}
                     total={totalCombinations}
                     expected={baseline.counts[key] / baseline.samples * 100}
                     label={text[key]}
@@ -156,7 +163,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                   />
                 </td>)}
                 <td>—</td>
-              </tr>
+              </tr> : null}
               {rows.map(row => (
                 <tr key={row.partyId}>
                   <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}</td>
