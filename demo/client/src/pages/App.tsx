@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
-import { Commentator } from '../components/Commentator';
+import { Commentator, CommentatorCaption, CommentatorSettings } from '../components/Commentator';
 import { useCommentary } from '../commentary/useCommentary';
 import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
@@ -3025,7 +3025,7 @@ function PlayerPage({
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
-  const [activeView, setActiveView] = useState<'table' | 'voice' | 'stats' | 'about'>('table');
+  const [activeView, setActiveView] = useState<'table' | 'voice' | 'stats' | 'about' | 'settings'>('table');
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
@@ -3495,7 +3495,8 @@ function PlayerPage({
   const isVoiceView = showVoiceChat && activeView === 'voice';
   const isStatsView = activeView === 'stats' && showStatsTile;
   const isAboutView = activeView === 'about';
-  const isTableView = !isVoiceView && !isStatsView && !isAboutView;
+  const isSettingsView = activeView === 'settings';
+  const isTableView = !isVoiceView && !isStatsView && !isAboutView && !isSettingsView;
   const playerSeatIndex = player.players.findIndex(seat => seat.id === player.playerId);
   const otherPlayers = playerSeatIndex < 0
     ? player.players.filter(seat => seat.id !== player.playerId)
@@ -3626,6 +3627,9 @@ function PlayerPage({
         onStats={() => setActiveView('stats')}
         statsAvailable={showStatsTile}
         onAbout={() => setActiveView('about')}
+        onSettings={() => setActiveView('settings')}
+        headerActions={<Commentator controller={commentary} />}
+        commentaryCaption={<CommentatorCaption controller={commentary} />}
         onVoice={showVoiceChat ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
         onExit={onExitGame}
@@ -3636,12 +3640,12 @@ function PlayerPage({
 
   return (
     <>
-      <Commentator controller={commentary} />
       {ovalTable}
       {/* Keep the voice room mounted when returning to either table layout. */}
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
         {!showOvalTable ? <style>{PLAYER_PAGE_STYLES}</style> : null}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 5 }}>
+      <div className="commentator-toolbar">
+        {!showOvalTable ? <Commentator controller={commentary} /> : null}
       </div>
       <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
         <button
@@ -3689,7 +3693,15 @@ function PlayerPage({
         >
           {ui('ABOUT', 'О ПРОЕКТЕ')}
         </button>
+        <button id="settings-tab" type="button" role="tab" aria-controls="settings-panel" aria-selected={isSettingsView}
+          className={`view-tab${isSettingsView ? ' is-active' : ''}`} onClick={() => setActiveView('settings')}>
+          {ui('SETTINGS', 'НАСТРОЙКИ')}
+        </button>
       </nav>
+      {!showOvalTable ? <CommentatorCaption controller={commentary} /> : null}
+      {isSettingsView ? <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" className="commentator-settings-panel">
+        <CommentatorSettings controller={commentary} />
+      </section> : null}
 
       {isTableView && !showOvalTable ? <section
         id="table-panel"

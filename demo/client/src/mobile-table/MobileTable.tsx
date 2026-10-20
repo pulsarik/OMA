@@ -244,15 +244,19 @@ export default function MobileTable(props: MobileTableProps) {
           {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
           <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
           <button onClick={props.onAbout}>{t('Rules', 'Правила')}</button>
+          {props.onSettings ? <button onClick={props.onSettings}>{t('Settings', 'Настройки')}</button> : null}
         </nav> : null}
         {!desktop ? <details className="mt-menu"><summary aria-label={t('Table menu', 'Меню стола')}>☰</summary>
           <nav aria-label={t('Table menu', 'Меню стола')}>
             {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
             <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
             <button onClick={props.onAbout}>{t('About & rules', 'О проекте и правила')}</button>
+            {props.onSettings ? <button onClick={props.onSettings}>{t('Settings', 'Настройки')}</button> : null}
           </nav>
         </details> : null}
+        {props.headerActions}
       </header>
+      {props.commentaryCaption}
       {c.sessionWarning ? <p className="mt-alert" role="alert">{t('Table expires in', 'Стол будет удалён через')} {c.sessionWarning}</p> : null}
       {!c.connected ? <p className="mt-alert" role="status">{t('Reconnecting…', 'Восстанавливаем соединение…')}</p> : null}
       <div className={`mt-scene${showdown ? ' mt-scene--showdown' : ''}`} data-testid="mt-scene">

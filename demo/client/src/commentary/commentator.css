@@ -1,8 +1,22 @@
-.commentator { box-sizing: border-box; width: min(100%, 760px); margin: 4px auto; padding: 6px 12px; border: 1px solid #d8e4db; border-radius: 10px; background: #f4f8f5; color: #234336; font: 13px/1.4 system-ui, sans-serif; }
-.commentator summary { cursor: pointer; padding: 4px 0; }
-.commentator-status { float: right; font-size: 12px; opacity: .75; }
-.commentator-settings { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0; }
-.commentator-settings label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.commentator select, .commentator button { font: inherit; padding: 6px; border: 1px solid #bbcfc2; border-radius: 6px; background: white; color: #234336; }
-.commentator p { margin: 6px 0 2px; overflow-wrap: anywhere; }
-@media (max-width: 560px) { .commentator { width: calc(100% - 12px); } .commentator-settings { gap: 8px; } }
+.commentator-toggle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px; width: 40px; height: 40px; padding: 0; border: 1px solid currentColor; border-radius: 50%; background: transparent; color: #587267; cursor: pointer; }
+.commentator-toggle.is-on { color: #26744e; background: #26744e0c; }
+.commentator-toggle.is-speaking { box-shadow: 0 0 0 3px #5fbc8233; }
+.commentator-toggle:hover { background: #5fbc8226; }
+.commentator-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.commentator-toolbar { display: flex; justify-content: flex-end; margin-bottom: 5px; padding-right: 48px; }
+.mt-header .commentator-toggle { color: #9ab3a7; width: 36px; height: 36px; flex-basis: 36px; }
+.mt-header .commentator-toggle.is-on { color: #f0c777; }
+.poker-page--new-design .commentator-toggle { color: #9ab3a7; }
+.poker-page--new-design .commentator-toggle.is-on { color: #f0c777; }
+.commentator-caption { box-sizing: border-box; max-width: 760px; margin: 4px auto 8px; padding: 6px 12px; color: #234336; font: 14px/1.4 system-ui, sans-serif; text-align: center; overflow-wrap: anywhere; }
+.mt-shell > .commentator-caption { color: #f0dfb8; }
+.poker-page--new-design .commentator-caption { color: #f0dfb8; }
+.commentator-settings-panel { min-height: 260px; border: 1px solid #d8e2dc; border-radius: 12px; background: #f7f9f7; }
+.commentator-settings { box-sizing: border-box; width: min(100%, 480px); padding: 24px; color: #234336; font: 15px/1.5 system-ui, sans-serif; }
+.commentator-settings h2 { margin: 0 0 24px; font-size: 20px; }
+.commentator-settings label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+.commentator-settings select { font: inherit; padding: 10px; border: 1px solid #bbcfc2; border-radius: 6px; background: white; color: #234336; }
+.commentator-volume { display: flex; align-items: center; gap: 16px; }
+.commentator-volume input { min-width: 0; flex: 1; accent-color: #26744e; }
+.commentator-volume output { min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
+.poker-page .view-tabs { flex-wrap: wrap; }

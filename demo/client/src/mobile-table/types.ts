@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // Read-only view contract. No dealing, scoring or betting rules live here.
 export type Language = 'ru' | 'en';
 export type Move = 'check' | 'call' | 'bet' | 'raise' | 'fold';
@@ -54,5 +55,6 @@ export type MobileTableProps = {
   onBetSize: (size: BetSize) => void;
   onNext?: () => void; onStats: () => void; statsAvailable: boolean;
   onAbout: () => void; onVoice?: () => void; onRestart?: () => void; onExit?: () => void;
+  onSettings?: () => void; headerActions?: ReactNode; commentaryCaption?: ReactNode;
   winnerName?: string; isHost: boolean;
 };

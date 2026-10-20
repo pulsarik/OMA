@@ -1,9 +1,9 @@
 import { expect, Page, test, WebSocketRoute } from '@playwright/test';
 import { fixture } from './mobile-oval/fixture';
 
-async function table(page: Page, mode = 'text', blocked = false) {
+async function table(page: Page, mode: string | null = 'text', blocked = false) {
   await page.addInitScript(({ mode, blocked }) => {
-    localStorage.setItem('omaha-commentary', JSON.stringify({ mode, locale: 'ru', volume: 0.5 }));
+    if (mode !== null && !localStorage.getItem('omaha-commentary')) localStorage.setItem('omaha-commentary', JSON.stringify({ mode, locale: 'ru', volume: 0.5 }));
     const stats = { plays: 0, pauses: 0, volume: 0, blocked, finish: () => {} };
     (window as any).commentaryAudio = stats;
     (window as any).Audio = class {
@@ -48,6 +48,39 @@ async function table(page: Page, mode = 'text', blocked = false) {
 }
 
 export function commentaryCases() {
+  async function settings(page: Page) {
+    const tab = page.getByRole('tab', { name: 'SETTINGS', exact: true });
+    if (await tab.isVisible()) await tab.click();
+    else {
+      const menu = page.getByLabel('Table menu', { exact: true }).filter({ hasText: '☰' });
+      if (await menu.isVisible()) await menu.click();
+      await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    }
+  }
+
+  test('voice defaults on, settings are separate and preferences survive reload', async ({ page }) => {
+    const t = await table(page, null);
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('voice');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('slider')).toHaveCount(0);
+    await settings(page);
+    await page.getByLabel('Commentary language').selectOption('ru');
+    await page.getByLabel('Громкость комментатора').fill('0.25');
+    await expect(page.locator('.commentator-volume output')).toHaveText('25%');
+    await page.getByTestId('commentator').click();
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('off');
+    await page.reload();
+    await expect(page.getByTestId('commentator')).toHaveAttribute('aria-pressed', 'false');
+    await settings(page);
+    await expect(page.getByLabel('Язык комментатора')).toHaveValue('ru');
+    await expect(page.getByLabel('Громкость комментатора')).toHaveValue('0.25');
+    await page.getByTestId('commentator').click();
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('voice');
+    t.complete(); t.send();
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.volume)).toBe(0.25);
+  });
+
   test('human voice delays commentary and interrupts playback without restarting it', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.route('**/node_modules/.vite/deps/livekit-client.js*', route => route.fulfill({
@@ -89,10 +122,16 @@ export function commentaryCases() {
     expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
   });
 
-  for (const width of [390, 1280]) {
+  for (const width of [320, 390, 761, 1280]) {
     test(`commentary waits for result, supports language and off settings (${width}px)`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       const t = await table(page);
+      await expect(page.getByTestId('commentator')).toHaveCount(1);
+      const toggle = await page.getByTestId('commentator').boundingBox();
+      expect(toggle!.x).toBeGreaterThan(width / 2);
+      expect(toggle!.y).toBeLessThan(80);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`commentator-${width}.png`) });
       t.send();
       await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
       t.complete();
@@ -100,12 +139,13 @@ export function commentaryCases() {
       expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(0);
       t.send({ text: 'Это повтор.' });
       await expect(page.getByTestId('commentary-caption')).toHaveText('За столом новый лидер.');
-      await page.getByTestId('commentator').locator('summary').click();
-      await page.getByLabel('Режим комментатора').selectOption('off');
+      await page.getByTestId('commentator').click();
       await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
       await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('off');
+      await settings(page);
       await page.getByLabel('Язык комментатора').selectOption('en');
-      await expect(page.getByLabel('Commentary mode')).toHaveValue('off');
+      await expect(page.getByTestId('commentator')).toHaveAttribute('aria-pressed', 'false');
+      await expect.poll(() => t.subscriptions.at(-1)?.locale).toBe('en');
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     });
   }
@@ -115,8 +155,7 @@ export function commentaryCases() {
     await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
     expect(await page.evaluate(() => (window as any).commentaryAudio.volume)).toBe(0.5);
     t.send();
-    await page.getByTestId('commentator').locator('summary').click();
-    await page.getByLabel('Режим комментатора').selectOption('off');
+    await page.getByTestId('commentator').click();
     await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.pauses)).toBeGreaterThan(0);
     expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
   });

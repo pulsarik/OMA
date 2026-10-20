@@ -66,7 +66,7 @@ test('an ordinary split and a win by folds are eligible without a new leader or 
   split.totalContributions = { P1: 20, P2: 20, P3: 20 }; split.potCoins = 60;
   expect(commentaryResultSummary(split)).toEqual({
     facts: [{ kind: 'won_high_share', playerId: 'P2' }, { kind: 'won_low_share', playerId: 'P1' }],
-    context: { finish: 'showdown', contestedPotSize: 'small', allIn: false, sidePots: false, low: 'awarded' },
+    context: { finish: 'showdown', contestedPotSize: 'medium', allIn: false, sidePots: false, low: 'awarded' },
   });
   const folded = settled();
   folded.players[1].folded = folded.players[2].folded = true;
