@@ -3,6 +3,7 @@ import { commentaryResultFacts, dealHand, DealtHand } from '../src/game';
 import { createCommentaryEvent } from '../src/commentary/events';
 import { commentaryConfig, commentaryMessages, validateCommentary } from '../src/commentary/providers';
 import { CommentaryService } from '../src/commentary/service';
+import { commentaryErrorDetails } from '../src/commentary/diagnostics';
 import { CommentaryEvent, CommentaryPreference } from '../src/commentary/types';
 
 function settled(): DealtHand {
@@ -68,6 +69,31 @@ test('rejects invented fact IDs, player markers, amounts, hidden cards and repea
   }
   expect(validateCommentary(valid, e, 'en', ['Anna takes the lead!'])).toBeUndefined();
   expect(validateCommentary(valid, e, 'en', ['[P1] takes the lead!'])).toBeUndefined();
+});
+
+test.each([
+  [{ speak: false, text: '', factIds: [] }, 'model_silent'],
+  [{ speak: true, text: 'Private response', factIds: ['unknown'] }, 'invalid_fact_ids'],
+  [{ speak: true, text: '[P1] wins 500 chips.', factIds: ['f1'] }, 'numbers_or_brackets'],
+  [{ speak: true, text: '[P1] takes the lead.', factIds: ['f1'] }, 'wrong_language'],
+  [{ speak: true, text: '[P1] побеждает с флешем.', factIds: ['f1'] }, 'forbidden_claim'],
+  [{ speak: true, text: 'я'.repeat(181), factIds: ['f1'] }, 'text_too_long'],
+])('reports a bounded rejection reason without returning rejected text (%s)', (result, reason) => {
+  const rejected = jest.fn();
+  expect(validateCommentary(result, event(), 'ru', [], rejected)).toBeUndefined();
+  expect(rejected).toHaveBeenCalledWith(reason);
+  expect(rejected).toHaveBeenCalledTimes(1);
+});
+
+test('provider error diagnostics expose only allowlisted reasons and HTTP statuses', () => {
+  expect(commentaryErrorDetails(new Error('Groq HTTP 429'))).toEqual({ reason: 'provider_http', provider: 'groq', status: 429 });
+  expect(commentaryErrorDetails(new Error('Google TTS HTTP 403'))).toEqual({ reason: 'provider_http', provider: 'google_tts', status: 403 });
+  expect(commentaryErrorDetails(new Error('Commentary timeout'))).toEqual({ reason: 'timeout' });
+  expect(commentaryErrorDetails(new Error('Incomplete commentary'))).toEqual({ reason: 'incomplete_response' });
+  for (const error of [new Error('Bearer private-key'), new Error('Groq HTTP 401 Bearer private-key'),
+    new SyntaxError('Private model response'), { response: 'Private payload' }]) {
+    expect(JSON.stringify(commentaryErrorDetails(error))).not.toMatch(/private|Bearer/i);
+  }
 });
 
 test('SQLite claims and budgets are atomic, persistent, and reset cadence for restarted matches', async () => {
@@ -174,4 +200,56 @@ test('text failure is isolated; TTS failure leaves subtitles; exhausted budgets 
     const limited = setup(); await limited.store.reserveCommentaryUsage('tokens-day:1970-01-01', 180_000, 180_000);
     await limited.service.consider(event()); expect(limited.providers.generate).not.toHaveBeenCalled();
   } finally { warn.mockRestore(); }
+});
+
+test('logs distinguish silent and rejected replies, budgets, absent listeners and provider errors without private data', async () => {
+  const info = jest.spyOn(console, 'info').mockImplementation(() => {});
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  const e = event();
+  e.names['[P1]'] = 'Private nickname';
+  try {
+    const silent = setup();
+    silent.providers.generate.mockResolvedValue({ result: { speak: false, text: 'Private response', factIds: [] }, tokens: 400 });
+    await silent.service.consider(e);
+    expect(info).toHaveBeenCalledWith('Commentary generation started', expect.stringContaining(`"eventId":"${e.id}"`));
+    expect(info).toHaveBeenCalledWith('Commentary skipped', expect.stringContaining('"reason":"model_silent"'));
+    expect(silent.sent).not.toHaveBeenCalled();
+    expect(silent.providers.synthesize).not.toHaveBeenCalled();
+
+    const rejected = setup();
+    rejected.providers.generate.mockResolvedValue({ result: { speak: true, text: 'Private response 500', factIds: ['f1'] }, tokens: 400 });
+    await rejected.service.consider(e);
+    expect(info).toHaveBeenCalledWith('Commentary skipped', expect.stringContaining('"reason":"numbers_or_brackets"'));
+    expect(rejected.sent).not.toHaveBeenCalled();
+
+    const off = setup('off'); await off.service.consider(e);
+    expect(info).toHaveBeenCalledWith('Commentary skipped', expect.stringContaining('"reason":"no_listeners"'));
+    expect(off.providers.generate).not.toHaveBeenCalled();
+
+    const limited = setup();
+    await limited.store.reserveCommentaryUsage('tokens-day:1970-01-01', 180_000, 180_000);
+    await limited.service.consider(e);
+    expect(info).toHaveBeenCalledWith('Commentary skipped', expect.stringContaining('"reason":"daily_token_limit"'));
+    expect(limited.providers.generate).not.toHaveBeenCalled();
+
+    const failed = setup(); failed.providers.generate.mockRejectedValue(new Error('Groq HTTP 401'));
+    await failed.service.consider(e);
+    expect(warn).toHaveBeenCalledWith('Commentary generation unavailable; skipping event',
+      expect.stringContaining('"provider":"groq","status":401'));
+    failed.providers.generate.mockRejectedValue(new Error('Bearer private-key'));
+    await failed.service.consider({ ...event(300_000), id: 'other', handNumber: 4 });
+
+    const speech = setup(); speech.providers.synthesize.mockRejectedValue(new Error('Google TTS HTTP 403'));
+    await speech.service.consider(e);
+    expect(warn).toHaveBeenCalledWith('Commentary speech unavailable; using subtitles',
+      expect.stringContaining('"provider":"google_tts","status":403'));
+    expect(speech.sent.mock.calls[0][0].text).toBe('Private nickname takes the lead.');
+    expect(info).toHaveBeenCalledWith('Commentary published', expect.stringContaining('"audio":false'));
+    for (const [, metadata] of [...info.mock.calls, ...warn.mock.calls]) {
+      expect(typeof metadata).toBe('string');
+      expect(metadata).not.toMatch(/[\r\n]/);
+      expect(() => JSON.parse(metadata)).not.toThrow();
+    }
+    expect(JSON.stringify([...info.mock.calls, ...warn.mock.calls])).not.toMatch(/Private|Bearer|takes the lead/);
+  } finally { info.mockRestore(); warn.mockRestore(); }
 });

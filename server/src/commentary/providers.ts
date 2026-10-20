@@ -31,24 +31,29 @@ export function commentaryMessages(event: CommentaryEvent, locale: CommentaryLoc
   ];
 }
 
-export function validateCommentary(raw: unknown, event: CommentaryEvent, locale: CommentaryLocale, history: string[]): string | undefined {
+export function validateCommentary(raw: unknown, event: CommentaryEvent, locale: CommentaryLocale, history: string[],
+  onRejected?: (reason: string) => void): string | undefined {
+  const reject = (reason: string): undefined => { onRejected?.(reason); return undefined; };
   const r = raw as { speak?: unknown; text?: unknown; factIds?: unknown } | null;
-  if (!r || r.speak !== true || typeof r.text !== 'string' || !Array.isArray(r.factIds)
-    || !r.factIds.length || !r.factIds.every(id => event.facts.some(f => f.id === id))) return;
+  if (r?.speak === false) return reject('model_silent');
+  if (!r || r.speak !== true || typeof r.text !== 'string' || !Array.isArray(r.factIds)) return reject('invalid_schema');
+  if (!r.factIds.length || !r.factIds.every(id => event.facts.some(f => f.id === id))) return reject('invalid_fact_ids');
   let text = r.text.trim();
-  if (!text || text.length > 180 || /[<>`{}\n]/.test(text)) return;
+  if (!text) return reject('empty_text');
+  if (text.length > 180) return reject('text_too_long');
+  if (/[<>`{}\n]/.test(text)) return reject('markup_or_newline');
   const allowedPlayers = new Set(event.facts.map(f => f.player).filter(Boolean));
   const markers = text.match(/\[P\d+\]/g) ?? [];
-  if (markers.some(m => !allowedPlayers.has(m))) return;
+  if (markers.some(m => !allowedPlayers.has(m))) return reject('unknown_player_marker');
   const plain = text.replace(/\[P\d+\]/g, '');
-  if (/[\[\]\d]/.test(plain)) return;
-  if (locale === 'ru' ? !/[а-яё]/i.test(plain) : /[а-яё]/i.test(plain)) return;
-  if (/блеф|вероятност|флеш|стрит|фулл|каре|туз|корол|bluff|odds|flush|straight|full house|aces|kings|should|совету|следует/i.test(plain)) return;
+  if (/[\[\]\d]/.test(plain)) return reject('numbers_or_brackets');
+  if (locale === 'ru' ? !/[а-яё]/i.test(plain) : /[а-яё]/i.test(plain)) return reject('wrong_language');
+  if (/блеф|вероятност|флеш|стрит|фулл|каре|туз|корол|bluff|odds|flush|straight|full house|aces|kings|should|совету|следует/i.test(plain)) return reject('forbidden_claim');
   const normalized = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
-  if (history.some(h => normalized(h) === normalized(text))) return;
+  if (history.some(h => normalized(h) === normalized(text))) return reject('repeated_text');
   for (const marker of markers) text = text.split(marker).join(event.names[marker]);
-  if (text.length > 220) return;
-  if (history.some(h => normalized(h) === normalized(text))) return;
+  if (text.length > 220) return reject('rendered_text_too_long');
+  if (history.some(h => normalized(h) === normalized(text))) return reject('repeated_text');
   return text;
 }
 

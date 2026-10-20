@@ -5,6 +5,7 @@ import { WebSocket } from 'ws';
 // Real server + SQLite + authenticated sockets. Only the external providers are replaced.
 test('completed moves publish one shared commentary; reconnect and repeated commands do not regenerate', async () => {
   let child: ChildProcess | undefined;
+  let serverLog = '';
   const sockets: WebSocket[] = [];
   const preload = `
     const auth = require('google-auth-library');
@@ -52,6 +53,8 @@ test('completed moves publish one shared commentary; reconnect and repeated comm
     child = spawn(process.execPath, ['-e', preload], { cwd: path.resolve(__dirname, '..'), windowsHide: true,
       env: { ...process.env, PORT: String(port), DATA_FILE: ':memory:', COMMENTARY_ENABLED: 'true',
         GROQ_API_KEY: 'test', COMMENTARY_GOOGLE_TTS: 'true', HUMAN_TURN_MS: '60000' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    child.stdout!.on('data', data => { serverLog += String(data); });
+    child.stderr!.on('data', data => { serverLog += String(data); });
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('Server did not start')), 10_000);
       child!.once('exit', code => { clearTimeout(timer); reject(new Error(`Server exited ${code}`)); });
@@ -91,6 +94,11 @@ test('completed moves publish one shared commentary; reconnect and repeated comm
     fresh.send({ action: 'client_ping' }); await fresh.waitFor('server_pong');
     await new Promise(resolve => setTimeout(resolve, 200));
     expect([...host.messages, ...guest.messages, ...fresh.messages].filter(m => m.type === 'commentary_ready')).toHaveLength(0);
+    for (const status of ['Commentary configured', 'Commentary subscription', 'Commentary generation started',
+      'Commentary speech started', 'Commentary published']) expect(serverLog).toContain(status);
+    for (const secret of [first.token, second.token, 'test-google-token', a.text, 'Anna', 'Ivan']) {
+      expect(serverLog).not.toContain(secret);
+    }
   } finally {
     sockets.forEach(ws => ws.terminate());
     if (child && child.exitCode === null) {

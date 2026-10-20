@@ -49,6 +49,7 @@ import {
 import { diagnosticPlayerSnapshot } from './problemSnapshot';
 import { commentaryConfig } from './commentary/providers';
 import { CommentaryService } from './commentary/service';
+import { commentaryLog } from './commentary/diagnostics';
 import { createCommentaryEvent } from './commentary/events';
 import { commentaryPreference, CommentaryPreference } from './commentary/types';
 import {
@@ -92,12 +93,15 @@ const commentator = new CommentaryService(commentaryConfig(), store, event => {
   });
   return listeners;
 });
+commentaryLog('Commentary configured', { enabled: commentator.enabled, voiceEnabled: commentator.voiceEnabled });
 
 function commentOnCompletedHand(hand: any) {
   if (!commentator.enabled || hand.stage !== 'showdown') return;
   try {
     const event = createCommentaryEvent(hand);
     if (event) void commentator.consider(event).catch(() => console.warn('Commentary skipped'));
+    else commentaryLog('Commentary skipped', { eventId: `${hand.id}:complete`, handNumber: hand.handNumber,
+      reason: hand.isReplay ? 'replay' : hand.partyFinishedEarly ? 'early_finish' : 'no_eligible_facts' });
   } catch { console.warn('Commentary result unavailable'); }
 }
 const partyLiveSummaryCache = new Map<string, {
@@ -1945,6 +1949,10 @@ wss.on('connection', (ws, req) => {
         if (!playerConnections.has(ws)) throw new Error('player not found');
         const preference = commentaryPreference(msg.preference);
         if (!preference) throw new Error('invalid commentary preferences');
+        const previous = commentaryPreferences.get(ws);
+        if (commentator.enabled && (previous?.mode !== preference.mode || previous?.locale !== preference.locale)) {
+          commentaryLog('Commentary subscription', { mode: preference.mode, locale: preference.locale });
+        }
         commentaryPreferences.set(ws, preference);
       } else if (msg.action === 'player_move') {
         if (receivedCommandId && receivedCommandId.length > 100) {
