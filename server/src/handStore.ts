@@ -28,6 +28,17 @@ export default class HandStore {
   private async initialize() {
     await fs.mkdir(path.dirname(this.filename), { recursive: true });
     this.db = await open({ filename: this.filename, driver: sqlite3.Database });
+    await this.db.exec(`
+      CREATE TABLE IF NOT EXISTS commentary_events (
+        id TEXT PRIMARY KEY, party_id TEXT NOT NULL, hand_number INTEGER NOT NULL, created INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS commentary_party ON commentary_events(party_id, created);
+      CREATE TABLE IF NOT EXISTS commentary_lines (
+        event_id TEXT NOT NULL, locale TEXT NOT NULL, text TEXT NOT NULL,
+        PRIMARY KEY(event_id, locale)
+      );
+      CREATE TABLE IF NOT EXISTS commentary_usage (bucket TEXT PRIMARY KEY, amount INTEGER NOT NULL);
+    `);
     await this.db.run(`CREATE TABLE IF NOT EXISTS hands (
       id TEXT PRIMARY KEY, created INTEGER, party_id TEXT, data TEXT
     )`);
@@ -218,6 +229,45 @@ export default class HandStore {
       JSON.stringify(hand),
       hand.id,
     );
+  }
+
+  async claimCommentary(event: { id: string; partyId: string; handNumber: number; createdAt: number }, cooldownMs: number, handGap: number) {
+    const db = await this.getDb();
+    const result = await db.run(`INSERT OR IGNORE INTO commentary_events(id, party_id, hand_number, created)
+      SELECT ?, ?, ?, ? WHERE NOT EXISTS (
+        SELECT 1 FROM (SELECT created, hand_number FROM commentary_events WHERE party_id = ? ORDER BY created DESC LIMIT 1)
+        WHERE created > ? OR (hand_number <= ? AND hand_number > ?)
+      )`, event.id, event.partyId, event.handNumber, event.createdAt, event.partyId,
+    event.createdAt - cooldownMs, event.handNumber, event.handNumber - handGap);
+    return result.changes === 1;
+  }
+
+  /** Atomic reservation: failed/ambiguous external calls retain their reservation. */
+  async reserveCommentaryUsage(bucket: string, amount: number, limit: number) {
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > limit) return false;
+    const db = await this.getDb();
+    const result = await db.run(`INSERT INTO commentary_usage(bucket, amount) VALUES(?, ?)
+      ON CONFLICT(bucket) DO UPDATE SET amount = amount + excluded.amount
+      WHERE amount + excluded.amount <= ?`, bucket, amount, limit);
+    return result.changes === 1;
+  }
+
+  async releaseCommentaryUsage(bucket: string, amount: number) {
+    if (!Number.isSafeInteger(amount) || amount <= 0) return;
+    const db = await this.getDb();
+    await db.run('UPDATE commentary_usage SET amount = MAX(0, amount - ?) WHERE bucket = ?', amount, bucket);
+  }
+
+  async commentaryHistory(partyId: string, locale: string): Promise<string[]> {
+    const db = await this.getDb();
+    const rows = await db.all(`SELECT l.text FROM commentary_lines l JOIN commentary_events e ON e.id = l.event_id
+      WHERE e.party_id = ? AND l.locale = ? ORDER BY e.created DESC LIMIT 3`, partyId, locale);
+    return rows.map(row => row.text);
+  }
+
+  async saveCommentaryLine(eventId: string, locale: string, text: string) {
+    const db = await this.getDb();
+    await db.run('INSERT OR IGNORE INTO commentary_lines(event_id, locale, text) VALUES(?, ?, ?)', eventId, locale, text);
   }
 
   async listHands(limit = 20, offset = 0) {

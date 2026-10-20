@@ -113,3 +113,28 @@ test('empty history and unavailable storage still allow switching layouts', asyn
   await page.getByRole('button', { name: 'Player view', exact: true }).click();
   await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
 });
+
+test('an uncontested winner has no missed high in either statistics view', async ({ page }) => {
+  await page.route('**/api/player/*/*/*/score', async route => {
+    const response = await route.fetch();
+    const score = await response.json();
+    const hand = score.hands[0];
+    hand.players = hand.players.map(player => ({
+      ...player, participated: true, folded: player.id !== 'P2', highRank: 'straight',
+    }));
+    hand.points = [
+      { id: 'P1', high: 0, low: 0, total: 0 },
+      { id: 'P2', high: 0, low: 0, uncontested: 160, total: 160 },
+    ];
+    hand.net = [{ id: 'P1', total: -96 }, { id: 'P2', total: 96 }];
+    await route.fulfill({ json: score });
+  });
+  await openStatistics(page);
+  await expect(page.getByTestId('party-missed-high-P1')).toHaveText('1');
+  await page.getByTestId('statistics-select-P2').click();
+  await expect(page.getByTestId('party-missed-high-P2')).toHaveText('0');
+  await expect(page.getByTestId('party-win-P2')).toHaveText('100%');
+  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
+  await expect(page.getByTestId('party-missed-high-P1')).toHaveText('1');
+  await expect(page.getByTestId('party-missed-high-P2')).toHaveText('0');
+});

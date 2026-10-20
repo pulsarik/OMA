@@ -18,6 +18,7 @@ export type VoiceChatLabels = {
 };
 
 type VoiceChatProps = {
+  onSpeakingChange?: (speaking: boolean) => void;
   endpoint: string;
   handId: string;
   playerId: string;
@@ -28,6 +29,7 @@ type VoiceChatProps = {
 type VoiceStatus = 'idle' | 'connecting' | 'connected';
 
 export function VoiceChat({
+  onSpeakingChange,
   endpoint,
   handId,
   playerId,
@@ -37,6 +39,8 @@ export function VoiceChat({
   const roomRef = useRef<Room | null>(null);
   const audioContainerRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(true);
+  const speakingChangeRef = useRef(onSpeakingChange);
+  speakingChangeRef.current = onSpeakingChange;
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [microphoneEnabled, setMicrophoneEnabled] = useState(false);
   const [participantCount, setParticipantCount] = useState(0);
@@ -48,6 +52,7 @@ export function VoiceChat({
   }
 
   async function leave() {
+    speakingChangeRef.current?.(false);
     const room = roomRef.current;
     roomRef.current = null;
     if (room) {
@@ -63,6 +68,7 @@ export function VoiceChat({
   }
 
   useEffect(() => () => {
+    speakingChangeRef.current?.(false);
     mountedRef.current = false;
     const room = roomRef.current;
     roomRef.current = null;
@@ -101,6 +107,7 @@ export function VoiceChat({
       room.on(RoomEvent.ParticipantDisconnected, updateParticipantCount);
       room.on(RoomEvent.ActiveSpeakersChanged, (activeSpeakers: Participant[]) => {
         if (!mountedRef.current) return;
+        speakingChangeRef.current?.(activeSpeakers.length > 0);
         setSpeakers(activeSpeakers.map(speaker => speaker.name || speaker.identity).slice(0, 3));
       });
       room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
@@ -113,6 +120,7 @@ export function VoiceChat({
       room.on(RoomEvent.Disconnected, () => {
         if (!mountedRef.current || roomRef.current !== room) return;
         roomRef.current = null;
+        speakingChangeRef.current?.(false);
         setStatus('idle');
         setMicrophoneEnabled(false);
         setParticipantCount(0);

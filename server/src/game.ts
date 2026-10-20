@@ -1213,6 +1213,40 @@ export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<strin
   }));
 }
 
+/** Public result facts only. Never return cards, ranks, seeds or bot analysis. */
+export function commentaryResultFacts(hand: DealtHand): Array<{ kind: string; playerId?: string }> {
+  if (hand.stage !== 'showdown' || hand.isReplay || hand.partyFinishedEarly) return [];
+  const result = evaluateOmahaHiLo(hand);
+  if (!result) return [];
+  const settled = stacksAfterPayout(hand);
+  const started = new Map(hand.players.map(p => [p.id, p.stack + (hand.totalContributions[p.id] ?? 0)]));
+  const remaining = hand.players.filter(p => (settled.get(p.id) ?? 0) > 0);
+  if (remaining.length === 1 && [...started.values()].filter(v => v > 0).length > 1) {
+    return [{ kind: 'match_winner', playerId: remaining[0].id }];
+  }
+  const facts: Array<{ kind: string; playerId?: string }> = [];
+  const pots = result.sidePots.filter(p => !p.uncontestedWinnerId && p.eligiblePlayerIds.length > 1);
+  // A scoop describes all contested pots, never an uncalled wager returned to its owner.
+  const scoop = pots[0]?.highWinners[0];
+  if (scoop && pots.every(p => !p.noLow && p.highWinners.length === 1
+    && p.highWinners[0] === scoop && p.lowWinners.length === 1 && p.lowWinners[0] === scoop)) {
+    facts.push({ kind: 'scoop_all_contested_pots', playerId: scoop });
+  }
+  hand.players.filter(p => (started.get(p.id) ?? 0) > 0 && settled.get(p.id) === 0)
+    .forEach(p => facts.push({ kind: 'eliminated', playerId: p.id }));
+  if (pots.reduce((sum, p) => sum + p.amount, 0) >= hand.blinds.big * 20) {
+    facts.push({ kind: 'large_contested_pot' });
+  }
+  const soleLeader = (stacks: Map<string, number>) => {
+    const max = Math.max(...stacks.values());
+    const leaders = [...stacks].filter(([, value]) => value === max);
+    return leaders.length === 1 ? leaders[0][0] : undefined;
+  };
+  const leader = soleLeader(settled);
+  if (leader && leader !== soleLeader(started)) facts.push({ kind: 'new_sole_chip_leader', playerId: leader });
+  return facts.slice(0, 2);
+}
+
 export function dealHand(
   players = 2,
   rngSeed?: number,

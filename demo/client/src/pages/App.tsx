@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
+import { Commentator } from '../components/Commentator';
+import { useCommentary } from '../commentary/useCommentary';
 import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
 import { LobbyPinForm } from '../components/LobbyPinForm';
@@ -2670,7 +2672,7 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                 ) : null}
               </th>
               <th>{ui('Hands', 'Раздачи')}</th>
-              <th title={ui('Hands with the best high but no high payout', 'Раздачи с лучшим high без выплаты за high')}>
+              <th title={ui('Hands with the best high but no high payout, excluding wins without showdown', 'Раздачи с лучшим high без выплаты за high, кроме побед без вскрытия')}>
                 {ui('Missed high', 'Упущенный high')}
               </th>
               <th title={ui('Hands with at least one bet or raise', 'Раздачи хотя бы с одной ставкой или рейзом')}>
@@ -3044,6 +3046,7 @@ function PlayerPage({
   const joinedPlayerSocketRef = useRef<WebSocket | null>(null);
   const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
+  const commentary = useCommentary(handId, SERVER_URL);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
 
   function updatePendingCommand(command: PendingPlayerCommand | null) {
@@ -3238,6 +3241,7 @@ function PlayerPage({
     },
     onMessage: (event, socket) => {
       const message = JSON.parse(event.data);
+      commentary.onMessage(message, socket);
       if (message.type === 'player_state') {
         joinedPlayerSocketRef.current = socket;
         applySessionTiming(message.data.session);
@@ -3315,6 +3319,10 @@ function PlayerPage({
       ws.send(JSON.stringify({ action: 'join_player', handId, playerId, token }));
     }
   }, [ws, handId, playerId, token]);
+
+  useEffect(() => {
+    if (!socketReady) commentary.disconnected();
+  }, [socketReady, commentary.disconnected]);
 
   useEffect(() => {
     if (!ws) return undefined;
@@ -3628,6 +3636,7 @@ function PlayerPage({
 
   return (
     <>
+      <Commentator controller={commentary} />
       {ovalTable}
       {/* Keep the voice room mounted when returning to either table layout. */}
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
@@ -3959,6 +3968,7 @@ function PlayerPage({
         >
           {voiceAvailable ? <React.Suspense fallback={null}>
             <VoiceChat
+              onSpeakingChange={commentary.setHumanSpeaking}
               endpoint={`${SERVER_URL}/api/voice/token`}
               handId={handId}
               playerId={playerId}

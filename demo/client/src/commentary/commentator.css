@@ -1,0 +1,8 @@
+.commentator { box-sizing: border-box; width: min(100%, 760px); margin: 4px auto; padding: 6px 12px; border: 1px solid #d8e4db; border-radius: 10px; background: #f4f8f5; color: #234336; font: 13px/1.4 system-ui, sans-serif; }
+.commentator summary { cursor: pointer; padding: 4px 0; }
+.commentator-status { float: right; font-size: 12px; opacity: .75; }
+.commentator-settings { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0; }
+.commentator-settings label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.commentator select, .commentator button { font: inherit; padding: 6px; border: 1px solid #bbcfc2; border-radius: 6px; background: white; color: #234336; }
+.commentator p { margin: 6px 0 2px; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .commentator { width: calc(100% - 12px); } .commentator-settings { gap: 8px; } }

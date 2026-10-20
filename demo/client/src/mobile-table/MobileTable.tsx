@@ -43,7 +43,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }:
         <div className="mt-awards">
           {winsHigh ? <span className="mt-award mt-award--high" data-testid={`mt-high-${seat.id}`}>H +{amount(payout?.high)}</span> : null}
           {winsLow ? <span className="mt-award mt-award--low" data-testid={`mt-low-${seat.id}`}>L +{amount(payout?.low)}</span> : null}
-          {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Returned', 'Возврат')} {amount(payout?.uncontested)}</span> : null}
+          {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Without showdown', 'Без вскрытия')} {amount(payout?.uncontested)}</span> : null}
         </div>
         {!hero ? <div className="mt-ranks">
           {seat.folded ? <span>{t('Folded', 'Фолд')}</span> : null}
@@ -70,6 +70,9 @@ function PotSplit({ player: p, language, onOpen }: { player: TableState; languag
   const result = p.result ?? p.showdownSummary;
   if (!result) return null;
   const pots = result.sidePots;
+  if (pots.length === 1 && pots[0].uncontestedWinnerId) return <span className="mt-pot-caption mt-pot-caption--uncontested">
+    {t('Won without showdown', 'Победа без вскрытия')} · {t('Whole pot', 'Весь банк')} {amount(pots[0].amount)}
+  </span>;
   const totalHigh = result.points.reduce((sum, score) => sum + score.high, 0);
   const totalLow = result.points.reduce((sum, score) => sum + score.low, 0);
   if (pots.length <= 1) return <span className="mt-pot-caption" title={t('An odd chip goes to HIGH', 'Нечётная фишка относится к HIGH')}>
@@ -169,13 +172,14 @@ function PotDialog({ player: p, language, open, onClose }: {
       return <article className="mt-pot-detail" key={i}>
         <div className="mt-pot-detail-title"><span>{i === 0 ? t('Main pot', 'Основной банк') : `${t('Side pot', 'Побочный банк')} ${i}`}</span><strong>{amount(pot.amount)}</strong></div>
         {pools ? <p className="mt-pot-pools">{pools.returned
-          ? `${t('Uncalled return', 'Невостребованный остаток')}: ${amount(pools.returned)}`
+          ? `${t('Awarded without showdown', 'Выплата без вскрытия')}: ${amount(pools.returned)}`
           : `${t('Shares', 'Доли')}: HIGH ${amount(pools.high)} · ${pools.low ? `LOW ${amount(pools.low)}` : t('no LOW', 'нет LOW')}`}</p> : null}
         <p className="mt-pot-eligible">{t('Eligible', 'Участвуют')}: {pot.eligiblePlayerIds.map(label).join(', ')}</p>
-        {settled ? <>
+        {settled?.uncontestedWinnerId ? <p className="mt-pot-winners">
+          {t('Won without showdown', 'Победа без вскрытия')}: {label(settled.uncontestedWinnerId)}
+        </p> : settled ? <>
           <p className="mt-pot-winners"><b>HIGH</b> {settled.highWinners.map(label).join(', ') || '—'}</p>
           <p className="mt-pot-winners mt-pot-winners--low"><b>LOW</b> {settled.noLow ? t('No qualifying low', 'Нет подходящей LOW') : settled.lowWinners.map(label).join(', ')}</p>
-          {settled.uncontestedWinnerId ? <p>{t('Uncontested', 'Без борьбы')}: {label(settled.uncontestedWinnerId)}</p> : null}
         </> : null}
       </article>;
     })}</div> : null}

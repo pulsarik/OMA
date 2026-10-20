@@ -1,0 +1,155 @@
+import { expect, Page, test, WebSocketRoute } from '@playwright/test';
+import { fixture } from './mobile-oval/fixture';
+
+async function table(page: Page, mode = 'text', blocked = false) {
+  await page.addInitScript(({ mode, blocked }) => {
+    localStorage.setItem('omaha-commentary', JSON.stringify({ mode, locale: 'ru', volume: 0.5 }));
+    const stats = { plays: 0, pauses: 0, volume: 0, blocked, finish: () => {} };
+    (window as any).commentaryAudio = stats;
+    (window as any).Audio = class {
+      onended: (() => void) | null = null; onerror = null; volume = 0;
+      constructor(public src: string) { stats.finish = () => this.onended?.(); }
+      play() {
+        stats.plays++; stats.volume = this.volume;
+        if (stats.blocked) { stats.blocked = false; return Promise.reject(new Error('NotAllowedError')); }
+        return Promise.resolve();
+      }
+      pause() { stats.pauses++; }
+    };
+  }, { mode, blocked });
+  let state: any = { ...fixture(3, false), voiceEnabled: true, commentary: { enabled: true, voiceEnabled: true } };
+  let socket: WebSocketRoute | undefined;
+  const subscriptions: any[] = [];
+  await page.route('**/api/player/**', r => r.fulfill({ json: state }));
+  await page.routeWebSocket(/ws:\/\/localhost:(4000|4100)\//, ws => {
+    socket = ws;
+    ws.onMessage(raw => {
+      const message = JSON.parse(String(raw));
+      if (message.action === 'join_player') ws.send(JSON.stringify({ type: 'player_state', data: state }));
+      if (message.action === 'commentary_preferences') subscriptions.push(message.preference);
+    });
+  });
+  await page.goto('/player/mobile-fixture/P1/token');
+  await expect(page.getByTestId('commentator')).toBeVisible();
+  await expect.poll(() => subscriptions.length).toBeGreaterThan(0);
+  return {
+    subscriptions,
+    complete() { state = { ...state, stage: 'showdown', revision: 2 }; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
+    send(overrides: Record<string, unknown> = {}) {
+      const now = Date.now();
+      socket!.send(JSON.stringify({ type: 'commentary_ready', data: {
+        id: 'event-1', handId: state.handId, partyId: state.partyId, revision: 2,
+        locale: 'ru', text: 'За столом новый лидер.', serverNow: now, expiresAt: now + 12_000,
+        audioUrl: `/api/commentary/audio/abc/${'a'.repeat(48)}`, ...overrides,
+      } }));
+    },
+    close() { socket!.close(); },
+  };
+}
+
+export function commentaryCases() {
+  test('human voice delays commentary and interrupts playback without restarting it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.route('**/node_modules/.vite/deps/livekit-client.js*', route => route.fulfill({
+      contentType: 'application/javascript', body: `
+        export const RoomEvent = { ActiveSpeakersChanged: 'speakers' };
+        export const Track = { Kind: { Audio: 'audio' } };
+        export class Room {
+          remoteParticipants = new Map();
+          localParticipant = { isMicrophoneEnabled: false, async setMicrophoneEnabled() {} };
+          on(event, callback) { if (event === 'speakers') window.emitVoiceSpeakers = callback; }
+          removeAllListeners() {}
+          async connect() {}
+          async startAudio() {}
+          async disconnect() {}
+        }
+      `,
+    }));
+    await page.route('**/api/voice/token', route => route.fulfill({
+      json: { serverUrl: 'wss://voice.example.test', token: 'test' },
+    }));
+    const t = await table(page, 'voice');
+    const voiceTab = page.getByRole('tab', { name: 'VOICE', exact: true });
+    if (await voiceTab.isVisible()) await voiceTab.click();
+    else await page.getByRole('button', { name: 'Voice', exact: true }).click();
+    await page.getByRole('button', { name: 'Join voice', exact: true }).click();
+    await expect(page.getByTestId('voice-chat')).toContainText('Connected');
+    await page.getByRole('tab', { name: 'TABLE', exact: true }).click();
+    await page.evaluate(() => (window as any).emitVoiceSpeakers([{ name: 'Ivan' }]));
+    t.complete(); t.send();
+    await expect(page.getByTestId('commentary-caption')).toBeVisible();
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(0);
+    await page.evaluate(() => (window as any).emitVoiceSpeakers([]));
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    await page.evaluate(() => (window as any).emitVoiceSpeakers([{ name: 'Ivan' }]));
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.pauses)).toBeGreaterThan(0);
+    await page.evaluate(() => (window as any).emitVoiceSpeakers([]));
+    await page.waitForTimeout(400);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+  });
+
+  for (const width of [390, 1280]) {
+    test(`commentary waits for result, supports language and off settings (${width}px)`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const t = await table(page);
+      t.send();
+      await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+      t.complete();
+      await expect(page.getByTestId('commentary-caption')).toHaveText('За столом новый лидер.');
+      expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(0);
+      t.send({ text: 'Это повтор.' });
+      await expect(page.getByTestId('commentary-caption')).toHaveText('За столом новый лидер.');
+      await page.getByTestId('commentator').locator('summary').click();
+      await page.getByLabel('Режим комментатора').selectOption('off');
+      await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+      await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('off');
+      await page.getByLabel('Язык комментатора').selectOption('en');
+      await expect(page.getByLabel('Commentary mode')).toHaveValue('off');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    });
+  }
+
+  test('audio plays once, respects volume and stops immediately when disabled', async ({ page }) => {
+    const t = await table(page, 'voice'); t.complete(); t.send();
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.volume)).toBe(0.5);
+    t.send();
+    await page.getByTestId('commentator').locator('summary').click();
+    await page.getByLabel('Режим комментатора').selectOption('off');
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.pauses)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+  });
+
+  test('an on-time spoken sentence can finish after the event start deadline', async ({ page }) => {
+    const t = await table(page, 'voice'); t.complete();
+    const now = Date.now(); t.send({ serverNow: now, expiresAt: now + 1_500 });
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    await page.waitForTimeout(1_600);
+    await expect(page.getByTestId('commentary-caption')).toBeVisible();
+    expect(await page.evaluate(() => (window as any).commentaryAudio.pauses)).toBe(0);
+    await page.evaluate(() => (window as any).commentaryAudio.finish());
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+  });
+
+  test('blocked autoplay offers a working explicit play button; stale and foreign events are ignored', async ({ page }) => {
+    const t = await table(page, 'voice', true); t.complete();
+    t.send({ id: 'expired', expiresAt: Date.now() - 100 });
+    t.send({ id: 'other', handId: 'another-hand' });
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+    t.send();
+    await page.getByRole('button', { name: 'Включить звук' }).click();
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(2);
+    await expect(page.getByRole('button', { name: 'Включить звук' })).toHaveCount(0);
+  });
+
+  test('reconnect does not replay a delivered event', async ({ page }) => {
+    const t = await table(page, 'voice'); t.complete(); t.send();
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    const count = t.subscriptions.length;
+    t.close();
+    await expect.poll(() => t.subscriptions.length).toBeGreaterThan(count);
+    t.send();
+    expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+  });
+}

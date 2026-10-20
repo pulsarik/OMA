@@ -47,6 +47,10 @@ import {
   visibleCommunity,
 } from './game';
 import { diagnosticPlayerSnapshot } from './problemSnapshot';
+import { commentaryConfig } from './commentary/providers';
+import { CommentaryService } from './commentary/service';
+import { createCommentaryEvent } from './commentary/events';
+import { commentaryPreference, CommentaryPreference } from './commentary/types';
 import {
   ConnectionContext,
   receivesHandUpdate,
@@ -76,6 +80,26 @@ const playerConnections = new Map<WebSocket, {
   visitId: number;
 }>();
 const connectionContexts = new Map<WebSocket, ConnectionContext>();
+const commentaryPreferences = new Map<WebSocket, CommentaryPreference>();
+const commentator = new CommentaryService(commentaryConfig(), store, event => {
+  const listeners: Array<{ preference: CommentaryPreference; send: (message: any) => void }> = [];
+  playerConnections.forEach((connection, socket) => {
+    const preference = commentaryPreferences.get(socket);
+    if (preference && connection.handId === event.handId && connection.partyId === event.partyId
+      && socket.readyState === WebSocket.OPEN) {
+      listeners.push({ preference, send: data => socket.send(JSON.stringify({ type: 'commentary_ready', data })) });
+    }
+  });
+  return listeners;
+});
+
+function commentOnCompletedHand(hand: any) {
+  if (!commentator.enabled || hand.stage !== 'showdown') return;
+  try {
+    const event = createCommentaryEvent(hand);
+    if (event) void commentator.consider(event).catch(() => console.warn('Commentary skipped'));
+  } catch { console.warn('Commentary result unavailable'); }
+}
 const partyLiveSummaryCache = new Map<string, {
   revisionKey: string;
   summary: {
@@ -276,6 +300,7 @@ function scheduleBotTurns(handId: string) {
         await store.updateHand(hand);
         await store.recordGameActivity(hand.partyId ?? hand.id);
         broadcastHandUpdated(hand);
+        commentOnCompletedHand(hand);
         shouldScheduleNext = hand.stage !== 'showdown';
       });
     } catch (error) {
@@ -322,6 +347,7 @@ function scheduleHumanTurn(hand: any) {
         prepareHumanTurnClock(latest, true);
         await store.updateHand(latest);
         broadcastHandUpdated(latest);
+        commentOnCompletedHand(latest);
       });
     } catch (error) {
       console.error('human turn timeout failed', error);
@@ -710,6 +736,7 @@ async function playerState(hand: any, player: any) {
   const connectedPlayers = connectedPlayerIds(hand.id);
   const liveSummary = await partyLiveSummary(hand);
   return {
+    commentary: { enabled: commentator.enabled, voiceEnabled: commentator.voiceEnabled },
     handId: hand.id,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
@@ -1749,6 +1776,15 @@ app.get('/api/player/:handId/:playerId/:token/score', async (req, res) => {
 
   res.json(await partyScore(hand));
 });
+// Short-lived capability URL issued only to authenticated subscribers, never a player token.
+app.get('/api/commentary/audio/:id/:key', (req, res) => {
+  const audio = commentator.getAudio(req.params.id, req.params.key);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  if (!audio) return res.status(404).end();
+  res.type('audio/mpeg').send(audio);
+});
+
 app.post('/api/voice/token', async (req, res) => {
   if (!voiceConfig) return res.status(503).json({ error: 'Voice chat is not configured' });
 
@@ -1905,6 +1941,11 @@ wss.on('connection', (ws, req) => {
         // Bot timers live in memory and disappear when the server restarts. A
         // player reconnecting to an unfinished hand must also wake the bot up.
         void scheduleTurnTimers(hand.id);
+      } else if (msg.action === 'commentary_preferences') {
+        if (!playerConnections.has(ws)) throw new Error('player not found');
+        const preference = commentaryPreference(msg.preference);
+        if (!preference) throw new Error('invalid commentary preferences');
+        commentaryPreferences.set(ws, preference);
       } else if (msg.action === 'player_move') {
         if (receivedCommandId && receivedCommandId.length > 100) {
           throw new Error('invalid command id');
@@ -1967,6 +2008,7 @@ wss.on('connection', (ws, req) => {
         if (!result.duplicate && !inFlight) {
           clearHumanTurnTimer(result.hand.id);
           broadcastHandUpdated(result.hand);
+          commentOnCompletedHand(result.hand);
           void scheduleTurnTimers(result.hand.id);
         }
       } else if (msg.action === 'player_activity') {
@@ -1998,6 +2040,7 @@ wss.on('connection', (ws, req) => {
     const playerConnection = playerConnections.get(ws);
     lobbyConnections.delete(ws);
     playerConnections.delete(ws);
+    commentaryPreferences.delete(ws);
     connectionContexts.delete(ws);
     if (
       playerConnection

@@ -3,11 +3,12 @@ export type StatisticsHand = {
   players: Array<{
     id: string;
     participated: boolean;
+    folded?: boolean;
     highRank?: string;
     lowRank?: string;
   }>;
   net: Array<{ id: string; total: number }>;
-  points?: Array<{ id: string; high: number; low: number }>;
+  points?: Array<{ id: string; high: number; low: number; uncontested?: number }>;
   wallets?: Array<{ id: string; total: number }>;
   actions?: Array<{ playerId: string; move: string }>;
 };
@@ -78,14 +79,16 @@ function advantageByStreet(playerId: string, hand: StatisticsHand, includeInacti
   return { high, low };
 }
 
-function streetPoints(playerId: string, hand: StatisticsHand, street: 'high' | 'low') {
-  return hand.points?.find((result) => result.id === playerId)?.[street] ?? 0;
-}
-
 export function missedHighCount(playerId: string, hands: StatisticsHand[]) {
   return hands.filter((hand) => {
     const advantage = advantageByStreet(playerId, hand, true);
-    return advantage.high && streetPoints(playerId, hand, 'high') <= 0;
+    const payout = hand.points?.find(result => result.id === playerId);
+    const contenders = hand.players.filter(player => player.participated && !player.folded);
+    // An uncontested amount can also be an uncalled bet returned after a showdown.
+    // Exclude only the player who won when every opponent folded.
+    const wonWithoutShowdown = (payout?.uncontested ?? 0) > 0
+      && contenders.length === 1 && contenders[0].id === playerId;
+    return advantage.high && (payout?.high ?? 0) <= 0 && !wonWithoutShowdown;
   }).length;
 }
 

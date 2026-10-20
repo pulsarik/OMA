@@ -78,6 +78,7 @@ body:has(.mt-page) { margin: 0; background: #041911; }
 .mt-pot i { color: #d4bd85; font-size: 19px; font-style: normal; line-height: 1; transition: transform .16s ease; }
 .mt-pot:active i { transform: translateX(2px); }
 .mt-pot-caption { font-size: clamp(9px, 2.6cqw, 13px); color: #becbb7; white-space: nowrap; }
+.mt-pot-caption--uncontested { justify-self: center; width: 75%; min-width: 0; white-space: normal; }
 .mt-side-link { justify-self: center; min-height: 20px; padding: 0; border: 0; border-bottom: 1px dotted #d4b86f88; background: transparent; color: #e1c88e; font-size: 10px; }
 .mt-pot-splits { display: grid; gap: 2px; color: #becbb7; font-size: clamp(8px, 2.25cqw, 11px); line-height: 1.2; white-space: nowrap; }
 .mt-pot-pools { color: #e0cb98; }

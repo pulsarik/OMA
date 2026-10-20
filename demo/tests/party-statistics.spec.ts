@@ -107,3 +107,37 @@ test('classifies bots by their aggressive-hand share', () => {
     actions: hand.actions?.filter((action) => action.playerId !== 'P1'),
   })))).toBe('cautious');
 });
+
+test('problem 1006: Dmitry wins the entire pot without missing his high', () => {
+  const hand: StatisticsHand = {
+    handNumber: 32,
+    players: ['two pair', 'pair', 'pair', 'high card', 'pair', 'straight'].map((highRank, index) => ({
+      id: `P${index + 1}`, participated: true, folded: index !== 5, highRank,
+      ...(index === 5 ? { lowRank: '5-4-3-2-1' } : {}),
+    })),
+    points: [{ id: 'P6', high: 0, low: 0, uncontested: 160 }],
+    net: [{ id: 'P6', total: 96 }],
+  };
+  expect(missedHighCount('P6', [hand])).toBe(0);
+  // A folded player with an equally strong category still missed their high.
+  hand.players[0].highRank = 'straight';
+  expect(missedHighCount('P1', [hand])).toBe(1);
+  expect(missedHighCount('P6', [hand])).toBe(0);
+});
+
+test('an uncalled return or a low payout does not hide a missed contested high', () => {
+  const hand: StatisticsHand = {
+    handNumber: 1,
+    players: [
+      { id: 'P1', participated: true, folded: false, highRank: 'straight' },
+      { id: 'P2', participated: true, folded: false, highRank: 'straight' },
+    ],
+    points: [
+      { id: 'P1', high: 0, low: 100, uncontested: 40 },
+      { id: 'P2', high: 100, low: 0 },
+    ],
+    net: [{ id: 'P1', total: 10 }, { id: 'P2', total: -10 }],
+  };
+  expect(missedHighCount('P1', [hand])).toBe(1);
+  expect(missedHighCount('P2', [hand])).toBe(0);
+});
