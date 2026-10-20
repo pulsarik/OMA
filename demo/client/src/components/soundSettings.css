@@ -1,0 +1,9 @@
+.sound-settings { box-sizing: border-box; width: min(100%, 480px); padding: 24px; color: #234336; font: 15px/1.5 system-ui, sans-serif; }
+.sound-settings h2 { margin: 0 0 20px; font-size: 20px; }
+.sound-settings-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.sound-settings-toggle input { width: 18px; height: 18px; accent-color: #26744e; }
+.sound-settings p { margin: 8px 0 24px; color: #587267; font-size: 14px; }
+.sound-settings-volume { display: flex; flex-direction: column; gap: 8px; }
+.sound-settings-volume span { display: flex; align-items: center; gap: 16px; }
+.sound-settings-volume input { min-width: 0; flex: 1; accent-color: #26744e; }
+.sound-settings-volume output { min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }

@@ -5,6 +5,8 @@ import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
 import { Commentator, CommentatorCaption, CommentatorSettings } from '../components/Commentator';
 import { useCommentary } from '../commentary/useCommentary';
+import { useGameSounds } from '../audio/useGameSounds';
+import { SoundSettings } from '../components/SoundSettings';
 import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
 import { LobbyPinForm } from '../components/LobbyPinForm';
@@ -3047,6 +3049,7 @@ function PlayerPage({
   const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
   const commentary = useCommentary(handId, SERVER_URL);
+  const onGameSoundMessage = useGameSounds(handId, commentary.speaking);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
 
   function updatePendingCommand(command: PendingPlayerCommand | null) {
@@ -3242,6 +3245,7 @@ function PlayerPage({
     onMessage: (event, socket) => {
       const message = JSON.parse(event.data);
       commentary.onMessage(message, socket);
+      onGameSoundMessage(message, socket);
       if (message.type === 'player_state') {
         joinedPlayerSocketRef.current = socket;
         applySessionTiming(message.data.session);
@@ -3700,6 +3704,7 @@ function PlayerPage({
       </nav>
       {!showOvalTable ? <CommentatorCaption controller={commentary} /> : null}
       {isSettingsView ? <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" className="commentator-settings-panel">
+        <SoundSettings t={ui} />
         <CommentatorSettings controller={commentary} />
       </section> : null}
 

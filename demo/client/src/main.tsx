@@ -2,6 +2,10 @@ import React from 'react';
 import { createRoot, hydrateRoot } from 'react-dom/client';
 import { resolveGuide } from './seo/content';
 import { updateMetadata } from './seo/metadata';
+import { installButtonClickSound } from './buttonClickSound';
+
+const disposeButtonClickSound = installButtonClickSound();
+if (import.meta.hot) import.meta.hot.dispose(disposeButtonClickSound);
 
 const root = document.getElementById('root')!;
 const resolved = resolveGuide(window.location.pathname);
