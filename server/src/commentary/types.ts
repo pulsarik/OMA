@@ -10,6 +10,7 @@ export type CommentaryEvent = {
   createdAt: number;
   expiresAt: number;
   facts: CommentaryFact[];
+  context?: CommentaryResultContext;
   names: Record<string, string>;
 };
 export type CommentaryReady = {
@@ -29,3 +30,5 @@ export function commentaryPreference(value: unknown): CommentaryPreference | und
   if (!p || !['ru', 'en'].includes(p.locale) || !['off', 'text', 'voice'].includes(p.mode)) return;
   return { locale: p.locale, mode: p.mode };
 }
+import type { CommentaryResultContext } from '../game';
+

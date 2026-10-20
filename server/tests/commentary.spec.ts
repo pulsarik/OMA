@@ -1,5 +1,5 @@
 import HandStore from '../src/handStore';
-import { commentaryResultFacts, dealHand, DealtHand } from '../src/game';
+import { commentaryResultFacts, commentaryResultSummary, dealHand, DealtHand } from '../src/game';
 import { createCommentaryEvent } from '../src/commentary/events';
 import { commentaryConfig, commentaryMessages, validateCommentary } from '../src/commentary/providers';
 import { CommentaryService } from '../src/commentary/service';
@@ -56,6 +56,67 @@ test('elimination and match victory use settled stacks; early finish is not a ma
   const hand = settled(); hand.players.forEach(p => { p.stack = 0; });
   expect(commentaryResultFacts(hand)).toEqual([{ kind: 'match_winner', playerId: 'P1' }]);
   hand.partyFinishedEarly = true; expect(commentaryResultFacts(hand)).toEqual([]);
+});
+
+test('an ordinary split and a win by folds are eligible without a new leader or a large pot', () => {
+  const split = settled();
+  split.fullCommunity = split.community = ['3c', '4d', '8h', 'Ks', 'Qc'];
+  split.players.forEach(p => { p.stack = 980; });
+  split.players[2].stack = 3000; // The established leader stays ahead despite losing this hand.
+  split.totalContributions = { P1: 20, P2: 20, P3: 20 }; split.potCoins = 60;
+  expect(commentaryResultSummary(split)).toEqual({
+    facts: [{ kind: 'won_high_share', playerId: 'P2' }, { kind: 'won_low_share', playerId: 'P1' }],
+    context: { finish: 'showdown', contestedPotSize: 'small', allIn: false, sidePots: false, low: 'awarded' },
+  });
+  const folded = settled();
+  folded.players[1].folded = folded.players[2].folded = true;
+  folded.players[1].stack = 4000;
+  expect(commentaryResultSummary(folded)).toEqual({
+    facts: [{ kind: 'won_without_showdown', playerId: 'P1' }],
+    context: { finish: 'uncontested', contestedPotSize: 'none', allIn: false, sidePots: false, low: 'not_applicable' },
+  });
+});
+
+test('context distinguishes all-in results and side pots from uncalled returns', () => {
+  const hand = settled();
+  hand.players[0].stack = hand.players[1].stack = 0;
+  hand.players[2].folded = true;
+  hand.totalContributions = { P1: 100, P2: 200, P3: 0 }; hand.potCoins = 300;
+  const summary = commentaryResultSummary(hand)!;
+  expect(summary.context).toMatchObject({ allIn: true, sidePots: false, finish: 'showdown', low: 'awarded' });
+  expect(summary.facts).not.toContainEqual({ kind: 'won_without_showdown', playerId: 'P2' });
+  expect(summary.facts).not.toContainEqual({ kind: 'won_high_share', playerId: 'P2' });
+  const sidePots = settled();
+  sidePots.players[0].stack = 0;
+  sidePots.totalContributions = { P1: 100, P2: 200, P3: 200 }; sidePots.potCoins = 500;
+  expect(commentaryResultSummary(sidePots)!.context.sidePots).toBe(true);
+});
+
+test('delivery varies but remains respectful for eliminations; prompt contains only public context', () => {
+  const e = createCommentaryEvent(settled())!;
+  const messages = commentaryMessages(e, 'ru', ['[P1] забирает обе доли.']);
+  const payload = JSON.parse(messages[1].content);
+  expect(payload.context).toEqual(e.context);
+  expect(payload.recent).toEqual(['[P1] забирает обе доли.']);
+  const deliveries = [1, 2, 3].map(handNumber => JSON.parse(commentaryMessages({ ...event(), handNumber }, 'en', [])[1].content).delivery);
+  expect(new Set(deliveries).size).toBe(3);
+  expect(JSON.parse(commentaryMessages({ ...event(), facts: [{ id: 'f1', kind: 'eliminated', player: '[P1]' }] }, 'ru', [])[1].content).delivery)
+    .toContain('no joke about the losing player');
+  for (const locale of ['ru', 'en'] as const) {
+    expect(validateCommentary({ speak: true, text: locale === 'ru'
+      ? '[P1] забирает банк без вскрытия. Карты сегодня работают инкогнито!'
+      : '[P1] wins without showdown. The cards keep their day job a secret!', factIds: ['f1'] },
+    event(), locale, [])).toBeDefined();
+  }
+});
+
+test('commentary cadence defaults are more frequent and can be tuned without changing provider budgets', () => {
+  expect(commentaryConfig({})).toMatchObject({ cooldownMs: 30_000, handGap: 1, hourlyAttempts: 60,
+    dailyTokens: 180_000, monthlyCharacters: 900_000 });
+  expect(commentaryConfig({ COMMENTARY_COOLDOWN_SECONDS: '45', COMMENTARY_HAND_GAP: '2', COMMENTARY_HOURLY_ATTEMPTS: '40' }))
+    .toMatchObject({ cooldownMs: 45_000, handGap: 2, hourlyAttempts: 40 });
+  expect(commentaryConfig({ COMMENTARY_COOLDOWN_SECONDS: '0', COMMENTARY_HAND_GAP: '-1', COMMENTARY_HOURLY_ATTEMPTS: 'NaN' }))
+    .toMatchObject({ cooldownMs: 30_000, handGap: 1, hourlyAttempts: 60 });
 });
 
 test('rejects invented fact IDs, player markers, amounts, hidden cards and repeated comments', () => {
@@ -123,6 +184,26 @@ function setup(mode: CommentaryPreference['mode'] = 'voice') {
   const service = new CommentaryService(config, store, audience, providers, () => now);
   return { service, store, providers, sent, config, audience, setNow: (value: number) => { now = value; }, disconnect: () => { connected = false; } };
 }
+
+test('the next hand can be commented after thirty seconds, with duplicate and hourly limits still enforced', async () => {
+  const s = setup('text');
+  await s.service.consider(event());
+  s.setNow(129_999);
+  const next = { ...event(129_999), id: 'h2:complete', handNumber: 2 };
+  await s.service.consider(next);
+  expect(s.providers.generate).toHaveBeenCalledTimes(1);
+  s.setNow(130_000);
+  s.providers.generate.mockResolvedValue({ result: { speak: true, text: '[P1] stays ahead.', factIds: ['f1'] }, tokens: 400 });
+  await s.service.consider({ ...next, createdAt: 130_000 });
+  expect(s.providers.generate).toHaveBeenCalledTimes(2);
+  expect(s.sent).toHaveBeenCalledTimes(4);
+  await s.service.consider({ ...next, createdAt: 130_000 });
+  expect(s.providers.generate).toHaveBeenCalledTimes(2);
+  const limited = setup();
+  await limited.store.reserveCommentaryUsage('hour:0:party', 60, 60);
+  await limited.service.consider(event());
+  expect(limited.providers.generate).not.toHaveBeenCalled();
+});
 
 test('two listeners share one generation and audio; replay/reconnect cannot regenerate the event', async () => {
   const s = setup(); await s.service.consider(event());

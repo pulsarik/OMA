@@ -60,7 +60,7 @@ export class CommentaryService {
     this.busy.add(event.partyId);
     try {
       if (!await this.store.claimCommentary(event, this.config.cooldownMs, this.config.handGap)) return this.skipped(event, 'duplicate_or_cooldown');
-      if (!await this.store.reserveCommentaryUsage(`hour:${Math.floor(this.now() / 3_600_000)}:${event.partyId}`, 1, 20)) return this.skipped(event, 'hourly_limit');
+      if (!await this.store.reserveCommentaryUsage(`hour:${Math.floor(this.now() / 3_600_000)}:${event.partyId}`, 1, this.config.hourlyAttempts)) return this.skipped(event, 'hourly_limit');
       const locales = [...new Set(listeners.map(a => a.preference.locale))];
       await Promise.all(locales.map(locale => this.generate(event, locale)));
     } catch (error) {

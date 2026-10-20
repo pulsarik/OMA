@@ -1213,19 +1213,41 @@ export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<strin
   }));
 }
 
-/** Public result facts only. Never return cards, ranks, seeds or bot analysis. */
-export function commentaryResultFacts(hand: DealtHand): Array<{ kind: string; playerId?: string }> {
-  if (hand.stage !== 'showdown' || hand.isReplay || hand.partyFinishedEarly) return [];
+export type CommentaryResultContext = {
+  finish: 'uncontested' | 'showdown';
+  contestedPotSize: 'none' | 'small' | 'medium' | 'large';
+  allIn: boolean;
+  sidePots: boolean;
+  low: 'awarded' | 'not_awarded' | 'not_applicable';
+};
+
+/** Public results only. Never return cards, ranks, seeds or bot analysis. */
+export function commentaryResultSummary(hand: DealtHand): {
+  facts: Array<{ kind: string; playerId?: string }>;
+  context: CommentaryResultContext;
+} | undefined {
+  if (hand.stage !== 'showdown' || hand.isReplay || hand.partyFinishedEarly) return;
   const result = evaluateOmahaHiLo(hand);
-  if (!result) return [];
+  if (!result) return;
   const settled = stacksAfterPayout(hand);
   const started = new Map(hand.players.map(p => [p.id, p.stack + (hand.totalContributions[p.id] ?? 0)]));
   const remaining = hand.players.filter(p => (settled.get(p.id) ?? 0) > 0);
+  const contenders = hand.players.filter(p => !p.folded && (started.get(p.id) ?? 0) > 0);
+  const pots = result.sidePots.filter(p => !p.uncontestedWinnerId && p.eligiblePlayerIds.length > 1);
+  const contestedAmount = pots.reduce((sum, p) => sum + p.amount, 0);
+  const context: CommentaryResultContext = {
+    finish: contenders.length === 1 ? 'uncontested' : 'showdown',
+    contestedPotSize: !pots.length ? 'none' : contestedAmount >= hand.blinds.big * 20 ? 'large'
+      : contestedAmount >= hand.blinds.big * 6 ? 'medium' : 'small',
+    allIn: contenders.some(p => p.stack === 0),
+    // A return funded by only one player is not a side pot being fought over.
+    sidePots: result.sidePots.filter(p => p.players.filter(s => (s.contributed ?? 0) > 0).length > 1).length > 1,
+    low: !pots.length ? 'not_applicable' : result.points.some(p => p.low > 0) ? 'awarded' : 'not_awarded',
+  };
   if (remaining.length === 1 && [...started.values()].filter(v => v > 0).length > 1) {
-    return [{ kind: 'match_winner', playerId: remaining[0].id }];
+    return { facts: [{ kind: 'match_winner', playerId: remaining[0].id }], context };
   }
   const facts: Array<{ kind: string; playerId?: string }> = [];
-  const pots = result.sidePots.filter(p => !p.uncontestedWinnerId && p.eligiblePlayerIds.length > 1);
   // A scoop describes all contested pots, never an uncalled wager returned to its owner.
   const scoop = pots[0]?.highWinners[0];
   if (scoop && pots.every(p => !p.noLow && p.highWinners.length === 1
@@ -1234,7 +1256,7 @@ export function commentaryResultFacts(hand: DealtHand): Array<{ kind: string; pl
   }
   hand.players.filter(p => (started.get(p.id) ?? 0) > 0 && settled.get(p.id) === 0)
     .forEach(p => facts.push({ kind: 'eliminated', playerId: p.id }));
-  if (pots.reduce((sum, p) => sum + p.amount, 0) >= hand.blinds.big * 20) {
+  if (context.contestedPotSize === 'large') {
     facts.push({ kind: 'large_contested_pot' });
   }
   const soleLeader = (stacks: Map<string, number>) => {
@@ -1244,7 +1266,20 @@ export function commentaryResultFacts(hand: DealtHand): Array<{ kind: string; pl
   };
   const leader = soleLeader(settled);
   if (leader && leader !== soleLeader(started)) facts.push({ kind: 'new_sole_chip_leader', playerId: leader });
-  return facts.slice(0, 2);
+  if (contenders.length === 1 && result.points.some(p => p.id === contenders[0].id && (p.uncontested ?? 0) > 0)) {
+    facts.push({ kind: 'won_without_showdown', playerId: contenders[0].id });
+  } else if (!facts.some(f => f.kind === 'scoop_all_contested_pots')) {
+    // A share may be tied or belong to a side pot; never describe it as the whole bank.
+    const high = result.points.find(p => p.high > 0);
+    const low = result.points.find(p => p.low > 0);
+    if (high) facts.push({ kind: 'won_high_share', playerId: high.id });
+    if (low) facts.push({ kind: 'won_low_share', playerId: low.id });
+  }
+  return { facts: facts.slice(0, 3), context };
+}
+
+export function commentaryResultFacts(hand: DealtHand): Array<{ kind: string; playerId?: string }> {
+  return commentaryResultSummary(hand)?.facts ?? [];
 }
 
 export function dealHand(

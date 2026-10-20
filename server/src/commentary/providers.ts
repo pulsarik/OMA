@@ -4,7 +4,7 @@ import { CommentaryEvent, CommentaryLocale } from './types';
 export type CommentaryConfig = {
   enabled: boolean; groqKey: string; model: string; speechEnabled: boolean;
   voiceRu: string; voiceEn: string; project?: string;
-  dailyTokens: number; monthlyCharacters: number; cooldownMs: number; handGap: number;
+  dailyTokens: number; monthlyCharacters: number; cooldownMs: number; handGap: number; hourlyAttempts: number;
 };
 const positive = (value: string | undefined, fallback: number) => {
   const n = Number(value);
@@ -20,14 +20,19 @@ export function commentaryConfig(env = process.env): CommentaryConfig {
     project: env.GOOGLE_CLOUD_PROJECT,
     dailyTokens: positive(env.COMMENTARY_DAILY_TOKENS, 180_000),
     monthlyCharacters: positive(env.COMMENTARY_MONTHLY_CHARACTERS, 900_000),
-    cooldownMs: 90_000, handGap: 3,
+    cooldownMs: Math.min(positive(env.COMMENTARY_COOLDOWN_SECONDS, 30), 3600) * 1000,
+    handGap: positive(env.COMMENTARY_HAND_GAP, 1),
+    hourlyAttempts: positive(env.COMMENTARY_HOURLY_ATTEMPTS, 60),
   };
 }
 
 export function commentaryMessages(event: CommentaryEvent, locale: CommentaryLocale, history: string[]) {
+  const serious = event.facts.some(f => f.kind === 'eliminated' || f.kind === 'match_winner');
+  const delivery = serious ? 'warm sports commentary, no joke about the losing player'
+    : ['energetic sports call', 'dry poker irony', 'playful situational metaphor'][event.handNumber % 3];
   return [
-    { role: 'system', content: `You are a calm, warm Omaha Hi-Lo TV commentator. Write in ${locale === 'ru' ? 'Russian' : 'English'}. Reply JSON: {"speak":boolean,"text":string,"factIds":string[]}. Use ONLY supplied facts. 1-2 sentences, at most 180 characters. You may stay silent (false, empty text and factIds). Use player markers exactly as supplied. No cards, hand ranks, odds, amounts, advice, bluff accusations or invented motives. No markdown. Do not repeat recent comments. A scoop means winning high AND low of all contested pots; do not call returned bets winnings.` },
-    { role: 'user', content: JSON.stringify({ facts: event.facts, recent: history.slice(0, 3) }) },
+    { role: 'system', content: `You are a lively Omaha Hi-Lo TV commentator with wit and poker irony. Write in ${locale === 'ru' ? 'natural Russian' : 'natural English'}. Reply JSON: {"speak":boolean,"text":string,"factIds":string[]}. Ground every game claim in supplied facts/context; cite used fact IDs. 1-2 short sentences, at most 180 characters. Prefer speaking for a fresh result; stay silent only if there is nothing fresh to say. First report a result, then optionally one quick situational joke. Tease the situation, never a player's intelligence, losses or identity. Vary openings, rhythm and metaphors against recent comments; no stock catchphrase. Use player markers exactly. No cards, hand ranks, odds, amounts, strategy advice, bluff accusations, invented motives or encouragement to chase losses. No markdown. A scoop means high AND low of ALL contested pots. won_high_share/won_low_share mean a share, not necessarily the whole pot or a sole winner. won_without_showdown means opponents folded. Never call returned bets winnings. Context describes this completed hand only, not a streak or past play.` },
+    { role: 'user', content: JSON.stringify({ facts: event.facts, context: event.context, delivery, recent: history.slice(0, 3) }) },
   ];
 }
 
