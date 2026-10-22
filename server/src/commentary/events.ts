@@ -1,8 +1,8 @@
-import { commentaryResultSummary, DealtHand } from '../game';
+import { commentaryBettingSummary, commentaryResultSummary, DealtHand } from '../game';
 import { CommentaryEvent } from './types';
 
 export function createCommentaryEvent(hand: DealtHand, now = Date.now()): CommentaryEvent | undefined {
-  const summary = commentaryResultSummary(hand);
+  const summary = hand.stage === 'showdown' ? commentaryResultSummary(hand) : commentaryBettingSummary(hand);
   if (!summary?.facts.length) return;
   const { facts, context } = summary;
   const names: Record<string, string> = {};
@@ -14,7 +14,9 @@ export function createCommentaryEvent(hand: DealtHand, now = Date.now()): Commen
     return [p.id, marker] as const;
   }));
   return {
-    id: `${hand.id}:complete`, partyId: hand.partyId, handId: hand.id,
+    id: hand.stage === 'showdown' ? `${hand.id}:complete` : `${hand.id}:betting:${hand.actions.length}`,
+    ...(hand.stage !== 'showdown' ? { stage: hand.stage } : {}),
+    partyId: hand.partyId, handId: hand.id,
     handNumber: hand.handNumber, revision: hand.revision ?? 0,
     createdAt: now, expiresAt: now + 12_000, names, context,
     facts: facts.map((f, i) => ({ id: `f${i + 1}`, kind: f.kind, ...(f.playerId ? { player: markers.get(f.playerId) } : {}) })),

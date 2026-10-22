@@ -1213,12 +1213,54 @@ export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<strin
   }));
 }
 
+/** Only public action counts, never bot reasons or private card information. */
+export function commentaryBettingContext(hand: DealtHand) {
+  const actions = hand.actions;
+  return {
+    bets: actions.filter(a => a.move === 'bet').length,
+    raises: actions.filter(a => a.move === 'raise').length,
+    calls: actions.filter(a => a.move === 'call').length,
+    folds: actions.filter(a => a.move === 'fold').length,
+    reraised: STAGES.some(stage => actions.filter(a => a.stage === stage && a.move === 'raise').length > 1),
+  };
+}
+
+/** Select a fresh, significant betting action; routine checks/calls/folds stay quiet. */
+export function commentaryBettingSummary(hand: DealtHand) {
+  if (hand.stage === 'showdown' || hand.isReplay || hand.partyFinishedEarly) return;
+  const last = hand.actions[hand.actions.length - 1];
+  if (!last || last.stage !== hand.stage || !['bet', 'raise', 'call'].includes(last.move)) return;
+  const player = hand.players.find(p => p.id === last.playerId);
+  if (!player || player.folded) return;
+  const previous = hand.actions.slice(0, -1).filter(a => a.stage === last.stage);
+  const initialBet = (id: string) => last.stage !== 'preflop' ? 0
+    : id === hand.blinds.bigBlindPlayerId ? hand.blinds.big
+    : id === hand.blinds.smallBlindPlayerId ? hand.blinds.small : 0;
+  const previousOwn = previous.filter(a => a.playerId === player.id && a.amount !== undefined).pop()?.amount
+    ?? initialBet(player.id);
+  const paid = (last.amount ?? 0) - previousOwn;
+  if (paid <= 0) return;
+  const previousBet = Math.max(last.stage === 'preflop' ? hand.blinds.big : 0, ...previous.map(a => a.amount ?? 0));
+  const increase = (last.amount ?? 0) - previousBet;
+  const kind = player.stack === 0 ? 'went_all_in'
+    : last.move === 'raise' && previous.some(a => a.move === 'raise') ? 'reraised'
+    : ['bet', 'raise'].includes(last.move) && increase >= hand.blinds.big * 6
+      && increase >= (hand.potCoins - paid) / 2 ? 'large_bet_or_raise' : undefined;
+  if (!kind) return;
+  return {
+    facts: [{ kind, playerId: player.id }],
+    context: { stage: hand.stage, activePlayers: hand.players.filter(p => !p.folded).length,
+      betting: commentaryBettingContext(hand) },
+  };
+}
+
 export type CommentaryResultContext = {
   finish: 'uncontested' | 'showdown';
   contestedPotSize: 'none' | 'small' | 'medium' | 'large';
   allIn: boolean;
   sidePots: boolean;
   low: 'awarded' | 'not_awarded' | 'not_applicable';
+  betting?: ReturnType<typeof commentaryBettingContext>;
 };
 
 /** Public results only. Never return cards, ranks, seeds or bot analysis. */
@@ -1236,6 +1278,7 @@ export function commentaryResultSummary(hand: DealtHand): {
   const pots = result.sidePots.filter(p => !p.uncontestedWinnerId && p.eligiblePlayerIds.length > 1);
   const contestedAmount = pots.reduce((sum, p) => sum + p.amount, 0);
   const context: CommentaryResultContext = {
+    ...(hand.actions.length ? { betting: commentaryBettingContext(hand) } : {}),
     finish: contenders.length === 1 ? 'uncontested' : 'showdown',
     contestedPotSize: !pots.length ? 'none' : contestedAmount >= hand.blinds.big * 20 ? 'large'
       : contestedAmount >= hand.blinds.big * 6 ? 'medium' : 'small',

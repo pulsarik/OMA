@@ -50,7 +50,7 @@ export class CommentaryService {
     return item && key === item.key ? item.data : undefined;
   }
 
-  async consider(event: CommentaryEvent): Promise<void> {
+  async consider(event: CommentaryEvent, isCurrent: () => Promise<boolean> = async () => true): Promise<void> {
     if (!this.enabled) return;
     if (this.now() >= event.expiresAt) return this.skipped(event, 'expired');
     if (this.now() < this.retryAt) return this.skipped(event, 'text_provider_backoff');
@@ -59,17 +59,18 @@ export class CommentaryService {
     if (!listeners.length) return this.skipped(event, 'no_listeners');
     this.busy.add(event.partyId);
     try {
+      if (!await isCurrent()) return this.skipped(event, 'stale_action');
       if (!await this.store.claimCommentary(event, this.config.cooldownMs, this.config.handGap)) return this.skipped(event, 'duplicate_or_cooldown');
       if (!await this.store.reserveCommentaryUsage(`hour:${Math.floor(this.now() / 3_600_000)}:${event.partyId}`, 1, this.config.hourlyAttempts)) return this.skipped(event, 'hourly_limit');
       const locales = [...new Set(listeners.map(a => a.preference.locale))];
-      await Promise.all(locales.map(locale => this.generate(event, locale)));
+      await Promise.all(locales.map(locale => this.generate(event, locale, isCurrent)));
     } catch (error) {
       // Never log provider responses or game state (they can contain credentials).
       commentaryLog('Commentary skipped: storage or service unavailable', { eventId: event.id, ...commentaryErrorDetails(error) }, 'warn');
     } finally { this.busy.delete(event.partyId); }
   }
 
-  private async generate(event: CommentaryEvent, locale: CommentaryLocale) {
+  private async generate(event: CommentaryEvent, locale: CommentaryLocale, isCurrent: () => Promise<boolean>) {
     const audience = () => this.audience(event).filter(a => a.preference.locale === locale && a.preference.mode !== 'off');
     if (!audience().length) return this.skipped(event, 'no_listeners', locale);
     if (this.now() >= event.expiresAt) return this.skipped(event, 'expired', locale);
@@ -96,6 +97,7 @@ export class CommentaryService {
         reason => this.skipped(event, reason, locale));
       if (!text) return;
       if (this.now() >= event.expiresAt) return this.skipped(event, 'expired_after_text', locale);
+      if (!await isCurrent()) return this.skipped(event, 'stale_action', locale);
       if (!audience().length) return this.skipped(event, 'listeners_left_after_text', locale);
       let audioUrl: string | undefined;
       if (this.config.speechEnabled && this.now() >= this.speechRetryAt && audience().some(a => a.preference.mode === 'voice')) {
@@ -127,12 +129,14 @@ export class CommentaryService {
           reason: !this.config.speechEnabled ? 'speech_disabled' : this.now() < this.speechRetryAt ? 'speech_provider_backoff' : 'no_voice_listeners' });
       }
       if (this.now() >= event.expiresAt) return this.skipped(event, 'expired_before_publish', locale);
+      if (!await isCurrent()) return this.skipped(event, 'stale_action', locale);
       if (!audience().length) return this.skipped(event, 'listeners_left_before_publish', locale);
       // Keep the model's validated markers in history: nicknames must never return to the prompt.
       await this.store.saveCommentaryLine(event.id, locale, generated.result.text.trim());
       for (const listener of audience()) listener.send({
         id: event.id, handId: event.handId, partyId: event.partyId, revision: event.revision, locale, text,
         ...(listener.preference.mode === 'voice' && audioUrl ? { audioUrl } : {}),
+        ...(event.stage ? { stage: event.stage } : {}),
         expiresAt: event.expiresAt, serverNow: this.now(),
       });
       this.failures = 0;

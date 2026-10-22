@@ -3,7 +3,7 @@ import path from 'path';
 import { WebSocket } from 'ws';
 
 // Real server + SQLite + authenticated sockets. Only the external providers are replaced.
-test('completed moves publish one shared commentary; reconnect and repeated commands do not regenerate', async () => {
+test.each(['result', 'betting'])('%s moves publish shared commentary; reconnect and repeated commands do not regenerate', async kind => {
   let child: ChildProcess | undefined;
   let serverLog = '';
   const sockets: WebSocket[] = [];
@@ -77,13 +77,19 @@ test('completed moves publish one shared commentary; reconnect and repeated comm
       client.send({ action: 'commentary_preferences', preference: { mode: 'voice', locale: 'en' } });
       client.send({ action: 'client_ping' }); await client.waitFor('server_pong');
     }
-    const mover = dealt.currentPlayerId === first.playerId ? host : guest;
+    let mover = dealt.currentPlayerId === first.playerId ? host : guest;
+    if (kind === 'betting') {
+      mover.send({ action: 'player_move', ...(mover === host ? first : second), move: 'raise', amount: 8, commandId: 'first-raise' });
+      await mover.waitFor('command_ack');
+      mover = mover === host ? guest : host;
+    }
     const access = mover === host ? first : second;
-    const move = { action: 'player_move', ...access, move: 'fold', commandId: 'one-fold' };
+    const move = { action: 'player_move', ...access, move: kind === 'betting' ? 'raise' : 'fold', amount: 16, commandId: 'commented-move' };
     mover.send(move);
     const a = (await host.waitFor('commentary_ready')).data;
     const b = (await guest.waitFor('commentary_ready')).data;
     expect(a.id).toBe(b.id); expect(a.text).toBe(b.text); expect(a.audioUrl).toBe(b.audioUrl);
+    expect(a.stage).toBe(kind === 'betting' ? 'preflop' : undefined);
     const audio = await fetch(`http://127.0.0.1:${port}${a.audioUrl}`);
     expect(audio.status).toBe(200); expect(await audio.text()).toBe('test audio');
     expect((await fetch(`http://127.0.0.1:${port}${a.audioUrl}bad`)).status).toBe(404);

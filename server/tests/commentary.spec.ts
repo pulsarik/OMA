@@ -1,5 +1,5 @@
 import HandStore from '../src/handStore';
-import { commentaryResultFacts, commentaryResultSummary, dealHand, DealtHand } from '../src/game';
+import { commentaryResultFacts, commentaryResultSummary, dealHand, DealtHand, recordPlayerMove } from '../src/game';
 import { createCommentaryEvent } from '../src/commentary/events';
 import { commentaryConfig, commentaryMessages, validateCommentary } from '../src/commentary/providers';
 import { CommentaryService } from '../src/commentary/service';
@@ -23,6 +23,85 @@ function event(now = 100_000): CommentaryEvent {
   return { id: 'h1:complete', handId: 'h1', partyId: 'party', revision: 2, handNumber: 1,
     createdAt: now, expiresAt: now + 12_000, facts: [{ id: 'f1', kind: 'new_sole_chip_leader', player: '[P1]' }], names: { '[P1]': 'Anna' } };
 }
+
+test('routine betting stays quiet; a re-raise gets a public live event and enriches the result', () => {
+  const hand = dealHand(3, 12345);
+  expect(createCommentaryEvent(hand)).toBeUndefined();
+  recordPlayerMove(hand, hand.currentPlayerId!, 'call');
+  expect(createCommentaryEvent(hand)).toBeUndefined();
+  recordPlayerMove(hand, hand.currentPlayerId!, 'raise', 8);
+  expect(createCommentaryEvent(hand)).toBeUndefined();
+  const raiser = hand.currentPlayerId!;
+  recordPlayerMove(hand, raiser, 'raise', 16);
+  const e = createCommentaryEvent(hand)!;
+  expect(e.stage).toBe('preflop');
+  expect(e.id).toBe(`${hand.id}:betting:3`);
+  expect(e.facts).toEqual([{ id: 'f1', kind: 'reraised', player: `[${raiser}]` }]);
+  expect(e.context).toMatchObject({ betting: { raises: 2, calls: 1, reraised: true } });
+  expect(JSON.parse(commentaryMessages(e, 'en', [])[1].content).focus).toContain('still in progress');
+  while (hand.stage !== 'showdown') recordPlayerMove(hand, hand.currentPlayerId!, 'fold');
+  const result = createCommentaryEvent(hand)!;
+  expect(result.stage).toBeUndefined();
+  expect(result.context).toMatchObject({ betting: { raises: 2, calls: 1, reraised: true } });
+});
+
+test('all-in actions qualify, but replays, early finishes and an advanced street do not', () => {
+  const hand = dealHand(3, 12345);
+  const player = hand.players.find(p => p.id === hand.currentPlayerId)!;
+  player.stack = 8;
+  recordPlayerMove(hand, player.id, 'raise', 8);
+  expect(createCommentaryEvent(hand)?.facts[0].kind).toBe('went_all_in');
+  hand.isReplay = true; expect(createCommentaryEvent(hand)).toBeUndefined();
+  hand.isReplay = false; hand.partyFinishedEarly = true; expect(createCommentaryEvent(hand)).toBeUndefined();
+  hand.partyFinishedEarly = false; hand.stage = 'flop'; expect(createCommentaryEvent(hand)).toBeUndefined();
+});
+
+test('substantial bets qualify by actual chips, not the requested preset or hidden bot analysis', () => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'flop'; hand.community = hand.fullCommunity.slice(0, 3);
+  hand.currentBet = 0; hand.roundBets = { P1: 0, P2: 0 };
+  hand.totalContributions = { P1: 40, P2: 40 }; hand.potCoins = 80;
+  hand.players.forEach(p => { p.stack = 960; });
+  const player = hand.players.find(p => p.id === hand.currentPlayerId)!;
+  player.name = 'Secret nickname';
+  recordPlayerMove(hand, player.id, 'bet', 40, 'half', {
+    summary: 'Private reasoning', factors: ['Private factors'], equity: 0.7, scoopRate: 0.3, potOdds: 0.2,
+  });
+  const e = createCommentaryEvent(hand)!;
+  expect(e.facts[0].kind).toBe('large_bet_or_raise');
+  const payload = JSON.stringify(commentaryMessages(e, 'ru', []));
+  for (const secret of [player.token, player.name!, ...player.hole, 'Private reasoning', 'Private factors', 'equity', 'botReason']) {
+    expect(payload).not.toContain(secret);
+  }
+  recordPlayerMove(hand, hand.currentPlayerId!, 'call');
+  expect(createCommentaryEvent(hand)).toBeUndefined();
+});
+
+test.each(['ru', 'en'] as const)('live wording is supported in %s', locale => {
+  const e = { ...event(), stage: 'flop' as const, facts: [{ id: 'f1', kind: 'reraised', player: '[P1]' }] };
+  expect(validateCommentary({ speak: true, text: locale === 'ru' ? '[P1] отвечает повышением на повышение.'
+    : '[P1] comes back with a re-raise.', factIds: ['f1'] }, e, locale, [])).toBeDefined();
+});
+
+test.each([[20, false], [39, false], [40, true]] as const)('a bet of %i into eighty chips meets both size thresholds: %s', (amount, eligible) => {
+  const hand = dealHand(2, 12345);
+  hand.stage = 'flop'; hand.community = hand.fullCommunity.slice(0, 3);
+  hand.currentBet = 0; hand.roundBets = {};
+  hand.totalContributions = { P1: 40, P2: 40 }; hand.potCoins = 80;
+  hand.players.forEach(p => { p.stack = 960; });
+  // A preset label must not promote a small actual bet.
+  recordPlayerMove(hand, hand.currentPlayerId!, 'bet', amount, 'pot');
+  expect(Boolean(createCommentaryEvent(hand))).toBe(eligible);
+});
+
+test('a short all-in call qualifies while other players still have a decision', () => {
+  const hand = dealHand(3, 12345);
+  recordPlayerMove(hand, hand.currentPlayerId!, 'raise', 8);
+  const caller = hand.players.find(p => p.id === hand.currentPlayerId)!;
+  caller.stack = 1;
+  recordPlayerMove(hand, caller.id, 'call');
+  expect(createCommentaryEvent(hand)?.facts[0].kind).toBe('went_all_in');
+});
 
 test('public commentary context contains facts but no private cards, names, bot reasons or credentials', () => {
   const hand = settled();
@@ -184,6 +263,31 @@ function setup(mode: CommentaryPreference['mode'] = 'voice') {
   const service = new CommentaryService(config, store, audience, providers, () => now);
   return { service, store, providers, sent, config, audience, setNow: (value: number) => { now = value; }, disconnect: () => { connected = false; } };
 }
+
+test('live action and result share one hand allowance even after the cooldown or a service restart', async () => {
+  const s = setup();
+  await s.service.consider({ ...event(), id: 'h1:betting:2', stage: 'preflop' });
+  expect(s.sent.mock.calls[0][0].stage).toBe('preflop');
+  s.setNow(160_000);
+  await s.service.consider(event(160_000));
+  const restarted = new CommentaryService(s.config, s.store, s.audience, s.providers, () => 200_000);
+  await restarted.consider({ ...event(200_000), id: 'h1:betting:5', stage: 'flop' });
+  expect(s.providers.generate).toHaveBeenCalledTimes(1);
+});
+
+test.each(['before', 'text', 'speech'])('stale live action is discarded %s generation', async phase => {
+  const s = setup();
+  let current = phase !== 'before';
+  if (phase === 'text') s.providers.generate.mockImplementation(async () => {
+    current = false;
+    return { result: { speak: true, text: '[P1] raises again.', factIds: ['f1'] }, tokens: 400 };
+  });
+  if (phase === 'speech') s.providers.synthesize.mockImplementation(async () => { current = false; return Buffer.from('audio'); });
+  await s.service.consider({ ...event(), stage: 'preflop' }, async () => current);
+  expect(s.sent).not.toHaveBeenCalled();
+  if (phase !== 'speech') expect(s.providers.synthesize).not.toHaveBeenCalled();
+  if (phase === 'before') expect(s.providers.generate).not.toHaveBeenCalled();
+});
 
 test('the next hand can be commented after thirty seconds, with duplicate and hourly limits still enforced', async () => {
   const s = setup('text');

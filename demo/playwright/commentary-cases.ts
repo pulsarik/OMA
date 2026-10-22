@@ -34,6 +34,7 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
   await expect.poll(() => subscriptions.length).toBeGreaterThan(0);
   return {
     subscriptions,
+    advance(stage: string, revision: number) { state = { ...state, stage, revision }; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
     complete() { state = { ...state, stage: 'showdown', revision: 2 }; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
     send(overrides: Record<string, unknown> = {}) {
       const now = Date.now();
@@ -48,6 +49,26 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
 }
 
 export function commentaryCases() {
+  test('live betting commentary waits for the action and stops when the street changes', async ({ page }) => {
+    const t = await table(page, 'voice');
+    t.advance('flop', 1);
+    t.send({ stage: 'flop', text: 'Анна отвечает повышением на повышение.' });
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+    t.advance('flop', 2);
+    await expect(page.getByTestId('commentary-caption')).toHaveText('Анна отвечает повышением на повышение.');
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    const pauses = await page.evaluate(() => (window as any).commentaryAudio.pauses);
+    t.advance('turn', 3);
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.pauses)).toBeGreaterThan(pauses);
+    t.send({ id: 'late-action', stage: 'flop', text: 'Эта ставка уже устарела.' });
+    await page.waitForTimeout(400);
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    t.complete();
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+  });
+
   async function settings(page: Page) {
     const tab = page.getByRole('tab', { name: 'SETTINGS', exact: true });
     if (await tab.isVisible()) await tab.click();

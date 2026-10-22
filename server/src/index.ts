@@ -95,12 +95,16 @@ const commentator = new CommentaryService(commentaryConfig(), store, event => {
 });
 commentaryLog('Commentary configured', { enabled: commentator.enabled, voiceEnabled: commentator.voiceEnabled });
 
-function commentOnCompletedHand(hand: any) {
-  if (!commentator.enabled || hand.stage !== 'showdown') return;
+function commentOnHandAction(hand: any) {
+  if (!commentator.enabled) return;
   try {
     const event = createCommentaryEvent(hand);
-    if (event) void commentator.consider(event).catch(() => console.warn('Commentary skipped'));
-    else commentaryLog('Commentary skipped', { eventId: `${hand.id}:complete`, handNumber: hand.handNumber,
+    if (event) void commentator.consider(event, async () => {
+      if (!event.stage) return true;
+      const current = await store.getHand(event.handId);
+      return Boolean(current && current.stage === event.stage && !current.partyFinishedEarly && !current.nextHandId);
+    }).catch(() => console.warn('Commentary skipped'));
+    else if (hand.stage === 'showdown') commentaryLog('Commentary skipped', { eventId: `${hand.id}:complete`, handNumber: hand.handNumber,
       reason: hand.isReplay ? 'replay' : hand.partyFinishedEarly ? 'early_finish' : 'no_eligible_facts' });
   } catch { console.warn('Commentary result unavailable'); }
 }
@@ -304,7 +308,7 @@ function scheduleBotTurns(handId: string) {
         await store.updateHand(hand);
         await store.recordGameActivity(hand.partyId ?? hand.id);
         broadcastHandUpdated(hand);
-        commentOnCompletedHand(hand);
+        commentOnHandAction(hand);
         shouldScheduleNext = hand.stage !== 'showdown';
       });
     } catch (error) {
@@ -351,7 +355,7 @@ function scheduleHumanTurn(hand: any) {
         prepareHumanTurnClock(latest, true);
         await store.updateHand(latest);
         broadcastHandUpdated(latest);
-        commentOnCompletedHand(latest);
+        commentOnHandAction(latest);
       });
     } catch (error) {
       console.error('human turn timeout failed', error);
@@ -2016,7 +2020,7 @@ wss.on('connection', (ws, req) => {
         if (!result.duplicate && !inFlight) {
           clearHumanTurnTimer(result.hand.id);
           broadcastHandUpdated(result.hand);
-          commentOnCompletedHand(result.hand);
+          commentOnHandAction(result.hand);
           void scheduleTurnTimers(result.hand.id);
         }
       } else if (msg.action === 'player_activity') {

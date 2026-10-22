@@ -9,8 +9,9 @@ export type CommentaryEvent = {
   revision: number;
   createdAt: number;
   expiresAt: number;
+  stage?: Exclude<GameStage, 'showdown'>;
   facts: CommentaryFact[];
-  context?: CommentaryResultContext;
+  context?: CommentaryResultContext | NonNullable<ReturnType<typeof commentaryBettingSummary>>['context'];
   names: Record<string, string>;
 };
 export type CommentaryReady = {
@@ -23,6 +24,7 @@ export type CommentaryReady = {
   audioUrl?: string;
   expiresAt: number;
   serverNow: number;
+  stage?: Exclude<GameStage, 'showdown'>;
 };
 
 export function commentaryPreference(value: unknown): CommentaryPreference | undefined {
@@ -30,5 +32,5 @@ export function commentaryPreference(value: unknown): CommentaryPreference | und
   if (!p || !['ru', 'en'].includes(p.locale) || !['off', 'text', 'voice'].includes(p.mode)) return;
   return { locale: p.locale, mode: p.mode };
 }
-import type { CommentaryResultContext } from '../game';
+import type { commentaryBettingSummary, CommentaryResultContext, GameStage } from '../game';
 
