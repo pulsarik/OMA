@@ -53,8 +53,8 @@ test('new table shows OUT over the cards of an eliminated player', async ({ page
   await createDefaultHumanVsBotDeal(page);
 
   // The real tournament marks a player out when their cumulative party score
-  // reaches zero. Keep this test focused and deterministic by changing only
-  // that value in the server snapshot delivered over the player socket.
+  // reaches zero. Keep both the party total and the remaining stack at zero
+  // in the server snapshot delivered over the player socket.
   await page.addInitScript(() => {
     const descriptor = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage');
     if (!descriptor?.set) return;
@@ -72,6 +72,8 @@ test('new table shows OUT over the cards of an eliminated player', async ({ page
             const total = message.data?.partyTotals?.find((item: { id?: string }) => item.id === 'P2');
             if (total) {
               total.total = 0;
+              const opponent = message.data?.players?.find((item: { id?: string }) => item.id === 'P2');
+              if (opponent) opponent.stack = 0;
               const patchedEvent = new MessageEvent('message', {
                 data: JSON.stringify(message),
                 origin: event.origin,

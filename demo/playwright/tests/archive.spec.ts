@@ -172,7 +172,7 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('checkbox', { name: 'Game finished: No' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'STATISTICS', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: 'LOBBY', exact: true })).toHaveAttribute('aria-selected', 'false');
-  await page.getByRole('tab', { name: 'ABOUT /' }).click();
+  await page.getByRole('tab', { name: 'ABOUT', exact: true }).click();
   await page.getByRole('tab', { name: 'STATISTICS', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Hand archive' })).toBeVisible();
   await page.getByRole('tab', { name: 'LOBBY', exact: true }).click();

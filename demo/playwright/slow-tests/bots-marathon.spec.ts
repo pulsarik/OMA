@@ -106,7 +106,7 @@ test('ten simultaneous tables remain isolated through showdown', async ({
   const tableCount = 10;
   const playersPerTable = 3;
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'RU', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
 
   const deals = await Promise.all(
     Array.from({ length: tableCount }, (_, tableIndex) => {
@@ -177,7 +177,7 @@ test('seven bots and seven observing clients complete 20 deals without getting s
   context,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('button', { name: 'RU', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
   let deal = await createBotParty(page);
   const observers = await Promise.all(
     Array.from({ length: BOT_COUNT }, () => context.newPage()),

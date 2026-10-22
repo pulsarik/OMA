@@ -32,6 +32,7 @@ import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
 import { problemContext } from '../problemContext';
 import { browserVisitAttribution } from '../visitAttribution';
+import { captureLobbyInvitation, lobbyInvitationUrl } from '../lobbyInvitation';
 import './wireframe-actions.css';
 import { WIREFRAME_LAYOUT } from './wireframeLayout';
 import { WireframeTable } from './WireframeTable';
@@ -4553,17 +4554,17 @@ function LobbyPage() {
     if (!lobby) return;
 
     const invitationUrl = lobbyInvitationUrl(lobby, invitation);
-    const invitation = ui(
+    const invitationText = ui(
       `Join my Omaha Hi-Lo table!\nOpen this link to go straight to the table: ${invitationUrl}\nCity: ${lobby.tableName}${lobby.preparedByAssistant || lobby.mode === 'guests' ? '\nNo PIN needed.' : `\nPIN: ${lobby.pin}`}`,
       `Присоединяйтесь к моей игре Omaha хай-ло!\nОткройте ссылку, чтобы сразу перейти к столу: ${invitationUrl}\nГород: ${lobby.tableName}${lobby.preparedByAssistant || lobby.mode === 'guests' ? '\nPIN не нужен.' : `\nPIN: ${lobby.pin}`}`,
     );
 
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(invitation);
+        await navigator.clipboard.writeText(invitationText);
       } else {
         const textarea = document.createElement('textarea');
-        textarea.value = invitation;
+        textarea.value = invitationText;
         textarea.setAttribute('readonly', '');
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';

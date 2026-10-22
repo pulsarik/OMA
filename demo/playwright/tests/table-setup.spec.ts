@@ -1,5 +1,26 @@
 import { expect, test } from '@playwright/test';
 
+for (const { viewport, seats } of [
+  { viewport: { width: 1440, height: 900 }, seats: '10' },
+  { viewport: { width: 390, height: 844 }, seats: '2' },
+  { viewport: { width: 390, height: 844 }, seats: '9' },
+]) {
+  test(`direct bot entry and reload render without browser errors (${viewport.width}px, ${seats} seats)`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.setViewportSize(viewport);
+    await page.goto('/?start=bots');
+    await page.getByLabel('Seats at the table').selectOption(seats);
+    await page.getByRole('button', { name: 'Play now' }).click();
+    await expect(page).toHaveURL(/\/lobby\/[^/?]+$/);
+    const table = page.getByRole('tab', { name: 'TABLE', exact: true });
+    await expect(table).toBeVisible();
+    await page.reload();
+    await expect(table).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}
+
 test('people entry offers open tables and creating a table', async ({ page }) => {
   await page.routeWebSocket(/ws:\/\/localhost:(4000|4100)\//, socket => {
     const server = socket.connectToServer();
