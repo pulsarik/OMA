@@ -3,6 +3,7 @@ import { HomeChoices } from '../components/HomeChoices';
 import { guides, guidePath, homeCopy, type Guide, type Language } from './content';
 import { APP_SHELL_STYLES } from '../pages/appStyles';
 import { RulesNav, RulesPractice } from './RulesPractice';
+import { GAME_PREVIEW } from './gamePreview';
 
 export const PUBLIC_STYLES = `
  .seo-shell { min-height:100vh; background:radial-gradient(circle at 50% 0%,#147a58,#064630 48%,#022c20); color:#17211b; font-family:Inter,ui-sans-serif,system-ui,sans-serif; padding:clamp(14px,4vw,38px); }
@@ -101,6 +102,9 @@ export function HomeBenefits({ language }: { language: Language }) {
   ];
   return <section className="seo-card" aria-labelledby="home-benefits-title">
     <h2 id="home-benefits-title" style={{ marginTop: 0 }}>{ru ? 'Играйте вместе. Разбирайтесь по ходу.' : 'Play together. Learn as you go.'}</h2>
+    <img src={GAME_PREVIEW.src} width={GAME_PREVIEW.width} height={GAME_PREVIEW.height}
+      alt={GAME_PREVIEW.alt[language]} decoding="async"
+      style={{ display: 'block', width: '100%', height: 'auto', borderRadius: 16, margin: '16px 0 24px' }} />
     <div className="home-benefits">{items.map(([title, body]) => <div key={title}><h3>{title}</h3><p>{body}</p></div>)}</div>
     <div className="home-pot">
       <h3>{ru ? 'Как делится банк в Omaha Hi-Lo?' : 'How does an Omaha Hi-Lo split pot work?'}</h3>

@@ -2,6 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { GuidePage, HomeSnapshot } from './PublicContent';
 import { guides, guidePath, homeMeta, ORIGIN, type Language } from './content';
+import { GAME_PREVIEW, GAME_PREVIEW_URL } from './gamePreview';
 
 const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const json = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
@@ -29,6 +30,14 @@ export function publicPages() {
 <meta name="description" content="${escape(page.description)}" />
 <link rel="canonical" href="${url}" />
 ${alternates}
+${page.path === '/' ? `<meta name="robots" content="index, follow, max-image-preview:large" />
+<meta property="og:image" content="${GAME_PREVIEW_URL}" />
+<meta property="og:image:width" content="${GAME_PREVIEW.width}" />
+<meta property="og:image:height" content="${GAME_PREVIEW.height}" />
+<meta property="og:image:alt" content="${escape(GAME_PREVIEW.alt[page.language])}" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content="${GAME_PREVIEW_URL}" />
+<meta name="twitter:image:alt" content="${escape(GAME_PREVIEW.alt[page.language])}" />` : ''}
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Omaha Hi-Lo" />
 <meta property="og:title" content="${escape(page.title)}" />

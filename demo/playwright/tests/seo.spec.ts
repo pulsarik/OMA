@@ -2,6 +2,60 @@ import { expect, test } from '@playwright/test';
 
 const slugs = ['rules', 'omaha-vs-holdem', 'how-to-play', 'hand-replay', 'statistics', 'poker-hints'];
 const origin = 'https://omahahilopoker.com';
+const previewPath = '/images/omaha-hi-lo-game.jpg';
+
+for (const javaScriptEnabled of [false, true]) {
+  test(`homepage game image is crawlable with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
+    const context = await browser.newContext({ javaScriptEnabled });
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    for (const width of [360, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('http://localhost:4000/');
+      if (javaScriptEnabled) await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
+      const preview = page.locator(`img[src="${previewPath}"]`);
+      await expect(preview).toHaveCount(1);
+      await expect(preview).toBeVisible();
+      await expect(preview).toHaveAttribute('alt', /Omaha Hi-Lo game with two players/);
+      await expect(preview).toHaveAttribute('width', '1200');
+      await expect(preview).toHaveAttribute('height', '630');
+      await expect.poll(() => preview.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])).toEqual([1200, 630]);
+      for (const [selector, content] of [
+        ['meta[property="og:image"]', origin + previewPath],
+        ['meta[property="og:image:width"]', '1200'],
+        ['meta[property="og:image:height"]', '630'],
+        ['meta[name="twitter:card"]', 'summary_large_image'],
+        ['meta[name="twitter:image"]', origin + previewPath],
+        ['meta[name="robots"]', 'index, follow, max-image-preview:large'],
+      ]) {
+        await expect(page.locator(selector)).toHaveCount(1);
+        await expect(page.locator(selector)).toHaveAttribute('content', content);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`preview-${width}.png`), fullPage: true });
+    }
+    expect(errors).toEqual([]);
+    await context.close();
+  });
+}
+
+test('game preview is served publicly to image crawlers as an optimized JPEG', async ({ request }) => {
+  const response = await request.get(previewPath, { headers: { 'User-Agent': 'Googlebot-Image/1.0' }, maxRedirects: 0 });
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toContain('image/jpeg');
+  expect(response.headers()['x-robots-tag'] ?? '').not.toMatch(/noindex|noimageindex|none/i);
+  const body = await response.body();
+  expect(body.subarray(0, 3).toString('hex')).toBe('ffd8ff');
+  expect(body.length).toBeLessThan(150_000);
+  const robots = await request.get('/robots.txt');
+  expect(robots.status()).toBe(200);
+  const rules = await robots.text();
+  expect(rules).toContain('User-agent: *');
+  for (const [, disallowed] of rules.matchAll(/^Disallow:\s*(\S+)/gm)) {
+    expect(previewPath.startsWith(disallowed)).toBe(false);
+  }
+});
 
 for (const javaScriptEnabled of [false, true]) {
   test(`rules exercises and old translated URLs use English with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
@@ -168,6 +222,7 @@ test('static homepage entry links open existing setup and the built game still s
   await expect(page.getByRole('group', { name: 'Actions', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Report a problem', exact: true })).toBeVisible();
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow');
+  await expect(page.locator('meta[property="og:image"], meta[name="twitter:image"], meta[name="twitter:card"]')).toHaveCount(0);
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(0);
 });
 
