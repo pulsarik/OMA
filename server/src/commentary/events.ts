@@ -1,4 +1,4 @@
-import { commentaryBettingSummary, commentaryResultSummary, DealtHand } from '../game';
+import { commentaryBettingSummary, commentaryRecentActions, commentaryResultSummary, DealtHand } from '../game';
 import { CommentaryEvent } from './types';
 
 export function createCommentaryEvent(hand: DealtHand, now = Date.now()): CommentaryEvent | undefined {
@@ -19,6 +19,7 @@ export function createCommentaryEvent(hand: DealtHand, now = Date.now()): Commen
     partyId: hand.partyId, handId: hand.id,
     handNumber: hand.handNumber, revision: hand.revision ?? 0,
     createdAt: now, expiresAt: now + 12_000, names, context,
+    actions: commentaryRecentActions(hand).map(({ playerId, ...action }) => ({ player: markers.get(playerId)!, ...action })),
     facts: facts.map((f, i) => ({ id: `f${i + 1}`, kind: f.kind, ...(f.playerId ? { player: markers.get(f.playerId) } : {}) })),
   };
 }

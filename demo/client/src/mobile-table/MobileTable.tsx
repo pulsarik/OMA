@@ -246,9 +246,12 @@ export default function MobileTable(props: MobileTableProps) {
           <button onClick={props.onAbout}>{t('Rules', 'Правила')}</button>
           {props.onSettings ? <button onClick={props.onSettings}>{t('Settings', 'Настройки')}</button> : null}
         </nav> : null}
+        {!desktop && props.onVoice ? <button type="button" className="mt-voice" onClick={props.onVoice}
+          title={t('Voice chat', 'Голосовой чат')}>
+          <span aria-hidden="true">🎙</span> {t('Voice', 'Голос')}
+        </button> : null}
         {!desktop ? <details className="mt-menu"><summary aria-label={t('Table menu', 'Меню стола')}>☰</summary>
           <nav aria-label={t('Table menu', 'Меню стола')}>
-            {props.onVoice ? <button onClick={props.onVoice}>{t('Voice', 'Голос')}</button> : null}
             <button onClick={props.onStats} disabled={!props.statsAvailable}>{t('Statistics', 'Статистика')}</button>
             <button onClick={props.onAbout}>{t('About & rules', 'О проекте и правила')}</button>
             {props.onSettings ? <button onClick={props.onSettings}>{t('Settings', 'Настройки')}</button> : null}

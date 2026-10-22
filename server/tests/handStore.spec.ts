@@ -1,5 +1,16 @@
 import HandStore from '../src/handStore';
 
+test('analytics keeps the latest known country and source for a browser, including older clients', async () => {
+  const store = new HandStore(':memory:');
+  const visit = { partyId: 'party', handId: 'hand', playerId: 'player', clientCookie: 'browser' };
+  await store.recordAnalyticsVisit({ ...visit, country: 'US', source: 'referral:www.google.com' }, 1000);
+  await store.recordAnalyticsVisit({ ...visit, country: 'DE', source: 'campaign:newsletter' }, 2000);
+  await store.recordAnalyticsVisit(visit, 3000);
+  const stats = await store.getAnalyticsStats();
+  expect(stats.accesses).toHaveLength(1);
+  expect(stats.accesses[0]).toMatchObject({ country: 'DE', source: 'campaign:newsletter', connections: 3 });
+});
+
 test('concurrent first reads wait for the database schema to finish initializing', async () => {
   const store = new HandStore(':memory:');
 

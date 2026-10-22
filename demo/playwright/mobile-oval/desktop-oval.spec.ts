@@ -3,6 +3,33 @@ import { fixture, mockTable } from './fixture';
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 
+test('desktop table keeps its size across streets, showdown and the next deal', async ({ page }) => {
+  const mock = await mockTable(page, fixture(4, false));
+  for (const viewport of [
+    { width: 761, height: 800 }, { width: 1280, height: 632 },
+    { width: 1440, height: 1000 }, { width: 1920, height: 1080 },
+    { width: 2560, height: 1440 },
+  ]) {
+    await page.setViewportSize(viewport);
+    let initial: { x: number; y: number; width: number; height: number }[] | undefined;
+    for (const stage of ['preflop', 'flop', 'turn', 'river', 'showdown', 'preflop']) {
+      const state = fixture(4, stage === 'showdown');
+      state.stage = stage;
+      state.community = state.community.slice(0, stage === 'preflop' ? 0 : stage === 'flop' ? 3 : stage === 'turn' ? 4 : 5);
+      if (stage === 'preflop') state.currentCombo = undefined;
+      mock.update(state);
+      await expect(page.locator('.mt-street')).toHaveText(new RegExp(stage, 'i'));
+      const geometry = await page.getByTestId('desktop-table').evaluate(table =>
+        ['.mt-scene', '.mt-rail', '.dt-bottom-panel'].map(selector => {
+          const { x, y, width, height } = table.querySelector(selector)!.getBoundingClientRect();
+          return { x, y, width, height };
+        }));
+      initial ??= geometry;
+      expect(geometry, `${viewport.width}x${viewport.height}, ${stage}`).toEqual(initial);
+    }
+  }
+});
+
 test('desktop seats, board, hints and actions fit without overlap for 2–10 players', async ({ page }, testInfo) => {
   const mock = await mockTable(page, fixture(8, false));
   test.setTimeout(90_000);

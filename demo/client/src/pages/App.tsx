@@ -31,12 +31,14 @@ import {
 import { APP_SHELL_STYLES, PLAYER_PAGE_STYLES } from './appStyles';
 import { useReliableWebSocket } from '../useReliableWebSocket';
 import { problemContext } from '../problemContext';
+import { browserVisitAttribution } from '../visitAttribution';
 import './wireframe-actions.css';
 import { WIREFRAME_LAYOUT } from './wireframeLayout';
 import { WireframeTable } from './WireframeTable';
 import { MOBILE_TABLE_ENABLED, MOBILE_TABLE_MAX_PLAYERS, shouldUseDesktopTable, shouldUseMobileTable } from '../mobile-table/feature';
 
 const MobileTable = React.lazy(() => import('../mobile-table/MobileTable'));
+const visitAttribution = browserVisitAttribution();
 
 const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || (isLocalVite ? 'http://localhost:4000' : window.location.origin);
@@ -608,6 +610,9 @@ function playerAccessFromUrl(url: string) {
 }
 
 type LobbyView = {
+  invitationOnly?: boolean;
+  preparedByAssistant?: boolean;
+  suggestedName?: string;
   id: string;
   pin: string;
   tableName: string;
@@ -3232,6 +3237,7 @@ function PlayerPage({
     onOpen: (socket) => {
       joinedPlayerSocketRef.current = null;
       const client = {
+        attribution: visitAttribution,
         platform: navigator.platform,
         screenWidth: window.screen.width,
         screenHeight: window.screen.height,
@@ -4391,6 +4397,7 @@ function LobbyTable({
 
 function LobbyPage() {
   const [, , lobbyId] = window.location.pathname.split('/');
+  const [invitation] = useState(() => captureLobbyInvitation(lobbyId));
   const searchParams = new URLSearchParams(window.location.search);
   const memberHint = searchParams.get('member');
   const invitePin = searchParams.get('pin');
@@ -4456,10 +4463,10 @@ function LobbyPage() {
         } catch {
           window.sessionStorage.removeItem(activeStorageKey);
           window.localStorage.removeItem(storageKey);
-          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
+          ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin, invitation }));
         }
       } else {
-        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin }));
+        ws.send(JSON.stringify({ action: 'view_lobby', lobbyId, pin: accessPin, invitation }));
       }
     },
     onMessage: (event, eventSocket) => {
@@ -4489,6 +4496,7 @@ function LobbyPage() {
       } else if (message.type === 'lobby_updated') {
         applyLobbySession(message.data);
         setLobby(message.data);
+        if (message.data.preparedByAssistant) setName(current => current || message.data.suggestedName || 'Guest');
         setNeedsPin(false);
         if (!memberId) setNotice(null);
       } else if (message.type === 'lobby_pin_changed') {
@@ -4544,10 +4552,10 @@ function LobbyPage() {
   async function copyInvitation() {
     if (!lobby) return;
 
-    const invitationUrl = `${window.location.origin}/lobby/${encodeURIComponent(lobby.id)}${lobby.mode === 'guests' ? '' : `?pin=${encodeURIComponent(lobby.pin)}`}`;
+    const invitationUrl = lobbyInvitationUrl(lobby, invitation);
     const invitation = ui(
-      `Join my Omaha Hi-Lo table!\nOpen this link to go straight to the table: ${invitationUrl}\nCity: ${lobby.tableName}${lobby.mode === 'guests' ? '\nNo PIN needed.' : `\nPIN: ${lobby.pin}`}`,
-      `Присоединяйтесь к моей игре Omaha хай-ло!\nОткройте ссылку, чтобы сразу перейти к столу: ${invitationUrl}\nГород: ${lobby.tableName}\nPIN: ${lobby.pin}`,
+      `Join my Omaha Hi-Lo table!\nOpen this link to go straight to the table: ${invitationUrl}\nCity: ${lobby.tableName}${lobby.preparedByAssistant || lobby.mode === 'guests' ? '\nNo PIN needed.' : `\nPIN: ${lobby.pin}`}`,
+      `Присоединяйтесь к моей игре Omaha хай-ло!\nОткройте ссылку, чтобы сразу перейти к столу: ${invitationUrl}\nГород: ${lobby.tableName}${lobby.preparedByAssistant || lobby.mode === 'guests' ? '\nPIN не нужен.' : `\nPIN: ${lobby.pin}`}`,
     );
 
     try {
@@ -4591,6 +4599,7 @@ function LobbyPage() {
     rememberPlayerName(normalizedName);
     send('join_lobby', {
       name: normalizedName,
+      invitation,
       pin: window.sessionStorage.getItem(accessStorageKey) ?? undefined,
     });
   }
@@ -4764,7 +4773,7 @@ function LobbyPage() {
                     <div>
                       <small>{ui('TABLE', 'СТОЛ')}</small>
                       <output className="lobby-table-name" aria-label={ui('Table name', 'Название стола')}>{lobby.tableName}</output>
-                      {lobby.mode === 'guests' ? <small>Public table · no PIN</small> : <>
+                      {lobby.invitationOnly ? <small>{ui('Private invitation · no PIN', 'Личное приглашение · без PIN')}</small> : lobby.mode === 'guests' ? <small>Public table · no PIN</small> : <>
                         <small style={{ marginTop: 7 }}>PIN</small>
                         <strong aria-label="Table PIN">{lobby.pin}</strong>
                       </>}
@@ -4851,7 +4860,7 @@ function LobbyPage() {
                 <>
               <div className="lobby-invite-card" style={{ border: '1px solid #a7f3d0', borderRadius: 18, background: 'linear-gradient(135deg, #ecfdf5, #f8fafc)', padding: '16px 18px' }}>
                 <strong style={{ display: 'block', color: '#526159', fontSize: 15 }}>
-                  {lobby.mode === 'guests' ? 'Share this open table - no PIN needed' : 'Tell your friends the table name and PIN'}
+                  {lobby.invitationOnly ? ui('Share the private invitation link', 'Отправьте личную ссылку-приглашение') : lobby.mode === 'guests' ? 'Share this open table - no PIN needed' : 'Tell your friends the table name and PIN'}
                 </strong>
                 <div style={{ display: 'flex', alignItems: 'stretch', gap: 12, flexWrap: 'wrap', marginTop: 11 }}>
                   <div style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: 13, borderRadius: 13, background: '#08734d', padding: '11px 16px', color: '#fff' }}>
@@ -4871,13 +4880,13 @@ function LobbyPage() {
                     </div>
                   </div>
                   <div style={{ flex: '0 1 190px', border: '2px solid #6ee7b7', borderRadius: 13, background: '#fff', padding: '9px 16px', color: '#065f46' }}>
-                    <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em' }}>{lobby.mode === 'guests' ? 'PUBLIC TABLE' : 'PIN'}</span>
+                    <span style={{ display: 'block', fontSize: 11, fontWeight: 900, letterSpacing: '.12em' }}>{lobby.invitationOnly ? ui('INVITATION', 'ПРИГЛАШЕНИЕ') : lobby.mode === 'guests' ? 'PUBLIC TABLE' : 'PIN'}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                     <output
                       aria-label={lobby.mode === 'guests' ? 'Table access' : 'Table PIN'}
                       style={{ display: 'block', marginTop: 2, font: '900 clamp(27px, 5vw, 40px)/1.05 ui-monospace, SFMono-Regular, Consolas, monospace', letterSpacing: '.16em' }}
                     >
-                      {lobby.mode === 'guests' ? 'Open' : lobby.pin}
+                      {lobby.invitationOnly ? ui('Private', 'Личное') : lobby.mode === 'guests' ? 'Open' : lobby.pin}
                     </output>
                       <button
                         type="button"

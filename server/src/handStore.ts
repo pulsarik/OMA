@@ -138,6 +138,11 @@ export default class HandStore {
     if (!analyticsVisitColumns.some((column: any) => column.name === 'player_name')) {
       await this.db.run('ALTER TABLE analytics_visits ADD COLUMN player_name TEXT');
     }
+    for (const column of ['country', 'source']) {
+      if (!analyticsVisitColumns.some((existing: any) => existing.name === column)) {
+        await this.db.run(`ALTER TABLE analytics_visits ADD COLUMN ${column} TEXT`);
+      }
+    }
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_party ON analytics_visits(party_id)');
     await this.db.run('CREATE INDEX IF NOT EXISTS analytics_visits_created ON analytics_visits(created DESC)');
     await this.db.run(`
@@ -231,14 +236,23 @@ export default class HandStore {
     );
   }
 
-  async claimCommentary(event: { id: string; partyId: string; handNumber: number; createdAt: number }, cooldownMs: number, handGap: number) {
+  async claimCommentary(event: { id: string; partyId: string; handId?: string; handNumber: number;
+    createdAt: number; stage?: string }, cooldownMs: number, handGap: number) {
     const db = await this.getDb();
+    const livePrefix = `${event.handId}:betting:`;
+    const resultAfterLive = Number(!event.stage && event.id === `${event.handId}:complete`);
+    const live = Number(Boolean(event.stage));
     const result = await db.run(`INSERT OR IGNORE INTO commentary_events(id, party_id, hand_number, created)
       SELECT ?, ?, ?, ? WHERE NOT EXISTS (
-        SELECT 1 FROM (SELECT created, hand_number FROM commentary_events WHERE party_id = ? ORDER BY created DESC LIMIT 1)
-        WHERE created > ? OR (hand_number <= ? AND hand_number > ?)
-      )`, event.id, event.partyId, event.handNumber, event.createdAt, event.partyId,
-    event.createdAt - cooldownMs, event.handNumber, event.handNumber - handGap);
+        SELECT 1 FROM (SELECT id, created, hand_number FROM commentary_events
+          WHERE party_id = ? ORDER BY created DESC, rowid DESC LIMIT 1)
+        WHERE created > ? OR (hand_number <= ? AND hand_number > ?
+          AND NOT (? = 1 AND substr(id, 1, length(?)) = ?))
+      ) AND (? = 0 OR NOT EXISTS (
+        SELECT 1 FROM commentary_events WHERE party_id = ? AND substr(id, 1, length(?)) = ?
+      ))`, event.id, event.partyId, event.handNumber, event.createdAt, event.partyId,
+    event.createdAt - cooldownMs, event.handNumber, event.handNumber - handGap,
+    resultAfterLive, livePrefix, livePrefix, live, event.partyId, livePrefix, livePrefix);
     return result.changes === 1;
   }
 
@@ -531,14 +545,16 @@ export default class HandStore {
     pixelRatio?: number;
     clientCookie?: string;
     playerName?: string;
+    country?: string;
+    source?: string;
   }, occurredAt = Date.now()) {
     const db = await this.getDb();
     const result = await db.run(`
       INSERT INTO analytics_visits(
         created, last_seen, party_id, hand_id, player_id, ip, user_agent,
         device_type, platform, screen_width, screen_height, viewport_width,
-        viewport_height, pixel_ratio, client_cookie, player_name
-      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        viewport_height, pixel_ratio, client_cookie, player_name, country, source
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     occurredAt,
     occurredAt,
@@ -555,7 +571,9 @@ export default class HandStore {
     visit.viewportHeight ?? null,
     visit.pixelRatio ?? null,
     visit.clientCookie ?? null,
-    visit.playerName ?? null);
+    visit.playerName ?? null,
+    visit.country ?? null,
+    visit.source ?? null);
     return result.lastID as number;
   }
 
@@ -579,7 +597,8 @@ export default class HandStore {
         player_id AS playerId, ip, user_agent AS userAgent, device_type AS deviceType,
         platform, screen_width AS screenWidth, screen_height AS screenHeight,
         viewport_width AS viewportWidth, viewport_height AS viewportHeight,
-        pixel_ratio AS pixelRatio, client_cookie AS clientCookie, player_name AS playerName
+        pixel_ratio AS pixelRatio, client_cookie AS clientCookie, player_name AS playerName,
+        country, source
         FROM analytics_visits ORDER BY last_seen DESC`),
       db.all(`
         SELECT COALESCE(device_type, 'Unknown') AS deviceType,
@@ -625,6 +644,8 @@ export default class HandStore {
         lastSeen: visit.lastSeen,
         clientCookie: visit.clientCookie,
         playerName: visit.playerName,
+        country: visit.country,
+        source: visit.source,
         ip: visit.ip,
         userAgent: visit.userAgent,
         deviceType: visit.deviceType,
@@ -643,6 +664,8 @@ export default class HandStore {
       if (isLatestVisit) {
         access.lastSeen = visit.lastSeen;
         access.playerName = visit.playerName ?? access.playerName;
+        access.country = visit.country ?? access.country;
+        access.source = visit.source ?? access.source;
         access.ip = visit.ip ?? access.ip;
         access.userAgent = visit.userAgent ?? access.userAgent;
         access.deviceType = visit.deviceType ?? access.deviceType;
@@ -656,6 +679,8 @@ export default class HandStore {
         // visitRows are sorted newest first. A newer visit may lack client
         // metadata, so let an older complete snapshot fill those gaps.
         access.playerName = access.playerName ?? visit.playerName;
+        access.country = access.country ?? visit.country;
+        access.source = access.source ?? visit.source;
         access.ip = access.ip ?? visit.ip;
         access.userAgent = access.userAgent ?? visit.userAgent;
         access.deviceType = access.deviceType ?? visit.deviceType;

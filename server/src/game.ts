@@ -1225,6 +1225,17 @@ export function commentaryBettingContext(hand: DealtHand) {
   };
 }
 
+/** A short public action sequence; wager levels describe the street total, not the raise increment. */
+export function commentaryRecentActions(hand: DealtHand) {
+  return hand.actions.slice(-5).map(action => ({
+    playerId: action.playerId, stage: action.stage, move: action.move,
+    ...(['bet', 'raise', 'call'].includes(action.move) && action.amount !== undefined
+      ? { wagerLevel: action.amount >= hand.blinds.big * 20 ? 'large' as const
+        : action.amount >= hand.blinds.big * 6 ? 'medium' as const : 'small' as const }
+      : {}),
+  }));
+}
+
 /** Select a fresh, significant betting action; routine checks/calls/folds stay quiet. */
 export function commentaryBettingSummary(hand: DealtHand) {
   if (hand.stage === 'showdown' || hand.isReplay || hand.partyFinishedEarly) return;

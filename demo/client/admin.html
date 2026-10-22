@@ -157,9 +157,26 @@
       return width && height ? `${width}×${height}` : '-';
     }
 
+    function countryName(code) {
+      if (!code || !/^[A-Z]{2}$/.test(code)) return 'Неизвестно / Unknown';
+      try {
+        const ru = new Intl.DisplayNames(['ru'], { type: 'region' }).of(code);
+        const en = new Intl.DisplayNames(['en'], { type: 'region' }).of(code);
+        return `${ru} / ${en}`;
+      } catch { return code; }
+    }
+
+    function sourceName(source) {
+      if (!source) return 'Неизвестно / Unknown';
+      if (source === 'direct') return 'Прямой / неизвестно · Direct / unknown';
+      if (source.startsWith('campaign:')) return `UTM: ${source.slice(9)}`;
+      if (source.startsWith('referral:')) return `По ссылке / Referral: ${source.slice(9)}`;
+      return 'Неизвестно / Unknown';
+    }
+
     function table(headers, rows) {
       if (headers.includes('User-Agent')) {
-        headers = [headers[0], 'Player', 'Cookie', ...headers.slice(1), 'Parties played', 'Parties won', 'Win rate', 'Deals played'];
+        headers = [headers[0], 'Player', 'Страна / Country', 'Источник / Source', ...headers.slice(1), 'Parties played', 'Parties won', 'Win rate', 'Deals played'];
       }
       return `
         <table>
@@ -213,7 +230,8 @@
           <tr>
             <td>${escapeHtml(formatDate(access.lastSeen))}</td>
             <td>${escapeHtml(access.playerName)}</td>
-            <td>${escapeHtml(access.clientCookie)}</td>
+            <td>${escapeHtml(countryName(access.country))}</td>
+            <td>${escapeHtml(sourceName(access.source))}</td>
             <td>${escapeHtml(access.ip)}</td>
             <td>${escapeHtml(access.deviceType)}</td>
             <td>${escapeHtml(access.platform)}</td>

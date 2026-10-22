@@ -36,7 +36,35 @@ export type Lobby = {
   failedPinAttempts?: number;
   created: number;
   lastActivity: number;
+  assistant?: {
+    private: boolean;
+    invitationHash: string;
+    playerName?: string;
+  };
 };
+
+// Prepared tables have no player identity until a human joins in the browser.
+export function preparedLobby(config: {
+  id: string; tableName: string; invitationHash: string; private: boolean;
+  opponents: 'bots' | 'friends'; botCount: number; playerName?: string; now: number;
+}): Lobby {
+  return {
+    id: config.id, pin: '', tableName: config.tableName, hostMemberId: '',
+    mode: config.opponents === 'bots' ? 'bots' : config.private ? 'friends' : 'guests',
+    maxPlayers: config.opponents === 'bots' ? config.botCount + 1 : 10,
+    status: 'waiting', members: [], created: config.now, lastActivity: config.now,
+    assistant: { private: config.private, invitationHash: config.invitationHash, playerName: config.playerName },
+  };
+}
+
+export function publicTableStatus(lobby: Lobby | null, now = Date.now(), waitMs = LOBBY_WAIT_MS) {
+  if (!lobby || isLobbyExpired(lobby, now, waitMs)) return { exists: false };
+  return {
+    exists: true, table_id: lobby.id, waiting_for_players: lobby.status === 'waiting',
+    game_in_progress: lobby.status === 'started',
+    available_seats: lobby.status === 'waiting' ? lobby.maxPlayers - lobby.members.length : 0,
+  };
+}
 
 export const WORLD_CAPITALS = [
   'Abu Dhabi', 'Abuja', 'Accra', 'Addis Ababa', 'Algiers', 'Amman',

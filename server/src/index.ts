@@ -6,7 +6,10 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
+import { visitCountry, visitSource } from './visitAttribution';
 import { botMove } from './bot';
+import { mcpRouter, TableInput } from './mcp';
+import { canUseInvitation, newInvitation } from './invitations';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
 import { emailProblem, problemEmailConfig } from './problemEmail';
 import { ILLUSTRATED_CAPITAL_SLUGS } from './generated/illustratedCapitals';
@@ -23,6 +26,8 @@ import {
   isLobbyExpired,
   requiresLobbyPin,
   LOBBY_WAIT_MS,
+  preparedLobby,
+  publicTableStatus,
 } from './lobby';
 import {
   MAX_RAISES_PER_STREET,
@@ -168,6 +173,17 @@ const buildInfo = readBuildInfo();
 const commitSha = process.env.RENDER_GIT_COMMIT || process.env.COMMIT_SHA || buildInfo.commit || 'dev';
 const buildTimeGmt = process.env.BUILD_TIME_GMT || buildInfo.buildTimeGmt || formatGmt(new Date());
 
+const publicOrigin = new URL(process.env.PUBLIC_ORIGIN || 'https://omahahilopoker.com').origin;
+if (!publicOrigin.startsWith('https://') && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(publicOrigin)) {
+  throw new Error('PUBLIC_ORIGIN must use HTTPS (except local development)');
+}
+const proxyHops = Number(process.env.MCP_TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(proxyHops) || proxyHops < 0 || proxyHops > 5) throw new Error('Invalid MCP_TRUST_PROXY_HOPS');
+if (proxyHops) app.set('trust proxy', proxyHops);
+// Mount before the legacy wildcard CORS middleware and general JSON parser.
+app.use('/mcp', mcpRouter({ create: createAssistantTable, status: assistantTableStatus }, publicOrigin, {
+  allowedOrigins: (process.env.MCP_ALLOWED_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean),
+}));
 app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -199,7 +215,7 @@ if (staticDir) {
   app.get('/index.html', (req, res) => {
     res.redirect(301, '/' + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
   });
-  app.get(/^\/(?:ru\/)?(?:rules|omaha-vs-holdem|how-to-play|hand-replay|statistics|poker-hints)(?:\/index\.html)?\/?$/, (req, res) => {
+  app.get(/^\/(?:ru\/)?(?:ai|rules|omaha-vs-holdem|how-to-play|hand-replay|statistics|poker-hints)(?:\/index\.html)?\/?$/, (req, res) => {
     const canonicalPath = req.path.replace(/(?:\/index\.html)?\/?$/, '');
     if (req.path !== canonicalPath) {
       res.redirect(301, canonicalPath + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
@@ -209,6 +225,7 @@ if (staticDir) {
   });
   app.use(['/player', '/lobby', '/debug', '/admin.html'], (_req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, follow');
+    res.setHeader('Referrer-Policy', 'no-referrer');
     next();
   });
   app.use(express.static(staticDir));
@@ -627,6 +644,8 @@ async function recordPlayerConnection(
     viewportHeight: finiteClientNumber(client?.viewportHeight, 20000),
     pixelRatio: finiteClientNumber(client?.pixelRatio, 20),
     clientCookie: clientCookie(req),
+    country: visitCountry(req.headers),
+    source: visitSource(client?.attribution),
     playerName: typeof player?.name === 'string' ? player.name.slice(0, 100) : undefined,
   });
   const connection = {
@@ -880,6 +899,9 @@ function lobbyState(lobby: Lobby) {
     mode: lobby.mode,
     maxPlayers: lobby.maxPlayers,
     status: lobby.status,
+    invitationOnly: Boolean(lobby.assistant?.private),
+    preparedByAssistant: Boolean(lobby.assistant),
+    suggestedName: !lobby.hostMemberId ? lobby.assistant?.playerName : undefined,
     replayCode: lobby.replayCode,
     isReplay: Boolean(lobby.isReplay),
     handId: lobby.handId,
@@ -939,6 +961,7 @@ async function listOpenLobbies() {
       && !isLobbyExpired(lobby, Date.now(), lobbyWaitMs)
       && lobby.members.length < lobby.maxPlayers
       && lobby.mode !== 'bots'
+      && !lobby.assistant?.private
       && typeof lobby.tableName === 'string'
     ))
     .map(openLobbyState);
@@ -1009,6 +1032,7 @@ function notifyLobbyHostPinChanged(lobby: Lobby) {
 }
 
 async function validateLobbyPin(lobby: Lobby, suppliedPin: unknown) {
+  if (lobby.assistant?.private) throw new Error('valid invitation required');
   if (!requiresLobbyPin(lobby)) return;
   // A bare lobby URL is not a failed guess and must not rotate shared invitations.
   if (suppliedPin == null || suppliedPin === '') throw new Error('enter a 4-digit PIN');
@@ -1154,11 +1178,49 @@ async function createLobby(ws: WebSocket, message: any) {
   });
 }
 
+async function createAssistantTable(input: TableInput): Promise<Record<string, unknown>> {
+  return withLobbyLock('__create__', async () => {
+    const lobbies = await store.listLobbies() as Lobby[];
+    if (lobbies.filter(lobby => lobby.assistant && lobby.status === 'waiting'
+      && !isLobbyExpired(lobby, Date.now(), lobbyWaitMs)).length >= 100) throw new Error('table capacity');
+    const invitation = newInvitation();
+    const lobby = preparedLobby({
+      id: uuidv4(), tableName: await newLobbyTableName(), invitationHash: invitation.hash,
+      private: input.private, opponents: input.opponents, botCount: input.bot_count ?? 3,
+      playerName: input.player_name, now: Date.now(),
+    });
+    await store.saveLobby(lobby);
+    await broadcastOpenLobbies();
+    return {
+      table_id: lobby.id,
+      join_url: `${publicOrigin}/lobby/${lobby.id}${input.private ? `#invite=${invitation.token}` : ''}`,
+      game: 'Omaha Hi-Lo 8 or Better', status: 'ready',
+      configuration: { game_type: input.game_type, opponents: input.opponents, bot_count: input.opponents === 'bots' ? lobby.maxPlayers - 1 : 0, private: input.private, max_players: lobby.maxPlayers },
+      expires_at: new Date(lobby.created + lobbyWaitMs).toISOString(),
+      message: input.opponents === 'bots'
+        ? 'Open the link and take a seat to start playing with bots. No registration required.'
+        : 'Open the link and take a seat. The first player becomes host; share this invitation with friends, then press Start game. No registration required.',
+      message_ru: input.opponents === 'bots'
+        ? 'Откройте ссылку и займите место, чтобы начать игру с ботами. Регистрация не нужна.'
+        : 'Откройте ссылку и займите место. Первый игрок становится ведущим; отправьте приглашение друзьям и нажмите «Начать игру». Регистрация не нужна.',
+    };
+  });
+}
+
+async function assistantTableStatus(tableId: string) {
+  return withLobbyLock(tableId, async () => publicTableStatus(await getActiveLobby(tableId), Date.now(), lobbyWaitMs));
+}
+
+async function validateLobbyInvitation(lobby: Lobby, message: any) {
+  if (!lobby.assistant) return validateLobbyPin(lobby, message.pin);
+  if (!canUseInvitation(lobby, message.invitation, Date.now(), lobbyWaitMs)) throw new Error('valid invitation required');
+}
+
 async function viewLobby(ws: WebSocket, message: any) {
   return withLobbyLock(message.lobbyId, async () => {
     const lobby = await getActiveLobby(message.lobbyId) as Lobby | null;
     if (!lobby) throw new Error('lobby not found');
-    await validateLobbyPin(lobby, message.pin);
+    await validateLobbyInvitation(lobby, message);
     ws.send(JSON.stringify({ type: 'lobby_updated', data: lobbyState(lobby) }));
   });
 }
@@ -1177,7 +1239,7 @@ async function findLobbyByPin(ws: WebSocket, message: any) {
 }
 
 async function joinLobby(ws: WebSocket, message: any) {
-  return withLobbyLock(message.lobbyId, async () => {
+  const autoStart = await withLobbyLock(message.lobbyId, async () => {
     const lobby = await getActiveLobby(message.lobbyId) as Lobby | null;
     if (!lobby) throw new Error('lobby not found');
 
@@ -1188,7 +1250,7 @@ async function joinLobby(ws: WebSocket, message: any) {
       throw new Error('invalid lobby credentials');
     }
     if (!member) {
-      await validateLobbyPin(lobby, message.pin);
+      await validateLobbyInvitation(lobby, message);
       if (lobby.status !== 'waiting') throw new Error('game already started');
       if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
       member = {
@@ -1200,6 +1262,7 @@ async function joinLobby(ws: WebSocket, message: any) {
         seat: firstOpenLobbySeat(lobby),
       };
       lobby.members.push(member);
+      if (lobby.assistant && !lobby.hostMemberId) lobby.hostMemberId = member.id;
       lobby.lastActivity = Date.now();
     }
 
@@ -1217,7 +1280,10 @@ async function joinLobby(ws: WebSocket, message: any) {
     broadcastLobby(lobby);
     await broadcastOpenLobbies();
     if (lobby.status === 'started') await sendStartedLobby(ws, lobby, member);
+    return Boolean(lobby.assistant && lobby.mode === 'bots' && lobby.status === 'waiting' && lobby.hostMemberId === member.id);
   });
+  // Use the existing authenticated start/deal path, outside the lobby lock.
+  if (autoStart) await startLobby(ws, message);
 }
 
 async function checkLobbyResume(ws: WebSocket, message: any) {

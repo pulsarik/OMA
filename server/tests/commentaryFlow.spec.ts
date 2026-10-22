@@ -16,7 +16,8 @@ test.each(['result', 'betting'])('%s moves publish shared commentary; reconnect 
         const facts = JSON.parse(request.messages[1].content).facts;
         const player = facts.find(f => f.player)?.player;
         return { ok: true, json: async () => ({ choices: [{ finish_reason: 'stop', message: {
-          content: JSON.stringify({ speak: true, text: player + ' takes the lead.', factIds: [facts[0].id] })
+          content: JSON.stringify({ speak: true,
+            text: player + (facts[0].kind === 'reraised' ? ' raises again.' : ' wins the hand.'), factIds: [facts[0].id] })
         }}], usage: { total_tokens: 400 } }) };
       }
       if (url === 'https://texttospeech.googleapis.com/v1/text:synthesize') {
@@ -52,7 +53,8 @@ test.each(['result', 'betting'])('%s moves publish shared commentary; reconnect 
     await new Promise<void>(resolve => probe.close(() => resolve()));
     child = spawn(process.execPath, ['-e', preload], { cwd: path.resolve(__dirname, '..'), windowsHide: true,
       env: { ...process.env, PORT: String(port), DATA_FILE: ':memory:', COMMENTARY_ENABLED: 'true',
-        GROQ_API_KEY: 'test', COMMENTARY_GOOGLE_TTS: 'true', HUMAN_TURN_MS: '60000' }, stdio: ['ignore', 'pipe', 'pipe'] });
+        GROQ_API_KEY: 'test', COMMENTARY_GOOGLE_TTS: 'true', COMMENTARY_COOLDOWN_SECONDS: '1',
+        HUMAN_TURN_MS: '60000' }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout!.on('data', data => { serverLog += String(data); });
     child.stderr!.on('data', data => { serverLog += String(data); });
     await new Promise<void>((resolve, reject) => {
@@ -94,6 +96,18 @@ test.each(['result', 'betting'])('%s moves publish shared commentary; reconnect 
     expect(audio.status).toBe(200); expect(await audio.text()).toBe('test audio');
     expect((await fetch(`http://127.0.0.1:${port}${a.audioUrl}bad`)).status).toBe(404);
     mover.send(move); await mover.waitFor('command_ack');
+    if (kind === 'betting') {
+      await new Promise(resolve => setTimeout(resolve, 1100));
+      const finisher = mover === host ? guest : host;
+      const fold = { action: 'player_move', ...(finisher === host ? first : second), move: 'fold', commandId: 'finish-after-call' };
+      finisher.send(fold);
+      const resultA = (await host.waitFor('commentary_ready')).data;
+      const resultB = (await guest.waitFor('commentary_ready')).data;
+      expect(resultA.id).toBe(`${a.handId}:complete`);
+      expect(resultA.stage).toBeUndefined();
+      expect(resultA.text).toBe(resultB.text);
+      finisher.send(fold); await finisher.waitFor('command_ack');
+    }
     host.send({ action: 'join_player', ...first }); await host.waitFor('player_state');
     const fresh = await connect(port); fresh.send({ action: 'join_player', ...second }); await fresh.waitFor('player_state');
     fresh.send({ action: 'commentary_preferences', preference: { mode: 'voice', locale: 'en' } });

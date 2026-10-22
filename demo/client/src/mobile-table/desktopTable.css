@@ -13,7 +13,6 @@
 /* Reserve the actual header/panel height first. Below the readable scene floor,
    allow scrolling instead of clipping cards or shrinking the controls. */
 .mt-page--desktop .mt-scene { flex: 1 1 0; height: clamp(420px, 62dvh, 850px); min-height: 420px; max-height: 850px; margin: 8px 0; container-type: size; }
-.mt-page--desktop .mt-scene--showdown { max-height: 900px; }
 .mt-page--desktop .mt-rail { inset: 0; border-radius: 48% / 46%; border-width: 12px; }
 .mt-page--desktop .mt-seat-anchor { width: min(15%, 25cqh); max-width: 210px; }
 .mt-page--desktop .mt-seat-name { font-size: clamp(12px, 1.2cqw, 18px); gap: 6px; }
@@ -42,7 +41,9 @@
 .mt-page--desktop .mt-personal-result { bottom: 1.5%; left: 30%; width: 40%; }
 .mt-page--desktop .mt-personal-result strong { font-size: 21px; }
 .mt-page--desktop .mt-personal-result > span { font-size: 11px; }
-.dt-bottom-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 22px; min-height: 110px; padding: 14px 20px; border: 1px solid #b6bd9038; border-radius: 12px; background: linear-gradient(120deg, #0c2b20, #041b14); }
+/* Reserve room for both betting controls (including the raise cap) and made
+   hands so changing streets or showing Next deal cannot resize the scene. */
+.dt-bottom-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 22px; min-height: 154px; padding: 14px 20px; border: 1px solid #b6bd9038; border-radius: 12px; background: linear-gradient(120deg, #0c2b20, #041b14); }
 .mt-page--desktop .mt-hints { position: static; width: auto; min-width: 0; gap: 14px; }
 .mt-page--desktop .mt-combo { padding-right: 0; }
 .mt-page--desktop .mt-combo + .mt-combo { padding-left: 14px; }
@@ -87,7 +88,7 @@ body:has(.mt-page--desktop) .report-problem-button { top: 16px !important; right
 }
 @media (max-height: 750px) and (min-width: 761px) {
   .mt-page--desktop .mt-header { height: 48px; }
-  .dt-bottom-panel { padding: 8px 12px; }
+  .dt-bottom-panel { min-height: 136px; padding: 8px 12px; }
   .mt-page--desktop .mt-combo .mt-card { max-height: 44px; }
   .mt-page--desktop .mt-combo .mt-card b { font-size: 16px; }
   .mt-page--desktop .mt-combo .mt-card > span { font-size: 18px; }

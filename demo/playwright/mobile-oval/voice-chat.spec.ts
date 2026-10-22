@@ -1,12 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 import { fixture, mockTable } from './fixture';
 
-async function openVoice(page: Page, mobile: boolean, russian = false) {
-  if (mobile) await page.locator('.mt-menu > summary').click();
+async function openVoice(page: Page, russian = false) {
   await page.getByRole('button', { name: russian ? 'Голос' : 'Voice', exact: true }).click();
 }
 
-for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138 }, { width: 390, height: 844 }]) {
+for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138 }, { width: 390, height: 844 }, { width: 320, height: 740 }]) {
   const mobile = viewport.width < 761;
   const tableId = mobile ? 'mobile-table' : 'desktop-table';
 
@@ -20,7 +19,6 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
     };
     await mockTable(page, botsOnly);
     await expect(page.getByTestId(tableId)).toBeVisible();
-    if (mobile) await page.locator('.mt-menu > summary').click();
     await expect(page.getByRole('button', { name: 'Voice', exact: true })).toHaveCount(0);
     await expect(page.locator('#voice-tab')).toHaveCount(0);
     await expect(page.locator('#voice-panel')).toHaveCount(0);
@@ -35,10 +33,13 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
         localStorage.setItem('omaha-language', language);
         localStorage.setItem('omaha-mobile-language', language);
       }, language);
-      await mockTable(page, fixture(7, false));
+      const state = { ...fixture(7, false), commentary: { enabled: true, voiceEnabled: true } };
+      await mockTable(page, state);
       await expect(page.getByTestId(tableId)).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await openVoice(page, mobile, russian);
+      await expect(page.getByRole('button', { name: 'Voice', exact: true })).toBeInViewport();
+      await expect(page.getByTestId('commentator').filter({ visible: true })).toBeInViewport();
+      await openVoice(page, russian);
       await expect(page.getByRole('tabpanel', { name: russian ? 'ГОЛОС' : 'VOICE', exact: true }))
         .toContainText(russian ? 'Голосовой чат сейчас недоступен.' : 'Voice chat is currently unavailable.');
       await page.getByRole('tab', { name: russian ? 'СТОЛ' : 'TABLE', exact: true }).click();
@@ -81,7 +82,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
       players: initial.players.map((player, index) => ({ ...player, isBot: index > 1 })),
     };
     await mockTable(page, state);
-    await openVoice(page, mobile);
+    await openVoice(page);
     await page.getByRole('button', { name: 'Join voice', exact: true }).click();
     await expect(page.getByTestId('voice-chat')).toContainText('Connected');
     expect(tokenRequests).toEqual([{ handId: 'mobile-fixture', playerId: 'P1', token: 'token' }]);
@@ -92,7 +93,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
     await expect(page.getByTestId(tableId)).toBeVisible();
     await expect(page.getByTestId('voice-chat')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
-    await openVoice(page, mobile);
+    await openVoice(page);
     await expect(page.getByTestId('voice-chat')).toContainText('Connected');
     await expect(page.getByRole('button', { name: 'Mic on', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(tokenRequests).toHaveLength(1);
