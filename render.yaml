@@ -11,6 +11,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUBLIC_ORIGIN
+        value: https://omahahilopoker.com
+      - key: MCP_TRUST_PROXY_HOPS
+        value: "1"
       - key: DATA_FILE
         value: /var/data/hands.sqlite
       - key: ADMIN_API_TOKEN
@@ -39,6 +43,10 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: MCP_TRUST_PROXY_HOPS
+        value: "1"
       - key: DATA_FILE
         value: /var/data/hands.sqlite
       - key: ADMIN_API_TOKEN

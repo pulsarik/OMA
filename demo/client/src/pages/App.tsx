@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
+import { CompactGameNavigation } from '../components/CompactGameNavigation';
 import { Commentator, CommentatorCaption, CommentatorSettings } from '../components/Commentator';
 import { useCommentary } from '../commentary/useCommentary';
 import { useGameSounds } from '../audio/useGameSounds';
@@ -41,7 +42,7 @@ import { MOBILE_TABLE_ENABLED, MOBILE_TABLE_MAX_PLAYERS, shouldUseDesktopTable, 
 const MobileTable = React.lazy(() => import('../mobile-table/MobileTable'));
 const visitAttribution = browserVisitAttribution();
 
-const isLocalVite = window.location.hostname === 'localhost' && window.location.port !== '4000';
+const isLocalVite = import.meta.env.DEV && window.location.hostname === 'localhost' && window.location.port !== '4000';
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || (isLocalVite ? 'http://localhost:4000' : window.location.origin);
 const WS_URL = import.meta.env.VITE_SERVER_URL ? SERVER_URL.replace(/^http/, 'ws') : isLocalVite
   ? 'ws://localhost:4000'
@@ -151,6 +152,7 @@ function AboutContent() {
 function localizedServerMessage(message: string) {
   if (storedLanguage() !== 'ru') return message;
   const messages: Record<string, string> = {
+    'valid invitation required': 'Нужно действующее приглашение. Откройте полную ссылку, полученную от ведущего.',
     'invalid replay code': 'Введите код повтора в формате ABC123.',
     'server overloaded: no table names available': 'Сервер перегружен: сейчас нет свободных названий столов. Попробуйте позже.',
     'enter a 4-digit PIN': 'Введите PIN из 4 цифр.',
@@ -3032,6 +3034,7 @@ function PlayerPage({
   const [notice, setNotice] = useState<string | null>(null);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
+  const [nextPlayerUrl, setNextPlayerUrl] = useState<string | null>(null);
   const [betSize, setBetSize] = useState<BetSizeOption>('blind');
   const [activeView, setActiveView] = useState<'table' | 'voice' | 'stats' | 'about' | 'settings'>('table');
   const [sessionDeadline, setSessionDeadline] = useState<number | null>(null);
@@ -3057,6 +3060,13 @@ function PlayerPage({
   const commentary = useCommentary(handId, SERVER_URL);
   const onGameSoundMessage = useGameSounds(handId, commentary.speaking);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
+
+  useEffect(() => {
+    if (!nextPlayerUrl || commentary.speaking) return;
+    setNextPlayerUrl(null);
+    if (onPlayerUrl) onPlayerUrl(nextPlayerUrl);
+    else window.location.href = nextPlayerUrl;
+  }, [nextPlayerUrl, commentary.speaking, onPlayerUrl]);
 
   function updatePendingCommand(command: PendingPlayerCommand | null) {
     pendingCommandRef.current = command;
@@ -3287,8 +3297,7 @@ function PlayerPage({
 
         if (samePlayerLink) {
           setNotice(ui('New deal created. Opening your new hand.', 'Новая раздача создана. Открываем вашу руку.'));
-          if (onPlayerUrl) onPlayerUrl(samePlayerLink.url);
-          else window.location.href = samePlayerLink.url;
+          setNextPlayerUrl(samePlayerLink.url);
         } else {
           setNotice(ui('New deal created.', 'Новая раздача создана.'));
         }
@@ -3606,8 +3615,7 @@ function PlayerPage({
     <button
       className="action-button primary"
       onClick={() => {
-        if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
-        else window.location.href = player.nextPlayerLink!.url;
+        setNextPlayerUrl(player.nextPlayerLink!.url);
       }}
     >
       {ui('New deal', 'Новая раздача')}
@@ -3632,8 +3640,7 @@ function PlayerPage({
         onMove={sendMove}
         onBetSize={setBetSize}
         onNext={canContinue ? startNewDeal : player.nextPlayerLink ? () => {
-          if (onPlayerUrl) onPlayerUrl(player.nextPlayerLink!.url);
-          else window.location.href = player.nextPlayerLink!.url;
+          setNextPlayerUrl(player.nextPlayerLink!.url);
         } : undefined}
         onStats={() => setActiveView('stats')}
         statsAvailable={showStatsTile}
@@ -3658,6 +3665,7 @@ function PlayerPage({
       <div className="commentator-toolbar">
         {!showOvalTable ? <Commentator controller={commentary} /> : null}
       </div>
+      <CompactGameNavigation label={ui('Menu', 'Меню')}>
       <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
         <button
           id="table-tab"
@@ -3709,6 +3717,7 @@ function PlayerPage({
           {ui('SETTINGS', 'НАСТРОЙКИ')}
         </button>
       </nav>
+      </CompactGameNavigation>
       {!showOvalTable ? <CommentatorCaption controller={commentary} /> : null}
       {isSettingsView ? <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" className="commentator-settings-panel">
         <SoundSettings t={ui} />

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pulsarik/omaha-hi-lo",
+  "title": "Omaha Hi-Lo Poker",
+  "description": "Free Omaha Hi-Lo tables with bots or friends. Play on the website without registration.",
+  "version": "1.0.0",
+  "websiteUrl": "https://omahahilopoker.com",
+  "remotes": [{ "type": "streamable-http", "url": "https://omahahilopoker.com/mcp" }]
+}

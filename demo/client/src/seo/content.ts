@@ -3,21 +3,23 @@ export const ORIGIN = 'https://omahahilopoker.com';
 export type Guide = { slug: string; en: { title: string; description: string; sections: [string, string][] }; ru: { title: string; description: string; sections: [string, string][] } };
 export const guides: Guide[] = [
   { slug: 'rules', en: {
-    title: 'Omaha Hi-Lo Rules & Hand Rankings', description: 'Learn Omaha Hi-Lo rules with visual hand rankings, split-pot examples and 50 practice situations. Understand low hands, starting cards and call decisions.', sections: [
-      ['Four cards, but use exactly two', 'Each player receives four private hole cards. The flop brings three community cards, followed by one on the turn and one on the river. At showdown, every five-card hand must use exactly two hole cards and exactly three community cards. You may choose different pairs of hole cards for high and low. You cannot play the board or use three cards from your hand.'],
+    title: 'PLO8 Rules: Omaha Hi-Lo & Hand Rankings', description: 'Learn PLO8 (Pot-Limit Omaha Hi-Lo 8-or-better): betting, low hands, split pots and 50 practice situations. This site allows three raises per street.', sections: [
+      ['Four cards, but use exactly two', 'We play PLO8: Pot-Limit Omaha Hi-Lo 8-or-better. Each player receives four private hole cards. The flop brings three community cards, followed by one on the turn and one on the river. At showdown, every five-card hand must use exactly two hole cards and exactly three community cards. You may choose different pairs of hole cards for high and low. You cannot play the board or use three cards from your hand.'],
       ['High hand rankings', 'From strongest to weakest: straight flush (including royal flush), four of a kind, full house, flush, straight, three of a kind, two pair, one pair, high card. An ace can be high or part of the A-2-3-4-5 straight. With four hearts on the board, one heart in your hand is not enough for a flush: you need two hearts in your hand and three on the board.'],
       ['What qualifies for low?', 'A low needs five different ranks, all eight or lower. Ace counts as one; straights and flushes do not hurt a low. The best low is 5-4-3-2-A. Compare from the highest card down: 6-5-4-3-2 beats 7-4-3-2-A, and 8-5-4-2-A beats 8-6-3-2-A. A pair disqualifies that five-card low.'],
       ['A worked example', 'With A-2-K-Q in your hand and 3-4-8-K-K on the board, A-2 plus 3-4-8 makes an eight-low. K-Q plus K-K-8 makes three kings for high. Both use two hole cards and three board cards. At least three distinct ranks eight or lower must appear on the board for any player to make low.'],
       ['Split pots, scooping and quartering', 'When a qualifying low exists, half the pot goes to the best high and half to the best low. If no low qualifies, high takes the whole pot. Scooping means winning both halves, or winning high when there is no low. If two players tie for low, each receives half of the low half: one quarter of the pot. A player who also wins high can receive three quarters. All-in side pots are settled separately among eligible players.'],
       ['A first strategy habit', 'Look for hands that can compete for both halves. A-2 is a promising low start, but it is not a guaranteed winner: if an ace or two arrives, your best low may change, and another player may tie your low. Before calling, check whether you are drawing to the best possible hand and whether you risk sharing only one half. Practice these situations with bots and compare decisions using replay.'],
+      ['Pot-limit betting and our three-raise cap', 'PLO8 uses pot-limit betting: an opening bet can be at most the pot, and a raise can be at most the size of the pot after calling, subject to your stack. For example, with 100 chips in the pot and 20 to call, you can call 20 and raise another 120, putting in 140 chips in total. This site also limits raises to three per street (preflop, flop, turn and river). That cap is an additional house rule, not a standard PLO8 restriction.'],
     ] }, ru: {
-    title: 'Правила Омахи хай-ло и комбинации', description: 'Правила Омахи хай-ло: наглядные комбинации, разделение банка и 50 учебных ситуаций. Разберите лоу, стартовые руки и цену колла на примерах.', sections: [
-      ['Четыре карты, но используются ровно две', 'Игрок получает четыре закрытые карты. На флопе открываются три общие карты, на тёрне и ривере — ещё по одной. Каждая комбинация на вскрытии состоит ровно из двух карт руки и трёх общих. Для хай и лоу можно выбрать разные пары карт руки. Нельзя играть только бордом или использовать три закрытые карты.'],
+    title: 'Правила PLO8: Омаха хай-ло и комбинации', description: 'Правила PLO8 — пот-лимит Омахи хай-ло до восьмёрки: ставки, лоу, разделение банка и 50 учебных ситуаций. На сайте действует лимит в три рейза за улицу.', sections: [
+      ['Четыре карты, но используются ровно две', 'Мы играем в PLO8 — Pot-Limit Omaha Hi-Lo 8-or-better, пот-лимит Омаху хай-ло с лоу до восьмёрки. Игрок получает четыре закрытые карты. На флопе открываются три общие карты, на тёрне и ривере — ещё по одной. Каждая комбинация на вскрытии состоит ровно из двух карт руки и трёх общих. Для хай и лоу можно выбрать разные пары карт руки. Нельзя играть только бордом или использовать три закрытые карты.'],
       ['Старшие комбинации', 'От сильнейшей к слабейшей: стрит-флеш (включая роял-флеш), каре, фулл-хаус, флеш, стрит, тройка, две пары, пара, старшая карта. Туз может быть старшим или входить в стрит A-2-3-4-5. Четыре червы на борде и одна в руке не дают флеш: нужны две червы в руке и три на борде.'],
       ['Какое лоу подходит?', 'Нужны пять разных достоинств не выше восьмёрки. Туз считается единицей; стрит и флеш не мешают лоу. Лучшее лоу — 5-4-3-2-A. Сравнение идёт от старшей карты вниз: 6-5-4-3-2 сильнее 7-4-3-2-A, а 8-5-4-2-A сильнее 8-6-3-2-A. Пара делает выбранную комбинацию непригодной для лоу.'],
       ['Пример', 'С рукой A-2-K-Q и бордом 3-4-8-K-K карты A-2 и 3-4-8 дают лоу до восьмёрки. K-Q и K-K-8 дают тройку королей для хай. В обоих случаях используются две карты руки и три общие. Чтобы лоу вообще было возможно, на борде должны быть как минимум три разных достоинства не выше восьмёрки.'],
       ['Разделение банка, scoop и quartering', 'Если есть подходящее лоу, половину банка получает лучший хай, другую — лучшее лоу. Если лоу нет, весь банк получает хай. Scoop означает выигрыш обеих половин или всего банка по хай без лоу. При равном лоу у двух игроков каждый получает четверть банка. Если один также выигрывает хай, он получает три четверти. Побочные банки при all-in распределяются отдельно между участвующими в них игроками.'],
       ['Первый стратегический навык', 'Ищите руки, способные бороться за обе половины. A-2 — перспективное начало для лоу, но не гарантия: выход туза или двойки может изменить вашу лучшую комбинацию, а другой игрок может собрать такое же лоу. Перед коллом проверьте, претендуете ли вы на лучшую возможную руку и не придётся ли делить только одну половину. Тренируйтесь с ботами и сравнивайте решения в повторах.'],
+      ['Пот-лимит и наше ограничение в три рейза', 'В PLO8 размер первой ставки ограничен банком, а размер повышения — банком после колла, в пределах вашего стека. Например, если в банке 100 фишек и для колла нужно 20, можно уравнять 20 и повысить ещё на 120, вложив всего 140 фишек. На этом сайте также разрешены максимум три повышения за улицу: префлоп, флоп, тёрн или ривер. Это дополнительное правило сайта, а не стандартное ограничение PLO8.'],
     ] } },
   { slug: 'omaha-vs-holdem', en: { title: "Omaha Hi-Lo vs Omaha vs Texas Hold'em", description: "Compare Omaha Hi-Lo, Omaha high and Texas Hold'em: hole cards, hand construction, low hands and practical decisions.", sections: [
     ['How many cards can you use?', "Texas Hold'em deals two hole cards; a five-card hand can use both, one or neither. Standard four-card Omaha deals four hole cards but requires exactly two of them and three community cards. Omaha Hi-Lo uses the same two-plus-three rule. Extra private cards create more possible combinations, not permission to use more cards."],
@@ -82,23 +84,23 @@ export function resolveGuide(pathname: string) {
   return guide ? { guide, language } : null;
 }
 export const homeMeta = {
-  en: { title: 'Free Omaha Hi-Lo Poker Online | Friends & Bots', description: 'Play free Omaha Hi-Lo poker online with friends or bots. Learn with hand hints and split-pot explanations, use voice chat and replay hands. No registration.' },
-  ru: { title: 'Омаха хай-ло онлайн бесплатно — с друзьями и ботами', description: 'Играйте в Омаху хай-ло онлайн бесплатно, без регистрации. Подсказки комбинаций, объяснение разделения банка, голосовой чат и повторы раздач.' },
+  en: { title: 'Free PLO8 Poker Online | Omaha Hi-Lo with Friends & Bots', description: 'Play free PLO8 — Pot-Limit Omaha Hi-Lo 8-or-better — with friends or bots. No registration. Hand hints, voice chat and replay. Three raises per street.' },
+  ru: { title: 'PLO8 онлайн бесплатно — Омаха хай-ло с друзьями и ботами', description: 'Играйте в PLO8 — пот-лимит Омаху хай-ло до восьмёрки — с друзьями или ботами, без регистрации. Подсказки, голосовой чат и повторы. До трёх рейзов за улицу.' },
 };
 
 export const homeCopy = {
   en: {
     eyebrow: 'Free · In your browser · No registration',
-    title: 'Omaha Hi-Lo poker online',
-    intro: 'Play with friends or practice with bots. Hand hints and split-pot explanations help you learn as you play.',
+    title: 'Omaha Hi-Lo (PLO8) poker online',
+    intro: 'Play PLO8 — Pot-Limit Omaha Hi-Lo 8-or-better — with friends or bots. Learn with hand hints and split-pot explanations.',
     differenceTitle: 'Four cards. A chance to win both halves.',
-    difference: 'Build your high and low hands using exactly two of your cards and three from the board. New to Hi-Lo? Start with bots and explore the hints.',
+    difference: 'Build high and low hands using exactly two of your cards and three from the board. Bets are pot-limit; this site allows up to three raises per street.',
   },
   ru: {
     eyebrow: 'Бесплатно · В браузере · Без регистрации',
-    title: 'Омаха хай-ло онлайн',
-    intro: 'Играйте с друзьями или тренируйтесь с ботами. Подсказки комбинаций и объяснение разделения банка помогут разобраться по ходу игры.',
+    title: 'Омаха хай-ло (PLO8) онлайн',
+    intro: 'Играйте в PLO8 — пот-лимит Омаху хай-ло с лоу до восьмёрки — с друзьями или ботами. Подсказки комбинаций и объяснение разделения банка помогут разобраться.',
     differenceTitle: 'Четыре карты. Шанс выиграть обе половины.',
-    difference: 'Собирайте хай и лоу из ровно двух своих карт и трёх карт стола. Впервые играете в хай-ло? Начните с ботами и подсказками.',
+    difference: 'Собирайте хай и лоу из ровно двух своих карт и трёх карт стола. Ставки ограничены банком; на сайте разрешены максимум три рейза за улицу.',
   },
 };

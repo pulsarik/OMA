@@ -43,6 +43,7 @@ export function LearnLinks({ language }: { language: Language }) {
     <h2 id="learn-title" style={{ marginTop: 0 }}>{language === 'ru' ? 'Правила и обучение' : 'Rules and learning'}</h2>
     <nav className="seo-links" aria-label={language === 'ru' ? 'Учебные страницы' : 'Omaha Hi-Lo guides'}>
       {guides.map((guide, index) => <a key={guide.slug} href={guidePath(guide.slug, language)}>{labels[index]}</a>)}
+      <a href={language === 'ru' ? '/ru/ai' : '/ai'}>{language === 'ru' ? 'ИИ-ассистенты / MCP' : 'AI assistants / MCP'}</a>
       <a href={`${guidePath('rules', language)}#practice-50`}>{language === 'ru' ? '50 ситуаций с разбором' : '50 practice situations'}</a>
     </nav>
   </section>;

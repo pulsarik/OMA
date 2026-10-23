@@ -43,7 +43,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }:
         <div className="mt-awards">
           {winsHigh ? <span className="mt-award mt-award--high" data-testid={`mt-high-${seat.id}`}>H +{amount(payout?.high)}</span> : null}
           {winsLow ? <span className="mt-award mt-award--low" data-testid={`mt-low-${seat.id}`}>L +{amount(payout?.low)}</span> : null}
-          {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Without showdown', 'Без вскрытия')} {amount(payout?.uncontested)}</span> : null}
+          {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Won', 'Выиграл')} {amount(payout?.uncontested)}</span> : null}
         </div>
         {!hero ? <div className="mt-ranks">
           {seat.folded ? <span>{t('Folded', 'Фолд')}</span> : null}

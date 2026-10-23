@@ -1,3 +1,4 @@
+import { expect, test } from '@jest/globals';
 import { captureVisitAttribution } from '../client/src/visitAttribution';
 
 function memoryStorage() {

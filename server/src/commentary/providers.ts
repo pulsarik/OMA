@@ -20,8 +20,8 @@ export function commentaryConfig(env = process.env): CommentaryConfig {
     project: env.GOOGLE_CLOUD_PROJECT,
     dailyTokens: positive(env.COMMENTARY_DAILY_TOKENS, 180_000),
     monthlyCharacters: positive(env.COMMENTARY_MONTHLY_CHARACTERS, 900_000),
-    cooldownMs: Math.min(positive(env.COMMENTARY_COOLDOWN_SECONDS, 30), 3600) * 1000,
-    handGap: positive(env.COMMENTARY_HAND_GAP, 1),
+    cooldownMs: Math.min(positive(env.COMMENTARY_COOLDOWN_SECONDS, 20), 3600) * 1000,
+    handGap: positive(env.COMMENTARY_HAND_GAP, 3),
     hourlyAttempts: positive(env.COMMENTARY_HOURLY_ATTEMPTS, 60),
   };
 }

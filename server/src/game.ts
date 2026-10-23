@@ -1205,6 +1205,11 @@ export function stacksAfterPayout(hand: DealtHand) {
   return stacks;
 }
 
+export function isPartyFinished(hand: DealtHand) {
+  return Boolean(hand.partyFinishedEarly || (hand.stage === 'showdown'
+    && [...stacksAfterPayout(hand).values()].filter(stack => stack > 0).length <= 1));
+}
+
 export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<string, number>) {
   const settledStacks = stacksAfterPayout(hand);
   return hand.players.map((player) => ({

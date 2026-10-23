@@ -198,13 +198,13 @@ test('delivery varies but remains respectful for eliminations; prompt contains o
   }
 });
 
-test('commentary cadence defaults are more frequent and can be tuned without changing provider budgets', () => {
-  expect(commentaryConfig({})).toMatchObject({ cooldownMs: 30_000, handGap: 1, hourlyAttempts: 60,
+test('commentary cadence targets about one in three hands and can be tuned without changing provider budgets', () => {
+  expect(commentaryConfig({})).toMatchObject({ cooldownMs: 20_000, handGap: 3, hourlyAttempts: 60,
     dailyTokens: 180_000, monthlyCharacters: 900_000 });
   expect(commentaryConfig({ COMMENTARY_COOLDOWN_SECONDS: '45', COMMENTARY_HAND_GAP: '2', COMMENTARY_HOURLY_ATTEMPTS: '40' }))
     .toMatchObject({ cooldownMs: 45_000, handGap: 2, hourlyAttempts: 40 });
   expect(commentaryConfig({ COMMENTARY_COOLDOWN_SECONDS: '0', COMMENTARY_HAND_GAP: '-1', COMMENTARY_HOURLY_ATTEMPTS: 'NaN' }))
-    .toMatchObject({ cooldownMs: 30_000, handGap: 1, hourlyAttempts: 60 });
+    .toMatchObject({ cooldownMs: 20_000, handGap: 3, hourlyAttempts: 60 });
 });
 
 test('rejects invented fact IDs, player markers, amounts, hidden cards and repeated comments', () => {
@@ -299,12 +299,12 @@ test('a result may follow one live call after cooldown; another live call cannot
   const s = setup();
   await s.service.consider({ ...event(), id: 'h1:betting:2', stage: 'preflop' });
   expect(s.sent.mock.calls[0][0].stage).toBe('preflop');
-  s.setNow(129_999);
-  await s.service.consider(event(129_999));
+  s.setNow(119_999);
+  await s.service.consider(event(119_999));
   expect(s.providers.generate).toHaveBeenCalledTimes(1);
-  s.setNow(160_000);
+  s.setNow(120_000);
   s.providers.generate.mockResolvedValue({ result: { speak: true, text: '[P1] wins the pot.', factIds: ['f1'] }, tokens: 400 });
-  await s.service.consider(event(160_000));
+  await s.service.consider(event(120_000));
   const restarted = new CommentaryService(s.config, s.store, s.audience, s.providers, () => 200_000);
   await restarted.consider({ ...event(200_000), id: 'h1:betting:5', stage: 'flop' });
   expect(s.providers.generate).toHaveBeenCalledTimes(2);
@@ -325,19 +325,22 @@ test.each(['before', 'text', 'speech'])('stale live action is discarded %s gener
   if (phase === 'before') expect(s.providers.generate).not.toHaveBeenCalled();
 });
 
-test('the next hand can be commented after thirty seconds, with duplicate and hourly limits still enforced', async () => {
+test('a third hand can be commented after twenty seconds, with duplicate and hourly limits still enforced', async () => {
   const s = setup('text');
   await s.service.consider(event());
-  s.setNow(129_999);
-  const next = { ...event(129_999), id: 'h2:complete', handNumber: 2 };
+  s.setNow(119_999);
+  const next = { ...event(119_999), id: 'h4:complete', handId: 'h4', handNumber: 4 };
   await s.service.consider(next);
   expect(s.providers.generate).toHaveBeenCalledTimes(1);
-  s.setNow(130_000);
+  s.setNow(120_000);
+  await s.service.consider({ ...event(120_000), id: 'h2:complete', handId: 'h2', handNumber: 2 });
+  await s.service.consider({ ...event(120_000), id: 'h3:complete', handId: 'h3', handNumber: 3 });
+  expect(s.providers.generate).toHaveBeenCalledTimes(1);
   s.providers.generate.mockResolvedValue({ result: { speak: true, text: '[P1] stays ahead.', factIds: ['f1'] }, tokens: 400 });
-  await s.service.consider({ ...next, createdAt: 130_000 });
+  await s.service.consider({ ...next, createdAt: 120_000 });
   expect(s.providers.generate).toHaveBeenCalledTimes(2);
   expect(s.sent).toHaveBeenCalledTimes(4);
-  await s.service.consider({ ...next, createdAt: 130_000 });
+  await s.service.consider({ ...next, createdAt: 120_000 });
   expect(s.providers.generate).toHaveBeenCalledTimes(2);
   const limited = setup();
   await limited.store.reserveCommentaryUsage('hour:0:party', 60, 60);

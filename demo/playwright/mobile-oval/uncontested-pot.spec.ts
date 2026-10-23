@@ -38,7 +38,7 @@ for (const width of [320, 390, 1280]) {
     const expectedCaption = 'Won without showdown · Whole pot 160';
     await expect(caption).toHaveText(expectedCaption);
     await expect(caption).not.toHaveAttribute('title');
-    await expect(page.getByTestId('mt-seat-P6').locator('.mt-return')).toHaveText('Without showdown 160');
+    await expect(page.getByTestId('mt-seat-P6').locator('.mt-return')).toHaveText('Won 160');
     await expect(page.getByTestId('mt-seat-P6')).toContainText('L · 5-4-3-2-1');
     expect(await caption.evaluate(element => {
       const caption = element.getBoundingClientRect();
@@ -54,6 +54,7 @@ for (const width of [320, 390, 1280]) {
     Object.assign(state, { result: undefined });
     mock.update(state);
     await expect(caption).toHaveText(expectedCaption);
+    await expect(page.getByTestId('mt-seat-P6').locator('.mt-return')).toHaveText('Won 160');
     await page.getByRole('button', { name: 'Pot 160', exact: true }).click();
     const pot = page.getByRole('dialog').locator('.mt-pot-detail');
     await expect(pot).toContainText('Won without showdown: Ольга');

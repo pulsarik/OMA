@@ -3,6 +3,7 @@ import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { GuidePage, HomeSnapshot } from './PublicContent';
 import { guides, guidePath, homeMeta, ORIGIN, type Language } from './content';
 import { GAME_PREVIEW, GAME_PREVIEW_URL } from './gamePreview';
+import { AiPage, aiMetadata } from './AiPage';
 
 const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const json = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
@@ -11,6 +12,7 @@ export function publicPages() {
   // Guides are hydrated: preserve React's adjacent-text markers. The homepage
   // snapshot is replaced by createRoot and does not need hydration markers.
   const pages = [{ path: '/', language: 'en' as Language, ...homeMeta.en, body: renderToStaticMarkup(<HomeSnapshot />), slug: '' },
+    ...(['en', 'ru'] as const).map(language => ({ path: language === 'ru' ? '/ru/ai' : '/ai', language, ...aiMetadata[language], body: renderToString(<AiPage language={language} />), slug: '' })),
     ...guides.flatMap(guide => (['en'] as const).map(language => ({
       path: guidePath(guide.slug, language), language, title: `${guide[language].title} | Omaha Hi-Lo`,
       description: guide[language].description, body: renderToString(<GuidePage guide={guide} language={language} />), slug: guide.slug,

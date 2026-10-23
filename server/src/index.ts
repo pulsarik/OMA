@@ -41,6 +41,7 @@ import {
   evaluatePlayerCombo,
   blindLevelForHand,
   isPlayerStillInParty,
+  isPartyFinished,
   nextPartyHand,
   netResultsAfterPayout,
   normalizeReplayCode,
@@ -1208,7 +1209,13 @@ async function createAssistantTable(input: TableInput): Promise<Record<string, u
 }
 
 async function assistantTableStatus(tableId: string) {
-  return withLobbyLock(tableId, async () => publicTableStatus(await getActiveLobby(tableId), Date.now(), lobbyWaitMs));
+  return withLobbyLock(tableId, async () => {
+    const lobby = await getActiveLobby(tableId);
+    const status = publicTableStatus(lobby, Date.now(), lobbyWaitMs);
+    if (!lobby || lobby.status !== 'started') return status;
+    const hand = lobby.handId ? await getActiveHand(lobby.handId) : null;
+    return { ...status, game_in_progress: Boolean(hand && !isPartyFinished(hand)) };
+  });
 }
 
 async function validateLobbyInvitation(lobby: Lobby, message: any) {
@@ -1252,6 +1259,7 @@ async function joinLobby(ws: WebSocket, message: any) {
     if (!member) {
       await validateLobbyInvitation(lobby, message);
       if (lobby.status !== 'waiting') throw new Error('game already started');
+      if (lobby.assistant && lobby.mode === 'bots' && lobby.hostMemberId) throw new Error('lobby is full');
       if (lobby.members.length >= lobby.maxPlayers) throw new Error('lobby is full');
       member = {
         id: uuidv4(),
@@ -1298,10 +1306,7 @@ async function checkLobbyResume(ws: WebSocket, message: any) {
     const hand = lobby?.status === 'started' && lobby.handId
       ? await getActiveHand(lobby.handId)
       : null;
-    const gameFinished = Boolean(hand && (
-      hand.partyFinishedEarly
-      || (hand.stage === 'showdown' && [...stacksAfterPayout(hand).values()].filter(stack => stack > 0).length <= 1)
-    ));
+    const gameFinished = Boolean(hand && isPartyFinished(hand));
     const available = Boolean(
       lobby
       && member

@@ -1,3 +1,5 @@
+import { NARROW_TABLE_STYLES } from './narrowTableStyles';
+
 const COMPACT_CARD_SCALE = 0.72;
 const OPPONENT_CARD_WIDTH = 92 * COMPACT_CARD_SCALE * 0.9;
 const OPPONENT_CARD_HEIGHT = 132 * COMPACT_CARD_SCALE * 0.9;
@@ -5537,4 +5539,5 @@ export const PLAYER_PAGE_STYLES = `
     .poker-page--new-design .stats-tile,
     .poker-page--new-design .about-panel { border-width: 5px; }
   }
+  ${NARROW_TABLE_STYLES}
 `;

@@ -20,6 +20,7 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
   let state: any = { ...fixture(3, false), voiceEnabled: true, commentary: { enabled: true, voiceEnabled: true } };
   let socket: WebSocketRoute | undefined;
   const subscriptions: any[] = [];
+  const newDeals: any[] = [];
   await page.route('**/api/player/**', r => r.fulfill({ json: state }));
   await page.routeWebSocket(/ws:\/\/localhost:(4000|4100)\//, ws => {
     socket = ws;
@@ -27,6 +28,7 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
       const message = JSON.parse(String(raw));
       if (message.action === 'join_player') ws.send(JSON.stringify({ type: 'player_state', data: state }));
       if (message.action === 'commentary_preferences') subscriptions.push(message.preference);
+      if (message.action === 'new_deal') newDeals.push(message);
     });
   });
   await page.goto('/player/mobile-fixture/P1/token');
@@ -34,8 +36,13 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
   await expect.poll(() => subscriptions.length).toBeGreaterThan(0);
   return {
     subscriptions,
+    newDeals,
     advance(stage: string, revision: number) { state = { ...state, stage, revision }; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
     complete() { state = { ...state, stage: 'showdown', revision: 2 }; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
+    link() { state = { ...state, nextHandId: 'next-fixture', nextPlayerLink: { id: 'P1', url: '/player/next-fixture/P1/token' } }; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
+    deal() { socket!.send(JSON.stringify({ type: 'hand_dealt', data: { playerLinks: [
+      { id: 'P1', url: '/player/next-fixture/P1/token' },
+    ] } })); },
     send(overrides: Record<string, unknown> = {}) {
       const now = Date.now();
       socket!.send(JSON.stringify({ type: 'commentary_ready', data: {
@@ -49,6 +56,43 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
 }
 
 export function commentaryCases() {
+  for (const width of [390, 1280]) {
+    test(`next deal keeps speaking through creation at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const t = await table(page, 'voice');
+      t.complete();
+      t.send();
+      const next = page.getByRole('button', { name: /^(Next deal|New deal)$/ });
+      await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+      await expect(next).toBeEnabled();
+      await next.click();
+      await expect.poll(() => t.newDeals.length).toBe(1);
+      await expect(page.getByRole('button', { name: /^(Dealing|Creating)/ })).toBeDisabled();
+      t.deal();
+      await expect(next).toBeEnabled();
+      await expect(page).toHaveURL(/\/player\/mobile-fixture\/P1\/token$/);
+      expect(await page.evaluate(() => (window as any).commentaryAudio.pauses)).toBe(0);
+      await page.evaluate(() => (window as any).commentaryAudio.finish());
+      await expect(page).toHaveURL(/\/player\/next-fixture\/P1\/token$/);
+    });
+  }
+
+  test('opening an existing next deal lets the spoken result finish', async ({ page }) => {
+    const t = await table(page, 'voice');
+    t.complete();
+    t.send();
+    await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
+    t.link();
+    const next = page.getByRole('button', { name: /^(Next deal|New deal)$/ });
+    await expect(next).toBeEnabled();
+    await next.click();
+    await expect(page).toHaveURL(/\/player\/mobile-fixture\/P1\/token$/);
+    expect(await page.evaluate(() => (window as any).commentaryAudio.pauses)).toBe(0);
+    await page.evaluate(() => (window as any).commentaryAudio.finish());
+    await expect(page).toHaveURL(/\/player\/next-fixture\/P1\/token$/);
+    expect(t.newDeals).toHaveLength(0);
+  });
+
   test('live betting commentary waits for the action and stops when the street changes', async ({ page }) => {
     const t = await table(page, 'voice');
     t.advance('flop', 1);

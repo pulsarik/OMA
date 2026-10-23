@@ -1,0 +1,16 @@
+# Omaha Hi-Lo Poker
+
+Free browser Omaha Hi-Lo 8 or Better with bots or friends. No registration.
+Humans play on the website; MCP only prepares tables and reads safe status.
+
+- Integration and connection instructions: https://omahahilopoker.com/ai
+- Remote MCP (Streamable HTTP): https://omahahilopoker.com/mcp
+- Registry manifest: https://omahahilopoker.com/mcp-server.json
+- Rules: https://omahahilopoker.com/rules
+
+Tools: create_poker_table, get_play_link (creates a new table), get_table_status,
+get_game_info. Discover full input schemas using MCP tools/list.
+Return join_url unchanged, including its fragment. First joiner becomes host.
+Private invitations grant a new seat, never an existing player's identity.
+Connect and approve this server in your MCP client; this document does not
+guarantee automatic discovery, registry publication or ChatGPT availability.

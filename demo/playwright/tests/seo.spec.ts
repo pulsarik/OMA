@@ -5,7 +5,7 @@ const origin = 'https://omahahilopoker.com';
 const previewPath = '/images/omaha-hi-lo-game.jpg';
 
 for (const javaScriptEnabled of [false, true]) {
-  test(`homepage game image is crawlable with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
+  test(`homepage PLO8 format and game image are crawlable with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ javaScriptEnabled });
     const page = await context.newPage();
     const errors: string[] = [];
@@ -14,6 +14,17 @@ for (const javaScriptEnabled of [false, true]) {
       await page.setViewportSize({ width, height: 900 });
       await page.goto('http://localhost:4000/');
       if (javaScriptEnabled) await expect(page.getByRole('button', { name: 'Play with bots' })).toBeVisible();
+      await expect(page).toHaveTitle(/PLO8.*Omaha Hi-Lo/);
+      await expect(page.getByRole('heading', { level: 1 })).toContainText('PLO8');
+      await expect(page.locator('.welcome-intro-card')).toContainText('Pot-Limit Omaha Hi-Lo 8-or-better');
+      await expect(page.locator('.welcome-difference')).toContainText('up to three raises per street');
+      for (const selector of ['meta[name="description"]', 'meta[property="og:title"]', 'meta[property="og:description"]']) {
+        await expect(page.locator(selector)).toHaveAttribute('content', /PLO8/);
+      }
+      const schema = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!);
+      expect(schema['@graph'].find((item: { '@type': string }) => item['@type'] === 'WebPage')).toMatchObject({
+        name: expect.stringContaining('PLO8'), description: expect.stringContaining('Pot-Limit Omaha Hi-Lo 8-or-better'),
+      });
       const preview = page.locator(`img[src="${previewPath}"]`);
       await expect(preview).toHaveCount(1);
       await expect(preview).toBeVisible();
@@ -65,6 +76,11 @@ for (const javaScriptEnabled of [false, true]) {
     page.on('pageerror', error => errors.push(error.message));
     for (const language of ['en', 'ru']) {
       await page.goto(`http://localhost:4000${language === 'ru' ? '/ru/rules' : '/rules'}`);
+      await expect(page).toHaveTitle(/PLO8 Rules/);
+      await expect(page.locator('h1')).toContainText('PLO8');
+      await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /PLO8.*Pot-Limit Omaha Hi-Lo 8-or-better/);
+      await expect(page.locator('#rule-1')).toContainText('Pot-Limit Omaha Hi-Lo 8-or-better');
+      await expect(page.locator('article')).toContainText('That cap is an additional house rule, not a standard PLO8 restriction.');
       await expect(page.locator('.practice-case')).toHaveCount(50);
       await expect(page.locator('.rules-ranks > li')).toHaveCount(9);
       const first = page.locator('#practice-1');
@@ -98,7 +114,7 @@ test('homepage explains its features in static HTML and English', async ({ brows
   const context = await browser.newContext({ javaScriptEnabled: false });
   const staticPage = await context.newPage();
   await staticPage.goto('http://localhost:4000/');
-  await expect(staticPage.getByRole('heading', { level: 1 })).toHaveText('Omaha Hi-Lo poker online');
+  await expect(staticPage.getByRole('heading', { level: 1 })).toHaveText('Omaha Hi-Lo (PLO8) poker online');
   await expect(staticPage.getByText('High · 50 chips', { exact: true })).toBeVisible();
   await expect(staticPage.getByRole('link', { name: /Rules, hand rankings/ })).toHaveAttribute('href', '/rules');
   await expect(staticPage.locator('.welcome-choice-card').first()).toHaveAttribute('href', '/?start=bots');
