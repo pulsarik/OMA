@@ -164,7 +164,7 @@ test('sitemap, robots, redirects and private/error routing use correct responses
   expect(sitemap.status()).toBe(200);
   expect(sitemap.headers()['content-type']).toContain('xml');
   const xml = await sitemap.text();
-  expect(xml.match(/<loc>/g)).toHaveLength(7);
+  expect(xml.match(/<loc>/g)).toHaveLength(9);
   expect(xml).not.toMatch(/player|lobby|debug|admin/);
   for (const match of xml.matchAll(/<loc>(.*?)<\/loc>/g)) {
     expect((await request.get(match[1].replace(origin, ''))).status()).toBe(200);
