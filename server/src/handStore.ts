@@ -240,7 +240,7 @@ export default class HandStore {
     createdAt: number; stage?: string }, cooldownMs: number, handGap: number) {
     const db = await this.getDb();
     const livePrefix = `${event.handId}:betting:`;
-    const resultAfterLive = Number(!event.stage && event.id === `${event.handId}:complete`);
+    const followsLive = Number(Boolean(event.stage) || (!event.stage && event.id === `${event.handId}:complete`));
     const live = Number(Boolean(event.stage));
     const result = await db.run(`INSERT OR IGNORE INTO commentary_events(id, party_id, hand_number, created)
       SELECT ?, ?, ?, ? WHERE NOT EXISTS (
@@ -248,11 +248,11 @@ export default class HandStore {
           WHERE party_id = ? ORDER BY created DESC, rowid DESC LIMIT 1)
         WHERE created > ? OR (hand_number <= ? AND hand_number > ?
           AND NOT (? = 1 AND substr(id, 1, length(?)) = ?))
-      ) AND (? = 0 OR NOT EXISTS (
-        SELECT 1 FROM commentary_events WHERE party_id = ? AND substr(id, 1, length(?)) = ?
+      ) AND (? = 0 OR 2 > (
+        SELECT COUNT(*) FROM commentary_events WHERE party_id = ? AND substr(id, 1, length(?)) = ?
       ))`, event.id, event.partyId, event.handNumber, event.createdAt, event.partyId,
     event.createdAt - cooldownMs, event.handNumber, event.handNumber - handGap,
-    resultAfterLive, livePrefix, livePrefix, live, event.partyId, livePrefix, livePrefix);
+    followsLive, livePrefix, livePrefix, live, event.partyId, livePrefix, livePrefix);
     return result.changes === 1;
   }
 

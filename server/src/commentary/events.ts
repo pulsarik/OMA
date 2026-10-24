@@ -14,12 +14,17 @@ export function createCommentaryEvent(hand: DealtHand, now = Date.now()): Commen
     return [p.id, marker] as const;
   }));
   return {
-    id: hand.stage === 'showdown' ? `${hand.id}:complete` : `${hand.id}:betting:${hand.actions.length}`,
+    id: hand.stage === 'showdown' ? `${hand.id}:complete`
+      : facts.some(f => f.kind.endsWith('_board')) ? `${hand.id}:betting:board:${hand.stage}`
+      : `${hand.id}:betting:${hand.actions.length}`,
     ...(hand.stage !== 'showdown' ? { stage: hand.stage } : {}),
     partyId: hand.partyId, handId: hand.id,
     handNumber: hand.handNumber, revision: hand.revision ?? 0,
     createdAt: now, expiresAt: now + 12_000, names, context,
     actions: commentaryRecentActions(hand).map(({ playerId, ...action }) => ({ player: markers.get(playerId)!, ...action })),
-    facts: facts.map((f, i) => ({ id: `f${i + 1}`, kind: f.kind, ...(f.playerId ? { player: markers.get(f.playerId) } : {}) })),
+    facts: facts.map((f, i) => {
+      const playerId = 'playerId' in f ? f.playerId : undefined;
+      return { id: `f${i + 1}`, kind: f.kind, ...(playerId ? { player: markers.get(playerId) } : {}) };
+    }),
   };
 }

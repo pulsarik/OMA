@@ -1241,11 +1241,54 @@ export function commentaryRecentActions(hand: DealtHand) {
   }));
 }
 
+export type CommentaryBoardTexture = {
+  paired: boolean;
+  threeToOneSuit: boolean;
+  connected: boolean;
+  lowPossible: boolean;
+};
+
+/** Public board texture only: describe possibilities without claiming a player's made hand. */
+export function commentaryBoardTexture(hand: DealtHand): CommentaryBoardTexture | undefined {
+  if (hand.stage === 'preflop' || hand.stage === 'showdown' || hand.community.length < 3) return;
+  const ranks = hand.community.map(rankValue);
+  const counts = new Map<number, number>();
+  const suits = new Map<string, number>();
+  for (const card of hand.community) {
+    counts.set(rankValue(card), (counts.get(rankValue(card)) ?? 0) + 1);
+    suits.set(cardSuit(card), (suits.get(cardSuit(card)) ?? 0) + 1);
+  }
+  const straightRanks = new Set(ranks.flatMap(value => value === 14 ? [14, 1] : [value]));
+  let connected = false;
+  for (let low = 1; low <= 10; low++) {
+    if ([0, 1, 2, 3, 4].filter(offset => straightRanks.has(low + offset)).length >= 3) connected = true;
+  }
+  return {
+    paired: [...counts.values()].some(count => count >= 2),
+    threeToOneSuit: [...suits.values()].some(count => count >= 3),
+    connected,
+    lowPossible: new Set(ranks.map(value => value === 14 ? 1 : value).filter(value => value <= 8)).size >= 3,
+  };
+}
+
 /** Select a fresh, significant betting action; routine checks/calls/folds stay quiet. */
 export function commentaryBettingSummary(hand: DealtHand) {
   if (hand.stage === 'showdown' || hand.isReplay || hand.partyFinishedEarly) return;
   const last = hand.actions[hand.actions.length - 1];
-  if (!last || last.stage !== hand.stage || !['bet', 'raise', 'call'].includes(last.move)) return;
+  if (!last || last.stage !== hand.stage || !['bet', 'raise', 'call'].includes(last.move)) {
+    const board = commentaryBoardTexture(hand);
+    if (!board) return;
+    const kind = board.paired ? 'paired_board'
+      : board.threeToOneSuit ? 'three_to_one_suit_board'
+      : board.lowPossible ? 'low_possible_on_board'
+      : board.connected ? 'connected_board' : undefined;
+    if (!kind) return;
+    return {
+      facts: [{ kind }],
+      context: { stage: hand.stage, activePlayers: hand.players.filter(p => !p.folded).length,
+        betting: commentaryBettingContext(hand), board },
+    };
+  }
   const player = hand.players.find(p => p.id === last.playerId);
   if (!player || player.folded) return;
   const previous = hand.actions.slice(0, -1).filter(a => a.stage === last.stage);
@@ -1266,7 +1309,7 @@ export function commentaryBettingSummary(hand: DealtHand) {
   return {
     facts: [{ kind, playerId: player.id }],
     context: { stage: hand.stage, activePlayers: hand.players.filter(p => !p.folded).length,
-      betting: commentaryBettingContext(hand) },
+      betting: commentaryBettingContext(hand), ...(commentaryBoardTexture(hand) ? { board: commentaryBoardTexture(hand) } : {}) },
   };
 }
 
