@@ -103,7 +103,7 @@ test('narrow controls send moves and keep server confirmation visible', async ({
   mock.ack(move.commandId);
   mock.update({ ...initial, currentPlayerId: 'P2', revision: 2 });
   await expect(page.locator('.action-dock-status')).toBeHidden();
-  mock.update(fixture(9, true));
+  mock.update({ ...fixture(9, true), revision: 3 });
   await page.getByTestId('mobile-result-dock').getByRole('button', { name: 'New deal' }).click();
   await expect.poll(() => mock.messages.filter(message => message.action === 'new_deal').length).toBe(1);
 });

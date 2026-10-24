@@ -8,7 +8,7 @@ export const NARROW_TABLE_STYLES = `
     #root .poker-page { padding: 4px 4px 0 !important; }
     #root .poker-page .game-tile { padding: 4px 4px 0 !important; }
     #root .poker-page .wireframe-table-stack { padding-bottom: 0 !important; }
-    .compact-game-navigation { display: block; position: relative; z-index: 50; margin-bottom: 4px; }
+    .compact-game-navigation { display: block; position: relative; z-index: 50; margin-bottom: 0; }
     .compact-game-navigation-trigger {
       display: flex; align-items: center; gap: 8px; min-height: 44px;
       padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 10px;

@@ -5287,6 +5287,15 @@ export const PLAYER_PAGE_STYLES = `
      in the viewport. Compact only the reserved vertical bands; card widths
      and their aspect ratio remain unchanged. */
   @media (max-width: 760px) {
+    #root .poker-page:has(.wireframe-table) {
+      height: 100dvh;
+      min-height: 0;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    #root .poker-page .wireframe-actions-zone .mobile-combination-guide {
+      margin-top: 3px !important;
+    }
     #root .poker-page .game-notice.is-empty {
       min-height: 0;
       height: 0;
@@ -5322,9 +5331,35 @@ export const PLAYER_PAGE_STYLES = `
      table, guide and action controls already fit; this prevents page padding
      from creating a fake scrollbar. */
   @media (max-width: 760px) and (max-height: 600px) {
-    #root .poker-page { padding-bottom: 0 !important; }
+    #root .poker-page {
+      padding-bottom: 0 !important;
+    }
     #root .poker-page .game-tile { padding-bottom: 0 !important; }
     #root .poker-page .wireframe-table-stack { padding-bottom: 0 !important; }
+    /* Preserve 44px touch targets while reclaiming the decorative spacing
+       that otherwise pushes the action dock below a 568px viewport. */
+    #root .poker-page .wireframe-actions-zone > .action-dock {
+      position: relative !important;
+      margin-top: -3px !important;
+      padding: 4px !important;
+      gap: 4px !important;
+    }
+    #root .poker-page .action-dock-status {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      padding: 8px;
+      background: #f7fbf8f5;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    #root .poker-page .wireframe-actions-zone .action-dock-body {
+      gap: 4px !important;
+    }
+    #root .poker-page .wireframe-actions-zone .main-actions .action-button {
+      min-height: 44px !important;
+      padding-block: 4px !important;
+    }
   }
 
   /* At 360px wide the compact table ends immediately above the guide. Move
