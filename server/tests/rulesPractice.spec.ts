@@ -1,8 +1,84 @@
 import { practiceCases, practiceGroups } from '../../demo/client/src/seo/practice';
-import { compareOmahaHands, evaluatePlayerCombo, hasNutLow } from '../src/game';
+import { blindLevelForHand, compareOmahaHands, dealHand, evaluatePlayerCombo, hasNutLow, MAX_RAISES_PER_STREET, recordPlayerMove } from '../src/game';
+import { illustratedBetSizes, illustratedBlindLevels, illustratedHand, illustratedRaises, lowIllustrations } from '../../demo/client/src/seo/rulesIllustrations';
 
 const cards = (value: string) => value ? value.split(' ') : [];
 const example = (id: number) => practiceCases.find(item => item.id === id)!;
+
+test('illustrated bet sizes, minimums, pot caps and chips added agree with the engine', () => {
+  for (const example of illustratedBetSizes) {
+    const act = (requested: number) => {
+      const hand = dealHand(2, 12345);
+      hand.stage = example.stage;
+      hand.community = example.stage === 'flop' ? hand.fullCommunity.slice(0, 3) : [];
+      hand.potCoins = example.pot;
+      hand.currentBet = example.currentBet;
+      hand.lastFullRaise = example.lastRaise;
+      hand.currentPlayerId = 'P1';
+      hand.actedSinceLastFullRaise = [];
+      hand.roundBets = { P1: example.ownBet, P2: example.currentBet };
+      const previousContribution = (example.pot - example.ownBet - example.currentBet) / 2;
+      hand.totalContributions = { P1: previousContribution + example.ownBet, P2: previousContribution + example.currentBet };
+      hand.players[0].stack = example.stack;
+      recordPlayerMove(hand, 'P1', example.move, requested);
+      return { target: hand.currentBet, added: example.stack - hand.players[0].stack };
+    };
+    example.targets.forEach((target, index) => expect(act(target)).toEqual({ target, added: example.added[index] }));
+    expect(act(1).target).toBe(example.targets[0]);
+    expect(act(10_000).target).toBe(example.targets[3]);
+  }
+});
+
+test('illustrated blind levels match the server at both ends of every displayed range', () => {
+  for (const { from, to, small, big } of illustratedBlindLevels) {
+    expect(blindLevelForHand(from)).toMatchObject({ small, big });
+    expect(blindLevelForHand(to)).toMatchObject({ small, big });
+    expect(blindLevelForHand(to + 1).big).toBe(big * 2);
+  }
+});
+
+test('the illustrated bet and three raises are legal and the count resets on the next street', () => {
+  const hand = dealHand(2, 12345);
+  recordPlayerMove(hand, hand.currentPlayerId!, 'call');
+  recordPlayerMove(hand, hand.currentPlayerId!, 'check');
+  expect(hand.stage).toBe('flop');
+  recordPlayerMove(hand, hand.currentPlayerId!, 'bet', illustratedRaises.bet);
+  expect(hand.raiseCount).toBe(0);
+  expect(illustratedRaises.raises).toHaveLength(MAX_RAISES_PER_STREET);
+  for (const amount of illustratedRaises.raises) {
+    recordPlayerMove(hand, hand.currentPlayerId!, 'raise', amount);
+    expect(hand.currentBet).toBe(amount);
+  }
+  expect(() => recordPlayerMove(hand, hand.currentPlayerId!, 'raise', 20)).toThrow('raise limit reached');
+  recordPlayerMove(hand, hand.currentPlayerId!, 'call');
+  expect(hand.stage).toBe('turn');
+  expect(hand.raiseCount).toBe(0);
+});
+
+test('visual high and low selections use two hole cards, three board cards and match the engine', () => {
+  const hole = cards(illustratedHand.hole), board = cards(illustratedHand.board);
+  const result = evaluatePlayerCombo(hole, board)!;
+  expect(result.highRank).toBe('three of a kind');
+  expect(result.lowRank).toBe('8-4-3-2-1');
+  for (const mode of ['high', 'low'] as const) {
+    const selected = illustratedHand[mode];
+    expect(new Set(selected).size).toBe(5);
+    const selectedHole = selected.filter(card => hole.includes(card));
+    const selectedBoard = selected.filter(card => board.includes(card));
+    expect(selectedHole).toHaveLength(2);
+    expect(selectedBoard).toHaveLength(3);
+    const selectedResult = evaluatePlayerCombo(selectedHole, selectedBoard)!;
+    expect(selectedResult[`${mode}Rank`]).toBe(result[`${mode}Rank`]);
+  }
+});
+
+test('illustrated low examples qualify or fail exactly as explained', () => {
+  for (const illustration of lowIllustrations) {
+    const hand = cards(illustration.cards);
+    const result = evaluatePlayerCombo(hand.slice(0, 2), hand.slice(2));
+    expect(result?.lowRank ?? null).toBe(illustration.low);
+  }
+});
 
 test('all 50 bilingual examples use legal, non-duplicated cards', () => {
   expect(practiceCases).toHaveLength(50);

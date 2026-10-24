@@ -5,7 +5,7 @@ const origin = 'https://omahahilopoker.com';
 const previewPath = '/images/omaha-hi-lo-game.jpg';
 
 for (const javaScriptEnabled of [false, true]) {
-  test(`homepage PLO8 format and game image are crawlable with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
+  test(`homepage PLO8 format and Rules card work without a table image with JavaScript ${javaScriptEnabled}`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ javaScriptEnabled });
     const page = await context.newPage();
     const errors: string[] = [];
@@ -25,13 +25,11 @@ for (const javaScriptEnabled of [false, true]) {
       expect(schema['@graph'].find((item: { '@type': string }) => item['@type'] === 'WebPage')).toMatchObject({
         name: expect.stringContaining('PLO8'), description: expect.stringContaining('Pot-Limit Omaha Hi-Lo 8-or-better'),
       });
-      const preview = page.locator(`img[src="${previewPath}"]`);
-      await expect(preview).toHaveCount(1);
-      await expect(preview).toBeVisible();
-      await expect(preview).toHaveAttribute('alt', /Omaha Hi-Lo game with two players/);
-      await expect(preview).toHaveAttribute('width', '1200');
-      await expect(preview).toHaveAttribute('height', '630');
-      await expect.poll(() => preview.evaluate((img: HTMLImageElement) => [img.naturalWidth, img.naturalHeight])).toEqual([1200, 630]);
+      await expect(page.locator(`img[src="${previewPath}"]`)).toHaveCount(0);
+      const rulesCard = page.locator('.welcome-choice-card').filter({ has: page.getByText('Rules', { exact: true }) });
+      await expect(rulesCard).toBeVisible();
+      await expect(rulesCard).toHaveAttribute('href', '/rules');
+      await expect(page.locator('.welcome-choice-card')).toHaveCount(6);
       for (const [selector, content] of [
         ['meta[property="og:image"]', origin + previewPath],
         ['meta[property="og:image:width"]', '1200'],
@@ -45,6 +43,9 @@ for (const javaScriptEnabled of [false, true]) {
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`preview-${width}.png`), fullPage: true });
+      await rulesCard.click();
+      await expect(page).toHaveURL(/\/rules$/);
+      await expect(page.locator('#build-a-hand')).toBeVisible();
     }
     expect(errors).toEqual([]);
     await context.close();
@@ -81,6 +82,52 @@ for (const javaScriptEnabled of [false, true]) {
       await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /PLO8.*Pot-Limit Omaha Hi-Lo 8-or-better/);
       await expect(page.locator('#rule-1')).toContainText('Pot-Limit Omaha Hi-Lo 8-or-better');
       await expect(page.locator('article')).toContainText('That cap is an additional house rule, not a standard PLO8 restriction.');
+      const hand = page.locator('#build-a-hand');
+      const high = hand.locator('.rules-choice-panel:visible');
+      await expect(high).toContainText('High: three kings');
+      await expect(high.locator('[data-source="hole"] [data-selected="true"]')).toHaveCount(2);
+      await expect(high.locator('[data-source="board"] [data-selected="true"]')).toHaveCount(3);
+      await hand.getByText('Low · lowest', { exact: true }).click();
+      const low = hand.locator('.rules-choice-panel:visible');
+      await expect(low).toContainText('Low: 8–4–3–2–A');
+      await expect(low.locator('[data-source="hole"] [data-selected="true"]')).toHaveCount(2);
+      await expect(low.locator('[data-source="board"] [data-selected="true"]')).toHaveCount(3);
+      await hand.getByRole('radio', { name: 'Low · lowest', exact: true }).focus();
+      await page.keyboard.press('ArrowLeft');
+      await expect(hand.locator('.rules-choice-panel:visible')).toContainText('High: three kings');
+      const pot = page.locator('#split-pot');
+      await pot.getByText('Tied low', { exact: true }).click();
+      await expect(pot.locator('.rules-choice-panel:visible .rules-pot-bar')).toHaveAccessibleName('Anna · high: 50; Ben · ½ low: 25; Cara · ½ low: 25');
+      await pot.getByText('No low', { exact: true }).click();
+      await expect(pot.locator('.rules-choice-panel:visible .rules-pot-bar')).toHaveAccessibleName('Anna · high: 100');
+      await page.getByText('Pot-limit betting and our three-raise cap', { exact: true }).click();
+      await expect(page.locator('#rule-7 p')).toBeVisible();
+      await page.getByRole('link', { name: 'SB / BB', exact: true }).click();
+      await expect(page.locator('#blinds h2')).toBeInViewport();
+      await expect(page.locator('.rules-blind-table')).toHaveAccessibleName(/SB Ben posts 2, BB Cara posts 4, Dan acts first preflop/);
+      await expect(page.locator('.rules-blind-levels li')).toHaveText([
+        'Hands 1–82 / 4SB / BB', 'Hands 9–164 / 8SB / BB', 'Hands 17–248 / 16SB / BB', 'Hands 25–3216 / 32SB / BB',
+      ]);
+      await page.locator('.rules-blind-figure').screenshot({ path: testInfo.outputPath(`blinds-${language}-360.png`) });
+      await page.getByRole('link', { name: 'Raise limit', exact: true }).click();
+      await expect(page.locator('#raise-limit h2')).toBeInViewport();
+      await expect(page.locator('.rules-raise-chain strong')).toHaveText(['4', '8', '12', '16']);
+      await expect(page.locator('#raise-limit')).toContainText('not three raises per player');
+      await expect(page.locator('#raise-limit')).toContainText('New street → back to 0 of 3');
+      const sizing = page.locator('.rules-sizing-examples');
+      await page.getByRole('link', { name: 'Bet sizing', exact: true }).click();
+      await expect(sizing.locator('.rules-choice-panel:visible .rules-sizing-target')).toHaveText(['4', '25', '50', '100']);
+      await sizing.getByText('Facing a bet of 20', { exact: true }).click();
+      await expect(sizing.locator('.rules-choice-panel:visible .rules-sizing-target')).toHaveText(['40', '50', '80', '140']);
+      await sizing.getByText('You are SB', { exact: true }).click();
+      await expect(sizing.locator('.rules-choice-panel:visible .rules-sizing-target')).toHaveText(['8', '8', '8', '12']);
+      await expect(sizing.locator('.rules-choice-panel:visible .rules-sizing-added')).toHaveText(['Add 6', 'Add 6', 'Add 6', 'Add 10']);
+      await sizing.locator('.rules-choice-panel:visible').screenshot({ path: testInfo.outputPath(`bet-sizes-${language}-360.png`) });
+      await sizing.getByText('Only 30 left', { exact: true }).click();
+      await expect(sizing.locator('.rules-choice-panel:visible .rules-sizing-target')).toHaveText(['4', '25', '30', '30']);
+      await expect(sizing.locator('.rules-choice-panel:visible .rules-sizing-allin')).toHaveCount(2);
+      await page.locator('#build-a-hand').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath(`visual-rules-${language}-360.png`) });
       await expect(page.locator('.practice-case')).toHaveCount(50);
       await expect(page.locator('.rules-ranks > li')).toHaveCount(9);
       const first = page.locator('#practice-1');
@@ -99,6 +146,15 @@ for (const javaScriptEnabled of [false, true]) {
     }
     if (javaScriptEnabled) {
       await page.setViewportSize({ width: 1280, height: 900 });
+      await page.locator('#build-a-hand').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath('visual-rules-desktop.png') });
+      await page.locator('#qualifying-low').screenshot({ path: testInfo.outputPath('visual-low-desktop.png') });
+      // All five cards in each low example must fit on one row.
+      for (const example of await page.locator('.rules-low-example').all()) {
+        const tops = await example.locator('.playing-card').evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().top)));
+        expect(new Set(tops).size).toBe(1);
+      }
+      await page.locator('#split-pot').screenshot({ path: testInfo.outputPath('visual-pot-desktop.png') });
       await page.locator('#hand-rankings').scrollIntoViewIfNeeded();
       await page.screenshot({ path: testInfo.outputPath('rules-desktop.png') });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -191,7 +247,7 @@ test('sitemap, robots, redirects and private/error routing use correct responses
   }
 });
 
-for (const width of [360, 390, 400]) {
+for (const width of [320, 360, 390, 400]) {
   test(`homepage and guides fit ${width}px and navigation works`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     const errors: string[] = [];

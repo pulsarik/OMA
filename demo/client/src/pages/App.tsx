@@ -5770,7 +5770,7 @@ function WelcomePage() {
         {!publicGuide && homeTab === 'lobby' && view !== 'archive' ? <HomeIntro text={homeCopy[language]} /> : null}
 
         {homeTab === 'lobby' && view === 'choice' ? (
-          <HomeChoices onChoose={target => {
+          <HomeChoices language={language} onChoose={target => {
             setNotice(null); setSelectedLobbyId(null);
             if (target === 'archive') { setView('archive'); return; }
             setMode(target); setView(target === 'bots' ? 'create' : 'join');
