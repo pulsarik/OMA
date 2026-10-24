@@ -8,6 +8,8 @@ import { Commentator, CommentatorCaption, CommentatorSettings } from '../compone
 import { useCommentary } from '../commentary/useCommentary';
 import { useGameSounds } from '../audio/useGameSounds';
 import { SoundSettings } from '../components/SoundSettings';
+import { TrainingAdvice, TrainingAdviceSettings } from '../components/TrainingAdvice';
+import { useTrainingAdvice } from '../training/useTrainingAdvice';
 import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
 import { LobbyPinForm } from '../components/LobbyPinForm';
@@ -3058,6 +3060,7 @@ function PlayerPage({
   const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
   const commentary = useCommentary(handId, SERVER_URL);
+  const trainingAdvice = useTrainingAdvice(handId, player, storedLanguage());
   const onGameSoundMessage = useGameSounds(handId, commentary.speaking);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
 
@@ -3262,6 +3265,7 @@ function PlayerPage({
     onMessage: (event, socket) => {
       const message = JSON.parse(event.data);
       commentary.onMessage(message, socket);
+      trainingAdvice.onMessage(message, socket);
       onGameSoundMessage(message, socket);
       if (message.type === 'player_state') {
         joinedPlayerSocketRef.current = socket;
@@ -3658,6 +3662,7 @@ function PlayerPage({
 
   return (
     <>
+      <TrainingAdvice controller={trainingAdvice} t={ui} />
       {ovalTable}
       {/* Keep the voice room mounted when returning to either table layout. */}
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
@@ -3721,6 +3726,7 @@ function PlayerPage({
       {!showOvalTable ? <CommentatorCaption controller={commentary} /> : null}
       {isSettingsView ? <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" className="commentator-settings-panel">
         <SoundSettings t={ui} />
+        <TrainingAdviceSettings controller={trainingAdvice} t={ui} />
         <CommentatorSettings controller={commentary} />
       </section> : null}
 

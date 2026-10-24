@@ -56,6 +56,15 @@ async function table(page: Page, mode: string | null = 'text', blocked = false) 
 }
 
 export function commentaryCases() {
+  test('a two-line result keeps its line break in captions', async ({ page }) => {
+    const t = await table(page);
+    t.complete();
+    t.send({ text: 'Первую строку сказал стол.\nВторая завершила рассказ.' });
+    const caption = page.getByTestId('commentary-caption');
+    await expect(caption).toHaveText('Первую строку сказал стол.\nВторая завершила рассказ.');
+    await expect(caption).toHaveCSS('white-space', 'pre-line');
+  });
+
   for (const width of [390, 1280]) {
     test(`next deal keeps speaking through creation at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });

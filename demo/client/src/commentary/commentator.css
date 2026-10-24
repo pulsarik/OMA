@@ -8,7 +8,7 @@
 .mt-header .commentator-toggle.is-on { color: #f0c777; }
 .poker-page--new-design .commentator-toggle { color: #9ab3a7; }
 .poker-page--new-design .commentator-toggle.is-on { color: #f0c777; }
-.commentator-caption { box-sizing: border-box; max-width: 760px; margin: 4px auto 8px; padding: 6px 12px; color: #234336; font: 14px/1.4 system-ui, sans-serif; text-align: center; overflow-wrap: anywhere; }
+.commentator-caption { box-sizing: border-box; max-width: 760px; margin: 4px auto 8px; padding: 6px 12px; color: #234336; font: 14px/1.4 system-ui, sans-serif; text-align: center; overflow-wrap: anywhere; white-space: pre-line; }
 .mt-shell > .commentator-caption { color: #f0dfb8; }
 .poker-page--new-design .commentator-caption { color: #f0dfb8; }
 .commentator-settings-panel { min-height: 260px; border: 1px solid #d8e2dc; border-radius: 12px; background: #f7f9f7; }

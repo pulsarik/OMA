@@ -1,7 +1,7 @@
 import HandStore from '../src/handStore';
 import { commentaryBoardTexture, commentaryRecentActions, commentaryResultFacts, commentaryResultSummary, dealHand, DealtHand, recordPlayerMove } from '../src/game';
 import { createCommentaryEvent } from '../src/commentary/events';
-import { commentaryConfig, commentaryMessages, validateCommentary } from '../src/commentary/providers';
+import { commentaryConfig, commentaryMessages, isCoupletEvent, validateCommentary } from '../src/commentary/providers';
 import { CommentaryService } from '../src/commentary/service';
 import { commentaryErrorDetails } from '../src/commentary/diagnostics';
 import { CommentaryEvent, CommentaryPreference } from '../src/commentary/types';
@@ -212,6 +212,36 @@ test('delivery varies but remains respectful for eliminations; prompt contains o
       : '[P1] wins without showdown. The cards keep their day job a secret!', factIds: ['f1'] },
     event(), locale, [])).toBeDefined();
   }
+});
+
+test('rare completed results can use a bounded original two-line rhyme', () => {
+  const results = Array.from({ length: 200 }, (_, i) => ({ ...event(), id: `h${i}:complete` }));
+  const selected = results.filter(isCoupletEvent);
+  expect(selected.length).toBeGreaterThan(0);
+  expect(selected.length).toBeLessThan(20);
+  const e = selected[0];
+  const focus = JSON.parse(commentaryMessages(e, 'ru', [])[1].content).focus;
+  expect(focus).toContain('exactly two short original rhyming lines');
+  expect(focus).toContain('If a truthful rhyme is awkward');
+  expect(isCoupletEvent({ ...e, stage: 'flop' })).toBe(false);
+  expect(isCoupletEvent({ ...e, facts: [{ id: 'f1', kind: 'eliminated', player: '[P1]' }] })).toBe(false);
+  expect(isCoupletEvent({ ...e, facts: [{ id: 'f1', kind: 'match_winner', player: '[P1]' }] })).toBe(false);
+  for (const [locale, text] of [
+    ['ru', '[P1] теперь ведёт — пошёл отсчёт;\nА стол гадает, что ещё придёт.'],
+    ['en', '[P1] takes the lead, the chips align;\nThe table hums: a lucky sign.'],
+  ] as const) {
+    expect(validateCommentary({ speak: true, text, factIds: ['f1'] }, e, locale, []))
+      .toBe(text.replace('[P1]', 'Anna'));
+    expect(validateCommentary({ speak: true, text, factIds: ['f1'] },
+      { ...e, id: results.find(result => !isCoupletEvent(result))!.id }, locale, []))
+      .toBeUndefined();
+    expect(validateCommentary({ speak: true, text: `${text}\nAnd one more line.`, factIds: ['f1'] }, e, locale, []))
+      .toBeUndefined();
+  }
+  expect(validateCommentary({ speak: true, text: 'First line\n' + 'x'.repeat(71), factIds: ['f1'] }, e, 'en', []))
+    .toBeUndefined();
+  expect(validateCommentary({ speak: true, text: '[P1] takes the lead.', factIds: ['f1'] }, e, 'en', []))
+    .toBe('Anna takes the lead.');
 });
 
 test('commentary cadence covers consecutive hands with a short pause and can be tuned without changing provider budgets', () => {

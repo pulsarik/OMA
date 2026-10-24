@@ -8,6 +8,7 @@ import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
 import { visitCountry, visitSource } from './visitAttribution';
 import { botMove } from './bot';
+import { createTrainingAdvice } from './trainingAdvice';
 import { mcpRouter, TableInput } from './mcp';
 import { canUseInvitation, newInvitation } from './invitations';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
@@ -2029,6 +2030,20 @@ wss.on('connection', (ws, req) => {
           commentaryLog('Commentary subscription', { mode: preference.mode, locale: preference.locale });
         }
         commentaryPreferences.set(ws, preference);
+      } else if (msg.action === 'training_advice') {
+        const connection = playerConnections.get(ws);
+        if (!connection) throw new Error('player not found');
+        const hand = await getActiveHand(connection.handId);
+        if (!hand) throw new Error('hand not found');
+        normalizeHand(hand);
+        const player = hand.players.find((candidate: any) => candidate.id === connection.playerId);
+        if (!player || player.isBot) throw new Error('player not found');
+        if (!hand.players.some((candidate: any) => candidate.isBot)) return;
+        if (hand.stage === 'showdown' || hand.currentPlayerId !== player.id || player.folded) {
+          return;
+        }
+        const locale = msg.locale === 'ru' ? 'ru' : 'en';
+        ws.send(JSON.stringify({ type: 'training_advice', data: createTrainingAdvice(hand, player, locale) }));
       } else if (msg.action === 'player_move') {
         if (receivedCommandId && receivedCommandId.length > 100) {
           throw new Error('invalid command id');
