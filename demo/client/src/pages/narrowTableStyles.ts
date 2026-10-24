@@ -38,6 +38,8 @@ export const NARROW_TABLE_STYLES = `
       min-width: 0 !important; max-width: 80px !important;
     }
     #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand {
+      /* THINKING must not widen the grid's automatic minimum beyond its seat. */
+      grid-template-columns: minmax(0, 1fr) !important;
       grid-template-rows: 16px auto 1fr !important;
     }
     #root .poker-page .wireframe-table .wireframe-opponent-slot > .wireframe-opponent-hand > .compact-card-row > .opponent-card-frame {
