@@ -2,8 +2,8 @@ import { PlayerMove } from './game';
 
 export type TrainingAdviceLocale = 'en' | 'ru';
 
-type PhraseValues = { equity: number; potOdds: number; scoop: number };
-type PhraseGroup = 'fold' | 'call' | 'check' | 'riverCheck' | 'aggressive';
+export type PhraseValues = { equity: number; potOdds: number; scoop: number };
+export type PhraseGroup = 'fold' | 'call' | 'check' | 'riverCheck' | 'aggressive';
 
 /** Reviewable copy base for the voice coach. Keep each explanation short enough to say in about five seconds. */
 export const TRAINING_ADVICE_PHRASES: Record<TrainingAdviceLocale, {
@@ -11,31 +11,31 @@ export const TRAINING_ADVICE_PHRASES: Record<TrainingAdviceLocale, {
   reasons: Record<PhraseGroup, string[]>;
 }> = {
   ru: {
-    actions: { fold: 'Фолд', check: 'Чек', call: 'Колл', bet: 'Ставка', raise: 'Рейз до' },
+    actions: { fold: 'Сбрось карты', check: 'Чек', call: 'Колл', bet: 'Сделай ставку', raise: 'Рейз до' },
     reasons: {
       fold: [
-        'Оценка доли банка {equity}% не покрывает цену колла {potOdds}%.',
-        'Колл стоит слишком дорого: нужно {potOdds}%, а оценка руки — {equity}%.',
-        'Сохрани стек: шансы руки {equity}% ниже требуемых {potOdds}%.',
+        'Для выгодного колла не хватает эквити.',
+        'Цена колла слишком высока для ожидаемой доли банка.',
+        'Риск не оправдан с учётом возможной доли банка.',
       ],
       call: [
-        'Оценка доли банка {equity}% оправдывает цену колла {potOdds}%.',
-        'Цена подходящая: нужно {potOdds}%, а рука даёт около {equity}%.',
-        'Продолжение выгодно: оценка руки {equity}% выше цены {potOdds}%.',
+        'Ожидаемая доля банка оправдывает цену колла.',
+        'Продолжать выгодно: эквити достаточно для такой цены.',
+        'Цена колла подходит с учётом шансов на хай и лоу.',
       ],
       check: [
-        'Бесплатная карта позволяет не раздувать банк.',
-        'Ставка не обязательна — сохрани банк небольшим.',
-        'Возьми бесплатную следующую карту без лишнего риска.',
+        'Можно бесплатно увидеть следующую карту и не раздувать банк.',
+        'Ставка не нужна: лучше сохранить банк небольшим.',
+        'Следующую карту можно увидеть без дополнительного риска.',
       ],
       riverCheck: [
         'На ривере можно бесплатно дойти до вскрытия.',
         'Доплачивать не нужно — спокойно открывай карты.',
       ],
       aggressive: [
-        'Доля банка {equity}% и шанс забрать весь банк {scoop}% позволяют давить.',
-        'Рука впереди достаточно часто: доля банка около {equity}%.',
-        'Шанс забрать обе половины {scoop}% оправдывает агрессию.',
+        'Ожидаемая доля банка позволяет сыграть агрессивнее.',
+        'Есть хорошие перспективы забрать значительную часть банка.',
+        'Шансы на весь банк оправдывают агрессивную игру.',
       ],
     },
   },
@@ -43,14 +43,14 @@ export const TRAINING_ADVICE_PHRASES: Record<TrainingAdviceLocale, {
     actions: { fold: 'Fold', check: 'Check', call: 'Call', bet: 'Bet', raise: 'Raise to' },
     reasons: {
       fold: [
-        '{equity}% estimated pot share does not cover the {potOdds}% call price.',
-        'The call is too expensive: it needs {potOdds}%, versus {equity}% estimated.',
-        'Protect the stack: {equity}% estimated share is below the required {potOdds}%.',
+        'There is not enough equity to justify the call.',
+        'The call costs too much for the expected share of the pot.',
+        'The risk is too high for the likely return.',
       ],
       call: [
-        '{equity}% estimated pot share supports the {potOdds}% call price.',
-        'The price works: {potOdds}% required versus about {equity}% estimated.',
-        'Continuing is profitable: {equity}% estimated share beats the {potOdds}% price.',
+        'The expected pot share justifies the call price.',
+        'Calling is profitable at this price.',
+        'The price works given the chances of winning the high or low.',
       ],
       check: [
         'A free card keeps the pot under control.',
@@ -62,9 +62,9 @@ export const TRAINING_ADVICE_PHRASES: Record<TrainingAdviceLocale, {
         'No extra chips are needed; check to showdown.',
       ],
       aggressive: [
-        '{equity}% pot share and {scoop}% scoop chance support pressure.',
-        'The hand is ahead often enough, with about {equity}% pot share.',
-        'A {scoop}% scoop chance justifies the aggression.',
+        'The expected pot share supports a more aggressive line.',
+        'There is a good chance of winning a meaningful share of the pot.',
+        'The chance to scoop supports the aggressive play.',
       ],
     },
   },

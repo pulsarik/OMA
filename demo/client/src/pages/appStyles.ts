@@ -1270,7 +1270,7 @@ export const PLAYER_PAGE_STYLES = `
   .table-stage { grid-area: stage; justify-self: start; }
   .table-board { grid-area: board; justify-self: center; }
   .table-pot { grid-area: pot; justify-self: end; }
-  .showdown-new-deal { margin-top: 2px; }
+  .showdown-new-deal { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
   .showdown-new-deal .action-button.primary {
     min-width: 96px;
     min-height: 28px;

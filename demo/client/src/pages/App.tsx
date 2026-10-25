@@ -134,18 +134,25 @@ function ui(en: string, ru: string) {
 function AboutContent() {
   return (
     <>
-      <h2 className="about-panel__title">About</h2>
+      <h2 className="about-panel__title">{ui('About', 'Об игре')}</h2>
       <p className="about-panel__copy">
-        Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
+        {ui(
+          'Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.',
+          'Omaha Hi-Lo — покер для нескольких игроков, в котором банк делится между лучшей старшей и квалифицирующейся младшей комбинациями.',
+        )}
       </p>
       <section className="about-panel__low" aria-labelledby="about-low-title">
-        <h3 id="about-low-title">What is LOW?</h3>
+        <h3 id="about-low-title">{ui('What is LOW?', 'Что такое младшая комбинация?')}</h3>
         <p>
-          LOW is a five-card hand made from exactly two hole cards and three board cards. It qualifies when all five cards have different ranks and are 8 or lower; Ace counts as 1. The best possible LOW is 5-4-3-2-A. If nobody has a qualifying LOW, the high hand takes the whole pot.
+          {ui(
+            'LOW is a five-card hand made from exactly two hole cards and three board cards. It qualifies when all five cards have different ranks and are 8 or lower; Ace counts as 1. The best possible LOW is 5-4-3-2-A. If nobody has a qualifying LOW, the high hand takes the whole pot.',
+            'Младшая комбинация состоит ровно из двух карманных и трёх общих карт. Все пять карт должны быть разного достоинства, не старше восьмёрки; туз считается младшей картой. Лучшая комбинация — 5-4-3-2-A. Если младшей комбинации нет ни у кого, весь банк забирает лучшая старшая комбинация.',
+          )}
         </p>
       </section>
       <p className="about-panel__copy">
-        Questions or feedback? Contact us at <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+        {ui('Questions or feedback? Write to', 'Есть вопросы или пожелания? Напишите на')}{' '}
+        <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
       </p>
     </>
   );
@@ -179,6 +186,16 @@ function localizedServerMessage(message: string) {
     'finish vote in progress': 'Сначала завершите голосование об окончании стола.',
     'no finish vote in progress': 'Голосование об окончании стола уже завершено.',
     'table is no longer on this deal': 'Стол уже перешёл к другой раздаче.',
+    'not your turn': 'Сейчас ход другого игрока.',
+    'call or fold required': 'Нужно сделать колл или сбросить карты.',
+    'nothing to call': 'Уравнивать нечего.',
+    'raise limit reached': 'Лимит рейзов на этой улице достигнут.',
+    'betting is not reopened': 'После короткого олл-ина рейз пока недоступен.',
+    'insufficient chips to raise': 'Недостаточно фишек для рейза.',
+    'player already folded': 'Карты уже сброшены.',
+    'player is all in': 'Игрок уже пошёл олл-ин.',
+    'hand not found': 'Раздача не найдена.',
+    'table expired': 'Срок действия стола истёк.',
   };
   return messages[message] ?? message;
 }
@@ -1600,14 +1617,14 @@ function WireframeHand({
            ) : null}
            {isYou && (isHighWinner || isLowWinner) ? (
              <div className="seat-result-badges hero-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
-               {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
-               {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
+               {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель старшей половины')}>{ui('HIGH', 'СТАРШАЯ')}</span> : null}
+               {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель младшей половины')}>{ui('LOW', 'МЛАДШАЯ')}</span> : null}
              </div>
            ) : null}
            {!isYou && (isHighWinner || isLowWinner) ? (
             <div className="seat-result-badges" aria-label={ui('Winning hands', 'Выигрышные комбинации')}>
-              {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
-              {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
+              {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель старшей половины')}>{ui('HIGH', 'СТАРШАЯ')}</span> : null}
+              {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель младшей половины')}>{ui('LOW', 'МЛАДШАЯ')}</span> : null}
             </div>
           ) : null}
       </div>
@@ -1863,8 +1880,8 @@ function PlayerSeat({
             <div className="seat-topline-right" aria-label={ui('Table status', 'Статус за столом')}>
               {hasWinningHand ? (
                 <div className="seat-result-badges">
-                  {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель хай')}>HIGH</span> : null}
-                  {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель лоу')}>LOW</span> : null}
+                  {isHighWinner ? <span className="winner-badge high winner-badge-label" data-testid={`winner-high-${id}`} title={ui('High winner', 'Победитель старшей половины')}>{ui('HIGH', 'СТАРШАЯ')}</span> : null}
+                  {isLowWinner ? <span className="winner-badge low winner-badge-label" data-testid={`winner-low-${id}`} title={ui('Low winner', 'Победитель младшей половины')}>{ui('LOW', 'МЛАДШАЯ')}</span> : null}
                 </div>
               ) : null}
             </div>
@@ -1880,8 +1897,8 @@ function PlayerSeat({
         </div> : null}
         {wireframeZone && isYou && hasWinningHand ? (
           <div className="seat-result-badges hero-result-badges" aria-label="Winning hands">
-            {isHighWinner ? <span className="winner-badge high winner-badge-label" title="High winner">HIGH</span> : null}
-            {isLowWinner ? <span className="winner-badge low winner-badge-label" title="Low winner">LOW</span> : null}
+            {isHighWinner ? <span className="winner-badge high winner-badge-label" title={ui('High winner', 'Победитель старшей половины')}>{ui('HIGH', 'СТАРШАЯ')}</span> : null}
+            {isLowWinner ? <span className="winner-badge low winner-badge-label" title={ui('Low winner', 'Победитель младшей половины')}>{ui('LOW', 'МЛАДШАЯ')}</span> : null}
           </div>
         ) : null}
         {!wireframeZone && isCurrentTurn && typeof turnSeconds === 'number' ? (
@@ -1909,7 +1926,7 @@ function PlayerSeat({
                   `Ждём, когда ${tablePlayerName(name, id)} начнёт новую раздачу`,
                 )
               : isCurrentTurn
-                ? isYourTurn ? ui('Your turn', 'Ваш ход') : `${tablePlayerName(name, id)} ${ui('is thinking', 'думает')}`
+                ? isYourTurn ? ui('Your turn', 'Твой ход') : `${tablePlayerName(name, id)} ${ui('is thinking', 'думает')}`
                 : `${ui('Last action', 'Последнее действие')}: ${actionLabel}`}
           />
         ) : null}
@@ -1999,7 +2016,7 @@ function PlayerSeat({
                     lineHeight: 1,
                   }}
                 >
-                  {ui('HIGH', 'ХАЙ')}
+                  {ui('HIGH', 'СТАРШАЯ')}
                 </span>
               ) : null}
               {isLowWinner ? (
@@ -2017,7 +2034,7 @@ function PlayerSeat({
                     lineHeight: 1,
                   }}
                 >
-                  {ui('LOW', 'ЛОУ')}
+                  {ui('LOW', 'МЛАДШАЯ')}
                 </span>
               ) : null}
             </div>
@@ -2261,10 +2278,12 @@ function playerWinParts(summary: ShowdownSummary | undefined, playerId: string) 
 function ShowdownStatus({
   player,
   newDealAction,
+  replayDealAction,
   variant,
 }: {
   player: PlayerView;
   newDealAction?: React.ReactNode;
+  replayDealAction?: React.ReactNode;
   variant?: 'mobile-actions';
 }) {
   const activePlayers = player.players.filter((seat) => !seat.folded);
@@ -2367,9 +2386,10 @@ function ShowdownStatus({
           {ui('Net', 'Итог')}: {net > 0 ? '+' : ''}{formatPoints(net)}
         </strong>
       </div>
-      {newDealAction ? (
+      {newDealAction || replayDealAction ? (
         <div className="showdown-new-deal" data-testid="showdown-new-deal">
           {newDealAction}
+          {replayDealAction}
         </div>
       ) : null}
       {payout > 0 && net <= 0 && winParts.length ? (
@@ -2421,7 +2441,7 @@ function PlayerComboSide({ combo, kind }: { combo?: PlayerCombo; kind: 'high' | 
   return (
     <aside className={`combo-side ${kind}`} data-testid={`${kind}-combo-side`}>
       <div className="combo-side-title">
-        <span>{isHigh ? ui('HI', 'ХАЙ') : ui('LO', 'ЛОУ')}</span>
+        <span>{isHigh ? ui('HI', 'СТАРШАЯ') : ui('LO', 'МЛАДШАЯ')}</span>
         <span className="combo-side-rank">{localizedRank(rank)}</span>
       </div>
       <div className="combo-side-cards">
@@ -2449,16 +2469,16 @@ function MobileCombinationGuide() {
         <article className="mobile-combination-guide-card high">
           <div className="mobile-combination-guide-card-title">
             <span className="mobile-combination-guide-dot" aria-hidden="true" />
-            <strong>{ui('HIGH · strongest hand wins', 'ХАЙ · побеждает сильнейшая')}</strong>
+            <strong>{ui('HIGH · strongest hand wins', 'СТАРШАЯ · побеждает сильнейшая')}</strong>
           </div>
           <p>{ui('Straight flush → four of a kind → full house → flush → straight → trips → pairs.', 'Стрит-флеш → каре → фулл-хаус → флеш → стрит → сет → пары.')}</p>
         </article>
         <article className="mobile-combination-guide-card low">
           <div className="mobile-combination-guide-card-title">
             <span className="mobile-combination-guide-dot" aria-hidden="true" />
-            <strong>{ui('LOW · lowest qualifying hand wins', 'ЛОУ · побеждает лучшее младшее')}</strong>
+            <strong>{ui('LOW · lowest qualifying hand wins', 'МЛАДШАЯ · побеждает самая низкая')}</strong>
           </div>
-          <p>{ui('Five different A–8 ranks, no pairs; Ace is low. A-2-3-4-5 is best. 6-low beats 7-low.', 'Пять разных значений A–8, без пар; туз младший. A-2-3-4-5 — лучший Лоу. Лоу до 6 сильнее 7.')}</p>
+          <p>{ui('Five different A–8 ranks, no pairs; Ace is low. A-2-3-4-5 is best. 6-low beats 7-low.', 'Пять разных карт от туза до восьмёрки, без пар; туз считается младшим. Лучшая комбинация — A-2-3-4-5. Младшая до шести сильнее младшей до семи.')}</p>
         </article>
       </div>
     </section>
@@ -2491,14 +2511,14 @@ function MobileCombinationVisualGuide({ player }: { player: PlayerView }) {
       <div className="mobile-combination-visual-examples" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 5 }}>
         <article className="mobile-combination-visual-example high" style={{ display: 'grid', gap: 3, minWidth: 0, padding: 6, boxSizing: 'border-box' }}>
           <strong data-testid="mobile-high-combination" title={highRank ?? undefined} style={{ minWidth: 0, overflow: 'hidden', fontSize: 10, lineHeight: 1, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            HIGH{highRank ? ` · ${highRank}` : ''}
-          </strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
+            {ui('HIGH', 'СТАРШАЯ')}{highRank ? ` · ${highRank}` : ''}
+          </strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>{ui('2 HAND + 3 BOARD', '2 В РУКЕ + 3 НА БОРДЕ')}</small>
           {renderCards(highExample)}
         </article>
         <article className="mobile-combination-visual-example low" style={{ display: 'grid', gap: 3, minWidth: 0, padding: 6, boxSizing: 'border-box' }}>
           <strong data-testid="mobile-low-combination" title={lowRank ?? undefined} style={{ minWidth: 0, overflow: 'hidden', fontSize: 10, lineHeight: 1, textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            LOW{lowRank ? ` · ${lowRank}` : ''}
-          </strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>2 HAND + 3 BOARD</small>
+            {ui('LOW', 'МЛАДШАЯ')}{lowRank ? ` · ${lowRank}` : ''}
+          </strong><small style={{ fontSize: 8, lineHeight: 1, whiteSpace: 'nowrap' }}>{ui('2 HAND + 3 BOARD', '2 В РУКЕ + 3 НА БОРДЕ')}</small>
           {renderCards(lowExample)}
         </article>
       </div>
@@ -2684,8 +2704,8 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                 ) : null}
               </th>
               <th>{ui('Hands', 'Раздачи')}</th>
-              <th title={ui('Hands with the best high but no high payout, excluding wins without showdown', 'Раздачи с лучшим high без выплаты за high, кроме побед без вскрытия')}>
-                {ui('Missed high', 'Упущенный high')}
+              <th title={ui('Hands with the best high but no high payout, excluding wins without showdown', 'Раздачи с лучшей старшей комбинацией, но без выплаты за неё; победы без вскрытия не учитываются')}>
+                {ui('Missed high', 'Упущенная старшая')}
               </th>
               <th title={ui('Hands with at least one bet or raise', 'Раздачи хотя бы с одной ставкой или рейзом')}>
                 {ui('Bet/Raise', 'Бет/рейз')}
@@ -2757,9 +2777,9 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
                       }}
                     >
                       {player.botStyle === 'normal'
-                        ? ui('Normal', 'Normal')
+                        ? ui('Normal', 'Обычный')
                         : player.botStyle === 'aggressive'
-                        ? ui('Aggressive', 'Наглый')
+                        ? ui('Aggressive', 'Агрессивный')
                         : ui('Cautious', 'Осторожный')}
                     </span>
                   ) : null}
@@ -2819,7 +2839,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   const contestedPots = result.sidePots.filter(isContestedPot);
   const potWinnerLine = (ids: string[], pool: number) => ids.length
     ? `${ids.map(displayName).join(', ')} · ${formatPoints(pool / ids.length)} ${ui('each', 'каждому')}`
-    : ui('No qualifying low', 'Нет подходящего лоу');
+    : ui('No qualifying low', 'Нет младшей комбинации');
 
   return (
     <section className="result-panel">
@@ -2914,7 +2934,7 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
                     </div>
                     <div style={{ marginTop: 3, fontSize: 13 }}>
                       <strong style={{ color: '#047857' }}>{ui('Low', 'Лоу')}:</strong>{' '}
-                      {pot.noLow ? ui('No qualifying low', 'Нет подходящего лоу') : potWinnerLine(pot.lowWinners, lowPool)}
+                      {pot.noLow ? ui('No qualifying low', 'Нет младшей комбинации') : potWinnerLine(pot.lowWinners, lowPool)}
                     </div>
                   </>
                 )}
@@ -3440,14 +3460,25 @@ function PlayerPage({
   }
 
   function replayDeal(sourceHandId = handId) {
+    if (isCreatingDeal) return;
+
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       setNotice(ui('Connecting to server. Try again in a moment.', 'Подключаемся к серверу. Попробуйте ещё раз через несколько секунд.'));
       return;
     }
 
+    setIsCreatingDeal(true);
     setNewDealLinks([]);
     setNotice(ui('Creating replay deal.', 'Создаём повтор раздачи.'));
     ws.send(JSON.stringify({ action: 'replay_deal', handId: sourceHandId }));
+    window.setTimeout(() => {
+      setIsCreatingDeal((stillCreating) => {
+        if (stillCreating) {
+          setNotice(ui('Replay is taking longer than expected. Try again.', 'Повтор создаётся дольше обычного. Попробуйте ещё раз.'));
+        }
+        return false;
+      });
+    }, 10_000);
   }
 
   if (error) return <div style={{ padding: 12 }}>{ui('Error', 'Ошибка')}: {error}</div>;
@@ -3631,6 +3662,16 @@ function PlayerPage({
       {ui('New deal', 'Новая раздача')}
     </button>
   ) : undefined;
+  const replayDealAction = canContinue ? (
+    <button
+      className="action-button"
+      data-testid="replay-current-deal"
+      disabled={isCreatingDeal}
+      onClick={() => replayDeal()}
+    >
+      {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('Replay this deal', 'Переиграть эту раздачу')}
+    </button>
+  ) : undefined;
 
   const showOvalTable = isTableView && (shouldUseMobileTable(window.innerWidth, player.players.length)
     || shouldUseDesktopTable(window.innerWidth, player.players.length));
@@ -3652,6 +3693,7 @@ function PlayerPage({
         onNext={canContinue ? startNewDeal : player.nextPlayerLink ? () => {
           setNextPlayerUrl(player.nextPlayerLink!.url);
         } : undefined}
+        onReplay={canContinue ? () => replayDeal() : undefined}
         onStats={() => setActiveView('stats')}
         statsAvailable={showStatsTile}
         onAbout={() => setActiveView('about')}
@@ -3790,6 +3832,7 @@ function PlayerPage({
             <ShowdownStatus
               player={player}
               newDealAction={newDealAction}
+              replayDealAction={replayDealAction}
             />
           ) : null}
         </section>
@@ -3878,6 +3921,7 @@ function PlayerPage({
                 player={player}
                 variant="mobile-actions"
                 newDealAction={newDealAction}
+                replayDealAction={replayDealAction}
               />
             </div>
           ) : showActionDock ? <div
@@ -4178,7 +4222,7 @@ function DebugPage() {
         {hand.players.map((player) => (
           <section key={player.id}>
             <h3>{player.id}</h3>
-            {player.folded ? <p>{ui('Folded', 'Фолд')}</p> : null}
+            {player.folded ? <p>{ui('Folded', 'Сбросил карты')}</p> : null}
             <CardRow cards={player.hole} />
           </section>
         ))}
@@ -4419,6 +4463,7 @@ function LobbyTable({
 
 function LobbyPage() {
   const [, , lobbyId] = window.location.pathname.split('/');
+  const playerStorageKey = `omaha-lobby-${lobbyId}-player-url`;
   const [invitation] = useState(() => captureLobbyInvitation(lobbyId));
   const searchParams = new URLSearchParams(window.location.search);
   const memberHint = searchParams.get('member');
@@ -4435,13 +4480,14 @@ function LobbyPage() {
   const [sessionWarningRemainingMs, setSessionWarningRemainingMs] = useState(60 * 60_000);
   const [sessionNow, setSessionNow] = useState(Date.now());
   const [lobbyExpired, setLobbyExpired] = useState(false);
-  const [playerUrl, setPlayerUrl] = useState<string | null>(null);
+  const [playerUrl, setPlayerUrl] = useState<string | null>(() => (
+    window.sessionStorage.getItem(playerStorageKey)
+  ));
   const [inviteCopied, setInviteCopied] = useState(false);
   const [hostNameDraft, setHostNameDraft] = useState('');
   const pendingLobbyActionRef = useRef<{ action: string; extra: Record<string, unknown> } | null>(null);
   const activeStorageKey = `omaha-lobby-${lobbyId}-active`;
   const accessStorageKey = `omaha-lobby-${lobbyId}-access-pin`;
-  const playerStorageKey = `omaha-lobby-${lobbyId}-player-url`;
   const storageKey = memberHint ? `omaha-lobby-${lobbyId}-${memberHint}` : activeStorageKey;
 
   function applyLobbySession(nextLobby: LobbyView | undefined) {
@@ -4795,7 +4841,7 @@ function LobbyPage() {
                     <div>
                       <small>{ui('TABLE', 'СТОЛ')}</small>
                       <output className="lobby-table-name" aria-label={ui('Table name', 'Название стола')}>{lobby.tableName}</output>
-                      {lobby.invitationOnly ? <small>{ui('Private invitation · no PIN', 'Личное приглашение · без PIN')}</small> : lobby.mode === 'guests' ? <small>Public table · no PIN</small> : <>
+                      {lobby.invitationOnly ? <small>{ui('Private invitation · no PIN', 'Личное приглашение · без PIN')}</small> : lobby.mode === 'guests' ? <small>{ui('Public table · no PIN', 'Открытый стол · без PIN')}</small> : <>
                         <small style={{ marginTop: 7 }}>PIN</small>
                         <strong aria-label="Table PIN">{lobby.pin}</strong>
                       </>}
@@ -5055,7 +5101,7 @@ function HomePage() {
       }
       if (message.type === 'error') {
         if (message.message === 'hand not found') {
-          setHomeReplayError('Hand not found.');
+          setHomeReplayError(ui('Hand not found.', 'Раздача не найдена.'));
         } else {
           setHomeNotice(message.message);
         }
@@ -5165,7 +5211,7 @@ function HomePage() {
       return;
     }
     if (!handQuery) {
-      setHomeReplayError('Enter a hand number first.');
+      setHomeReplayError(ui('Enter a hand number first.', 'Сначала введите номер раздачи.'));
       return;
     }
 
@@ -5621,6 +5667,12 @@ function WelcomePage() {
       if (message.type === 'lobby_started') {
         createPendingRef.current = false;
         startBotsImmediatelyRef.current = false;
+        if (message.data?.playerUrl) {
+          window.sessionStorage.setItem(
+            `omaha-lobby-${message.data.lobby.id}-player-url`,
+            message.data.playerUrl,
+          );
+        }
         window.location.href = `/lobby/${message.data.lobby.id}`;
       }
       if (message.type === 'error') {

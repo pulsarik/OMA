@@ -18,11 +18,11 @@ export function TrainingAdviceSettings({ controller, t }: { controller: Controll
     <h2>{t('Voice coach', 'Голосовой тренер')}</h2>
     <label>
       <input type="checkbox" checked={controller.enabled} onChange={event => controller.setEnabled(event.target.checked)} />
-      {t('Advice after 10 seconds', 'Совет после 10 секунд')}
+      {t('Advice after 10 seconds', 'Подсказка через 10 секунд')}
     </label>
     <p>{t(
       'During games with bots, suggests an action in the commentator language and briefly explains it aloud.',
-      'В игре с ботами предлагает действие на языке ведущего и коротко объясняет его вслух.',
+      'В игре с ботами советует действие и коротко объясняет его вслух на выбранном языке.',
     )}</p>
   </div>;
 }

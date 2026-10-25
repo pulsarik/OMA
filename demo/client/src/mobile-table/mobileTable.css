@@ -112,7 +112,9 @@ body:has(.mt-page) { margin: 0; background: #041911; }
 .mt-dock { position: sticky; bottom: 0; z-index: 10; background: #041911f5; padding: 6px 12px max(6px, env(safe-area-inset-bottom)); }
 .mt-dock fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
 .mt-dock button { min-height: 44px; border-radius: 9px; font-size: 13px; border: 1px solid #6f8066; }
+.mt-showdown-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
 .mt-next { width: 100%; background: #dbc18b; color: #152016; font-weight: 650 !important; letter-spacing: .01em; }
+.mt-replay-deal { background: #173328; color: #f1eddc; font-weight: 650; }
 .mt-bet-sizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 5px; }
 .mt-bet-sizes button { background: #173328; color: #c7d2c2; font-size: 11px; }
 .mt-bet-sizes button[aria-pressed=true] { background: #364531; border-color: #c7ae72; color: #ecd095; }

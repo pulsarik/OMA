@@ -196,6 +196,7 @@ test('result layout visual check for 2 and 8 players', async ({ page }) => {
     await page.getByRole('button', { name: 'Fold', exact: true }).click();
     await expect(page.getByRole('button', { name: 'New deal', exact: true })).toBeVisible({ timeout: 90_000 });
     await expect(page.getByTestId('results-zone').getByTestId('showdown-new-deal')).toBeVisible();
+    await expect(page.getByTestId('results-zone').getByTestId('replay-current-deal')).toBeVisible();
     await expect(page.getByTestId('wireframe-hand-P1').getByTestId('player-result-P1')).toHaveCount(0);
     await expect(page.getByTestId('wireframe-hand-P1').getByTestId('showdown-net-action-P1')).toHaveText(/^-\d/);
     const heroSlotBox = (await page.locator('.wireframe-hero-slot').boundingBox())!;

@@ -31,6 +31,6 @@ export function CombinationHint({ combo, kind, language, board, hole }: {
       <div className="mt-combo-source mt-combo-source--hole"><Cards cards={handCards.map(c => c.code)} count={2} language={language} /><span>{words(language, 'Hand', 'Рука')}</span></div>
       <div className="mt-combo-source"><Cards cards={boardCards.map(c => c.code)} count={3} language={language} /><span>{words(language, 'Board', 'Борд')}</span></div>
     </div> : <p className="mt-combo-empty">{board.length < 3 ? words(language, 'Available from the flop', 'Появится на флопе')
-      : words(language, kind === 'low' ? 'No qualifying low' : 'No combination', kind === 'low' ? 'Нет подходящей LOW' : 'Нет комбинации')}</p>}
+      : words(language, kind === 'low' ? 'No qualifying low' : 'No made hand', kind === 'low' ? 'Нет младшей комбинации' : 'Нет готовой комбинации')}</p>}
   </section>;
 }

@@ -46,13 +46,13 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }:
           {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Won', 'Выиграл')} {amount(payout?.uncontested)}</span> : null}
         </div>
         {!hero ? <div className="mt-ranks">
-          {seat.folded ? <span>{t('Folded', 'Фолд')}</span> : null}
-          {result?.highRank ? <span>H · {rankLabel(result.highRank, language)}</span> : null}
-          {result?.lowRank ? <span>L · {rankLabel(result.lowRank, language)}</span> : null}
+          {seat.folded ? <span>{t('Folded', 'Сбросил карты')}</span> : null}
+          {result?.highRank ? <span>{t('HIGH', 'СТАРШАЯ')} · {rankLabel(result.highRank, language)}</span> : null}
+          {result?.lowRank ? <span>{t('LOW', 'МЛАДШАЯ')} · {rankLabel(result.lowRank, language)}</span> : null}
         </div> : null}
       </> : <span className={isTurn ? 'mt-turn-label' : ''}>
-        {waiting ? t('Waiting', 'Ожидает') : isTurn ? <>{hero ? t('Your turn', 'Ваш ход') : t('Thinking', 'Думает')}{seconds !== undefined ? ` · ${seconds}s` : ''}</>
-          : seat.folded ? t('Folded', 'Фолд') : lastAction ? `${moveLabel(lastAction.move, language)}${lastAction.amount ? ` ${amount(lastAction.amount)}` : ''}` : '\u00a0'}
+        {waiting ? t('Waiting', 'Ожидает') : isTurn ? <>{hero ? t('Your turn', 'Твой ход') : t('Thinking', 'Думает')}{seconds !== undefined ? ` · ${seconds} ${t('sec', 'с')}` : ''}</>
+          : seat.folded ? t('Folded', 'Сбросил карты') : lastAction ? `${moveLabel(lastAction.move, language)}${lastAction.amount ? ` ${amount(lastAction.amount)}` : ''}` : '\u00a0'}
       </span>}
     </div>
   </article>;
@@ -75,17 +75,17 @@ function PotSplit({ player: p, language, onOpen }: { player: TableState; languag
   </span>;
   const totalHigh = result.points.reduce((sum, score) => sum + score.high, 0);
   const totalLow = result.points.reduce((sum, score) => sum + score.low, 0);
-  if (pots.length <= 1) return <span className="mt-pot-caption" title={t('An odd chip goes to HIGH', 'Нечётная фишка относится к HIGH')}>
+  if (pots.length <= 1) return <span className="mt-pot-caption" title={t('An odd chip goes to the high half', 'Нечётная фишка достаётся старшей половине')}>
     {result.noLow
-      ? <>{t('Whole pot', 'Весь банк')} · H {amount(totalHigh)} · {t('NO LOW', 'НЕТ LOW')}</>
-      : <>{t('Shares', 'Доли')} · H {amount(totalHigh)} · L {amount(totalLow)}</>}
+      ? <>{t('Whole pot', 'Весь банк')} · {t('HIGH', 'СТАРШАЯ')} {amount(totalHigh)} · {t('NO LOW', 'НЕТ МЛАДШЕЙ')}</>
+      : <>{t('Shares', 'Доли')} · {t('HIGH', 'СТАРШАЯ')} {amount(totalHigh)} · {t('LOW', 'МЛАДШАЯ')} {amount(totalLow)}</>}
   </span>;
 
   const main = potPools(pots[0]);
   return <div className="mt-pot-splits" data-testid="mt-pot-splits">
     <span>{t('Main', 'Основной')} {amount(pots[0].amount)} · {main.returned
       ? `${t('return', 'возврат')} ${amount(main.returned)}`
-      : `H ${amount(main.high)}${main.low ? ` / L ${amount(main.low)}` : ` · ${t('no LOW', 'нет LOW')}`}`}</span>
+      : `${t('HIGH', 'СТАРШАЯ')} ${amount(main.high)}${main.low ? ` / ${t('LOW', 'МЛАДШАЯ')} ${amount(main.low)}` : ` · ${t('no LOW', 'нет младшей')}`}`}</span>
     <button className="mt-side-link" type="button" onClick={onOpen}>
       {t('Side pots', 'Побочные банки')} · {pots.length - 1} · {t('details', 'подробно')}
     </button>
@@ -102,10 +102,13 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
     const wager = move === 'bet' || move === 'raise';
     props.onMove(move, wager ? c.wagerTarget : undefined, wager ? c.betSize : undefined);
   };
-  if (player.stage === 'showdown') return props.onNext ? <footer className="mt-dock">
-    <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
-      {c.creatingDeal ? t('Dealing…', 'Раздаём…') : t('Next deal', 'Следующая раздача')}
-    </button>
+  if (player.stage === 'showdown') return props.onNext || props.onReplay ? <footer className="mt-dock mt-showdown-actions">
+    {props.onNext ? <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
+      {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Next deal', 'Следующая раздача')}
+    </button> : null}
+    {props.onReplay ? <button className="mt-replay-deal" data-testid="replay-current-deal" disabled={!c.connected || c.creatingDeal} onClick={props.onReplay}>
+      {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Replay this deal', 'Переиграть эту раздачу')}
+    </button> : null}
   </footer> : null;
   return <footer className="mt-dock" data-testid="mt-actions">
     <fieldset disabled={!c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
@@ -173,13 +176,13 @@ function PotDialog({ player: p, language, open, onClose }: {
         <div className="mt-pot-detail-title"><span>{i === 0 ? t('Main pot', 'Основной банк') : `${t('Side pot', 'Побочный банк')} ${i}`}</span><strong>{amount(pot.amount)}</strong></div>
         {pools ? <p className="mt-pot-pools">{pools.returned
           ? `${t('Awarded without showdown', 'Выплата без вскрытия')}: ${amount(pools.returned)}`
-          : `${t('Shares', 'Доли')}: HIGH ${amount(pools.high)} · ${pools.low ? `LOW ${amount(pools.low)}` : t('no LOW', 'нет LOW')}`}</p> : null}
+          : `${t('Shares', 'Доли')}: ${t('HIGH', 'СТАРШАЯ')} ${amount(pools.high)} · ${pools.low ? `${t('LOW', 'МЛАДШАЯ')} ${amount(pools.low)}` : t('no LOW', 'нет младшей')}`}</p> : null}
         <p className="mt-pot-eligible">{t('Eligible', 'Участвуют')}: {pot.eligiblePlayerIds.map(label).join(', ')}</p>
         {settled?.uncontestedWinnerId ? <p className="mt-pot-winners">
           {t('Won without showdown', 'Победа без вскрытия')}: {label(settled.uncontestedWinnerId)}
         </p> : settled ? <>
-          <p className="mt-pot-winners"><b>HIGH</b> {settled.highWinners.map(label).join(', ') || '—'}</p>
-          <p className="mt-pot-winners mt-pot-winners--low"><b>LOW</b> {settled.noLow ? t('No qualifying low', 'Нет подходящей LOW') : settled.lowWinners.map(label).join(', ')}</p>
+          <p className="mt-pot-winners"><b>{t('HIGH', 'СТАРШАЯ')}</b> {settled.highWinners.map(label).join(', ') || '—'}</p>
+          <p className="mt-pot-winners mt-pot-winners--low"><b>{t('LOW', 'МЛАДШАЯ')}</b> {settled.noLow ? t('No qualifying low', 'Нет младшей комбинации') : settled.lowWinners.map(label).join(', ')}</p>
         </> : null}
       </article>;
     })}</div> : null}
