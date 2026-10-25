@@ -12,6 +12,9 @@ import {
   visibleCommunity,
 } from './game';
 
+export type BotReasonCode = 'CHECK_NO_BET' | 'POT_ODDS' | 'CALL_MARGIN' | 'PREMIUM_BLIND_ENTRY'
+  | 'STARTING_HAND' | 'POT_SHARE';
+
 export type BotDecision = {
   move: PlayerMove;
   amount?: number;
@@ -21,6 +24,13 @@ export type BotDecision = {
     equity: number;
     scoopRate: number;
     potOdds: number;
+    coach?: {
+      code: BotReasonCode;
+      stage: DealtHand['stage'];
+      quarterRisk: boolean;
+      lowVulnerable: boolean;
+      lowImpossible: boolean;
+    };
   };
 };
 
@@ -379,7 +389,7 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
     && hand.raiseCount < MAX_RAISES_PER_STREET
     && hand.players.some(opponent => opponent.id !== player.id && !opponent.folded
       && opponent.stack + (hand.roundBets[opponent.id] ?? 0) > hand.currentBet);
-  const explain = (move: PlayerMove, amount?: number): BotDecision => {
+  const explain = (move: PlayerMove, code: BotReasonCode, amount?: number): BotDecision => {
     const decision: BotDecision = {
       move,
       ...(amount === undefined ? {} : { amount }),
@@ -396,6 +406,13 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
       equity,
       scoopRate,
       potOdds,
+      coach: {
+        code, stage: hand.stage,
+        quarterRisk: quarterRate > 0.2 && scoopRate < 0.2,
+        lowVulnerable: nutLowLostRate > 0.2 && scoopRate < 0.2,
+        lowImpossible: hand.stage === 'river' && new Set(visibleCommunity(hand)
+          .map(card => card.slice(0, -1)).filter(rank => /^[A2-8]$/.test(rank))).size < 3,
+      },
       },
     });
     return decision;
@@ -413,13 +430,13 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
     if (aggressiveFraction !== undefined) {
       const aggressiveMove = aggressiveMoveForMatchedBet(hand.currentBet, hand.raiseCount);
       if (aggressiveMove === 'bet' && canRaise) {
-        return explain('bet', potBetAmount(hand, player, sizeFraction(aggressiveFraction)));
+        return explain('bet', premiumPreflop ? 'STARTING_HAND' : 'POT_SHARE', potBetAmount(hand, player, sizeFraction(aggressiveFraction)));
       }
       if (aggressiveMove === 'raise' && canRaise) {
-        return explain('raise', potRaiseTo(hand, player, sizeFraction(aggressiveFraction)));
+        return explain('raise', premiumPreflop ? 'STARTING_HAND' : 'POT_SHARE', potRaiseTo(hand, player, sizeFraction(aggressiveFraction)));
       }
     }
-    return explain('check');
+    return explain('check', 'CHECK_NO_BET');
   }
 
   // In an unopened multi-way pot, showdown equity includes players who have
@@ -432,11 +449,13 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
     && player.stack >= hand.blinds.big * 20
     && !hand.actions.some(action => action.stage === 'preflop'
       && (action.move === 'raise' || action.move === 'bet'));
-  if (realizedEquity < potOdds + margin) return explain(premiumBlindEntry ? 'call' : 'fold');
+  if (realizedEquity < potOdds + margin) return premiumBlindEntry
+    ? explain('call', 'PREMIUM_BLIND_ENTRY')
+    : explain('fold', equity < potOdds ? 'POT_ODDS' : 'CALL_MARGIN');
   if (canRaise && (realizedEquity >= profile.raiseEquity || scoopRate >= profile.raiseScoop)) {
-    return explain('raise', potRaiseTo(hand, player, sizeFraction(
+    return explain('raise', 'POT_SHARE', potRaiseTo(hand, player, sizeFraction(
       equity >= profile.bigRaiseEquity || scoopRate >= profile.bigRaiseScoop ? 1 : profile.raiseFraction,
     )));
   }
-  return explain('call');
+  return explain('call', 'POT_ODDS');
 }

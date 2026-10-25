@@ -1,15 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-
-type Advice = {
-  handId: string;
-  revision: number;
-  playerId: string;
-  stage: string;
-  locale: 'en' | 'ru';
-  move: 'fold' | 'check' | 'call' | 'bet' | 'raise';
-  amount?: number;
-  text: string;
-};
+import { parseTrainingAdvice, type Advice } from './protocol';
 
 type TurnState = {
   handId: string;
@@ -53,9 +43,9 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
   function onMessage(message: any, socket: WebSocket) {
     if (message.type === 'player_state' && message.data?.handId === handId) socketRef.current = socket;
     if (message.type !== 'training_advice' || !enabledRef.current) return;
-    const value = message.data as Advice;
+    const value = parseTrainingAdvice(message.data);
     const current = playerRef.current;
-    if (!current || value.handId !== current.handId || value.playerId !== current.playerId
+    if (!value || !current || value.handId !== current.handId || value.playerId !== current.playerId
       || value.stage !== current.stage || value.revision !== current.revision || value.locale !== locale
       || current.currentPlayerId !== current.playerId) return;
     onAdviceStart();

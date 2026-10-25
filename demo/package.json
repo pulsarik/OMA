@@ -10,6 +10,7 @@
     "test:server": "npm --prefix ../server test",
     "test:client": "jest --config jest.config.js",
     "e2e": "npm --prefix ../server run build && playwright test --config=playwright.config.ts",
+    "e2e:coach": "npm --prefix ../server run build && playwright test --config=playwright.coach.config.ts",
     "e2e:mcp": "npm --prefix ../server run build && npm --prefix client run build && playwright test --config=playwright.mcp.config.ts",
     "e2e:lobby-expiry": "npm --prefix ../server run build && playwright test --config=playwright.lobby-expiry.config.ts",
     "e2e:seo": "npm --prefix ../server run build && npm --prefix client run build && playwright test --config=playwright.seo.config.ts",

@@ -8,7 +8,12 @@ export function TrainingAdvice({ controller, t }: { controller: Controller; t: (
   if (!controller.enabled || !controller.available || !controller.advice) return null;
   return <aside className="training-advice" role="status" data-testid="training-advice">
     <span aria-hidden="true">♠</span>
-    <div><strong>{t('Coach', 'Тренер')}</strong><p>{controller.advice.text}</p></div>
+    <div><strong>{t('Coach', 'Тренер')}</strong><p>{controller.advice.text}</p>
+      {controller.advice.detail ? <details key={`${controller.advice.handId}:${controller.advice.revision}`}>
+        <summary>{controller.advice.locale === 'ru' ? 'Почему?' : 'Why?'}</summary>
+        <p>{controller.advice.detail}</p>
+      </details> : null}
+    </div>
   </aside>;
 }
 

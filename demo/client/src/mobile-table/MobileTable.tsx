@@ -111,6 +111,7 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
     </button> : null}
   </footer> : null;
   return <footer className="mt-dock" data-testid="mt-actions">
+    {props.coach}
     <fieldset disabled={!c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
       <div className="mt-bet-sizes" role="group" aria-label={t('Bet size', 'Размер ставки')}>
         {(['blind', 'quarter', 'half', 'pot'] as const).map((size, i) => <button key={size} aria-pressed={c.betSize === size}

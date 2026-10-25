@@ -3700,6 +3700,7 @@ function PlayerPage({
         onSettings={() => setActiveView('settings')}
         headerActions={<Commentator controller={commentary} />}
         commentaryCaption={<CommentatorCaption controller={commentary} />}
+        coach={<TrainingAdvice controller={trainingAdvice} t={ui} />}
         onVoice={showVoiceChat ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
         onExit={onExitGame}
@@ -3710,7 +3711,6 @@ function PlayerPage({
 
   return (
     <>
-      <TrainingAdvice controller={trainingAdvice} t={ui} />
       {ovalTable}
       {/* Keep the voice room mounted when returning to either table layout. */}
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
@@ -3932,6 +3932,7 @@ function PlayerPage({
               if (!canAct) event.preventDefault();
             }}
           >
+            <TrainingAdvice controller={trainingAdvice} t={ui} />
             <strong
               role="status"
               className="action-dock-status"
