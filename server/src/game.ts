@@ -64,6 +64,8 @@ export type DealtHand = {
   partyCode?: string;
   handCode?: string;
   handNumber: number;
+  /** Hand number within the current 1000-chip match; resets after a party restart. */
+  matchHandNumber?: number;
   revision?: number;
   processedCommandIds?: string[];
   previousHandId?: string;
@@ -1150,7 +1152,7 @@ function payFromStack(player: PlayerHand, amount: number) {
 }
 
 function applyBlinds(hand: DealtHand) {
-  const blindInfo = blindLevelForHand(hand.handNumber);
+  const blindInfo = blindLevelForHand(hand.matchHandNumber ?? hand.handNumber);
   const livePlayers = hand.players.filter(player => player.stack > 0);
   hand.blinds = {
     ...blindInfo,
@@ -1432,6 +1434,7 @@ export function dealHand(
     id: uuidv4(),
     partyId: uuidv4(),
     handNumber: 1,
+    matchHandNumber: 1,
     revision: 0,
     players: playersHands,
     community: [],
@@ -1478,8 +1481,9 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   hand.partyId = previous.partyId;
   hand.partyCode = previous.partyCode;
   hand.handNumber = nextHandNumber;
+  hand.matchHandNumber = (previous.matchHandNumber ?? previous.handNumber) + 1;
   hand.previousHandId = previous.id;
-  hand.blinds = { ...blindLevelForHand(hand.handNumber) };
+  hand.blinds = { ...blindLevelForHand(hand.matchHandNumber) };
   const stacks = stacksAfterPayout(previous);
   hand.players = hand.players.map((player, index) => ({
     ...player,
@@ -1500,6 +1504,7 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   hand.partyId = source.partyId;
   hand.partyCode = source.partyCode;
   hand.handNumber = source.handNumber + 1;
+  hand.matchHandNumber = (source.matchHandNumber ?? source.handNumber) + 1;
   hand.previousHandId = source.id;
   hand.replayOfHandId = source.id;
   hand.replayCode = source.replayCode;

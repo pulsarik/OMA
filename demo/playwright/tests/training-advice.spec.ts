@@ -2,9 +2,10 @@ import { expect, test } from '@playwright/test';
 
 test('voice coach is enabled by default and advises after ten seconds against bots', async ({ page }) => {
   await page.addInitScript(() => {
+    localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'voice', locale: 'ru', volume: 0.65 }));
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
-      value: { speak: () => undefined, cancel: () => undefined, speaking: false },
+      value: { speak: (utterance: { onend?: () => void }) => queueMicrotask(() => utterance.onend?.()), cancel: () => undefined, speaking: false },
     });
     Object.defineProperty(window, 'SpeechSynthesisUtterance', {
       configurable: true,
@@ -18,7 +19,7 @@ test('voice coach is enabled by default and advises after ten seconds against bo
 
   const advice = page.getByTestId('training-advice');
   await expect(advice).toBeVisible({ timeout: 12_000 });
-  await expect(advice).toContainText(/^(?:Coach)?[\s\S]*(Fold|Check|Call|Bet|Raise)/);
+  await expect(advice).toContainText(/[А-Яа-яЁё]/);
 
   await page.getByRole('tab', { name: 'SETTINGS' }).click();
   const setting = page.getByRole('checkbox', { name: 'Advice after 10 seconds' });

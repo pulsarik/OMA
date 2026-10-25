@@ -5,6 +5,7 @@ type Advice = {
   revision: number;
   playerId: string;
   stage: string;
+  locale: 'en' | 'ru';
   move: 'fold' | 'check' | 'call' | 'bet' | 'raise';
   amount?: number;
   text: string;
@@ -27,7 +28,8 @@ function savedEnabled() {
   catch { return true; }
 }
 
-export function useTrainingAdvice(handId: string, player: TurnState | null, locale: 'en' | 'ru') {
+export function useTrainingAdvice(handId: string, player: TurnState | null, locale: 'en' | 'ru',
+  onAdviceStart: () => void, onSpeakingChange: (speaking: boolean) => void) {
   const [enabled, setEnabledState] = useState(savedEnabled);
   const [advice, setAdvice] = useState<Advice | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -40,6 +42,7 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
   const turnKey = player && player.currentPlayerId === player.playerId && player.stage !== 'showdown'
     ? `${player.handId}:${player.stage}:${player.currentPlayerId}:${player.turnDeadline ?? player.revision}`
     : '';
+  const requestKey = turnKey ? `${turnKey}:${locale}` : '';
 
   const setEnabled = (next: boolean) => {
     setEnabledState(next);
@@ -53,8 +56,9 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
     const value = message.data as Advice;
     const current = playerRef.current;
     if (!current || value.handId !== current.handId || value.playerId !== current.playerId
-      || value.stage !== current.stage || value.revision !== current.revision
+      || value.stage !== current.stage || value.revision !== current.revision || value.locale !== locale
       || current.currentPlayerId !== current.playerId) return;
+    onAdviceStart();
     setAdvice(value);
   }
 
@@ -66,23 +70,28 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
       : 0;
     const timer = window.setTimeout(() => {
       const socket = socketRef.current;
-      if (requestedRef.current === turnKey || !socket || socket.readyState !== WebSocket.OPEN) return;
-      requestedRef.current = turnKey;
+      if (requestedRef.current === requestKey || !socket || socket.readyState !== WebSocket.OPEN) return;
+      requestedRef.current = requestKey;
       socket.send(JSON.stringify({ action: 'training_advice', locale }));
     }, Math.max(0, 10_000 - elapsed));
     return () => window.clearTimeout(timer);
-  }, [available, enabled, locale, player?.folded, player?.turnDeadline, player?.turnDurationMs, turnKey]);
+  }, [available, enabled, locale, player?.folded, player?.turnDeadline, player?.turnDurationMs, requestKey, turnKey]);
 
   useEffect(() => {
     if (!enabled || !advice || document.hidden || !('speechSynthesis' in window)) return undefined;
     const utterance = new SpeechSynthesisUtterance(advice.text);
     utterance.lang = locale === 'ru' ? 'ru-RU' : 'en-US';
     utterance.rate = 1.08;
-    window.speechSynthesis.speak(utterance);
+    utterance.onend = () => onSpeakingChange(false);
+    utterance.onerror = () => onSpeakingChange(false);
+    onSpeakingChange(true);
+    try { window.speechSynthesis.speak(utterance); }
+    catch { onSpeakingChange(false); }
     return () => {
       if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
+      onSpeakingChange(false);
     };
-  }, [advice, enabled, locale]);
+  }, [advice, enabled, locale, onSpeakingChange]);
 
   useEffect(() => { setAdvice(null); }, [handId, turnKey]);
 

@@ -3060,7 +3060,13 @@ function PlayerPage({
   const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
   const commentary = useCommentary(handId, SERVER_URL);
-  const trainingAdvice = useTrainingAdvice(handId, player, storedLanguage());
+  const trainingAdvice = useTrainingAdvice(
+    handId,
+    player,
+    commentary.locale,
+    commentary.interrupt,
+    commentary.setHumanSpeaking,
+  );
   const onGameSoundMessage = useGameSounds(handId, commentary.speaking);
   const pendingCommandStorageKey = `omaha-pending-command-${handId}-${playerId}`;
 

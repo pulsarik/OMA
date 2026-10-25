@@ -8,7 +8,10 @@ test('admin API lists hands', async ({ request }) => {
 test('admin shows country and source without exposing the cookie column', async ({ page }) => {
   await page.route('**/admin/stats', (route) => route.fulfill({ json: {
     accesses: [
-      { playerName: 'Alice', clientCookie: 'private-browser-id', country: 'DE', source: 'referral:www.google.com' },
+      {
+        playerName: 'Alice', clientCookie: 'private-browser-id', country: 'DE', source: 'referral:www.google.com',
+        dealsPlayed: 12, partiesPlayed: 3, partiesWon: 2, winPercent: 67,
+      },
       { playerName: 'Bob', source: 'direct' },
       { playerName: 'Carol', source: 'campaign:<img src=x onerror=alert(1)>' },
       { playerName: 'Legacy' },
@@ -18,11 +21,17 @@ test('admin shows country and source without exposing the cookie column', async 
   const table = page.locator('#accesses');
   await expect(table.getByRole('columnheader', { name: 'Страна / Country' })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: 'Источник / Source' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Раздач сыграно / Deals played' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Партий сыграно / Parties played' })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Побед / Wins', exact: true })).toBeVisible();
   await expect(table.getByRole('columnheader', { name: 'Cookie', exact: true })).toHaveCount(0);
   await expect(table).not.toContainText('private-browser-id');
   const alice = table.getByRole('row').filter({ hasText: 'Alice' });
   await expect(alice).toContainText('Германия / Germany');
   await expect(alice).toContainText('www.google.com');
+  await expect(alice.getByRole('cell').nth(2)).toHaveText('12');
+  await expect(alice.getByRole('cell').nth(3)).toHaveText('3');
+  await expect(alice.getByRole('cell').nth(4)).toHaveText('2');
   await expect(table.getByRole('row').filter({ hasText: 'Bob' })).toContainText('Direct / unknown');
   await expect(table.getByRole('row').filter({ hasText: 'Legacy' })).toContainText('Неизвестно / Unknown');
   await expect(table.getByRole('row').filter({ hasText: 'Carol' })).toContainText('UTM: <img');

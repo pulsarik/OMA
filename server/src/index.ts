@@ -9,6 +9,7 @@ import HandStore from './handStore';
 import { visitCountry, visitSource } from './visitAttribution';
 import { botMove } from './bot';
 import { createTrainingAdvice } from './trainingAdvice';
+import { AdvisedTurns } from './advisedTurns';
 import { mcpRouter, TableInput } from './mcp';
 import { canUseInvitation, newInvitation } from './invitations';
 import { createVoiceJoinToken, voiceConfigFromEnv } from './voice';
@@ -40,7 +41,6 @@ import {
   dealHandFromCode,
   evaluateOmahaHiLo,
   evaluatePlayerCombo,
-  blindLevelForHand,
   isPlayerStillInParty,
   isPartyFinished,
   nextPartyHand,
@@ -79,7 +79,9 @@ const playerMoveCommands = new Map<string, Promise<{
   hand: any;
   player: any;
   duplicate: boolean;
+  suppressCommentary: boolean;
 }>>();
+const advisedHumanTurns = new AdvisedTurns();
 const lobbyConnections = new Map<WebSocket, { lobbyId: string; memberId: string }>();
 const playerConnections = new Map<WebSocket, {
   handId: string;
@@ -137,6 +139,7 @@ if (process.env.PROBLEM_EMAIL_TO && !problemEmailDeliveryConfig) {
 } else if (problemEmailDeliveryConfig) {
   console.info('Problem email delivery is configured');
 }
+
 const MAX_FAILED_PIN_ATTEMPTS = 5;
 const staticDir = [
   process.env.STATIC_DIR,
@@ -370,11 +373,12 @@ function scheduleHumanTurn(hand: any) {
         ) return;
 
         const canCheck = (latest.roundBets?.[current.id] ?? 0) >= (latest.currentBet ?? 0);
+        const suppressCommentary = advisedHumanTurns.consume(latest, current.id);
         recordPlayerMove(latest, current.id, canCheck ? 'check' : 'fold');
         prepareHumanTurnClock(latest, true);
         await store.updateHand(latest);
         broadcastHandUpdated(latest);
-        commentOnHandAction(latest);
+        if (!suppressCommentary) commentOnHandAction(latest);
       });
     } catch (error) {
       console.error('human turn timeout failed', error);
@@ -1517,9 +1521,9 @@ async function restartLobby(ws: WebSocket, message: any) {
     hand.partyId = latestHand.partyId;
     hand.partyCode = latestHand.partyCode;
     hand.handNumber = (latestHand.handNumber ?? 0) + 1;
+    hand.matchHandNumber = 1;
     hand.previousHandId = latestHand.id;
     hand.partyRestarted = true;
-    hand.blinds = { ...blindLevelForHand(hand.handNumber) };
     prepareDealAudit(hand);
     prepareHumanTurnClock(hand, true);
     await store.saveHand(hand);
@@ -2043,7 +2047,9 @@ wss.on('connection', (ws, req) => {
           return;
         }
         const locale = msg.locale === 'ru' ? 'ru' : 'en';
-        ws.send(JSON.stringify({ type: 'training_advice', data: createTrainingAdvice(hand, player, locale) }));
+        const advice = createTrainingAdvice(hand, player, locale);
+        advisedHumanTurns.mark(hand, player.id);
+        ws.send(JSON.stringify({ type: 'training_advice', data: advice }));
       } else if (msg.action === 'player_move') {
         if (receivedCommandId && receivedCommandId.length > 100) {
           throw new Error('invalid command id');
@@ -2061,12 +2067,13 @@ wss.on('connection', (ws, req) => {
           if (!player) throw new Error('player not found');
 
           if (marker && hand.processedCommandIds?.includes(marker)) {
-            return { hand, player, duplicate: true };
+            return { hand, player, duplicate: true, suppressCommentary: false };
           }
 
           if (!playerConnections.has(ws)) {
             await recordPlayerConnection(ws, req, hand, player, msg.client);
           }
+          const suppressCommentary = advisedHumanTurns.consume(hand, player.id);
           recordPlayerMove(hand, player.id, msg.move as PlayerMove, msg.amount, msg.betSize);
           prepareHumanTurnClock(hand, true);
           if (marker) {
@@ -2075,7 +2082,7 @@ wss.on('connection', (ws, req) => {
           await store.updateHand(hand);
           await store.recordGameActivity(hand.partyId ?? hand.id);
           await recordBoundPlayerActivity(ws);
-          return { hand, player, duplicate: false };
+          return { hand, player, duplicate: false, suppressCommentary };
         });
 
         let result;
@@ -2106,7 +2113,7 @@ wss.on('connection', (ws, req) => {
         if (!result.duplicate && !inFlight) {
           clearHumanTurnTimer(result.hand.id);
           broadcastHandUpdated(result.hand);
-          commentOnHandAction(result.hand);
+          if (!result.suppressCommentary) commentOnHandAction(result.hand);
           void scheduleTurnTimers(result.hand.id);
         }
       } else if (msg.action === 'player_activity') {

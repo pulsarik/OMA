@@ -22,10 +22,19 @@ export function useCommentary(handId: string, serverUrl: string) {
   const seen = useRef(new Set<string>());
   const attempted = useRef('');
   const audio = useRef<HTMLAudioElement | null>(null);
+  const humanSpeakingRef = useRef(false);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const disconnected = useCallback(() => {
     audio.current?.pause(); setPending(null); setBlocked(false); socketRef.current = null;
+  }, []);
+  const updateHumanSpeaking = useCallback((value: boolean) => {
+    humanSpeakingRef.current = value;
+    setHumanSpeaking(value);
+  }, []);
+  const interrupt = useCallback(() => {
+    audio.current?.pause();
+    setPending(null); setSpeaking(false); setBlocked(false);
   }, []);
 
   function subscribe(socket: WebSocket) {
@@ -46,7 +55,7 @@ export function useCommentary(handId: string, serverUrl: string) {
     if (!value || seen.current.has(value.id)) return;
     seen.current.add(value.id);
     if (seen.current.size > 200) seen.current.delete(seen.current.values().next().value!);
-    if (document.hidden) return;
+    if (document.hidden || humanSpeakingRef.current) return;
     setBlocked(false);
     setPending({ ...value, localExpiry: Date.now() + value.expiresAt - value.serverNow });
   }
@@ -114,7 +123,8 @@ export function useCommentary(handId: string, serverUrl: string) {
 
   useEffect(() => { if (audio.current) audio.current.volume = settings.volume; }, [settings.volume]);
 
-  return { ...settings, ...availability, speaking, blocked, text: present?.text ?? '', onMessage, setHumanSpeaking, disconnected,
+  return { ...settings, ...availability, speaking, blocked, text: present?.text ?? '', onMessage,
+    setHumanSpeaking: updateHumanSpeaking, interrupt, disconnected,
     setMode: (mode: CommentaryMode) => setSettings(s => ({ ...s, mode })),
     setLocale: (locale: CommentaryLocale) => setSettings(s => ({ ...s, locale })),
     setVolume: (volume: number) => setSettings(s => ({ ...s, volume })),

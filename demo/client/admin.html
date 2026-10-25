@@ -178,9 +178,6 @@
     }
 
     function table(headers, rows) {
-      if (headers.includes('User-Agent')) {
-        headers = [headers[0], 'Player', 'Страна / Country', 'Источник / Source', ...headers.slice(1), 'Parties played', 'Parties won', 'Win rate', 'Deals played'];
-      }
       return `
         <table>
           <thead><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join('')}</tr></thead>
@@ -228,11 +225,31 @@
       );
 
       document.getElementById('accesses').innerHTML = table(
-        ['Последняя активность', 'IP-адрес', 'Устройство', 'Платформа', 'Экран', 'Окно', 'Подключений', 'User-Agent'],
+        [
+          'Последняя активность',
+          'Player',
+          'Раздач сыграно / Deals played',
+          'Партий сыграно / Parties played',
+          'Побед / Wins',
+          'Побед / Win rate',
+          'Страна / Country',
+          'Источник / Source',
+          'IP-адрес',
+          'Устройство',
+          'Платформа',
+          'Экран',
+          'Окно',
+          'Подключений',
+          'User-Agent',
+        ],
         (stats.accesses || []).map((access) => `
           <tr>
             <td>${escapeHtml(formatDate(access.lastSeen))}</td>
             <td>${escapeHtml(access.playerName)}</td>
+            <td>${escapeHtml(access.dealsPlayed ?? 0)}</td>
+            <td>${escapeHtml(access.partiesPlayed ?? access.gamesPlayed ?? 0)}</td>
+            <td>${escapeHtml(access.partiesWon ?? 0)}</td>
+            <td>${escapeHtml(`${access.winPercent ?? 0}%`)}</td>
             <td>${escapeHtml(countryName(access.country))}</td>
             <td>${escapeHtml(sourceName(access.source))}</td>
             <td>${escapeHtml(access.ip)}</td>
@@ -242,10 +259,6 @@
             <td>${escapeHtml(resolution(access.viewportWidth, access.viewportHeight))}</td>
             <td>${escapeHtml(access.connections)}</td>
             <td class="user-agent">${escapeHtml(access.userAgent)}</td>
-            <td>${escapeHtml(access.partiesPlayed ?? access.gamesPlayed)}</td>
-            <td>${escapeHtml(access.partiesWon)}</td>
-            <td>${escapeHtml(`${access.winPercent}%`)}</td>
-            <td>${escapeHtml(access.dealsPlayed)}</td>
           </tr>
         `),
       );

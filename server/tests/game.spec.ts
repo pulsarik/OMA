@@ -235,6 +235,21 @@ test('blind level doubles every eight hands', () => {
   expect(blindLevelForHand(17)).toEqual({ level: 2, small: 8, big: 16 });
 });
 
+test('blind levels restart for a fresh 1000-chip match while party hand numbers remain continuous', () => {
+  const restarted = dealHand(2, 12345);
+  restarted.handNumber = 25;
+  restarted.matchHandNumber = 1;
+  restarted.partyRestarted = true;
+  restarted.stage = 'showdown';
+
+  const next = nextPartyHand(restarted);
+
+  expect(next.handNumber).toBe(26);
+  expect(next.matchHandNumber).toBe(2);
+  expect(next.blinds).toMatchObject({ level: 0, small: 2, big: 4 });
+  expect(next.potCoins).toBe(6);
+});
+
 test('next party hand carries stacks after payout and posts next blinds', () => {
   const hand = dealHand(2, 12345);
   callBlindsToFlop(hand);
