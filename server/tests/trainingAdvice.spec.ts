@@ -1,4 +1,4 @@
-import { dealHand, MAX_RAISES_PER_STREET } from '../src/game';
+import { dealHand, MAX_RAISES_PER_STREET, recordPlayerMove } from '../src/game';
 import { botMove } from '../src/bot';
 import { createTrainingAdvice, trainingRecommendation } from '../src/trainingAdvice';
 import { renderTrainingAdvice, validAdviceText, type Recommendation } from '../src/trainingAdvicePhrases';
@@ -36,9 +36,9 @@ test.each(['preflop', 'flop', 'turn', 'river'] as const)('check on %s never prom
   hand.raiseCount = MAX_RAISES_PER_STREET;
   const advice = createTrainingAdvice(hand, hand.players[0], 'ru');
   expect(advice.recommendation.reason).toBe('CHECK_NO_BET');
-  expect(advice.text).toBe('Сделай чек. Сейчас доплачивать не нужно.');
+  expect(advice.text).toBe('Сделай чек — пока можно остаться в раздаче без доплаты.');
   expect(advice.detail).toContain('соперник ещё может поставить');
-  if (stage === 'river') expect(advice.detail).toContain('Общих карт больше не будет');
+  expect(advice.detail).not.toMatch(/Впереди|Общих карт больше|карты ещё не открыты/);
 });
 
 test('premium blind entry is identified by the bot, not described as profitable pot odds', () => {
@@ -48,7 +48,7 @@ test('premium blind entry is identified by the bot, not described as profitable 
   player.botStyle = 'cautious';
   const advice = createTrainingAdvice(hand, player, 'ru');
   expect(advice.recommendation.reason).toBe('PREMIUM_BLIND_ENTRY');
-  expect(advice.text).toContain('посмотреть флоп за блайнд');
+  expect(advice.text).toContain('за один блайнд можно посмотреть флоп');
   expect(advice.text).not.toMatch(/выгод|прибыл|эквити/);
 });
 
@@ -62,7 +62,7 @@ test('short all-in call amount never exceeds the stack; raise retains the target
     coach: recommendation('call', 'POT_ODDS').context };
   const call = trainingRecommendation(hand, player, { move: 'call', reason });
   expect(call.amount).toBe(30);
-  expect(renderTrainingAdvice(call, 'ru').text).toMatch(/^Уравняй ставку: добавь 30\./);
+  expect(renderTrainingAdvice(call, 'ru').text).toBe('Колл 30 — по оценке, шансы банка позволяют продолжить.');
   expect(trainingRecommendation(hand, player, { move: 'raise', amount: 120, reason }).amount).toBe(120);
 });
 
@@ -80,6 +80,7 @@ test.each([
     expect(text.length).toBeLessThanOrEqual(100);
     expect(text).not.toMatch(/%|эквити|прибыл|выгод|guarantee|profitable|free showdown/i);
     expect(text).toMatch(/\.$/);
+    expect(text).toMatch(/ — [а-яa-z]/);
     expect(text).not.toMatch(locale === 'ru' ? /[a-z]/i : /[а-яё]/i);
   }
 });
@@ -101,7 +102,8 @@ test('no-low river is distinguished from possible low, without looking at hidden
 
 test('quartering is a risk, not a guaranteed quarter or a scoop', () => {
   const result = renderTrainingAdvice(recommendation('raise', 'POT_SHARE', { quarterRisk: true }), 'ru');
-  expect(result.text).toContain('можно получить лишь четверть');
+  expect(result.text).toContain('с этой рукой можно увеличить банк');
+  expect(result.detail).toContain('риск получить только четверть');
   expect(result.detail).toContain('при ничьей эта половина тоже делится');
 });
 
@@ -110,7 +112,65 @@ test.each([0.249, 0.25, 0.251])('borderline estimates %s do not leak rounded com
   const reason = { summary: '', factors: [], equity, potOdds: 0.25, scoopRate: 0,
     coach: recommendation('fold', 'CALL_MARGIN').context };
   const rec = trainingRecommendation(hand, hand.players[0], { move: 'fold', reason });
-  expect(renderTrainingAdvice(rec, 'ru').text).toBe('Сбрось карты. Для такого колла у руки слишком мало запаса.');
+  expect(renderTrainingAdvice(rec, 'ru').text).toBe('Сбрось карты — преимущество слишком невелико, чтобы рисковать.');
+});
+
+test.each([
+  [false, false], [true, false], [false, true], [true, true],
+])('sizing risks do not replace the reason for aggression: quarter=%s low=%s', (quarterRisk, lowVulnerable) => {
+  for (const locale of ['ru', 'en'] as const) {
+    const base = renderTrainingAdvice(recommendation('raise', 'POT_SHARE'), locale);
+    const value = recommendation('raise', 'POT_SHARE', { quarterRisk, lowVulnerable });
+    const result = renderTrainingAdvice(value, locale);
+    expect(result.text).toBe(base.text);
+    expect(result.detail!.includes(locale === 'ru' ? 'четверть' : 'quarter')).toBe(quarterRisk);
+    expect(result.detail!.includes(locale === 'ru' ? 'Лоу уязвимо' : 'low is vulnerable')).toBe(lowVulnerable);
+    expect(result.detail).not.toMatch(/меньший размер|smaller wager/);
+    if (quarterRisk || lowVulnerable) {
+      value.context!.riskReducedAmount = true;
+      expect(renderTrainingAdvice(value, locale).detail).toMatch(/меньший размер|smaller wager/);
+    }
+  }
+});
+
+test('recommendations use legal amounts accepted unchanged by the game engine', () => {
+  for (const count of [2, 6]) {
+    const hand = dealHand(count, 710 + count, [], Array(count).fill(true));
+    let turns = 0;
+    while (hand.stage !== 'showdown' && turns++ < 150) {
+      const player = hand.players.find(p => p.id === hand.currentPlayerId)!;
+      const paidBefore = hand.roundBets[player.id] ?? 0;
+      const rec = createTrainingAdvice(hand, player, 'ru').recommendation;
+      const actionIndex = hand.actions.length;
+      recordPlayerMove(hand, player.id, rec.action, rec.amount);
+      const actual = hand.actions[actionIndex];
+      expect(actual.move).toBe(rec.action);
+      if (rec.action === 'call' || rec.action === 'bet') expect(actual.amount! - paidBefore).toBe(rec.amount);
+      if (rec.action === 'raise') expect(actual.amount).toBe(rec.amount);
+    }
+    expect(hand.stage).toBe('showdown');
+  }
+});
+
+test.each([
+  { pot: 12, amount: 4, reduced: false },
+  { pot: 60, amount: 12, reduced: true },
+])('actual sizing respects minimum bet before reporting a risk reduction: $pot', ({ pot, amount, reduced }) => {
+  const hand = dealHand(3, 71);
+  hand.stage = 'flop';
+  hand.community = ['3s', '4h', '8d'];
+  hand.fullCommunity = [...hand.community, 'Tc', 'Jc'];
+  hand.players[0].hole = ['As', '2h', 'Kd', 'Qc'];
+  hand.currentBet = 0;
+  hand.roundBets = {};
+  hand.potCoins = pot;
+  hand.totalContributions = Object.fromEntries(hand.players.map(p => [p.id, pot / 3]));
+  hand.players.forEach(p => { p.stack = 1000 - pot / 3; });
+  const advice = createTrainingAdvice(hand, hand.players[0], 'ru');
+  expect(advice.move).toBe('bet');
+  expect(advice.amount).toBe(amount);
+  expect(advice.recommendation.context).toMatchObject({ lowVulnerable: true, riskReducedAmount: reduced });
+  expect(advice.detail!.includes('выбран меньший размер ставки')).toBe(reduced);
 });
 
 test('invalid/mismatched/missing reason uses a complete fallback, never a fabricated explanation', () => {

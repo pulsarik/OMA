@@ -30,6 +30,8 @@ export type BotDecision = {
       quarterRisk: boolean;
       lowVulnerable: boolean;
       lowImpossible: boolean;
+      /** True only when risk adjustment changes the final legal wager amount. */
+      riskReducedAmount?: boolean;
     };
   };
 };
@@ -384,6 +386,14 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
   const sizeFraction = (fraction: number) => Math.max(0.2, Math.min(1,
     (quarterRate > 0.2 || nutLowLostRate > 0.2) && scoopRate < 0.2 ? fraction * 0.5
       : situation.spr <= 1 && scoopRate > 0.6 ? 1 : fraction));
+  let riskReducedAmount = false;
+  const sizedWager = (move: 'bet' | 'raise', fraction: number) => {
+    const size = move === 'bet' ? potBetAmount : potRaiseTo;
+    const adjusted = sizeFraction(fraction);
+    const amount = size(hand, player, adjusted);
+    riskReducedAmount = adjusted < fraction && amount < size(hand, player, fraction);
+    return amount;
+  };
   const canRaise = player.stack > callAmount
     && !hand.actedSinceLastFullRaise?.includes(player.id)
     && hand.raiseCount < MAX_RAISES_PER_STREET
@@ -408,6 +418,7 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
       potOdds,
       coach: {
         code, stage: hand.stage,
+        riskReducedAmount,
         quarterRisk: quarterRate > 0.2 && scoopRate < 0.2,
         lowVulnerable: nutLowLostRate > 0.2 && scoopRate < 0.2,
         lowImpossible: hand.stage === 'river' && new Set(visibleCommunity(hand)
@@ -430,10 +441,10 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
     if (aggressiveFraction !== undefined) {
       const aggressiveMove = aggressiveMoveForMatchedBet(hand.currentBet, hand.raiseCount);
       if (aggressiveMove === 'bet' && canRaise) {
-        return explain('bet', premiumPreflop ? 'STARTING_HAND' : 'POT_SHARE', potBetAmount(hand, player, sizeFraction(aggressiveFraction)));
+        return explain('bet', premiumPreflop ? 'STARTING_HAND' : 'POT_SHARE', sizedWager('bet', aggressiveFraction));
       }
       if (aggressiveMove === 'raise' && canRaise) {
-        return explain('raise', premiumPreflop ? 'STARTING_HAND' : 'POT_SHARE', potRaiseTo(hand, player, sizeFraction(aggressiveFraction)));
+        return explain('raise', premiumPreflop ? 'STARTING_HAND' : 'POT_SHARE', sizedWager('raise', aggressiveFraction));
       }
     }
     return explain('check', 'CHECK_NO_BET');
@@ -453,9 +464,9 @@ export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
     ? explain('call', 'PREMIUM_BLIND_ENTRY')
     : explain('fold', equity < potOdds ? 'POT_ODDS' : 'CALL_MARGIN');
   if (canRaise && (realizedEquity >= profile.raiseEquity || scoopRate >= profile.raiseScoop)) {
-    return explain('raise', 'POT_SHARE', potRaiseTo(hand, player, sizeFraction(
+    return explain('raise', 'POT_SHARE', sizedWager('raise',
       equity >= profile.bigRaiseEquity || scoopRate >= profile.bigRaiseScoop ? 1 : profile.raiseFraction,
-    )));
+    ));
   }
   return explain('call', 'POT_ODDS');
 }

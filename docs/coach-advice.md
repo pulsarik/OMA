@@ -21,6 +21,11 @@ the existing action and wager. Each return branch now attaches its reason code:
 
 The code is diagnostic metadata only; thresholds, sampling and sizing are unchanged.
 Quartering and low-vulnerability flags describe the existing size adjustment.
+They do not replace the reason for aggression in the short text. Both risks
+appear independently in details. `riskReducedAmount` compares final wager amounts
+with and without the adjustment, after minimum-raise and stack constraints; only
+then may the explanation say that the wager is smaller. Routine street labels are
+not appended to explanations.
 No `STRONG_HIGH` or `LOW_DRAW` reason is invented: those are not standalone
 decision branches. A river board lacking three distinct low ranks is marked as
 unable to support low; a board that supports low does not prove anyone has low.
@@ -32,6 +37,11 @@ Calls are additional chips capped at the stack; raises remain street totals.
 It returns short `text` plus optional `detail`; no sentence is truncated. Typical
 short copy is about 100 characters, with a 180-character validation safety limit.
 Invalid/mismatched structures produce a short unavailable fallback.
+The text validator checks exact renderer output, not the truth of a supplied
+reason. Recommendation validation checks structure and reason/action compatibility,
+not betting limits. Integration tests submit generated advice to `game.ts` and
+check that the engine accepts wager amounts unchanged; rules are not duplicated
+in the copy layer.
 
 The WebSocket keeps existing move/amount/text fields and adds recommendation/detail.
 The client validates the envelope and rejects stale turns. Both React and browser
