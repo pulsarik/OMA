@@ -57,6 +57,7 @@ for (const height of [521, 633]) {
       mock.update(fixture(players, true));
       await expect(page.getByTestId('mobile-result-dock')).toBeVisible();
       await expect(page.getByTestId('mobile-result-dock').getByRole('button', { name: 'New deal' })).toBeVisible();
+      await expect(page.getByTestId('mobile-result-dock').getByTestId('replay-current-deal')).toBeVisible();
       await expectTableFits(page);
       await page.screenshot({ path: testInfo.outputPath('showdown.png') });
     });

@@ -76,7 +76,9 @@ export function commentaryCases() {
       await expect(next).toBeEnabled();
       await next.click();
       await expect.poll(() => t.newDeals.length).toBe(1);
-      await expect(page.getByRole('button', { name: /^(Dealing|Creating)/ })).toBeDisabled();
+      const creating = page.getByRole('button', { name: /^(Dealing|Creating)/ });
+      await expect(creating).toHaveCount(2);
+      for (const button of await creating.all()) await expect(button).toBeDisabled();
       t.deal();
       await expect(next).toBeEnabled();
       await expect(page).toHaveURL(/\/player\/mobile-fixture\/P1\/token$/);
