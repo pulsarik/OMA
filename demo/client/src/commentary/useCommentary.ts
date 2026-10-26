@@ -22,14 +22,12 @@ export function useCommentary(handId: string, serverUrl: string) {
   const seen = useRef(new Set<string>());
   const attempted = useRef('');
   const audio = useRef<HTMLAudioElement | null>(null);
-  const humanSpeakingRef = useRef(false);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   const disconnected = useCallback(() => {
     audio.current?.pause(); setPending(null); setBlocked(false); socketRef.current = null;
   }, []);
   const updateHumanSpeaking = useCallback((value: boolean) => {
-    humanSpeakingRef.current = value;
     setHumanSpeaking(value);
   }, []);
   const interrupt = useCallback(() => {
@@ -55,7 +53,9 @@ export function useCommentary(handId: string, serverUrl: string) {
     if (!value || seen.current.has(value.id)) return;
     seen.current.add(value.id);
     if (seen.current.size > 200) seen.current.delete(seen.current.values().next().value!);
-    if (document.hidden || humanSpeakingRef.current) return;
+    // Keep the caption while someone talks; playback waits for silence below
+    // and still respects the event's original expiry.
+    if (document.hidden) return;
     setBlocked(false);
     setPending({ ...value, localExpiry: Date.now() + value.expiresAt - value.serverNow });
   }
