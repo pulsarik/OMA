@@ -138,6 +138,39 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
 test.describe('touch tablet', () => {
   test.use({ hasTouch: true, deviceScaleFactor: 1.25 });
 
+  test('table, reserved coach space and action buttons fit without scrolling', async ({ page }) => {
+    const state = fixture(4, false);
+    state.players[1].isBot = true;
+    await mockTable(page, state);
+
+    for (const viewport of [{ width: 1280, height: 632 }, { width: 800, height: 1138 }]) {
+      await page.setViewportSize(viewport);
+      await expect(page.getByTestId('desktop-table')).toBeVisible();
+      await expect(page.locator('.training-advice-slot')).toBeVisible();
+      await expect(page.getByTestId('mt-actions')).toBeVisible();
+
+      const metrics = await page.getByTestId('desktop-table').evaluate(table => {
+        const scene = table.querySelector('.mt-scene')!.getBoundingClientRect();
+        const coach = table.querySelector('.training-advice-slot')!.getBoundingClientRect();
+        const buttons = [...table.querySelectorAll<HTMLButtonElement>('.mt-dock button')]
+          .map(button => button.getBoundingClientRect());
+        return {
+          noScroll: document.documentElement.scrollHeight <= innerHeight,
+          sceneVisible: scene.top >= 0 && scene.bottom <= innerHeight && scene.height >= 300,
+          coachVisible: coach.top >= 0 && coach.bottom <= innerHeight,
+          buttonsVisible: buttons.every(button => button.top >= 0 && button.bottom <= innerHeight),
+        };
+      });
+
+      expect(metrics, JSON.stringify(viewport)).toEqual({
+        noScroll: true,
+        sceneVisible: true,
+        coachVisible: true,
+        buttonsVisible: true,
+      });
+    }
+  });
+
   test('English side pots fit after rotating without losing the hand', async ({ page }, testInfo) => {
     const state = fixture(10);
     state.result!.sidePots.push({ ...state.result!.sidePots[0], amount: 200 });

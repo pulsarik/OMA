@@ -606,22 +606,24 @@ test('returns an unmatched bet instead of creating a third pot', () => {
   expect(evaluateOmahaHiLo(hand)?.sidePots).toHaveLength(2);
 });
 
-test('replay hand keeps layout with fresh tokens and state', () => {
-  const hand = dealHand(2, 12345);
-  recordPlayerMove(hand, 'P1', 'fold');
+test('replay hand keeps seats, positions and layout with fresh tokens and state', () => {
+  const hand = dealHand(3, 12345);
+  recordPlayerMove(hand, 'P3', 'fold');
   const replay = replayHandLayout(hand);
 
   expect(replay.partyId).toBe(hand.partyId);
   expect(replay.handNumber).toBe(hand.handNumber + 1);
   expect(replay.replayOfHandId).toBe(hand.id);
   expect(replay.fullCommunity).toEqual(hand.fullCommunity);
+  expect(replay.players.map(player => player.id)).toEqual(hand.players.map(player => player.id));
   expect(replay.players.map(player => player.hole)).toEqual(hand.players.map(player => player.hole));
   expect(replay.players.map(player => player.token)).not.toEqual(hand.players.map(player => player.token));
   expect(replay.players.every(player => !player.folded)).toBe(true);
   expect(replay.stage).toBe('preflop');
-  expect(replay.blinds.smallBlindPlayerId).toBe('P2');
-  expect(replay.blinds.bigBlindPlayerId).toBe('P1');
-  expect(replay.currentPlayerId).toBe('P2');
+  expect(replay.blinds.dealerPlayerId).toBe(hand.blinds.dealerPlayerId);
+  expect(replay.blinds.smallBlindPlayerId).toBe(hand.blinds.smallBlindPlayerId);
+  expect(replay.blinds.bigBlindPlayerId).toBe(hand.blinds.bigBlindPlayerId);
+  expect(replay.currentPlayerId).toBe('P3');
 });
 
 test('deal does not duplicate cards between players and board', () => {

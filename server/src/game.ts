@@ -1151,7 +1151,7 @@ function payFromStack(player: PlayerHand, amount: number) {
   return paid;
 }
 
-function applyBlinds(hand: DealtHand) {
+function applyBlinds(hand: DealtHand, preferredSmallBlindPlayerId?: string) {
   const blindInfo = blindLevelForHand(hand.matchHandNumber ?? hand.handNumber);
   const livePlayers = hand.players.filter(player => player.stack > 0);
   hand.blinds = {
@@ -1168,7 +1168,12 @@ function applyBlinds(hand: DealtHand) {
   hand.actedSinceLastFullRaise = [];
 
   if (livePlayers.length >= 2) {
-    const smallBlindIndex = (hand.handNumber - 1) % livePlayers.length;
+    const preferredSmallBlindIndex = preferredSmallBlindPlayerId
+      ? livePlayers.findIndex(player => player.id === preferredSmallBlindPlayerId)
+      : -1;
+    const smallBlindIndex = preferredSmallBlindIndex >= 0
+      ? preferredSmallBlindIndex
+      : (hand.handNumber - 1) % livePlayers.length;
     const bigBlindIndex = (smallBlindIndex + 1) % livePlayers.length;
     const smallBlind = livePlayers[smallBlindIndex];
     const bigBlind = livePlayers[bigBlindIndex];
@@ -1522,6 +1527,8 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   hand.community = [];
   hand.fullCommunity = [...source.fullCommunity];
   hand.enteredPlayerIds = hand.players.filter(player => player.isBot).map(player => player.id);
-  applyBlinds(hand);
+  // A replay is a new hand in the history, but it must reproduce the source
+  // seating rather than rotate positions as an ordinary next hand would.
+  applyBlinds(hand, source.blinds.smallBlindPlayerId);
   return hand;
 }

@@ -80,14 +80,10 @@ for (const width of [320, 390]) {
       expect(collisions).toEqual({ overflow: false, overlaps: [] });
     };
     await checkGeometry();
-    await page.screenshot({ path: test.info().outputPath(`coach-${width}-short.png`), fullPage: true });
-    await coach.getByText('Почему?', { exact: true }).click();
-    await expect(coach.locator('details')).toHaveAttribute('open', '');
-    await checkGeometry();
+    await expect(coach.locator('details')).toHaveCount(0);
+    await page.screenshot({ path: test.info().outputPath(`coach-${width}.png`), fullPage: true });
     await fold.scrollIntoViewIfNeeded();
     await expect(fold).toBeInViewport();
-    await page.screenshot({ path: test.info().outputPath(`coach-${width}.png`), fullPage: true });
-    await coach.getByText('Почему?', { exact: true }).click();
     await page.getByRole('button', { name: 'Fold', exact: true }).click();
     await expect(coach).toHaveCount(0);
   });
