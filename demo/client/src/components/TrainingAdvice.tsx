@@ -17,6 +17,13 @@ export function TrainingAdvice({ controller, t }: { controller: Controller; t: (
   </aside>;
 }
 
+export function TrainingAdviceSlot({ controller, t }: { controller: Controller; t: (en: string, ru: string) => string }) {
+  if (!controller.enabled || !controller.available) return null;
+  return <div className="training-advice-slot">
+    <TrainingAdvice controller={controller} t={t} />
+  </div>;
+}
+
 export function TrainingAdviceSettings({ controller, t }: { controller: Controller; t: (en: string, ru: string) => string }) {
   if (!controller.available) return null;
   return <div className="training-advice-settings">

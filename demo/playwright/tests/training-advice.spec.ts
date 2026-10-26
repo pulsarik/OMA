@@ -44,8 +44,26 @@ for (const width of [320, 390]) {
     await page.goto('/?start=bots');
     await page.getByLabel('Seats at the table').selectOption('2');
     await page.getByRole('button', { name: 'Play now' }).click();
+    const fold = page.getByRole('button', { name: 'Fold', exact: true });
+    await expect(fold).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.training-advice-slot')).toBeVisible();
+    const actionsBeforeAdvice = await page.locator('.mt-action-buttons button, .main-actions button').evaluateAll(buttons =>
+      buttons.map(button => {
+        const box = button.getBoundingClientRect();
+        const dock = button.closest('.mt-dock, .action-dock')!.getBoundingClientRect();
+        return { left: box.left - dock.left, top: box.top - dock.top, width: box.width, height: box.height };
+      }),
+    );
     const coach = page.getByTestId('training-advice');
     await expect(coach).toBeVisible({ timeout: 25_000 });
+    const actionsWithAdvice = await page.locator('.mt-action-buttons button, .main-actions button').evaluateAll(buttons =>
+      buttons.map(button => {
+        const box = button.getBoundingClientRect();
+        const dock = button.closest('.mt-dock, .action-dock')!.getBoundingClientRect();
+        return { left: box.left - dock.left, top: box.top - dock.top, width: box.width, height: box.height };
+      }),
+    );
+    expect(actionsWithAdvice).toEqual(actionsBeforeAdvice);
     const text = await coach.locator('p').first().innerText();
     expect(text.length).toBeLessThanOrEqual(110);
     await expect.poll(() => page.evaluate(() => (window as any).__coachSpeech)).toContain(text);
@@ -66,7 +84,6 @@ for (const width of [320, 390]) {
     await coach.getByText('Почему?', { exact: true }).click();
     await expect(coach.locator('details')).toHaveAttribute('open', '');
     await checkGeometry();
-    const fold = page.getByRole('button', { name: 'Fold', exact: true });
     await fold.scrollIntoViewIfNeeded();
     await expect(fold).toBeInViewport();
     await page.screenshot({ path: test.info().outputPath(`coach-${width}.png`), fullPage: true });

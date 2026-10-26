@@ -8,7 +8,7 @@ import { Commentator, CommentatorCaption, CommentatorSettings } from '../compone
 import { useCommentary } from '../commentary/useCommentary';
 import { useGameSounds } from '../audio/useGameSounds';
 import { SoundSettings } from '../components/SoundSettings';
-import { TrainingAdvice, TrainingAdviceSettings } from '../components/TrainingAdvice';
+import { TrainingAdviceSlot, TrainingAdviceSettings } from '../components/TrainingAdvice';
 import { useTrainingAdvice } from '../training/useTrainingAdvice';
 import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
@@ -3700,7 +3700,7 @@ function PlayerPage({
         onSettings={() => setActiveView('settings')}
         headerActions={<Commentator controller={commentary} />}
         commentaryCaption={<CommentatorCaption controller={commentary} />}
-        coach={<TrainingAdvice controller={trainingAdvice} t={ui} />}
+        coach={<TrainingAdviceSlot controller={trainingAdvice} t={ui} />}
         onVoice={showVoiceChat ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
         onExit={onExitGame}
@@ -3932,7 +3932,7 @@ function PlayerPage({
               if (!canAct) event.preventDefault();
             }}
           >
-            <TrainingAdvice controller={trainingAdvice} t={ui} />
+            <TrainingAdviceSlot controller={trainingAdvice} t={ui} />
             <strong
               role="status"
               className="action-dock-status"
