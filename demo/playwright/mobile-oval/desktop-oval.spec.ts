@@ -211,5 +211,5 @@ test('real desktop lobby exposes ten seats and plays through to the next hand', 
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible({ timeout: 25000 });
   await page.getByRole('button', { name: 'Next deal' }).click();
-  await expect(page.locator('.mt-table-id')).toContainText('№2');
+  await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible();
 });

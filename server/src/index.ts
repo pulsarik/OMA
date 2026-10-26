@@ -256,19 +256,23 @@ function prepareHumanTurnClock(hand: any, reset = false) {
   const previousDeadline = hand.turnDeadline;
   const previousPlayerId = hand.turnDeadlinePlayerId;
   const previousDuration = hand.turnDurationMs;
-  hand.turnDurationMs = HUMAN_TURN_MS;
+  const hasBot = hand.players.some((player: any) => player.isBot);
 
   const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
-  if (hand.stage === 'showdown' || !current || current.isBot) {
+  if (hasBot || hand.stage === 'showdown' || !current || current.isBot) {
     delete hand.turnDeadline;
     delete hand.turnDeadlinePlayerId;
+    delete hand.turnDurationMs;
   } else if (
     reset
     || hand.turnDeadlinePlayerId !== current.id
     || !Number.isFinite(hand.turnDeadline)
   ) {
+    hand.turnDurationMs = HUMAN_TURN_MS;
     hand.turnDeadline = Date.now() + HUMAN_TURN_MS;
     hand.turnDeadlinePlayerId = current.id;
+  } else {
+    hand.turnDurationMs = HUMAN_TURN_MS;
   }
 
   return previousDeadline !== hand.turnDeadline

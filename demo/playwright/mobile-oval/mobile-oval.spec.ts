@@ -222,5 +222,5 @@ test('real lobby starts an opt-in table, makes a move and deals the next hand', 
   await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible();
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(8);
   await page.getByRole('button', { name: 'Next deal' }).click();
-  await expect(page.locator('.mt-table-id')).toContainText('№2');
+  await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible();
 });

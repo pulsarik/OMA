@@ -40,6 +40,34 @@ async function createTwoHumanTable(host: Page, guest: Page) {
   };
 }
 
+async function createBotTable(page: Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play with friends' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await expect(page.getByRole('tab', { name: 'TABLE' })).toBeVisible();
+  return currentPlayerUrl(page);
+}
+
+test('a human turn at a bot table has no timer or automatic action', async ({ page, request }) => {
+  const playerUrl = await createBotTable(page);
+  const apiUrl = apiUrlForPlayerLink(playerUrl);
+  const initialState = await (await request.get(apiUrl)).json();
+
+  expect(initialState.currentPlayerId).toBe('P1');
+  expect(initialState.turnDeadline).toBeUndefined();
+  expect(initialState.turnDurationMs).toBeUndefined();
+  await expect(page.locator('[data-testid^="turn-countdown-"]')).toHaveCount(0);
+
+  await page.waitForTimeout(3_500);
+  const laterState = await (await request.get(apiUrl)).json();
+  expect(laterState.currentPlayerId).toBe('P1');
+  expect(laterState.actions.some((action: any) => action.playerId === 'P1')).toBe(false);
+});
+
 test('an unmatched timed-out player is automatically folded', async ({ page, browser, request }) => {
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();

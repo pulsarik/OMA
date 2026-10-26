@@ -240,7 +240,6 @@ export default function MobileTable(props: MobileTableProps) {
   return <main className={`mt-page${desktop ? ' mt-page--desktop' : ''}`} lang={language} data-testid={desktop ? 'desktop-table' : 'mobile-table'} data-players={p.players.length}>
     <div className="mt-shell">
       <header className="mt-header">
-        <span className="mt-table-id" title={t('Deal number', 'Номер раздачи')}>№{p.handNumber}</span>
         <span className={`mt-connection${c.connected ? '' : ' mt-connection--offline'}`} role="img" aria-label={t(c.connected ? 'Connected' : 'Disconnected', c.connected ? 'Подключено' : 'Нет связи')} />
         {desktop ? <nav className="dt-nav" aria-label={t('Game views', 'Разделы игры')}>
           <button aria-current="page">{t('Table', 'Стол')}</button>

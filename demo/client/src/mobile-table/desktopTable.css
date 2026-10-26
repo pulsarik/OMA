@@ -3,16 +3,14 @@
 .mt-page--desktop { padding: 0 20px max(8px, env(safe-area-inset-bottom)); }
 .mt-page--desktop .mt-shell { max-width: 1600px; height: calc(100dvh - max(8px, env(safe-area-inset-bottom))); display: flex; flex-direction: column; }
 .mt-page--desktop .mt-shell > :not(.mt-scene) { flex-shrink: 0; }
-.mt-page--desktop .mt-header { position: relative; height: 44px; gap: 18px; padding: 0 48px 0 12px; border-bottom: 1px solid #c9b67b26; }
-.mt-page--desktop .mt-table-id { position: absolute; left: 50%; margin: 0; font-size: 12px; transform: translateX(-50%); }
-.mt-page--desktop .mt-connection { margin-left: auto; }
+.mt-page--desktop .mt-header { position: relative; z-index: 2; height: 36px; gap: 18px; padding: 0 48px 0 12px; border-bottom: 1px solid #c9b67b26; }
 .dt-nav { display: flex; align-items: center; gap: 18px; }
 .dt-nav button { border: 0; padding: 8px 0; background: none; color: #cad4c7; font-size: 13px; white-space: nowrap; }
 .dt-nav button[aria-current=page] { color: #e4c888; border-bottom: 1px solid #c8ae73; }
 .dt-nav button:hover { color: #fff4ce; }
 /* Reserve the actual header/panel height first. Below the readable scene floor,
    allow scrolling instead of clipping cards or shrinking the controls. */
-.mt-page--desktop .mt-scene { flex: 1 1 0; height: clamp(420px, 62dvh, 850px); min-height: 420px; max-height: 850px; margin: 2px 0 8px; container-type: size; }
+.mt-page--desktop .mt-scene { flex: 1 1 0; height: clamp(420px, 62dvh, 850px); min-height: 420px; max-height: 850px; margin: -16px 0 8px; container-type: size; }
 .mt-page--desktop .mt-rail { inset: 0; border-radius: 48% / 46%; border-width: 12px; }
 .mt-page--desktop .mt-seat-anchor { width: min(15%, 25cqh); max-width: 210px; }
 .mt-page--desktop .mt-seat-name { font-size: clamp(12px, 1.2cqw, 18px); gap: 6px; }
@@ -65,7 +63,7 @@
 .mt-page--desktop .mt-pot-overlay { align-items: center; padding: 24px; }
 .mt-page--desktop .mt-pot-dialog { border: 1px solid #bfa96e55; border-radius: 20px; }
 .mt-page--desktop .mt-pot-dialog::before { display: none; }
-body:has(.mt-page--desktop) .report-problem-button { top: 6px !important; right: max(26px, calc((100vw - 1600px) / 2 + 8px)) !important; }
+body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right: max(26px, calc((100vw - 1600px) / 2 + 8px)) !important; }
 /* Cards respond to scene height as well as width; text and controls keep
    readable floors. These rules apply to short desktop windows too. */
 @container (max-height: 600px) {
@@ -88,15 +86,6 @@ body:has(.mt-page--desktop) .report-problem-button { top: 6px !important; right:
 }
 @media (max-height: 750px) and (min-width: 761px) {
   .mt-page--desktop .mt-scene { min-height: 330px; }
-  .mt-page--desktop .mt-scene--showdown .mt-board { width: min(33%, 36cqh); }
-  .mt-page--desktop .mt-scene--showdown .mt-hero-anchor { top: 77%; }
-  .mt-page--desktop .mt-scene--showdown .mt-personal-result {
-    bottom: 1%;
-    display: flex;
-    align-items: baseline;
-    justify-content: center;
-    gap: 8px;
-  }
   .dt-bottom-panel { min-height: 136px; padding: 8px 12px; }
   .mt-page--desktop .mt-combo .mt-card { max-height: 44px; }
   .mt-page--desktop .mt-combo .mt-card b { font-size: 16px; }
@@ -108,7 +97,6 @@ body:has(.mt-page--desktop) .report-problem-button { top: 6px !important; right:
 @media (min-width: 761px) and (max-width: 1100px) {
   .mt-page--desktop { padding-inline: 10px; }
   .mt-page--desktop .mt-header { gap: 10px; }
-  .mt-page--desktop .mt-table-id { font-size: 12px; }
   .dt-nav { gap: 10px; }
   .dt-nav button { font-size: 12px; }
   .dt-bottom-panel { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; padding: 12px; }
