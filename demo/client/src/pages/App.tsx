@@ -151,8 +151,14 @@ function AboutContent() {
         </p>
       </section>
       <p className="about-panel__copy">
+<<<<<<< HEAD
         {ui('Questions or feedback? Write to', 'Есть вопросы или пожелания? Напишите на')}{' '}
         <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+=======
+        <a href="/privacy.html">Privacy Policy</a> · Questions or feedback? Contact us at <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
+        <br />
+        <span lang="ru">Вопросы или предложения? Пишите на <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.</span>
+>>>>>>> origin/NewUI
       </p>
     </>
   );
@@ -5284,7 +5290,7 @@ function HomePage() {
               Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
             </p>
             <p style={{ margin: 0, color: '#475569' }}>
-              Questions or feedback? Contact us at{' '}
+              <a href="/privacy.html">Privacy Policy</a> · Questions or feedback? Contact us at{' '}
               <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
               <br />
               Вопросы или предложения? Пишите на{' '}
@@ -5826,7 +5832,7 @@ function WelcomePage() {
               Omaha Hi-Lo is a multiplayer poker game where the pot is split between the best high and qualifying low hands.
             </p>
             <p style={{ margin: 0, color: '#475569', lineHeight: 1.5 }}>
-              Questions or feedback? Contact us at{' '}
+              <a href="/privacy.html">Privacy Policy</a> · Questions or feedback? Contact us at{' '}
               <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
             </p>
           </section>
