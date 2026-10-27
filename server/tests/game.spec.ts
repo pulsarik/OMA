@@ -626,6 +626,24 @@ test('replay hand keeps seats, positions and layout with fresh tokens and state'
   expect(replay.currentPlayerId).toBe('P3');
 });
 
+test('replay restores contributed chips and preserves the total table bankroll', () => {
+  const source = dealHand(3, 12345);
+  const startingTotal = source.players.reduce((sum, player) => sum + player.stack, 0) + source.potCoins;
+  // Simulate a completed hand with chips committed across multiple streets.
+  source.players[0].stack -= 120;
+  source.players[1].stack -= 80;
+  source.players[2].stack -= 40;
+  source.totalContributions = { P1: 122, P2: 84, P3: 40 };
+  source.potCoins += 240;
+  source.stage = 'showdown';
+
+  const replay = replayHandLayout(source);
+  expect(replay.players.reduce((sum, player) => sum + player.stack, 0) + replay.potCoins)
+    .toBe(startingTotal);
+  expect(replay.players.map(player => player.stack + (replay.totalContributions[player.id] ?? 0)))
+    .toEqual([1000, 1000, 1000]);
+});
+
 test('deal does not duplicate cards between players and board', () => {
   const hand = dealHand(9, 12345);
   const allCards = [
