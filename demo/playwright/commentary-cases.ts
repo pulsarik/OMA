@@ -76,7 +76,7 @@ export function commentaryCases() {
       await expect(next).toBeEnabled();
       await next.click();
       await expect.poll(() => t.newDeals.length).toBe(1);
-      await expect(page.getByRole('button', { name: /^(Dealing|Creating)/ })).toBeDisabled();
+      await expect(page.getByRole('button', { name: /^(Dealing|Creating)/ }).first()).toBeDisabled();
       t.deal();
       await expect(next).toBeEnabled();
       await expect(page).toHaveURL(/\/player\/mobile-fixture\/P1\/token$/);
@@ -132,7 +132,7 @@ export function commentaryCases() {
     }
   }
 
-  test('voice defaults on, settings are separate and preferences survive reload', async ({ page }) => {
+  test('table sound button cycles through all, game-only and silent modes and persists', async ({ page }) => {
     const t = await table(page, null);
     await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('voice');
     await expect(page.getByTestId('commentator')).toHaveAttribute('aria-pressed', 'true');
@@ -142,14 +142,19 @@ export function commentaryCases() {
     await page.getByLabel('Громкость комментатора').fill('0.25');
     await expect(page.locator('.commentator-volume output')).toHaveText('25%');
     await page.getByTestId('commentator').click();
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('text');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'game');
+    await page.getByTestId('commentator').click();
     await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('off');
     await page.reload();
     await expect(page.getByTestId('commentator')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'silent');
     await settings(page);
     await expect(page.getByLabel('Язык комментатора')).toHaveValue('ru');
     await expect(page.getByLabel('Громкость комментатора')).toHaveValue('0.25');
     await page.getByTestId('commentator').click();
     await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('voice');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'all');
     t.complete(); t.send();
     await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
     expect(await page.evaluate(() => (window as any).commentaryAudio.volume)).toBe(0.25);

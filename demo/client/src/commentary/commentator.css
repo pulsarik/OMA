@@ -1,13 +1,18 @@
-.commentator-toggle { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 40px; width: 40px; height: 40px; padding: 0; border: 1px solid currentColor; border-radius: 50%; background: transparent; color: #587267; cursor: pointer; }
-.commentator-toggle.is-on { color: #26744e; background: #26744e0c; }
+.commentator-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto; min-width: 40px; height: 40px; padding: 0 10px; border: 1px solid currentColor; border-radius: 20px; background: transparent; color: #587267; cursor: pointer; }
+.commentator-toggle.sound-mode--all { color: #26744e; background: #26744e0c; }
+.commentator-toggle.sound-mode--game { color: #47705e; background: #26744e08; }
+.sound-mode-label { font: 700 11px/1 system-ui, sans-serif; }
 .commentator-toggle.is-speaking { box-shadow: 0 0 0 3px #5fbc8233; }
 .commentator-toggle:hover { background: #5fbc8226; }
 .commentator-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
 .commentator-toolbar { display: flex; justify-content: flex-end; margin-bottom: 5px; padding-right: 48px; }
-.mt-header .commentator-toggle { color: #9ab3a7; width: 36px; height: 36px; flex-basis: 36px; }
-.mt-header .commentator-toggle.is-on { color: #f0c777; }
+.mt-header .commentator-toggle { color: #9ab3a7; min-width: 36px; height: 36px; }
+.mt-header .commentator-toggle.sound-mode--all { color: #f0c777; }
+.mt-header .commentator-toggle.sound-mode--game { color: #c7d7cf; }
 .poker-page--new-design .commentator-toggle { color: #9ab3a7; }
-.poker-page--new-design .commentator-toggle.is-on { color: #f0c777; }
+.poker-page--new-design .commentator-toggle.sound-mode--all { color: #f0c777; }
+.poker-page--new-design .commentator-toggle.sound-mode--game { color: #c7d7cf; }
+@media (max-width: 480px) { .mt-header .sound-mode-label { display: none; } .mt-header .commentator-toggle { width: 36px; padding: 0; } }
 .commentator-caption { box-sizing: border-box; max-width: 760px; margin: 4px auto 8px; padding: 6px 12px; color: #234336; font: 14px/1.4 system-ui, sans-serif; text-align: center; overflow-wrap: anywhere; white-space: pre-line; }
 .mt-shell > .commentator-caption { color: #f0dfb8; }
 .poker-page--new-design .commentator-caption { color: #f0dfb8; }

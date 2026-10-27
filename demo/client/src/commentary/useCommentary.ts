@@ -55,7 +55,9 @@ export function useCommentary(handId: string, serverUrl: string) {
     if (!value || seen.current.has(value.id)) return;
     seen.current.add(value.id);
     if (seen.current.size > 200) seen.current.delete(seen.current.values().next().value!);
-    if (document.hidden || humanSpeakingRef.current) return;
+    // Keep the caption and pending audio while someone is talking. Playback
+    // waits below until the human speaker stops.
+    if (document.hidden) return;
     setBlocked(false);
     setPending({ ...value, localExpiry: Date.now() + value.expiresAt - value.serverNow });
   }
