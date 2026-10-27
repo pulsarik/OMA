@@ -151,14 +151,10 @@ function AboutContent() {
         </p>
       </section>
       <p className="about-panel__copy">
-<<<<<<< HEAD
+        <a href="/privacy.html">{ui('Privacy Policy', 'Политика конфиденциальности')}</a>
+        {' · '}
         {ui('Questions or feedback? Write to', 'Есть вопросы или пожелания? Напишите на')}{' '}
         <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
-=======
-        <a href="/privacy.html">Privacy Policy</a> · Questions or feedback? Contact us at <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.
-        <br />
-        <span lang="ru">Вопросы или предложения? Пишите на <a href="mailto:pulsarik@gmail.com">pulsarik@gmail.com</a>.</span>
->>>>>>> origin/NewUI
       </p>
     </>
   );
