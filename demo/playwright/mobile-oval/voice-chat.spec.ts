@@ -27,7 +27,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
 
   for (const language of ['en', 'ru']) {
     test(`voice is accessible from the main table (${viewport.width}px, ${language})`, async ({ page }) => {
-      const russian = false;
+      const russian = language === 'ru';
       await page.setViewportSize(viewport);
       await page.addInitScript(language => {
         localStorage.setItem('omaha-language', language);
@@ -37,7 +37,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 800, height: 1138
       await mockTable(page, state);
       await expect(page.getByTestId(tableId)).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await expect(page.getByRole('button', { name: 'Voice', exact: true })).toBeInViewport();
+      await expect(page.getByRole('button', { name: russian ? 'Голос' : 'Voice', exact: true })).toBeInViewport();
       await expect(page.getByTestId('commentator').filter({ visible: true })).toBeInViewport();
       await openVoice(page, russian);
       await expect(page.getByRole('tabpanel', { name: russian ? 'ГОЛОС' : 'VOICE', exact: true }))

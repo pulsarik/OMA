@@ -103,7 +103,7 @@ test('live cards stay hidden and duplicate commands are blocked until ack', asyn
   mock.update(fixture());
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(28);
   await page.getByRole('button', { name: 'Next deal' }).click();
-  await expect(page.getByRole('button', { name: 'Dealing…' })).toBeDisabled();
+  await expect(page.locator('.mt-next')).toBeDisabled();
   expect(mock.messages.filter(m => m.action === 'new_deal')).toHaveLength(1);
 });
 
@@ -128,7 +128,7 @@ test('side-pot results, long names, English and returning from rules', async ({ 
   state.players[2].name = 'ОченьДлинноеИмяИгрокаБезПробелов';
   state.result!.sidePots.push({ ...state.result!.sidePots[0], amount: 200 });
   await mockTable(page, state);
-  await expect(page.getByTestId('mt-pot-splits')).toContainText('Main 1 200 · H 600 / L 600');
+  await expect(page.getByTestId('mt-pot-splits')).toContainText('Main 1 200 · HIGH 600 / LOW 600');
   await page.getByRole('button', { name: 'Side pots · 1 · details' }).click();
   const potDialog = page.getByRole('dialog', { name: 'Pot 1 200' });
   await expect(potDialog).toBeVisible();
@@ -192,8 +192,8 @@ test('odd pot explains its HIGH and LOW shares', async ({ page }) => {
     score.total = score.high + score.low;
   });
   await mockTable(page, state);
-  await expect(page.locator('.mt-pot-caption')).toHaveText('Shares · H 63 · L 62');
-  await expect(page.locator('.mt-pot-caption')).toHaveAttribute('title', 'An odd chip goes to HIGH');
+  await expect(page.locator('.mt-pot-caption')).toHaveText('Shares · HIGH 63 · LOW 62');
+  await expect(page.locator('.mt-pot-caption')).toHaveAttribute('title', 'An odd chip goes to the high half');
 });
 
 test('clicking the pot opens contribution breakdown during play', async ({ page }, testInfo) => {

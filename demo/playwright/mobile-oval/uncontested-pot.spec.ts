@@ -39,7 +39,7 @@ for (const width of [320, 390, 1280]) {
     await expect(caption).toHaveText(expectedCaption);
     await expect(caption).not.toHaveAttribute('title');
     await expect(page.getByTestId('mt-seat-P6').locator('.mt-return')).toHaveText('Won 160');
-    await expect(page.getByTestId('mt-seat-P6')).toContainText('L · 5-4-3-2-1');
+    await expect(page.getByTestId('mt-seat-P6')).toContainText('LOW · 5-4-3-2-1');
     expect(await caption.evaluate(element => {
       const caption = element.getBoundingClientRect();
       return [...document.querySelectorAll('.mt-hand')].some(hand => {

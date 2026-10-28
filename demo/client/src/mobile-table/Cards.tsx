@@ -16,8 +16,8 @@ export function Cards({ cards, count = 4, language, board = false }: { cards?: s
   return <div className="mt-cards">{Array.from({ length: count }, (_, i) => <Card key={i} code={cards?.[i]} empty={board} language={language} />)}</div>;
 }
 
-export function CombinationHint({ combo, kind, language, board, hole }: {
-  combo?: Combination; kind: 'high' | 'low'; language: Language; board: string[]; hole: string[];
+export function CombinationHint({ combo, kind, language, board, hole, compact = false }: {
+  combo?: Combination; kind: 'high' | 'low'; language: Language; board: string[]; hole: string[]; compact?: boolean;
 }) {
   const combination = combo?.[`${kind}Combo`];
   // Only render complete combinations from the server and cards actually visible now.
@@ -25,12 +25,14 @@ export function CombinationHint({ combo, kind, language, board, hole }: {
   const boardCards = combination?.filter(c => c.source === 'board' && board.includes(c.code)) ?? [];
   const complete = handCards.length === 2 && boardCards.length === 3;
   const rank = combo?.[`${kind}Rank`];
-  return <section className={`mt-combo mt-combo--${kind}`} data-testid={`mt-hint-${kind}`} aria-label={`${kind.toUpperCase()} ${words(language, 'combination', 'комбинация')}`}>
-    <div className="mt-combo-title"><b>{kind.toUpperCase()}</b><span>{rank ? rankLabel(rank, language) : words(language, 'Not made', 'Не собрана')}</span></div>
-    {complete ? <div className="mt-combo-groups">
+  const title = <><b>{words(language, kind.toUpperCase(), kind === 'high' ? 'СТАРШАЯ' : 'МЛАДШАЯ')}</b><span>{rank ? rankLabel(rank, language) : words(language, 'Not made', 'Не собрана')}</span></>;
+  const content = complete ? <div className="mt-combo-groups">
       <div className="mt-combo-source mt-combo-source--hole"><Cards cards={handCards.map(c => c.code)} count={2} language={language} /><span>{words(language, 'Hand', 'Рука')}</span></div>
       <div className="mt-combo-source"><Cards cards={boardCards.map(c => c.code)} count={3} language={language} /><span>{words(language, 'Board', 'Борд')}</span></div>
     </div> : <p className="mt-combo-empty">{board.length < 3 ? words(language, 'Available from the flop', 'Появится на флопе')
-      : words(language, kind === 'low' ? 'No qualifying low' : 'No made hand', kind === 'low' ? 'Нет младшей комбинации' : 'Нет готовой комбинации')}</p>}
+      : words(language, kind === 'low' ? 'No qualifying low' : 'No made hand', kind === 'low' ? 'Нет младшей комбинации' : 'Нет готовой комбинации')}</p>;
+  return <section className={`mt-combo mt-combo--${kind}`} data-testid={`mt-hint-${kind}`} aria-label={`${kind.toUpperCase()} ${words(language, 'combination', 'комбинация')}`}>
+    {compact ? <details><summary className="mt-combo-title">{title}</summary>{content}</details>
+      : <><div className="mt-combo-title">{title}</div>{content}</>}
   </section>;
 }

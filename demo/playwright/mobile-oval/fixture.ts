@@ -56,6 +56,12 @@ export async function mockTable(page: Page, initial = fixture()) {
   await expect.poll(() => Boolean(socket)).toBe(true);
   return {
     messages,
+    advice(text: string, locale: 'en' | 'ru' = 'en') {
+      socket!.send(JSON.stringify({ type: 'training_advice', data: {
+        handId: state.handId, playerId: state.playerId, revision: state.revision, stage: state.stage,
+        locale, move: 'call', amount: 20, text,
+      } }));
+    },
     update(next: typeof initial) { state = next; socket!.send(JSON.stringify({ type: 'player_state', data: state })); },
     ack(commandId: string) { socket!.send(JSON.stringify({ type: 'command_ack', commandId })); },
     close() { socket!.close(); },

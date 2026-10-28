@@ -4,6 +4,7 @@ import { displayedStack, amount, clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS,
 import type { Language, MobileTableProps, Move, Seat, TableState } from './types';
 import './mobileTable.css';
 import './desktopTable.css';
+import './compactTable.css';
 
 function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }: {
   seat: Seat; player: TableState; language: Language; hero?: boolean; dealerId?: string; seconds?: number;
@@ -31,9 +32,9 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }:
     </div>
     <div className="mt-position-line">
       {dealerId === seat.id ? <span className="mt-position mt-position--dealer" title={t('Dealer', 'Дилер')}>D</span> : null}
-      {blind ? <span className="mt-position">{blind}</span> : null}
+      {blind ? <span className="mt-position" title={blind === 'SB' ? t('Small blind', 'Малый блайнд') : t('Big blind', 'Большой блайнд')}>{blind}</span> : null}
       {offline ? <span className="mt-offline">{t('Offline', 'Нет связи')}</span> : null}
-      {eliminated ? <span>{t('Out', 'Выбыл')}</span> : !showdown && seat.stack === 0 && !seat.folded ? <span>ALL-IN</span> : null}
+      {eliminated ? <span>{t('Out', 'Выбыл')}</span> : !showdown && seat.stack === 0 && !seat.folded ? <span>{t('ALL-IN', 'ОЛЛ-ИН')}</span> : null}
     </div>
     <div className={`mt-hand${winsHigh ? ' mt-hand--high' : ''}${winsLow ? ' mt-hand--low' : ''}`} data-testid={`mt-hand-${seat.id}`}>
       <Cards cards={cards} count={seat.cardCount || 4} language={language} />
@@ -116,15 +117,15 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
       <div className="mt-bet-sizes" role="group" aria-label={t('Bet size', 'Размер ставки')}>
         {(['blind', 'quarter', 'half', 'pot'] as const).map((size, i) => <button key={size} aria-pressed={c.betSize === size}
           disabled={player.currentBet > 0 && !c.canRaise} onClick={() => props.onBetSize(size)}>
-          {['BB', '¼ POT', '½ POT', 'POT'][i]}</button>)}
+          {[t('BB', 'ББ'), t('¼ POT', '¼ БАНКА'), t('½ POT', '½ БАНКА'), t('POT', 'БАНК')][i]}</button>)}
       </div>
       <div className="mt-action-buttons">
         <button className="mt-fold" onClick={e => act(e, 'fold')}>{t('Fold', 'Фолд')}</button>
         <button className="mt-call" disabled={c.callAmount > 0 && !c.canCall} onClick={e => act(e, c.callAmount > 0 ? 'call' : 'check')}>
-          {c.callAmount > 0 ? <>{c.callIsAllIn ? 'All-in' : t('Call', 'Колл')} <b>{amount(c.callAmount)}</b></> : t('Check', 'Чек')}
+          {c.callAmount > 0 ? <>{c.callIsAllIn ? t('All-in', 'Олл-ин') : t('Call', 'Колл')} <b>{amount(c.callAmount)}</b></> : t('Check', 'Чек')}
         </button>
         <button className="mt-raise" disabled={player.currentBet > 0 && !c.canRaise} onClick={e => act(e, player.currentBet > 0 ? 'raise' : 'bet')}>
-          {c.wagerIsAllIn ? 'All-in' : player.currentBet > 0 ? t('Raise to', 'Рейз до') : t('Bet', 'Ставка')} <b>{amount(c.wagerTarget)}</b>
+          {c.wagerIsAllIn ? t('All-in', 'Олл-ин') : player.currentBet > 0 ? t('Raise to', 'Рейз до') : t('Bet', 'Ставка')} <b>{amount(c.wagerTarget)}</b>
         </button>
       </div>
       {c.maxRaises !== undefined ? <small className="mt-cap">{t('Raises', 'Повышения')}: {c.raiseCount}/{c.maxRaises}</small> : null}
@@ -215,7 +216,7 @@ function PotDialog({ player: p, language, open, onClose }: {
 export default function MobileTable(props: MobileTableProps) {
   const { player: p, controls: c } = props;
   const desktop = props.layout === 'desktop';
-  const language: Language = 'en';
+  const language: Language = props.language ?? 'en';
   const [potOpen, setPotOpen] = useState(false);
   const potButton = useRef<HTMLButtonElement>(null);
   const closePot = useCallback(() => {
@@ -234,8 +235,10 @@ export default function MobileTable(props: MobileTableProps) {
   const hero = { ...p.players.find(s => s.id === p.playerId), id: p.playerId, name: p.playerName, stack: p.stack, folded: p.folded, cardCount: p.hole.length || 4 };
   const finished = Boolean(props.winnerName || p.partyFinishedEarly);
   const hints = <div className="mt-hints">
-    <CombinationHint combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
-    <CombinationHint combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
+    {!desktop && p.community.length < 3 ? <p className="mt-preflop-hint">{t('HIGH / LOW · Available from the flop', 'Комбинации · Появятся на флопе')}</p> : <>
+      <CombinationHint compact={!desktop} combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
+      <CombinationHint compact={!desktop} combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
+    </>}
   </div>;
   return <main className={`mt-page${desktop ? ' mt-page--desktop' : ''}`} lang={language} data-testid={desktop ? 'desktop-table' : 'mobile-table'} data-players={p.players.length}>
     <div className="mt-shell">
@@ -267,9 +270,11 @@ export default function MobileTable(props: MobileTableProps) {
       <div className={`mt-scene${showdown ? ' mt-scene--showdown' : ''}`} data-testid="mt-scene">
         <div className="mt-rail" aria-hidden="true" />
         {(p.isReplay || p.replayOfHandId) ? <span className="mt-replay">↻ {t('REPLAY', 'ПОВТОР')} · {p.replayCode}</span> : null}
-        {opponents.map((seat, i) => <div className="mt-seat-anchor" key={seat.id} style={{ left: `${positions[i][0]}%`, top: `${positions[i][1]}%` }}>
-          <PlayerSeat seat={seat} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} />
-        </div>)}
+        <div className="mt-opponents">
+          {opponents.map((seat, i) => <div className="mt-seat-anchor" key={seat.id} style={{ left: `${positions[i][0]}%`, top: `${positions[i][1]}%` }}>
+            <PlayerSeat seat={seat} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} />
+          </div>)}
+        </div>
         <section className="mt-board" aria-label={t('Community board', 'Общие карты')}>
           <span className="mt-street">{stageLabel(p.stage, language)}</span>
           <div data-testid="mt-board-cards"><Cards cards={p.community} count={5} board language={language} /></div>

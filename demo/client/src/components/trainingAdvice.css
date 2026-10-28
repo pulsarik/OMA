@@ -4,7 +4,10 @@
 /* Reserve the coach area and scrolling behavior before advice arrives, so its
    appearance cannot move the betting controls. */
 #root .poker-page:has(.training-advice-slot) { height: auto; min-height: 100dvh; overflow: visible; }
-#root .action-dock:has(.training-advice-slot), .mt-dock:has(.training-advice-slot) { position: relative !important; bottom: auto; }
+#root .action-dock:has(.training-advice-slot) { position: relative !important; bottom: auto; }
+.training-advice-slot--compact { flex-basis: auto; min-height: 64px; height: auto; margin-bottom: 4px; }
+.training-advice-slot--compact .training-advice { height: auto; min-height: 64px; overflow: visible; padding: 4px 8px; gap: 6px; border-radius: 10px; font-size: 13px; }
+.training-advice-slot--compact .training-advice p { margin: 0; }
 .training-advice > span { color: #9a6a00; font-size: 22px; }
 .training-advice strong { color: #795500; }
 .training-advice p { margin: 2px 0 0; }

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('voice coach is enabled by default and advises after ten seconds against bots', async ({ page }) => {
+test('voice coach advises after ten seconds in the interface language even with Russian commentary', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'voice', locale: 'ru', volume: 0.65 }));
     Object.defineProperty(window, 'speechSynthesis', {
@@ -19,7 +19,8 @@ test('voice coach is enabled by default and advises after ten seconds against bo
 
   const advice = page.getByTestId('training-advice');
   await expect(advice).toBeVisible({ timeout: 12_000 });
-  await expect(advice).toContainText(/[А-Яа-яЁё]/);
+  await expect(advice.locator('p')).toContainText(/[A-Za-z]/);
+  await expect(advice.locator('p')).not.toContainText(/[А-Яа-яЁё]/);
 
   await page.getByRole('tab', { name: 'SETTINGS' }).or(page.getByRole('button', { name: 'Settings', exact: true })).click();
   const setting = page.getByRole('checkbox', { name: 'Advice after 10 seconds' });

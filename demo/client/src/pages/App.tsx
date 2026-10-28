@@ -9,6 +9,7 @@ import { useCommentary } from '../commentary/useCommentary';
 import { useGameSounds } from '../audio/useGameSounds';
 import { SoundSettings } from '../components/SoundSettings';
 import { TrainingAdviceSlot, TrainingAdviceSettings } from '../components/TrainingAdvice';
+import { LanguageSettings, storedLanguage } from '../components/LanguageSettings';
 import { useTrainingAdvice } from '../training/useTrainingAdvice';
 import { displayedStack } from '../mobile-table/presentation';
 import { CityIcon } from '../components/CityIcon';
@@ -121,10 +122,6 @@ function rememberPlayerName(name: string) {
   const normalizedName = name.trim().slice(0, PLAYER_NAME_MAX_LENGTH);
   if (!normalizedName) return;
   document.cookie = `${PLAYER_NAME_COOKIE}=${encodeURIComponent(normalizedName)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-}
-
-function storedLanguage(): UiLanguage {
-  return 'en';
 }
 
 function ui(en: string, ru: string) {
@@ -3082,10 +3079,11 @@ function PlayerPage({
   const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
   const commentary = useCommentary(handId, SERVER_URL);
+  const [interfaceLanguage, setInterfaceLanguage] = useState(storedLanguage);
   const trainingAdvice = useTrainingAdvice(
     handId,
     player,
-    commentary.locale,
+    interfaceLanguage,
     commentary.interrupt,
     commentary.setHumanSpeaking,
     SERVER_URL,
@@ -3680,6 +3678,7 @@ function PlayerPage({
     || shouldUseDesktopTable(window.innerWidth, player.players.length));
   const ovalTable = showOvalTable ? <React.Suspense fallback={<p role="status">Loading table...</p>}>
       <MobileTable
+        language={interfaceLanguage}
         layout={isMobileTable ? 'mobile' : 'desktop'}
         player={player}
         tableName={tableName}
@@ -3703,7 +3702,7 @@ function PlayerPage({
         onSettings={() => setActiveView('settings')}
         headerActions={<Commentator controller={commentary} />}
         commentaryCaption={<CommentatorCaption controller={commentary} />}
-        coach={<TrainingAdviceSlot controller={trainingAdvice} t={ui} />}
+        coach={<TrainingAdviceSlot controller={trainingAdvice} t={ui} compact={isMobileTable} />}
         onVoice={showVoiceChat ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
         onExit={onExitGame}
@@ -3776,6 +3775,7 @@ function PlayerPage({
       </CompactGameNavigation>
       {!showOvalTable ? <CommentatorCaption controller={commentary} /> : null}
       {isSettingsView ? <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" className="commentator-settings-panel">
+        <LanguageSettings language={interfaceLanguage} onChange={setInterfaceLanguage} />
         <SoundSettings t={ui} />
         <TrainingAdviceSettings controller={trainingAdvice} t={ui} />
         <CommentatorSettings controller={commentary} />

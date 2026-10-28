@@ -49,6 +49,7 @@ export type TableControls = {
   notice?: string | null; sessionWarning?: string;
 };
 export type MobileTableProps = {
+  language?: Language;
   layout?: 'mobile' | 'desktop';
   player: TableState; controls: TableControls; dealerId?: string; tableName?: string;
   onMove: (move: Move, amount?: number, size?: BetSize) => void;
