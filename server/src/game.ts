@@ -1522,7 +1522,8 @@ export function replayHandLayout(source: DealtHand): DealtHand {
     token: uuidv4(),
     hole: [...player.hole],
     folded: false,
-    stack: player.stack,
+    // Restore the chips already committed in the source hand before replaying bets.
+    stack: player.stack + (source.totalContributions?.[player.id] ?? 0),
   }));
   hand.community = [];
   hand.fullCommunity = [...source.fullCommunity];
