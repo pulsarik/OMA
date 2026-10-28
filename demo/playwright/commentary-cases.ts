@@ -134,13 +134,20 @@ export function commentaryCases() {
 
   test('table sound button cycles through all, game-only and silent modes and persists', async ({ page }) => {
     const t = await table(page, null);
-    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('voice');
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('off');
     await expect(page.getByTestId('commentator')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'game');
     await expect(page.getByRole('slider')).toHaveCount(0);
     await settings(page);
     await page.getByLabel('Commentary language').selectOption('ru');
     await page.getByLabel('Громкость комментатора').fill('0.25');
     await expect(page.locator('.commentator-volume output')).toHaveText('25%');
+    await page.getByTestId('commentator').click();
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('off');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'silent');
+    await page.getByTestId('commentator').click();
+    await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('voice');
+    await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'all');
     await page.getByTestId('commentator').click();
     await expect.poll(() => t.subscriptions.at(-1)?.mode).toBe('text');
     await expect(page.getByTestId('commentator')).toHaveAttribute('data-sound-mode', 'game');

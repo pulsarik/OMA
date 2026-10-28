@@ -31,7 +31,7 @@ body:has(.mt-page) { margin: 0; background: #041911; }
   line-height: 1.3;
 }
 
-.mt-scene { position: relative; isolation: isolate; container-type: inline-size; width: 100%; height: clamp(480px, calc(100svh - 183px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - env(safe-area-inset-bottom)), 900px); }
+.mt-scene { position: relative; isolation: isolate; container-type: inline-size; width: 100%; height: clamp(475px, calc(100svh - 189px - env(safe-area-inset-top) - env(safe-area-inset-bottom)), 900px); }
 .mt-scene--showdown { height: clamp(640px, calc(100svh - 125px), 920px); }
 .mt-rail { position: absolute; z-index: -1; inset: 0 2px; border: clamp(8px, 2.4vw, 13px) solid #212821; border-radius: 48% / 19%; background: radial-gradient(ellipse at 48% 30%, #135537, #0b422e 52%, #063023); box-shadow: inset 0 0 0 1px #e0c185, inset 0 0 0 3px #4e482b, inset 0 0 0 4px #ab8b52, inset 0 0 30px #001c16aa, 0 3px 12px #0005; }
 .mt-rail::before { content: ''; position: absolute; inset: 5px; border-radius: inherit; pointer-events: none; opacity: .14; background-image: repeating-linear-gradient(24deg, #ffffff0f 0 1px, transparent 1px 3px), repeating-linear-gradient(110deg, #001c1640 0 1px, transparent 1px 4px); }
