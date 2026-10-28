@@ -3,7 +3,7 @@ services:
     name: omaha-hi-lo-newui
     runtime: node
     plan: starter
-    branch: NewUI
+    branch: main
     autoDeployTrigger: checksPass
     buildCommand: npm --prefix server ci --include=dev && npm --prefix demo/client ci --include=dev && node server/scripts/write-build-info.cjs && npm --prefix server run build && npm --prefix demo/client run build
     startCommand: node server/dist/index.js
