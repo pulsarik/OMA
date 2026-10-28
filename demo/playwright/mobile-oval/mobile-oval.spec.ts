@@ -176,7 +176,8 @@ test('no qualifying low and folded players retain visible showdown hands', async
   await expect(page.locator('.mt-pot-caption')).toContainText('NO LOW');
   await expect(page.getByTestId('mt-hint-low')).toContainText('No qualifying low');
   await expect(page.getByTestId('mt-hand-P2').locator('[data-card]')).toHaveCount(4);
-  await expect(page.getByTestId('mt-hand-P2')).toHaveCSS('opacity', '0.38');
+  await expect(page.getByTestId('mt-hand-P2').locator('.mt-cards')).toHaveCSS('opacity', '0.65');
+  await expect(page.getByTestId('mt-hand-P2').getByRole('img', { name: 'Folded', exact: true })).toBeVisible();
   await expect(page.getByTestId('mobile-table')).not.toContainText('BOT');
   await expect(page.locator('.mt-award--low')).toHaveCount(0);
 });

@@ -1,6 +1,6 @@
 /* Mobile uses content rows. The shell reserves real space for the header,
    coach and controls; longer details can grow and scroll without clipping. */
-.mt-opponents { display: contents; }
+.mt-opponents, .mt-hand-cards, .mt-pot-summary { display: contents; }
 .mt-page:not(.mt-page--desktop) { padding-bottom: 0; min-height: 100dvh; }
 .mt-page:not(.mt-page--desktop) .mt-shell { min-height: calc(100dvh - env(safe-area-inset-top)); height: calc(100dvh - env(safe-area-inset-top)); display: flex; flex-direction: column; }
 .mt-page:not(.mt-page--desktop) .mt-shell > :not(.mt-scene) { flex-shrink: 0; }
@@ -20,13 +20,17 @@
 .mt-page:not(.mt-page--desktop) .mt-seat-name { grid-column: 1 / -1; min-width: 0; font-size: 12px; gap: 3px; line-height: 16px; }
 .mt-page:not(.mt-page--desktop) .mt-seat-name strong { max-width: 75%; overflow: hidden; text-overflow: ellipsis; }
 .mt-page:not(.mt-page--desktop) .mt-position-line { grid-column: 2; grid-row: 2; min-width: 0; min-height: 18px; gap: 2px; flex-wrap: wrap; font-size: 9px; }
-.mt-page:not(.mt-page--desktop) .mt-hand { grid-column: 1; grid-row: 2; padding: 1px; min-width: 0; }
+.mt-page:not(.mt-page--desktop) .mt-hand { grid-column: 1; grid-row: 2; padding: 1px 8px 6px; min-width: 0; }
+.mt-page:not(.mt-page--desktop) .mt-hand-cards { display: inline-block; position: relative; max-width: 100%; vertical-align: top; }
+.mt-page:not(.mt-page--desktop) .mt-hand-positions { position: absolute; bottom: -4px; right: -7px; display: flex; gap: 2px; z-index: 1; }
+.mt-page:not(.mt-page--desktop) .mt-hand-positions .mt-position { box-shadow: 0 1px 3px #001b14aa; }
 .mt-page:not(.mt-page--desktop) .mt-seat-anchor .mt-cards { gap: 2px; width: max-content; max-width: 100%; margin: auto; }
 .mt-page:not(.mt-page--desktop) .mt-seat-anchor .mt-card { flex: 0 1 12px; width: 12px; height: 18px; border-radius: 2px; }
 .mt-page:not(.mt-page--desktop) .mt-seat-result { grid-column: 1 / -1; min-height: 14px; padding: 0; font-size: 10px; line-height: 14px; overflow-wrap: anywhere; }
 .mt-page:not(.mt-page--desktop) .mt-seat--turn { border-radius: 6px; background: #e4c88812; outline: 1px solid #e4c88866; }
-.mt-page:not(.mt-page--desktop) .mt-scene:not(.mt-scene--showdown) .mt-seat-anchor .mt-seat--folded .mt-hand { visibility: hidden; }
-.mt-page:not(.mt-page--desktop) .mt-board { position: static; transform: none; width: min(260px, 84%); gap: 4px; grid-template-columns: auto 1fr; align-items: center; }
+.mt-page:not(.mt-page--desktop) .mt-board { position: static; transform: none; width: min(260px, 84%); gap: 4px; grid-template-columns: minmax(0, 1fr); align-items: center; }
+.mt-page:not(.mt-page--desktop) .mt-pot-summary { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 2px 6px; border: 1px solid #d9be7a55; border-radius: 12px; background: #092f24aa; }
+.mt-page:not(.mt-page--desktop) .mt-pot-summary > :not(.mt-pot) { flex: 1; min-width: 0; }
 .mt-page:not(.mt-page--desktop) .mt-street,
 .mt-page:not(.mt-page--desktop) [data-testid=mt-board-cards] { grid-column: 1 / -1; }
 .mt-page:not(.mt-page--desktop) .mt-street { font-size: 12px; line-height: 16px; }
@@ -34,7 +38,7 @@
 .mt-page:not(.mt-page--desktop) .mt-board .mt-card { flex: 0 1 38px; width: 38px; height: 57px; }
 .mt-page:not(.mt-page--desktop) .mt-board .mt-card b { font-size: 21px; }
 .mt-page:not(.mt-page--desktop) .mt-board .mt-card > span { font-size: 23px; }
-.mt-page:not(.mt-page--desktop) .mt-pot { min-height: 44px; font-size: 14px; }
+.mt-page:not(.mt-page--desktop) .mt-pot { flex-shrink: 0; min-height: 44px; padding: 2px 4px; font-size: 14px; background: transparent; border: 0; border-radius: 8px; box-shadow: none; }
 .mt-page:not(.mt-page--desktop) .mt-pot strong { font-size: 20px; }
 .mt-page:not(.mt-page--desktop) .mt-pot-caption,
 .mt-page:not(.mt-page--desktop) .mt-pot-splits { width: auto; font-size: 11px; white-space: normal; line-height: 1.3; }
@@ -42,12 +46,13 @@
 .mt-page:not(.mt-page--desktop) .mt-hero-anchor { position: static; transform: none; width: min(224px, 76%); }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-seat-name { font-size: 14px; line-height: 18px; }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-position-line { flex-direction: column; }
+.mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-hand-cards { width: min(188px, 100%); }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-cards { max-width: 188px; margin: auto; }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-card { height: 65px; }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-card b { font-size: 25px; }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-card > span { font-size: 28px; }
 .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-seat-result { min-height: 16px; font-size: 11px; line-height: 16px; }
-.mt-page:not(.mt-page--desktop) .mt-hints { position: static; width: 100%; align-items: start; }
+.mt-page:not(.mt-page--desktop) .mt-hints { position: static; width: 100%; align-items: start; padding: 0 10px 8px; }
 .mt-preflop-hint { grid-column: 1 / -1; margin: 0; text-align: center; font-size: 11px; line-height: 20px; color: #b7c8b8; }
 .mt-page:not(.mt-page--desktop) .mt-combo-title { min-height: 44px; margin: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; font-size: 11px; line-height: 14px; list-style: none; }
 .mt-page:not(.mt-page--desktop) .mt-combo-title::-webkit-details-marker { display: none; }
@@ -62,7 +67,22 @@
 .mt-page:not(.mt-page--desktop) .mt-award { font-size: 10px; padding: 1px 3px; }
 .mt-page:not(.mt-page--desktop) .mt-ranks { font-size: 10px; }
 .mt-page:not(.mt-page--desktop) .mt-dock { position: sticky; bottom: 0; padding: 4px 8px max(4px, env(safe-area-inset-bottom)); border-top: 1px solid #c9b67b26; }
+.mt-page:not(.mt-page--desktop) .mt-showdown-actions { grid-template-columns: minmax(76px, 1fr) minmax(0, 2.7fr); }
+.mt-page:not(.mt-page--desktop) .mt-showdown-actions .mt-replay-deal { order: 0; font-size: 12px; }
+.mt-page:not(.mt-page--desktop) .mt-showdown-actions .mt-next { order: 1; }
+.mt-page:not(.mt-page--desktop) .mt-showdown-actions > :only-child { grid-column: 1 / -1; }
 .mt-page:not(.mt-page--desktop) .mt-action-buttons button { flex-wrap: wrap; gap: 2px 5px; padding: 5px 3px; font-size: 13px; overflow-wrap: anywhere; }
 .mt-page:not(.mt-page--desktop) .mt-notice { min-height: 0; padding: 0 8px; font-size: 11px; }
 .mt-page:not(.mt-page--desktop) .mt-notice[style*="hidden"] { display: none; }
 body:has(.mt-page:not(.mt-page--desktop)) .report-problem-button { top: env(safe-area-inset-top) !important; height: 44px !important; width: 44px !important; right: max(4px, calc((100vw - 560px) / 2 + 4px)) !important; }
+
+/* Short viewports keep the new insets without reducing touch targets. */
+@media (max-height: 700px) {
+  .mt-page:not(.mt-page--desktop) .mt-scene { gap: 2px; padding-top: 8px; padding-bottom: 4px; }
+  .mt-page:not(.mt-page--desktop) .mt-seat-anchor .mt-seat-name { line-height: 14px; }
+  .mt-page:not(.mt-page--desktop) .mt-seat-anchor .mt-seat-result { min-height: 12px; line-height: 12px; }
+  .mt-page:not(.mt-page--desktop) .mt-hand { padding-bottom: 4px; }
+  .mt-page:not(.mt-page--desktop) .mt-seat--hero .mt-card { height: 60px; }
+  .mt-page:not(.mt-page--desktop) .mt-board .mt-card { width: 35px; flex-basis: 35px; height: 52px; }
+  .mt-page:not(.mt-page--desktop) .mt-pot-summary { padding-block: 0; }
+}

@@ -68,7 +68,7 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
   }, [available, enabled, locale, player?.folded, player?.turnDeadline, player?.turnDurationMs, requestKey, turnKey]);
 
   useEffect(() => {
-    if (!enabled || !advice || document.hidden) return undefined;
+    if (!enabled || !advice || advice.locale !== locale || document.hidden) return undefined;
     if (advice.audioUrl) {
       const audio = new Audio(`${serverUrl.replace(/\/$/, '')}${advice.audioUrl}`);
       const finished = () => onSpeakingChange(false);

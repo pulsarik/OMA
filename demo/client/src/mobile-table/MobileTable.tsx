@@ -6,8 +6,8 @@ import './mobileTable.css';
 import './desktopTable.css';
 import './compactTable.css';
 
-function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }: {
-  seat: Seat; player: TableState; language: Language; hero?: boolean; dealerId?: string; seconds?: number;
+function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds, compact = false }: {
+  seat: Seat; player: TableState; language: Language; hero?: boolean; dealerId?: string; seconds?: number; compact?: boolean;
 }) {
   const t = (en: string, ru: string) => words(language, en, ru);
   const showdown = player.stage === 'showdown';
@@ -24,20 +24,27 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds }:
   const lastAction = [...player.actions].reverse().find(a => a.playerId === seat.id && a.stage === player.stage);
   const blind = player.blinds?.smallBlindPlayerId === seat.id ? 'SB' : player.blinds?.bigBlindPlayerId === seat.id ? 'BB' : '';
   // Never infer other players' cards, even if a stale snapshot includes them before showdown.
-  const cards = hero ? player.hole : showdown ? seat.hole : undefined;
+  const cards = seat.folded && !showdown ? undefined : hero ? player.hole : showdown ? seat.hole : undefined;
+  const positions = <>
+    {dealerId === seat.id ? <span className="mt-position mt-position--dealer" title={t('Dealer', 'Дилер')}>D</span> : null}
+    {blind ? <span className="mt-position" title={blind === 'SB' ? t('Small blind', 'Малый блайнд') : t('Big blind', 'Большой блайнд')}>{blind}</span> : null}
+  </>;
   return <article className={`mt-seat${hero ? ' mt-seat--hero' : ''}${isTurn ? ' mt-seat--turn' : ''}${seat.folded ? ' mt-seat--folded' : ''}`}
     data-testid={`mt-seat-${seat.id}`} data-hero={hero} data-current={isTurn}>
     <div className="mt-seat-name" title={`${nameOf(seat)} · ${amount(displayedStack(player, seat))}`}>
       <span>{hero ? t('You', 'Вы') : nameOf(seat)}</span><span aria-hidden="true">·</span><strong>{amount(displayedStack(player, seat))}</strong>
     </div>
     <div className="mt-position-line">
-      {dealerId === seat.id ? <span className="mt-position mt-position--dealer" title={t('Dealer', 'Дилер')}>D</span> : null}
-      {blind ? <span className="mt-position" title={blind === 'SB' ? t('Small blind', 'Малый блайнд') : t('Big blind', 'Большой блайнд')}>{blind}</span> : null}
+      {!compact ? positions : null}
       {offline ? <span className="mt-offline">{t('Offline', 'Нет связи')}</span> : null}
       {eliminated ? <span>{t('Out', 'Выбыл')}</span> : !showdown && seat.stack === 0 && !seat.folded ? <span>{t('ALL-IN', 'ОЛЛ-ИН')}</span> : null}
     </div>
     <div className={`mt-hand${winsHigh ? ' mt-hand--high' : ''}${winsLow ? ' mt-hand--low' : ''}`} data-testid={`mt-hand-${seat.id}`}>
-      <Cards cards={cards} count={seat.cardCount || 4} language={language} />
+      <div className="mt-hand-cards">
+        <Cards cards={cards} count={seat.cardCount || 4} language={language} />
+        {compact ? <span className="mt-hand-positions">{positions}</span> : null}
+      </div>
+      {seat.folded ? <span className="mt-fold-stamp" role="img" aria-label={t('Folded', 'Сбросил карты')}>FOLD</span> : null}
     </div>
     <div className="mt-seat-result">
       {showdown ? <>
@@ -107,8 +114,8 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
     {props.onNext ? <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
       {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Next deal', 'Следующая раздача')}
     </button> : null}
-    {props.onReplay ? <button className="mt-replay-deal" data-testid="replay-current-deal" disabled={!c.connected || c.creatingDeal} onClick={props.onReplay}>
-      {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Replay this deal', 'Переиграть эту раздачу')}
+    {props.onReplay ? <button className="mt-replay-deal" data-testid="replay-current-deal" aria-label={t('Replay this deal', 'Переиграть эту раздачу')} disabled={!c.connected || c.creatingDeal} onClick={props.onReplay}>
+      {c.creatingDeal ? t('Creating…', 'Создаём…') : props.layout === 'desktop' ? t('Replay this deal', 'Переиграть эту раздачу') : t('Replay', 'Повтор')}
     </button> : null}
   </footer> : null;
   return <footer className="mt-dock" data-testid="mt-actions">
@@ -272,19 +279,21 @@ export default function MobileTable(props: MobileTableProps) {
         {(p.isReplay || p.replayOfHandId) ? <span className="mt-replay">↻ {t('REPLAY', 'ПОВТОР')} · {p.replayCode}</span> : null}
         <div className="mt-opponents">
           {opponents.map((seat, i) => <div className="mt-seat-anchor" key={seat.id} style={{ left: `${positions[i][0]}%`, top: `${positions[i][1]}%` }}>
-            <PlayerSeat seat={seat} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} />
+            <PlayerSeat compact={!desktop} seat={seat} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} />
           </div>)}
         </div>
         <section className="mt-board" aria-label={t('Community board', 'Общие карты')}>
           <span className="mt-street">{stageLabel(p.stage, language)}</span>
           <div data-testid="mt-board-cards"><Cards cards={p.community} count={5} board language={language} /></div>
-          <button ref={potButton} className="mt-pot" type="button" onClick={() => setPotOpen(true)} aria-expanded={potOpen} aria-controls="mt-pot-details">
-            <span>{t('Pot', 'Банк')}</span> <strong>{amount(p.potCoins)}</strong><i aria-hidden="true">›</i>
-          </button>
-          {result ? <PotSplit player={p} language={language} onOpen={() => setPotOpen(true)} />
-            : <span className="mt-pot-caption">{t('Bet', 'Ставка')} {amount(p.currentBet)} · {t('Blinds', 'Блайнды')} {amount(p.blinds?.small)}/{amount(p.blinds?.big)}</span>}
+          <div className="mt-pot-summary">
+            <button ref={potButton} className="mt-pot" type="button" onClick={() => setPotOpen(true)} aria-expanded={potOpen} aria-controls="mt-pot-details">
+              <span>{t('Pot', 'Банк')}</span> <strong>{amount(p.potCoins)}</strong><i aria-hidden="true">›</i>
+            </button>
+            {result ? <PotSplit player={p} language={language} onOpen={() => setPotOpen(true)} />
+              : <span className="mt-pot-caption">{t('Bet', 'Ставка')} {amount(p.currentBet)} · {t('Blinds', 'Блайнды')} {amount(p.blinds?.small)}/{amount(p.blinds?.big)}</span>}
+          </div>
         </section>
-        <div className="mt-hero-anchor"><PlayerSeat hero seat={hero} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} /></div>
+        <div className="mt-hero-anchor"><PlayerSeat compact={!desktop} hero seat={hero} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} /></div>
         {!desktop ? hints : null}
         {payout ? <div className="mt-personal-result" data-testid="mt-personal-result">
           <strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong>

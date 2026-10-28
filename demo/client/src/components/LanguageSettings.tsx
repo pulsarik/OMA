@@ -9,7 +9,7 @@ export function storedLanguage(): UiLanguage {
 
 export function LanguageSettings({ language, onChange }: { language: UiLanguage; onChange: (language: UiLanguage) => void }) {
   return <div className="training-advice-settings">
-    <label>{language === 'ru' ? 'Язык интерфейса и подсказок' : 'Interface and advice language'}
+    <label>{language === 'ru' ? 'Язык интерфейса' : 'Interface language'}
       <select value={language} onChange={event => {
         const next = event.target.value as UiLanguage;
         try { localStorage.setItem('omaha-language', next); } catch { /* private browsing */ }

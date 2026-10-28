@@ -28,8 +28,8 @@ export function TrainingAdviceSettings({ controller, t }: { controller: Controll
       {t('Advice after 10 seconds', 'Подсказка через 10 секунд')}
     </label>
     <p>{t(
-      'During games with bots, suggests an action in the interface language and briefly explains it aloud.',
-      'В игре с ботами советует действие и коротко объясняет его вслух на языке интерфейса.',
+      'During games with bots, suggests an action in the commentator language and briefly explains it aloud.',
+      'В игре с ботами советует действие и коротко объясняет его вслух на языке диктора.',
     )}</p>
   </div>;
 }

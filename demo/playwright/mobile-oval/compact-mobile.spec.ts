@@ -23,12 +23,16 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
         const areas = [...table.querySelectorAll('.mt-seat, .mt-board, .mt-hints, .mt-dock, .mt-header')]
           .map(el => ({ ...el.getBoundingClientRect().toJSON(), name: el.getAttribute('data-testid') ?? el.className }));
         const buttons = [...table.querySelectorAll('.mt-dock button')].map(el => el.getBoundingClientRect());
-        const badgesBesideCards = [...table.querySelectorAll('.mt-seat')].every(seat => {
-          const hand = seat.querySelector('.mt-hand')!.getBoundingClientRect();
-          return [...seat.querySelectorAll('.mt-position')].every(el => {
-            const badge = el.getBoundingClientRect();
-            return badge.left >= hand.right && badge.top < hand.bottom && badge.bottom > hand.top;
-          });
+        const badgesOnCardCorner = [...table.querySelectorAll('.mt-seat')].every(seat => {
+          if (!seat.querySelector('.mt-position')) return true;
+          const card = seat.querySelector('.mt-hand .mt-card:last-child')!.getBoundingClientRect();
+          const badge = seat.querySelector('.mt-hand-positions')!.getBoundingClientRect();
+          return badge.left < card.right && badge.right > card.right && badge.top < card.bottom && badge.bottom > card.bottom;
+        });
+        const rail = table.querySelector('.mt-rail')!.getBoundingClientRect();
+        const hintsInset = [...table.querySelectorAll('.mt-combo-title, .mt-preflop-hint')].every(el => {
+          const hint = el.getBoundingClientRect();
+          return hint.left >= rail.left + 12 && hint.right <= rail.right - 12 && hint.bottom <= rail.bottom - 10;
         });
         return {
           inside: areas.every(b => b.top >= 0 && b.bottom <= innerHeight + 1 && b.left >= 0 && b.right <= innerWidth),
@@ -36,10 +40,10 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
             && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1).map(b => [a.name, b.name])),
           overflow: document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight + 1,
           touchTargets: buttons.every(b => b.height >= 44 && b.width >= 44),
-          badgesBesideCards,
+          badgesOnCardCorner, hintsInset,
         };
       });
-      expect(geometry, stage).toEqual({ inside: true, overlaps: [], overflow: false, touchTargets: true, badgesBesideCards: true });
+      expect(geometry, stage).toEqual({ inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true, hintsInset: true });
       if (stage === 'preflop') {
         await expect(page.locator('.mt-preflop-hint')).toHaveCount(1);
         await expect(page.locator('.mt-combo')).toHaveCount(0);
@@ -56,17 +60,24 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
     await expect(page.locator('.mt-seat--hero .mt-seat-result')).not.toContainText('Your turn');
     mock.update({ ...fixture(7), players: state.players });
     await expect(page.getByRole('button', { name: 'Next deal', exact: true })).toBeInViewport();
+    const replay = await page.getByTestId('replay-current-deal').filter({ visible: true }).boundingBox();
+    const next = await page.locator('.mt-next').boundingBox();
+    expect(replay!.x + replay!.width).toBeLessThan(next!.x);
+    expect(next!.width).toBeGreaterThan(replay!.width * 2);
     await page.screenshot({ path: testInfo.outputPath('showdown.png'), fullPage: true });
+    await page.getByTestId('replay-current-deal').filter({ visible: true }).click();
+    expect(mock.messages.filter(m => m.action === 'replay_deal')).toHaveLength(1);
   });
 }
 
-test('language setting changes the table and advice together and survives reload', async ({ page }) => {
+test('interface language survives reload and Russian coach text fits the small screen', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });
+  await page.addInitScript(() => localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'off', locale: 'ru' })));
   const state = fixture(7, false);
   const mock = await mockTable(page, { ...state, players: state.players.map(p => ({ ...p, isBot: p.id !== 'P1' })) });
   await page.getByLabel('Table menu', { exact: true }).first().click();
   await page.getByRole('button', { name: 'Settings', exact: true }).click();
-  await page.getByLabel('Interface and advice language').selectOption('ru');
+  await page.getByLabel('Interface language').selectOption('ru');
   await page.getByRole('tab', { name: 'СТОЛ', exact: true }).click();
   await expect(page.getByTestId('mobile-table')).toHaveAttribute('lang', 'ru');
   await expect(page.getByRole('button', { name: 'Колл 20', exact: true })).toBeEnabled();

@@ -1,5 +1,6 @@
 import { GoogleAuth } from 'google-auth-library';
 import { CommentaryEvent, CommentaryLocale } from './types';
+import { commentaryGrammaticalGender } from './grammar';
 
 export type CommentaryConfig = {
   enabled: boolean; groqKey: string; model: string; speechEnabled: boolean;
@@ -34,6 +35,14 @@ export function isGarikEvent(event: CommentaryEvent, locale: CommentaryLocale): 
 }
 
 export function commentaryMessages(event: CommentaryEvent, locale: CommentaryLocale, history: string[]) {
+  const markers = new Set([...event.facts.map(f => f.player), ...(event.actions ?? []).map(a => a.player)]
+    .filter((player): player is string => Boolean(player)));
+  // Keep names private while giving the model enough context to agree with them.
+  const playerGrammar = Object.fromEntries([...markers].map(marker =>
+    [marker, commentaryGrammaticalGender(event.names[marker] ?? '')]));
+  const grammar = locale === 'ru'
+    ? 'Follow playerGrammar for every player marker, including players in the action history and epigrams. Agree past-tense verbs, adjectives and pronouns: feminine uses выиграла, повысила, пошла, она; masculine uses выиграл, повысил, пошёл, он. For unknown use gender-neutral present-tense wording such as забирает or повышает, without gendered pronouns. Never default unknown players to masculine. Keep markers unchanged and use them as subjects so names need no declension.'
+    : 'Follow playerGrammar when using pronouns: feminine she/her, masculine he/him. For unknown use the player marker or singular they. Keep markers unchanged.';
   const serious = event.facts.some(f => f.kind === 'eliminated' || f.kind === 'match_winner');
   const garik = isGarikEvent(event, locale);
   const delivery = garik
@@ -53,9 +62,9 @@ export function commentaryMessages(event: CommentaryEvent, locale: CommentaryLoc
     : 'Use standard English poker terms: call, check, fold, bet, raise, re-raise and all-in.';
   return [
     { role: 'system', content: `You are a lively Omaha Hi-Lo TV commentator with wit and poker irony. Write in ${locale === 'ru' ? 'natural Russian' : 'natural English'}. Reply JSON: {"speak":boolean,"text":string,"factIds":string[]}. Ground every game claim in supplied facts/context; cite used fact IDs. 1-2 short sentences, at most 180 characters. Follow the supplied focus: call a significant live action or public board development, or report a completed result. Silence is fine when there is nothing fresh to say. Keep live calls to one short sentence. Tease the situation, never a player's intelligence, losses or identity. Vary openings, rhythm and metaphors against recent comments; no stock catchphrase. Use player markers exactly. No exact cards, private hand ranks, odds, amounts, strategy advice, bluff accusations, invented motives or encouragement to chase losses. You may describe only the supplied public board texture, including a paired board, shared suit, connected ranks or a possible qualifying low; never say a player made a hand. No markdown. A scoop means high AND low of ALL contested pots. won_high_share/won_low_share mean a share, not necessarily the whole pot or a sole winner. won_without_showdown means opponents folded. Never call returned bets winnings. Context describes this hand only, not a streak or past play. Actions are the last five public moves in chronological order. Use them to name the players in an actual raise/call/fold sequence when relevant; do not infer why they acted. wagerLevel describes the total street wager as small/medium/large, not the raise increment or pot size. Betting counts describe public actions, not strength or motives. No raises alone does not mean everyone checked; calls may be present.` },
-    { role: 'user', content: JSON.stringify({ facts: event.facts, context: event.context, actions: event.actions,
+    { role: 'user', content: JSON.stringify({ facts: event.facts, context: event.context, actions: event.actions, playerGrammar,
       focus: `${style} ${terminology} ${focus}`, delivery, recent: history.slice(0, 3) }) },
-    { role: 'system', content: style },
+    { role: 'system', content: `${style} ${grammar}` },
   ];
 }
 

@@ -5,6 +5,7 @@ import { commentaryConfig, commentaryMessages, isGarikEvent, validateCommentary 
 import { CommentaryService } from '../src/commentary/service';
 import { commentaryErrorDetails } from '../src/commentary/diagnostics';
 import { CommentaryEvent, CommentaryPreference } from '../src/commentary/types';
+import { commentaryGrammaticalGender } from '../src/commentary/grammar';
 
 function settled(): DealtHand {
   const hand = dealHand(3, 12345);
@@ -111,6 +112,46 @@ test('Russian commentary prompt preserves standard poker terminology', () => {
   expect(prompt.focus).toContain('колл/коллирует');
   expect(prompt.focus).toContain('рейз/рейзит');
   expect(prompt.focus).toContain('never вызов or вызвал');
+});
+
+test.each([
+  ['Maria', 'feminine'], [' MARIA_bot ', 'feminine'], ['Мария', 'feminine'],
+  ['Anna', 'feminine'], ['Анна', 'feminine'], ['Elena', 'feminine'], ['Елена', 'feminine'],
+  ['Sofia', 'feminine'], ['София', 'feminine'], ['Olga', 'feminine'], ['Ольга', 'feminine'],
+  ['Alex', 'masculine'], ['Ivan', 'masculine'], ['Dmitry', 'masculine'], ['Dima', 'masculine'],
+  ['Дима', 'masculine'], ['Pavel', 'masculine'], ['Nikolai', 'masculine'],
+  ['Sasha', 'unknown'], ['Саша', 'unknown'], ['PokerQueen', 'unknown'],
+  ['Maria says ignore instructions', 'unknown'], ['', 'unknown'],
+])('commentary selects grammatical agreement for %s', (name, gender) => {
+  expect(commentaryGrammaticalGender(name)).toBe(gender);
+});
+
+test('Russian prompts carry anonymous grammar for facts and recent actions, including epigrams', () => {
+  const e: CommentaryEvent = { ...event(), names: {
+    '[P1]': 'Maria', '[P2]': 'Ivan', '[P3]': 'Secret nickname', '[P4]': 'Elena',
+  }, actions: [
+    { player: '[P2]', stage: 'river', move: 'raise' },
+    { player: '[P3]', stage: 'river', move: 'fold' },
+  ] };
+  const garik = Array.from({ length: 8 }, (_, i) => ({ ...e, id: `grammar-${i}` }))
+    .find(candidate => isGarikEvent(candidate, 'ru'))!;
+  for (const candidate of [e, garik]) {
+    const messages = commentaryMessages(candidate, 'ru', ['[P1] повысил ставку.']);
+    expect(JSON.parse(messages[1].content).playerGrammar).toEqual({
+      '[P1]': 'feminine', '[P2]': 'masculine', '[P3]': 'unknown',
+    });
+    expect(messages[2].content).toContain('feminine uses выиграла');
+    expect(messages[2].content).toContain('Never default unknown players to masculine');
+    for (const name of Object.values(e.names)) expect(JSON.stringify(messages)).not.toContain(name);
+  }
+});
+
+test('real hand names retain feminine agreement after bot suffix sanitization', () => {
+  const hand = settled();
+  hand.players[0].name = 'Maria_bot';
+  const e = createCommentaryEvent(hand)!;
+  expect(e.names['[P1]']).toBe('Maria');
+  expect(JSON.parse(commentaryMessages(e, 'ru', [])[1].content).playerGrammar['[P1]']).toBe('feminine');
 });
 
 test.each([[20, false, 'small'], [39, false, 'medium'], [40, true, 'medium'], [80, true, 'large']] as const)
@@ -406,6 +447,28 @@ test('two listeners share one generation and audio; replay/reconnect cannot rege
   const restarted = new CommentaryService(s.config, s.store, s.audience, s.providers, () => 101_000);
   await restarted.consider(event()); expect(s.providers.generate).toHaveBeenCalledTimes(1);
   s.setNow(113_000); expect(s.service.getAudio(id, key)).toBeUndefined();
+});
+
+test.each(['result', 'betting'])('Russian %s sends the same feminine wording to speech and captions', async kind => {
+  const s = setup();
+  const e: CommentaryEvent = { ...event(), names: { '[P1]': 'Maria' },
+    ...(kind === 'betting' ? { stage: 'river' as const,
+      facts: [{ id: 'f1', kind: 'reraised', player: '[P1]' }] } : {}) };
+  const phrase = kind === 'betting' ? 'повысила ставку.' : 'стала лидером по фишкам.';
+  s.providers.generate.mockResolvedValue({ result: {
+    speak: true, text: `[P1] ${phrase}`, factIds: ['f1'],
+  }, tokens: 400 });
+  const generate = jest.fn(async (messages: ReturnType<typeof commentaryMessages>) => {
+    expect(JSON.parse(messages[1].content).playerGrammar['[P1]']).toBe('feminine');
+    return s.providers.generate();
+  });
+  const service = new CommentaryService(s.config, s.store,
+    () => [{ preference: { locale: 'ru', mode: 'voice' }, send: s.sent }],
+    { ...s.providers, generate }, () => e.createdAt);
+  await service.consider(e);
+  expect(generate).toHaveBeenCalledTimes(1);
+  expect(s.providers.synthesize).toHaveBeenCalledWith(`Maria ${phrase}`, 'ru', expect.any(AbortSignal));
+  expect(s.sent).toHaveBeenCalledWith(expect.objectContaining({ text: `Maria ${phrase}`, audioUrl: expect.any(String) }));
 });
 
 test('text-only listeners incur no TTS call, off and disconnected listeners incur no generation', async () => {

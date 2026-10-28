@@ -3083,7 +3083,7 @@ function PlayerPage({
   const trainingAdvice = useTrainingAdvice(
     handId,
     player,
-    interfaceLanguage,
+    commentary.locale,
     commentary.interrupt,
     commentary.setHumanSpeaking,
     SERVER_URL,
