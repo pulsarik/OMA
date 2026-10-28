@@ -4,10 +4,10 @@ import { canPresentCommentary, CommentaryLocale, CommentaryMessage, CommentaryMo
 function savedSettings(): { mode: CommentaryMode; locale: CommentaryLocale; volume: number } {
   try {
     const saved = JSON.parse(localStorage.getItem('omaha-commentary') || '{}');
-    return { mode: ['off', 'text', 'voice'].includes(saved.mode) ? saved.mode : 'voice',
+    return { mode: ['off', 'text', 'voice'].includes(saved.mode) ? saved.mode : 'off',
       locale: saved.locale === 'ru' ? 'ru' : 'en',
       volume: typeof saved.volume === 'number' && Number.isFinite(saved.volume) ? Math.min(1, Math.max(0, saved.volume)) : 0.65 };
-  } catch { return { mode: 'voice', locale: 'en', volume: 0.65 }; }
+  } catch { return { mode: 'off', locale: 'en', volume: 0.65 }; }
 }
 
 export function useCommentary(handId: string, serverUrl: string) {

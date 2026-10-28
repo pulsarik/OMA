@@ -31,6 +31,28 @@ export class CommentaryService {
   get enabled() { return this.config.enabled; }
   get voiceEnabled() { return this.enabled && this.config.speechEnabled; }
 
+  async synthesizeAdvice(text: string, locale: CommentaryLocale): Promise<string | undefined> {
+    if (!this.config.speechEnabled || this.now() < this.speechRetryAt) return;
+    const expiresAt = this.now() + 60_000;
+    const today = new Date(this.now()).toISOString().slice(0, 10);
+    const month = `tts-month:${today.slice(0, 7)}`;
+    if (!await this.store.reserveCommentaryUsage(month, [...text].length, this.config.monthlyCharacters)) return;
+    try {
+      const data = await deadline(signal => this.providers.synthesize(text, locale, signal), 6_000);
+      if (data.length > 1_000_000) return;
+      const id = randomUUID();
+      const key = randomBytes(24).toString('hex');
+      this.audio.set(id, { key, data, expiresAt });
+      this.pruneAudio();
+      this.speechFailures = 0;
+      return `/api/commentary/audio/${id}/${key}`;
+    } catch (error) {
+      if (++this.speechFailures >= 3) { this.speechRetryAt = this.now() + 60_000; this.speechFailures = 0; }
+      commentaryLog('Coach speech unavailable; using browser voice', { locale, ...commentaryErrorDetails(error) }, 'warn');
+      return;
+    }
+  }
+
   private skipped(event: CommentaryEvent, reason: string, locale?: CommentaryLocale) {
     commentaryLog('Commentary skipped', { eventId: event.id, handNumber: event.handNumber, locale, reason });
   }

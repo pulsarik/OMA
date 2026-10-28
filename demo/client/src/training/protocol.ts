@@ -8,6 +8,7 @@ export type Advice = {
   amount?: number;
   text: string;
   detail?: string;
+  audioUrl?: string;
 };
 
 // Validate before display OR speech. Invalid envelopes have no trusted action
@@ -28,5 +29,7 @@ export function parseTrainingAdvice(raw: unknown): Advice | null {
   const detail = typeof value.detail === 'string' && value.detail.length <= 1000 && !/[<>]/.test(value.detail)
     && (value.locale === 'ru' ? /[а-яё]/i.test(value.detail) : !/[а-яё]/i.test(value.detail))
     ? value.detail : undefined;
-  return { ...value, detail };
+  const audioUrl = typeof value.audioUrl === 'string'
+    && /^\/api\/commentary\/audio\/[0-9a-f-]+\/[0-9a-f]+$/.test(value.audioUrl) ? value.audioUrl : undefined;
+  return { ...value, detail, audioUrl };
 }

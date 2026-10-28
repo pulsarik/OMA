@@ -19,7 +19,7 @@ function savedEnabled() {
 }
 
 export function useTrainingAdvice(handId: string, player: TurnState | null, locale: 'en' | 'ru',
-  onAdviceStart: () => void, onSpeakingChange: (speaking: boolean) => void) {
+  onAdviceStart: () => void, onSpeakingChange: (speaking: boolean) => void, serverUrl = '') {
   const [enabled, setEnabledState] = useState(savedEnabled);
   const [advice, setAdvice] = useState<Advice | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
@@ -68,7 +68,17 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
   }, [available, enabled, locale, player?.folded, player?.turnDeadline, player?.turnDurationMs, requestKey, turnKey]);
 
   useEffect(() => {
-    if (!enabled || !advice || document.hidden || !('speechSynthesis' in window)) return undefined;
+    if (!enabled || !advice || document.hidden) return undefined;
+    if (advice.audioUrl) {
+      const audio = new Audio(`${serverUrl.replace(/\/$/, '')}${advice.audioUrl}`);
+      const finished = () => onSpeakingChange(false);
+      audio.onended = finished;
+      audio.onerror = finished;
+      onSpeakingChange(true);
+      void audio.play().catch(() => finished());
+      return () => { audio.pause(); audio.onended = null; audio.onerror = null; onSpeakingChange(false); };
+    }
+    if (!('speechSynthesis' in window)) return undefined;
     const utterance = new SpeechSynthesisUtterance(advice.text);
     utterance.lang = locale === 'ru' ? 'ru-RU' : 'en-US';
     utterance.rate = 1.08;
@@ -81,7 +91,7 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
       if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
       onSpeakingChange(false);
     };
-  }, [advice, enabled, locale, onSpeakingChange]);
+  }, [advice, enabled, locale, onSpeakingChange, serverUrl]);
 
   useEffect(() => { setAdvice(null); }, [handId, turnKey]);
 

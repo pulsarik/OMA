@@ -10,6 +10,12 @@ test('legacy envelopes remain readable; optional details never replace the spoke
   expect(parseTrainingAdvice({ ...advice, detail: '<script>bad</script>' })?.detail).toBeUndefined();
 });
 
+test('accepts only same-origin coach audio paths', () => {
+  const audioUrl = '/api/commentary/audio/123e4567-e89b-12d3-a456-426614174000/abcdef0123';
+  expect(parseTrainingAdvice({ ...advice, audioUrl })?.audioUrl).toBe(audioUrl);
+  expect(parseTrainingAdvice({ ...advice, audioUrl: 'https://evil.example/voice.mp3' })?.audioUrl).toBeUndefined();
+});
+
 test.each([null, {}, { ...advice, text: '' }, { ...advice, text: 'Check. No bet is required.' },
   { ...advice, text: 'Чек. <b>Бесплатно</b>' }, { ...advice, text: 'а'.repeat(181) },
   { ...advice, move: 'all-in' }, { ...advice, amount: Infinity }, { ...advice, revision: NaN },

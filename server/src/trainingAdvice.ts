@@ -15,6 +15,7 @@ export type TrainingAdvice = {
   recommendation: Recommendation;
   text: string;
   detail?: string;
+  audioUrl?: string;
 };
 
 export function trainingRecommendation(hand: DealtHand, player: PlayerHand, decision: BotDecision): Recommendation {

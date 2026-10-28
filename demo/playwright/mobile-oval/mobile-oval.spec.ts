@@ -1,6 +1,27 @@
 import { expect, test } from '@playwright/test';
 import { fixture, mockTable } from './fixture';
 
+test('short phone keeps the opponents and betting controls in the initial viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 667 });
+  await mockTable(page, fixture(7, false));
+  await expect(page.getByTestId('mobile-table')).toBeVisible();
+
+  const geometry = await page.getByTestId('mobile-table').evaluate(table => {
+    const opponents = [...table.querySelectorAll<HTMLElement>('.mt-seat-anchor')].map(seat => seat.getBoundingClientRect());
+    const dock = table.querySelector<HTMLElement>('[data-testid="mt-actions"]')!.getBoundingClientRect();
+    return {
+      opponentsVisible: opponents.every(seat => seat.top >= 0 && seat.bottom <= innerHeight),
+      dockVisible: dock.top >= 0 && dock.bottom <= innerHeight,
+      documentHeight: document.documentElement.scrollHeight,
+      viewportHeight: innerHeight,
+    };
+  });
+
+  expect(geometry.opponentsVisible).toBe(true);
+  expect(geometry.dockVisible).toBe(true);
+  expect(geometry.documentHeight).toBeLessThanOrEqual(geometry.viewportHeight + 1);
+});
+
 test('seven open hands, split winners and both combinations fit the phone', async ({ page }, testInfo) => {
   await mockTable(page);
   await expect(page.getByTestId('mobile-table')).toBeVisible();

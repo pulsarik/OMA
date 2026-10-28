@@ -2052,8 +2052,9 @@ wss.on('connection', (ws, req) => {
         }
         const locale = msg.locale === 'ru' ? 'ru' : 'en';
         const advice = createTrainingAdvice(hand, player, locale);
+        const audioUrl = await commentator.synthesizeAdvice(advice.text, locale);
         advisedHumanTurns.mark(hand, player.id);
-        ws.send(JSON.stringify({ type: 'training_advice', data: advice }));
+        ws.send(JSON.stringify({ type: 'training_advice', data: { ...advice, ...(audioUrl ? { audioUrl } : {}) } }));
       } else if (msg.action === 'player_move') {
         if (receivedCommandId && receivedCommandId.length > 100) {
           throw new Error('invalid command id');
