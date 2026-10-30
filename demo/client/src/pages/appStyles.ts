@@ -1720,6 +1720,23 @@ export const PLAYER_PAGE_STYLES = `
   .action-button.primary { border-color: #047857; background: #087443; color: #fff; min-width: 120px; }
   .action-button.danger { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
   .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
+  .limited-action { position: relative; display: inline-flex; padding-top: 14px; }
+  .limit-pips {
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    display: flex;
+    gap: 3px;
+    transform: translateX(-50%);
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .action-button > .limit-pips { top: -15px; }
+  .action-button.limited-raise { position: relative; margin-top: 14px; }
+  .limit-pips--hearts { color: #dc2626; }
+  .limit-pips--diamonds { color: #b7791f; }
+  .limit-pips .is-used { color: #cbd5e1; opacity: .55; }
   .turn-status { text-align: center; color: #92400e; font-weight: 900; letter-spacing: .02em; }
   .game-notice {
     min-height: 22px;

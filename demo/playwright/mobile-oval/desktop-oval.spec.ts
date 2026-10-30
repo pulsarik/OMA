@@ -180,6 +180,7 @@ test.describe('touch tablet', () => {
     for (const viewport of [{ width: 1280, height: 632 }, { width: 800, height: 1138 }, { width: 1280, height: 632 }]) {
       await page.setViewportSize(viewport);
       await expect(page.locator('.mt-seat')).toHaveCount(10);
+      await expect(page.getByTestId('mt-actions').locator('fieldset')).toBeHidden();
       const metrics = await page.getByTestId('desktop-table').evaluate(table => {
         const boxes = [...table.querySelectorAll('.mt-seat, .mt-board, .mt-hints, .mt-personal-result, .mt-dock')]
           .map(el => ({ ...el.getBoundingClientRect().toJSON(), name: el.getAttribute('data-testid') ?? el.className }));

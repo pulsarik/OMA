@@ -111,17 +111,24 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
     props.onMove(move, wager ? c.wagerTarget : undefined, wager ? c.betSize : undefined);
   };
   const showdown = player.stage === 'showdown';
+  const replayRemaining = Math.max(0, c.maxReplays - c.replayCount);
+  const pips = (kind: 'hearts' | 'diamonds', total: number, remaining: number) => <span className={`mt-limit-pips mt-limit-pips--${kind}`} aria-hidden="true">
+    {Array.from({ length: total }, (_, index) => <span key={index} className={index < remaining ? '' : 'is-used'}>{kind === 'hearts' ? '♥' : '◆'}</span>)}
+  </span>;
   const continuation = <div className="mt-showdown-actions">
     {props.onNext ? <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
       {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Play on', 'Играть дальше')}
     </button> : null}
   </div>;
-  return <footer className="mt-dock" data-testid="mt-actions">
+  return <footer className={`mt-dock${showdown ? ' mt-dock--showdown' : ''}`} data-testid="mt-actions">
     <div className="mt-coach-slot">{showdown ? <div className="mt-secondary-actions">
       {props.shareAction}
-      {props.onReplay ? <button className="mt-replay-deal" data-testid="replay-current-deal" aria-label={t('Replay this deal', 'Переиграть эту раздачу')} disabled={!c.connected || c.creatingDeal} onClick={props.onReplay}>
-        {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Replay', 'Переиграть')}
-      </button> : null}
+      {props.onReplay ? <span className="mt-limited-action">
+        {pips('hearts', c.maxReplays, replayRemaining)}
+        <button className="mt-replay-deal" data-testid="replay-current-deal" aria-label={`${t('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${t('replays remaining', 'повторов осталось')}`} disabled={!c.connected || c.creatingDeal || replayRemaining === 0} onClick={props.onReplay}>
+          {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Replay', 'Переиграть')}
+        </button>
+      </span> : null}
     </div> : props.coach}</div>
     <div className="mt-controls-slot">
     {showdown ? finishedActions ?? continuation : null}
@@ -137,10 +144,10 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
           {c.callAmount > 0 ? <>{c.callIsAllIn ? t('All-in', 'Олл-ин') : t('Call', 'Колл')} <b>{amount(c.callAmount)}</b></> : t('Check', 'Чек')}
         </button>
         <button className="mt-raise" disabled={player.currentBet > 0 && !c.canRaise} onClick={e => act(e, player.currentBet > 0 ? 'raise' : 'bet')}>
+          {player.currentBet > 0 && c.maxRaises !== undefined ? pips('diamonds', c.maxRaises, Math.max(0, c.maxRaises - c.raiseCount)) : null}
           {c.wagerIsAllIn ? t('All-in', 'Олл-ин') : player.currentBet > 0 ? t('Raise to', 'Рейз до') : t('Bet', 'Ставка')} <b>{amount(c.wagerTarget)}</b>
         </button>
       </div>
-      {c.maxRaises !== undefined ? <small className="mt-cap">{t('Raises', 'Повышения')}: {c.raiseCount}/{c.maxRaises}</small> : null}
     </fieldset>
     </div>
   </footer>;

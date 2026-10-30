@@ -45,6 +45,7 @@ export type TableControls = {
   canAct: boolean; canCall: boolean; canRaise: boolean;
   callAmount: number; callIsAllIn: boolean; wagerTarget: number; wagerIsAllIn: boolean;
   betSize: BetSize; raiseCount: number; maxRaises?: number;
+  replayCount: number; maxReplays: number;
   pending: boolean; connected: boolean; creatingDeal: boolean;
   turnSeconds?: number; turnDurationMs?: number;
   notice?: string | null; sessionWarning?: string;

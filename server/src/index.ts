@@ -34,6 +34,7 @@ import {
 } from './lobby';
 import {
   MAX_RAISES_PER_STREET,
+  MAX_REPLAYS_PER_MATCH,
   PlayerMove,
   POT_COINS,
   currentPotBreakdown,
@@ -51,6 +52,8 @@ import {
   recordPlayerMove,
   replayHandSeed,
   replayHandLayout,
+  sharedHandComparison,
+  nameSharedPlayer,
   stacksAfterPayout,
   visibleCommunity,
 } from './game';
@@ -465,6 +468,8 @@ function publicHandState(hand: any) {
     currentBet: hand.currentBet ?? 0,
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
+    replayCount: hand.replayCount ?? 0,
+    maxReplays: MAX_REPLAYS_PER_MATCH,
     lastFullRaise: hand.lastFullRaise,
     actedSinceLastFullRaise: hand.actedSinceLastFullRaise ?? [],
     blinds: hand.blinds,
@@ -743,6 +748,8 @@ function diagnosticHandSnapshot(hand: any) {
     totalContributions: hand.totalContributions,
     raiseCount: hand.raiseCount,
     maxRaises: MAX_RAISES_PER_STREET,
+    replayCount: hand.replayCount ?? 0,
+    maxReplays: MAX_REPLAYS_PER_MATCH,
     blinds: hand.blinds,
     potCoins: hand.potCoins,
     revealVotes: hand.revealVotes,
@@ -781,6 +788,7 @@ async function playerState(hand: any, player: any) {
     commentary: { enabled: commentator.enabled, voiceEnabled: commentator.voiceEnabled },
     handId: hand.id,
     forkRootCode: hand.forkRootCode,
+    sharedComparison: sharedHandComparison(hand, player.id),
     partyId: hand.partyId,
     partyCode: hand.partyCode,
     replayCode: hand.replayCode,
@@ -804,6 +812,8 @@ async function playerState(hand: any, player: any) {
     roundBets: hand.roundBets ?? {},
     raiseCount: hand.raiseCount ?? 0,
     maxRaises: MAX_RAISES_PER_STREET,
+    replayCount: hand.replayCount ?? 0,
+    maxReplays: MAX_REPLAYS_PER_MATCH,
     lastFullRaise: hand.lastFullRaise,
     actedSinceLastFullRaise: hand.actedSinceLastFullRaise ?? [],
     blinds: hand.blinds,
@@ -1858,6 +1868,26 @@ app.get('/api/player/:handId/:playerId/:token', async (req, res) => {
   if (!player) return res.status(403).send('Forbidden');
 
   res.json(await playerState(hand, player));
+});
+
+app.post('/api/player/:handId/:playerId/:token/shared-name', async (req, res) => {
+  await withHandTurnLock(req.params.handId, async () => {
+    try {
+      const hand = await getActiveHand(req.params.handId);
+      const player = hand?.players.find((p: any) => p.id === req.params.playerId && p.token === req.params.token && !p.isBot);
+      if (!hand || !player) { res.status(403).json({ error: 'unauthorized' }); return; }
+      try { nameSharedPlayer(hand, player.id, req.body?.name); }
+      catch (error) { res.status(400).json({ error: (error as Error).message }); return; }
+      hand.revision = (hand.revision ?? 0) + 1;
+      await store.updateHand(hand);
+      broadcastHandUpdated(hand);
+      res.setHeader('Cache-Control', 'no-store');
+      res.json(await playerState(hand, player));
+    } catch (error) {
+      console.error('Shared player name failed', error);
+      res.status(500).json({ error: 'could not save name' });
+    }
+  });
 });
 app.get('/api/player/:handId/:playerId/:token/score', async (req, res) => {
   const hand = await getActiveHand(req.params.handId);

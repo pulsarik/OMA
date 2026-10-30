@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import { dealHand, forkPartyFromHand, nextPartyHand, recordPlayerMove, stacksAfterPayout } from '../src/game';
+import { dealHand, forkPartyFromHand, nextPartyHand, recordPlayerMove, stacksAfterPayout, nameSharedPlayer, sharedHandComparison, replayHandLayout } from '../src/game';
 import HandStore from '../src/handStore';
 import { buildArchiveRows } from '../src/archive';
 
@@ -32,6 +32,8 @@ test('fork preserves the deal, unequal stacks, blind level and seats without mod
   expect(fork.community).toEqual([]);
   expect(fork.actions).toEqual([]);
   expect(fork.stage).toBe('preflop');
+  expect(fork.players[0].name).toBe('You');
+  expect(sharedHandComparison(fork, 'P1')).toBeUndefined();
   fork.players.forEach((p, i) => {
     expect(p.hole).toEqual(source.players[i].hole);
     expect(p.token).not.toBe(source.players[i].token);
@@ -40,11 +42,37 @@ test('fork preserves the deal, unequal stacks, blind level and seats without mod
   });
   expect(fork.players[2].folded).toBe(true);
   recordPlayerMove(fork, fork.currentPlayerId!, 'fold');
+  expect(() => nextPartyHand(fork)).toThrow('enter name');
+  expect(() => replayHandLayout(fork)).toThrow('enter name');
+  nameSharedPlayer(fork, 'P1', '  New player  ');
   const next = nextPartyHand(fork);
+  expect(next.players[0].name).toBe('New player');
+  expect(next.sharedChallenge).toBeUndefined();
   expect(next.partyId).toBe(fork.partyId);
   expect(next.forkRootCode).toBe('PA0042');
   next.players.forEach(p => expect(p.stack + (next.totalContributions[p.id] ?? 0)).toBe(stacksAfterPayout(fork).get(p.id)));
   expect(buildArchiveRows([source, fork, next])).toHaveLength(2);
+});
+
+test('comparison uses net chips, handles ties and keeps the original result immutable', () => {
+  const source = completedHand();
+  const fork = forkPartyFromHand(source, 'P1');
+  const originalNet = fork.sharedChallenge!.sourceNet;
+  expect(() => nameSharedPlayer(fork, 'P1', 'Alex')).toThrow('completed');
+  recordPlayerMove(fork, fork.currentPlayerId!, 'fold');
+  expect(sharedHandComparison(fork, 'P1')).toMatchObject({ outcome: 'tie', sourceNet: originalNet, yourNet: originalNet, needsName: true });
+  expect(sharedHandComparison(fork, 'P2')).toBeUndefined();
+  fork.players[0].stack += 20;
+  expect(sharedHandComparison(fork, 'P1')?.outcome).toBe('you');
+  fork.players[0].stack -= 40;
+  expect(sharedHandComparison(fork, 'P1')?.outcome).toBe('source');
+  expect(fork.sharedChallenge!.sourceNet).toBe(originalNet);
+  expect(() => nameSharedPlayer(fork, 'P2', 'Alex')).toThrow();
+  for (const invalid of ['', '   ', 'a'.repeat(31), null]) expect(() => nameSharedPlayer(fork, 'P1', invalid)).toThrow('invalid');
+  nameSharedPlayer(fork, 'P1', 'Alex');
+  expect(sharedHandComparison(fork, 'P1')?.needsName).toBe(false);
+  nameSharedPlayer(fork, 'P1', 'Other name');
+  expect(fork.players[0].name).toBe('Alex');
 });
 
 test('sharing rejects unfinished hands and seats eliminated before the deal', () => {

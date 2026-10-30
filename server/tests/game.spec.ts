@@ -228,6 +228,20 @@ test('next party hand keeps party and advances hand number', () => {
   expect(next.id).not.toBe(hand.id);
 });
 
+test('replays spend one of three lives and ordinary deals keep the remaining lives', () => {
+  const original = dealHand(2, 12345);
+  const firstReplay = replayHandLayout(original);
+  const next = nextPartyHand(firstReplay);
+  const secondReplay = replayHandLayout(next);
+  const thirdReplay = replayHandLayout(secondReplay);
+
+  expect(firstReplay.replayCount).toBe(1);
+  expect(next.replayCount).toBe(1);
+  expect(secondReplay.replayCount).toBe(2);
+  expect(thirdReplay.replayCount).toBe(3);
+  expect(() => replayHandLayout(thirdReplay)).toThrow('replay limit reached');
+});
+
 test('blind level doubles every eight hands', () => {
   expect(blindLevelForHand(1)).toEqual({ level: 0, small: 2, big: 4 });
   expect(blindLevelForHand(8)).toEqual({ level: 0, small: 2, big: 4 });

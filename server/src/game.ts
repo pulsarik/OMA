@@ -11,6 +11,7 @@ export const BLIND_LEVEL_HANDS = 8;
 export const INITIAL_SMALL_BLIND = 2;
 export const INITIAL_BIG_BLIND = 4;
 export const MAX_RAISES_PER_STREET = 3;
+export const MAX_REPLAYS_PER_MATCH = 3;
 export const POT_COINS = INITIAL_SMALL_BLIND + INITIAL_BIG_BLIND;
 export const SHUFFLE_VERSION = 'OMA1';
 export const REPLAY_CODE_PATTERN = /^[A-Z]{3}[0-9]{3}$/;
@@ -66,6 +67,7 @@ export type DealtHand = {
   forkedFromPartyId?: string;
   forkRootCode?: string;
   initialStacks?: Record<string, number>;
+  sharedChallenge?: { playerId: string; sourceName: string; sourceNet: number; needsName: boolean };
   handCode?: string;
   handNumber: number;
   /** Hand number within the current 1000-chip match; resets after a party restart. */
@@ -76,6 +78,8 @@ export type DealtHand = {
   /** Marks the first hand of a fresh 1000-chip match within the same party. */
   partyRestarted?: boolean;
   partyFinishedEarly?: boolean;
+  /** Replays spent during the current 1000-chip match. */
+  replayCount?: number;
   enteredPlayerIds?: string[];
   replayOfHandId?: string;
   replayCode?: string;
@@ -224,6 +228,7 @@ export function normalizeHand(hand: DealtHand) {
   hand.roundBets = hand.roundBets ?? {};
   hand.totalContributions = hand.totalContributions ?? legacyContributions(hand);
   hand.raiseCount = hand.raiseCount ?? 0;
+  hand.replayCount = Math.max(0, Math.floor(hand.replayCount ?? 0));
   hand.blinds = hand.blinds ?? { ...blindLevelForHand(hand.handNumber) };
   hand.lastFullRaise = Math.max(
     1,
@@ -1476,6 +1481,7 @@ export function dealHandFromCode(dealCode: string, playerNames: string[] = []) {
 }
 
 export function nextPartyHand(previous: DealtHand): DealtHand {
+  if (previous.sharedChallenge?.needsName) throw new Error('enter name to continue');
   normalizeHand(previous);
   const nextHandNumber = previous.handNumber + 1;
   const nextReplayCode = previous.replayCode;
@@ -1495,6 +1501,7 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   hand.handNumber = nextHandNumber;
   hand.matchHandNumber = (previous.matchHandNumber ?? previous.handNumber) + 1;
   hand.previousHandId = previous.id;
+  hand.replayCount = previous.replayCount;
   hand.blinds = { ...blindLevelForHand(hand.matchHandNumber) };
   const stacks = stacksAfterPayout(previous);
   hand.players = hand.players.map((player, index) => ({
@@ -1511,7 +1518,11 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
 }
 
 export function replayHandLayout(source: DealtHand): DealtHand {
+  if (source.sharedChallenge?.needsName) throw new Error('enter name to continue');
   normalizeHand(source);
+  if ((source.replayCount ?? 0) >= MAX_REPLAYS_PER_MATCH) {
+    throw new Error('replay limit reached');
+  }
   const hand = dealHand(source.players.length);
   hand.partyId = source.partyId;
   hand.partyCode = source.partyCode;
@@ -1522,6 +1533,7 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   hand.matchHandNumber = (source.matchHandNumber ?? source.handNumber) + 1;
   hand.previousHandId = source.id;
   hand.replayOfHandId = source.id;
+  hand.replayCount = (source.replayCount ?? 0) + 1;
   hand.replayCode = source.replayCode;
   hand.isReplay = true;
   hand.players = source.players.map((player) => ({
@@ -1555,11 +1567,17 @@ export function forkPartyFromHand(source: DealtHand, heroId: string): DealtHand 
   hand.forkedFromPartyId = saved.partyId;
   hand.forkRootCode = saved.forkRootCode ?? saved.partyCode ?? saved.partyId;
   hand.initialStacks = initialStacks;
+  hand.sharedChallenge = {
+    playerId: heroId,
+    sourceName: saved.players.find(p => p.id === heroId)!.name ?? 'Player',
+    sourceNet: (stacksAfterPayout(saved).get(heroId) ?? 0) - initialStacks[heroId],
+    needsName: true,
+  };
   hand.handNumber = saved.handNumber;
   hand.matchHandNumber = saved.matchHandNumber ?? saved.handNumber;
   hand.replayCode = saved.replayCode;
   hand.players = saved.players.map((p, index) => ({
-    id: p.id, name: p.id === heroId ? p.name : normalizedPlayerName(p.name, index, true),
+    id: p.id, name: p.id === heroId ? 'You' : normalizedPlayerName(p.name, index, true),
     token: uuidv4(), hole: [...p.hole], stack: initialStacks[p.id],
     folded: initialStacks[p.id] <= 0, isBot: p.id !== heroId,
     botStyle: p.id !== heroId ? p.botStyle ?? botStyleForSeed(saved.dealSeed, index) : undefined,
@@ -1568,4 +1586,28 @@ export function forkPartyFromHand(source: DealtHand, heroId: string): DealtHand 
   hand.enteredPlayerIds = hand.players.filter(p => p.isBot).map(p => p.id);
   applyBlinds(hand, saved.blinds.smallBlindPlayerId);
   return hand;
+}
+
+export function sharedHandComparison(hand: DealtHand, playerId: string) {
+  const challenge = hand.sharedChallenge;
+  if (!challenge || challenge.playerId !== playerId || hand.stage !== 'showdown') return undefined;
+  const player = hand.players.find(p => p.id === playerId)!;
+  const initial = hand.initialStacks?.[playerId] ?? player.stack + (hand.totalContributions[playerId] ?? 0);
+  const yourNet = (stacksAfterPayout(hand).get(playerId) ?? 0) - initial;
+  return {
+    sourceName: challenge.sourceName, sourceNet: challenge.sourceNet, yourNet,
+    outcome: yourNet > challenge.sourceNet ? 'you' as const : yourNet < challenge.sourceNet ? 'source' as const : 'tie' as const,
+    needsName: challenge.needsName,
+  };
+}
+
+export function nameSharedPlayer(hand: DealtHand, playerId: string, value: unknown) {
+  if (!hand.sharedChallenge || hand.sharedChallenge.playerId !== playerId || hand.stage !== 'showdown') {
+    throw new Error('completed shared hand required');
+  }
+  const name = typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+  if (!name || name.length > 30 || /[\u0000-\u001f\u007f]/.test(name)) throw new Error('invalid player name');
+  if (!hand.sharedChallenge.needsName) return;
+  hand.players.find(p => p.id === playerId)!.name = name;
+  hand.sharedChallenge.needsName = false;
 }

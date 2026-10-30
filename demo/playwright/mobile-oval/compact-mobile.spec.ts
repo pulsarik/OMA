@@ -19,6 +19,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
       await expect(page.getByTestId('training-advice')).toBeVisible();
       await expect(page.getByTestId('training-advice').locator('strong')).toHaveCount(0);
       await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
+      await expect(page.locator('.mt-raise .mt-limit-pips--diamonds > span')).toHaveCount(3);
       const geometry = await page.getByTestId('mobile-table').evaluate(table => {
         const areas = [...table.querySelectorAll('.mt-seat, .mt-board, .mt-hints, .mt-dock, .mt-header')]
           .map(el => ({ ...el.getBoundingClientRect().toJSON(), name: el.getAttribute('data-testid') ?? el.className }));
@@ -60,6 +61,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
     await expect(page.locator('.mt-seat--hero .mt-seat-result')).not.toContainText('Your turn');
     mock.update({ ...fixture(7), players: state.players });
     await expect(page.getByRole('button', { name: 'Play on', exact: true })).toBeInViewport();
+    await expect(page.locator('.mt-limited-action .mt-limit-pips--hearts > span')).toHaveCount(3);
     const replay = await page.getByTestId('replay-current-deal').filter({ visible: true }).boundingBox();
     const next = await page.locator('.mt-next').boundingBox();
     expect(replay!.x + replay!.width).toBeLessThan(next!.x);

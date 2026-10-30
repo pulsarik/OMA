@@ -28,7 +28,7 @@ export function fixture(count = 7, showdown = true) {
     community: ['3c', '4d', '5h', 'Ks', 'Qc'], stage: showdown ? 'showdown' : 'river',
     currentPlayerId: showdown ? undefined : 'P1', currentBet: showdown ? 0 : 20, potCoins: 1200,
     totalContributions: Object.fromEntries(players.map(p => [p.id, 200])), roundBets: { P1: 0 },
-    raiseCount: 0, lastFullRaise: 20, actedSinceLastFullRaise: [],
+    raiseCount: 0, maxRaises: 3, replayCount: 0, maxReplays: 3, lastFullRaise: 20, actedSinceLastFullRaise: [],
     blinds: { small: 2, big: 4, smallBlindPlayerId: 'P2', bigBlindPlayerId: 'P3', dealerPlayerId: 'P1' },
     potBreakdown: [{ amount: 1200, eligiblePlayerIds: players.map(p => p.id) }],
     partyTotals: players.map(p => ({ id: p.id, total: 1000 })), waitingForPlayers: [], actions: [],

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShareDealButton, SharedDealPage } from '../components/SharedDeal';
+import { SharedHandResult, type SharedComparison } from '../components/SharedHandResult';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
@@ -458,6 +459,7 @@ type EarlyFinishRequest = {
 };
 
 type PlayerView = {
+  sharedComparison?: SharedComparison;
   forkRootCode?: string;
   handId: string;
   partyId: string;
@@ -481,6 +483,8 @@ type PlayerView = {
   roundBets: Record<string, number>;
   raiseCount: number;
   maxRaises?: number;
+  replayCount?: number;
+  maxReplays?: number;
   lastFullRaise?: number;
   actedSinceLastFullRaise?: string[];
   turnDeadline?: number;
@@ -564,6 +568,8 @@ type FullHandView = {
   roundBets?: Record<string, number>;
   raiseCount?: number;
   maxRaises?: number;
+  replayCount?: number;
+  maxReplays?: number;
   lastFullRaise?: number;
   actedSinceLastFullRaise?: string[];
   turnDeadline?: number;
@@ -3523,12 +3529,12 @@ function PlayerPage({
     ? `${raiseLabel} ${formatPoints(wagerTarget)}`
     : `${raiseLabel} ${formatPoints(wagerTarget)}, ${raiseCount} ${ui('of', 'из')} ${maxRaises} ${ui('raises used', 'рейзов использовано')}`;
   const raiseProgress = maxRaises === undefined ? null : (
-    <span className="raise-progress" aria-hidden="true">
+    <span className="limit-pips limit-pips--diamonds" aria-hidden="true">
       {Array.from({ length: maxRaises }, (_, index) => (
         <span
           key={index}
-          className={`raise-progress-segment${index < raiseCount ? ' is-used' : ''}`}
-        />
+          className={index < raiseCount ? 'is-used' : ''}
+        >◆</span>
       ))}
     </span>
   );
@@ -3547,6 +3553,16 @@ function PlayerPage({
     && !hasContinuation
     && !tournamentWinner
     && !player.partyFinishedEarly;
+  const replayCount = player.replayCount ?? 0;
+  const maxReplays = player.maxReplays ?? 3;
+  const replayRemaining = Math.max(0, maxReplays - replayCount);
+  const replayLives = (
+    <span className="limit-pips limit-pips--hearts" aria-hidden="true">
+      {Array.from({ length: maxReplays }, (_, index) => (
+        <span key={index} className={index < replayRemaining ? '' : 'is-used'}>♥</span>
+      ))}
+    </span>
+  );
   const showActionDock = socketReady
     && player.stage !== 'showdown'
     && !player.folded
@@ -3668,17 +3684,21 @@ function PlayerPage({
       {ui('New deal', 'Новая раздача')}
     </button>
   ) : undefined;
-  const shareAction = player.stage === 'showdown' && player.stack + (player.totalContributions?.[player.playerId] ?? 0) > 0
+  const shareAction = player.stage === 'showdown' && !player.sharedComparison?.needsName && player.stack + (player.totalContributions?.[player.playerId] ?? 0) > 0
     ? <ShareDealButton key={handId} serverUrl={SERVER_URL} handId={handId} playerId={playerId} token={token} t={ui} /> : undefined;
   const replayDealAction = canContinue ? (
-    <button
-      className="action-button"
-      data-testid="replay-current-deal"
-      disabled={isCreatingDeal}
-      onClick={() => replayDeal()}
-    >
-      {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('Replay this deal', 'Переиграть эту раздачу')}
-    </button>
+    <span className="limited-action">
+      {replayLives}
+      <button
+        className="action-button"
+        data-testid="replay-current-deal"
+        aria-label={`${ui('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${ui('replays remaining', 'повторов осталось')}`}
+        disabled={isCreatingDeal || replayRemaining === 0}
+        onClick={() => replayDeal()}
+      >
+        {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('Replay this deal', 'Переиграть эту раздачу')}
+      </button>
+    </span>
   ) : undefined;
 
   const showOvalTable = isTableView && (shouldUseMobileTable(window.innerWidth, player.players.length)
@@ -3694,7 +3714,7 @@ function PlayerPage({
         controls={{
           canAct, canCall, canRaise, callAmount: call.amount, callIsAllIn: call.isAllIn,
           wagerTarget, wagerIsAllIn: currentBet > 0 ? raiseIsAllIn : betIsAllIn,
-          betSize, raiseCount, maxRaises, pending: Boolean(pendingCommand), connected: socketReady,
+          betSize, raiseCount, maxRaises, replayCount, maxReplays, pending: Boolean(pendingCommand), connected: socketReady,
           creatingDeal: isCreatingDeal, turnSeconds, turnDurationMs: player.turnDurationMs,
           notice, sessionWarning: showSessionWarning ? sessionCountdown : undefined,
         }}
@@ -3722,6 +3742,9 @@ function PlayerPage({
   return (
     <>
       {ovalTable}
+      {player.sharedComparison?.needsName ? <SharedHandResult key={handId}
+        comparison={player.sharedComparison} serverUrl={SERVER_URL} handId={handId} playerId={playerId} token={token} t={ui}
+        canContinue={canContinue} onSaved={state => { applyPlayerState(state); if (canContinue) startNewDeal(); }} /> : null}
       {/* Keep the voice room mounted when returning to either table layout. */}
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
         {!showOvalTable ? <style>{PLAYER_PAGE_STYLES}</style> : null}
@@ -3988,7 +4011,7 @@ function PlayerPage({
                           </button>
                         ) : null}
                         {currentBet > 0 ? (
-                          <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
+                          <button className="action-button limited-raise" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
                             <span className="action-button-copy">{raiseLabel}</span>{' '}
                             <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
                             {raiseProgress}
@@ -4009,7 +4032,7 @@ function PlayerPage({
                           <strong className="action-button-value">{formatPoints(call.amount)}</strong>
                         </button>
                         {currentBet > 0 ? (
-                          <button className="action-button" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
+                          <button className="action-button limited-raise" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
                             <span className="action-button-copy">{raiseLabel}</span>{' '}
                             <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
                             {raiseProgress}

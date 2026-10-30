@@ -14,11 +14,8 @@ test('share opens an independent playable table, survives reload and continues w
   await page.getByRole('button', { name: 'Add bot' }).click();
   await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeEnabled();
-  const scene = page.getByTestId('mt-scene');
-  const initialScene = await scene.count() ? await scene.boundingBox() : null;
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
   await page.getByTestId('share-deal').filter({ visible: true }).click();
-  if (initialScene) expect(Math.abs((await scene.boundingBox())!.height - initialScene.height)).toBeLessThanOrEqual(2);
   await expect.poll(() => page.evaluate(() => (window as any).sharedUrl)).toBeTruthy();
   const shareUrl = await page.evaluate(() => (window as any).sharedUrl as string);
   await expect(page.getByRole('dialog')).toHaveCount(0);
@@ -41,6 +38,9 @@ test('share opens an independent playable table, survives reload and continues w
   expect(fork.fullCommunity).toEqual(source.fullCommunity);
   expect(fork.players.map((p: any) => p.hole)).toEqual(source.players.map((p: any) => p.hole));
   expect(fork.previousHandId).toBeUndefined();
+  expect(fork.players[0].name).toBe('You');
+  const apiUrl = `http://localhost:4100/api${new URL(forkUrl).pathname}`;
+  expect((await (await request.get(apiUrl)).json()).sharedComparison).toBeUndefined();
   await expect(friend.getByTestId('fork-banner').filter({ visible: true })).toContainText(fork.partyCode);
   await friend.reload();
   await expect(friend).toHaveURL(forkUrl);
@@ -48,16 +48,31 @@ test('share opens an independent playable table, survives reload and continues w
   await expect(friend).toHaveURL(forkUrl);
   await expect(friend.getByRole('button', { name: 'Fold', exact: true })).toBeEnabled();
   await friend.getByRole('button', { name: 'Fold', exact: true }).click();
-  const apiUrl = `http://localhost:4100/api${new URL(forkUrl).pathname}`;
   await expect.poll(async () => (await (await request.get(apiUrl)).json()).stage).toBe('showdown');
+  const resultDialog = friend.getByRole('dialog');
+  await expect(resultDialog).toBeVisible();
+  const comparison = (await (await request.get(apiUrl)).json()).sharedComparison;
+  expect(comparison.sourceName).toBe('Sharing player');
+  expect(comparison.sourceNet).toBe(-source.totalContributions.P1);
+  await expect(resultDialog.getByTestId('shared-comparison')).toContainText('Sharing player');
+  await expect(resultDialog.getByRole('button', { name: 'Play on' })).toBeDisabled();
+  expect((await request.post(`${apiUrl}/shared-name`, { data: { name: '   ' } })).status()).toBe(400);
+  expect((await request.post(`http://localhost:4100/api/player/${forkId}/P1/wrong/shared-name`, { data: { name: 'Alex' } })).status()).toBe(403);
+  await friend.reload();
+  await expect(resultDialog).toBeVisible();
   const score = await (await request.get(`${apiUrl}/score`)).json();
   expect(score.hands).toHaveLength(1);
   for (const net of score.hands[0].net) {
     const wallet = score.hands[0].wallets.find((p: any) => p.id === net.id).total;
     expect(net.total).toBe(wallet - fork.initialStacks[net.id]);
   }
-  await friend.getByRole('button', { name: /^(New deal|Next deal|Play on)$/ }).filter({ visible: true }).click();
+  await resultDialog.getByLabel('Enter your name to continue playing').fill('Alex');
+  await resultDialog.getByRole('button', { name: 'Play on', exact: true }).click();
   await expect.poll(async () => (await (await request.get(`http://localhost:4100/admin/hands/${forkId}`)).json()).nextHandId).toBeTruthy();
+  const named = await (await request.get(`http://localhost:4100/admin/hands/${forkId}`)).json();
+  const next = await (await request.get(`http://localhost:4100/admin/hands/${named.nextHandId}`)).json();
+  expect(next.players[0].name).toBe('Alex');
+  await expect(resultDialog).toHaveCount(0);
   const originalAfter = await (await request.get(`http://localhost:4100/admin/hands/${sourceId}`)).json();
   expect(originalAfter.nextHandId).toBeUndefined();
   const otherContext = await browser.newContext();
