@@ -1,5 +1,12 @@
 import { expect, test } from '@jest/globals';
-import { clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, displayedStack } from '../client/src/mobile-table/presentation';
+import {
+  clockwiseOpponents,
+  DESKTOP_OPPONENT_POSITIONS,
+  displayedStack,
+  lastPlayedStage,
+  latestActionForPlayer,
+  unplayedRunoutLabel,
+} from '../client/src/mobile-table/presentation';
 
 test('showdown displays the settled stack without adding the payout twice', () => {
   const seat = { id: 'hero', stack: 844 };
@@ -26,4 +33,16 @@ test('desktop tables have a distinct position for every opponent through ten sea
       ? [...players.slice(3), ...players.slice(0, 2)].map(p => p.id)
       : players.map(p => p.id));
   }
+});
+
+test('problem 1007 keeps the street of a fold visible beside an unplayed runout', () => {
+  const actions = [
+    { playerId: 'P1', move: 'bet', stage: 'turn', at: 1 },
+    { playerId: 'P2', move: 'fold', stage: 'turn', at: 2 },
+  ];
+
+  expect(latestActionForPlayer(actions, 'P2', 'showdown')).toEqual(actions[1]);
+  expect(lastPlayedStage(actions)).toBe('turn');
+  expect(unplayedRunoutLabel('turn', 'en')).toBe('Unplayed runout · turn');
+  expect(unplayedRunoutLabel('turn', 'ru')).toBe('Несыгранный доезд · Тёрн');
 });

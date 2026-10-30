@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { ShareDealButton, SharedDealPage } from '../components/SharedDeal';
 import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
@@ -457,6 +458,7 @@ type EarlyFinishRequest = {
 };
 
 type PlayerView = {
+  forkRootCode?: string;
   handId: string;
   partyId: string;
   partyCode?: string;
@@ -2278,11 +2280,13 @@ function ShowdownStatus({
   player,
   newDealAction,
   replayDealAction,
+  shareAction,
   variant,
 }: {
   player: PlayerView;
   newDealAction?: React.ReactNode;
   replayDealAction?: React.ReactNode;
+  shareAction?: React.ReactNode;
   variant?: 'mobile-actions';
 }) {
   const activePlayers = player.players.filter((seat) => !seat.folded);
@@ -2385,10 +2389,11 @@ function ShowdownStatus({
           {ui('Net', 'Итог')}: {net > 0 ? '+' : ''}{formatPoints(net)}
         </strong>
       </div>
-      {newDealAction || replayDealAction ? (
+      {newDealAction || replayDealAction || shareAction ? (
         <div className="showdown-new-deal" data-testid="showdown-new-deal">
           {newDealAction}
           {replayDealAction}
+          {shareAction}
         </div>
       ) : null}
       {payout > 0 && net <= 0 && winParts.length ? (
@@ -3663,6 +3668,8 @@ function PlayerPage({
       {ui('New deal', 'Новая раздача')}
     </button>
   ) : undefined;
+  const shareAction = player.stage === 'showdown' && player.stack + (player.totalContributions?.[player.playerId] ?? 0) > 0
+    ? <ShareDealButton key={handId} serverUrl={SERVER_URL} handId={handId} playerId={playerId} token={token} t={ui} /> : undefined;
   const replayDealAction = canContinue ? (
     <button
       className="action-button"
@@ -3678,6 +3685,7 @@ function PlayerPage({
     || shouldUseDesktopTable(window.innerWidth, player.players.length));
   const ovalTable = showOvalTable ? <React.Suspense fallback={<p role="status">Loading table...</p>}>
       <MobileTable
+        shareAction={shareAction}
         language={interfaceLanguage}
         layout={isMobileTable ? 'mobile' : 'desktop'}
         player={player}
@@ -3718,6 +3726,7 @@ function PlayerPage({
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
         {!showOvalTable ? <style>{PLAYER_PAGE_STYLES}</style> : null}
       <div className="commentator-toolbar">
+        {player.forkRootCode ? <span data-testid="fork-banner">{ui('Shared game', 'Копия партии')} {player.partyCode} · {ui('from', 'из')} {player.forkRootCode}</span> : null}
         {!showOvalTable ? <Commentator controller={commentary} /> : null}
       </div>
       <CompactGameNavigation label={ui('Menu', 'Меню')}>
@@ -3836,6 +3845,7 @@ function PlayerPage({
               player={player}
               newDealAction={newDealAction}
               replayDealAction={replayDealAction}
+              shareAction={shareAction}
             />
           ) : null}
         </section>
@@ -3925,6 +3935,7 @@ function PlayerPage({
                 variant="mobile-actions"
                 newDealAction={newDealAction}
                 replayDealAction={replayDealAction}
+                shareAction={shareAction}
               />
             </div>
           ) : showActionDock ? <div
@@ -6321,6 +6332,7 @@ export default function App() {
 
   let page: React.ReactNode;
   if (window.location.pathname.startsWith('/player/')) page = <PlayerPage />;
+  else if (window.location.pathname.startsWith('/share/')) page = <SharedDealPage serverUrl={SERVER_URL} t={ui} />;
   else if (window.location.pathname.startsWith('/debug/')) page = <DebugPage />;
   else if (window.location.pathname.startsWith('/lobby/')) page = <LobbyPage />;
   else page = <WelcomePage />;

@@ -1,5 +1,5 @@
 import { botMove, botSituation, estimateShowdownEquity } from '../src/bot';
-import { dealHand, hasNutLow, potsAfterCall, recordPlayerMove, stacksAfterPayout } from '../src/game';
+import { dealHand, hasNutLow, potsAfterCall, recordPlayerMove, replayHandSeed, stacksAfterPayout } from '../src/game';
 
 test('short all-in calls exclude inaccessible side pots and do not change the hand', () => {
   const hand = dealHand(3, 71);
@@ -86,6 +86,47 @@ test.each([6, 7, 10])('suited A-K-2-7 enters an unopened %i-player pot for one b
       expect(botMove(hand, player).move).not.toBe('fold');
     }
   }
+});
+
+test('VUG608 Anna enters an unopened pot with suited A-Q-J-4 at the blind price', () => {
+  const hand = dealHand(8, replayHandSeed('VUG608', 6, 8));
+  const anna = hand.players[4];
+  expect(anna.hole).toEqual(['Jc', 'Qs', 'Ac', '4h']);
+  anna.botStyle = 'normal';
+
+  hand.blinds = {
+    level: 0,
+    small: 2,
+    big: 4,
+    dealerPlayerId: 'P5',
+    smallBlindPlayerId: 'P6',
+    bigBlindPlayerId: 'P7',
+  };
+  hand.players.forEach(player => {
+    player.stack = 1000;
+    player.folded = false;
+  });
+  hand.players[5].stack -= 2;
+  hand.players[6].stack -= 4;
+  hand.currentBet = 4;
+  hand.currentPlayerId = 'P8';
+  hand.roundBets = { P6: 2, P7: 4 };
+  hand.totalContributions = { P6: 2, P7: 4 };
+  hand.potCoins = 6;
+  hand.actions = [];
+  hand.actedSinceLastFullRaise = [];
+  hand.raiseCount = 0;
+  hand.lastFullRaise = 4;
+
+  for (const playerId of ['P8', 'P1', 'P2', 'P3', 'P4']) {
+    recordPlayerMove(hand, playerId, 'fold');
+  }
+
+  const decision = botMove(hand, anna);
+  expect(botSituation(hand, anna).cost).toBe(4);
+  expect(botSituation(hand, anna).potOdds).toBeCloseTo(0.4);
+  expect(decision.move).toBe('call');
+  expect(decision.reason?.coach?.code).toBe('PREMIUM_BLIND_ENTRY');
 });
 
 test('premium blind entry does not force a short-stack commitment', () => {

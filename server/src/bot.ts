@@ -234,6 +234,16 @@ function doubleSuitedBonus(hole: string[]) {
   return [...suitCounts.values()].filter((count) => count >= 2).length >= 2 ? 1 : 0;
 }
 
+function connectedBroadwayBonus(hole: string[]) {
+  const broadwayRanks = [...new Set(hole.map(rankValue).filter((rank) => rank >= 10))];
+  if (broadwayRanks.length < 3) return 0;
+  broadwayRanks.sort((left, right) => left - right);
+  for (let start = 0; start <= broadwayRanks.length - 3; start++) {
+    if (broadwayRanks[start + 2] - broadwayRanks[start] <= 3) return 2.5;
+  }
+  return 0;
+}
+
 function startingHandScore(hole: string[]) {
   const ranks = hole.map(rankValue);
   const lows = [...new Set(hole.map(lowValue).filter((value): value is number => Boolean(value)))];
@@ -248,6 +258,10 @@ function startingHandScore(hole: string[]) {
   if ([...rankCounts.values()].some((count) => count >= 3)) score -= 2;
   score += suitedAceBonus(hole);
   score += doubleSuitedBonus(hole);
+  // Three close broadway ranks create several two-hole paths to a nut or
+  // near-nut straight. With a suited ace this is enough for a normal bot to
+  // enter an unopened pot at the blind price, but not to call a raise.
+  score += connectedBroadwayBonus(hole);
   score += ranks.filter((rank) => rank >= 11).length * 0.5;
   score -= ranks.filter((rank) => rank >= 6 && rank <= 9).length * 0.25;
   return score;

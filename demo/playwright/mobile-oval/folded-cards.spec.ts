@@ -44,7 +44,8 @@ for (const viewport of [{ width: 320, height: 667 }, { width: 390, height: 844 }
     showdown.players[1].folded = true;
     mock.update(showdown);
     await expect(opponent.locator('[data-card]')).toHaveCount(4);
-    await expect(opponent.locator('.mt-fold-stamp')).toBeVisible();
+    await expect(opponent.locator('.mt-fold-stamp')).toHaveCount(0);
+    await expect(opponent.locator('.mt-ranks')).toContainText('Folded');
 
     mock.update({ ...fixture(7, false), handId: 'next-fixture' });
     await expect(page.locator('.mt-fold-stamp')).toHaveCount(0);

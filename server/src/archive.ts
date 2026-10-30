@@ -6,6 +6,8 @@ import {
 
 export type ArchiveRow = {
   partyId: string;
+  partyCode?: string;
+  forkRootCode?: string;
   date: number;
   bots: number;
   humans: number;
@@ -156,12 +158,14 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
     ), firstHand.created);
     const rawReplayCode = [...orderedHands].reverse().find(hand => hand.replayCode)?.replayCode;
     const normalizedReplayCode = rawReplayCode?.trim().toUpperCase();
-    const replayCode = normalizedReplayCode && /^[A-Z]{3}\d{3}$/.test(normalizedReplayCode)
+    const replayCode = !firstHand.forkRootCode && normalizedReplayCode && /^[A-Z]{3}\d{3}$/.test(normalizedReplayCode)
       ? normalizedReplayCode
       : undefined;
 
     return {
       partyId,
+      partyCode: firstHand.partyCode,
+      forkRootCode: firstHand.forkRootCode,
       date: firstHand.created,
       bots: firstHand.players.filter(player => player.isBot).length,
       humans: firstHand.players.filter(player => !player.isBot).length,

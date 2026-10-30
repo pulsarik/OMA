@@ -71,7 +71,7 @@ export function commentaryCases() {
       const t = await table(page, 'voice');
       t.complete();
       t.send();
-      const next = page.getByRole('button', { name: /^(Next deal|New deal)$/ });
+      const next = page.getByRole('button', { name: /^(Play on|New deal)$/ });
       await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
       await expect(next).toBeEnabled();
       await next.click();
@@ -92,7 +92,7 @@ export function commentaryCases() {
     t.send();
     await expect.poll(() => page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
     t.link();
-    const next = page.getByRole('button', { name: /^(Next deal|New deal)$/ });
+    const next = page.getByRole('button', { name: /^(Play on|New deal)$/ });
     await expect(next).toBeEnabled();
     await next.click();
     await expect(page).toHaveURL(/\/player\/mobile-fixture\/P1\/token$/);

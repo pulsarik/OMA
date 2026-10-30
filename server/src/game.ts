@@ -62,6 +62,10 @@ export type DealtHand = {
   id: string;
   partyId: string;
   partyCode?: string;
+  forkedFromHandId?: string;
+  forkedFromPartyId?: string;
+  forkRootCode?: string;
+  initialStacks?: Record<string, number>;
   handCode?: string;
   handNumber: number;
   /** Hand number within the current 1000-chip match; resets after a party restart. */
@@ -1485,6 +1489,9 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   );
   hand.partyId = previous.partyId;
   hand.partyCode = previous.partyCode;
+  hand.forkRootCode = previous.forkRootCode;
+  hand.forkedFromHandId = previous.forkedFromHandId;
+  hand.forkedFromPartyId = previous.forkedFromPartyId;
   hand.handNumber = nextHandNumber;
   hand.matchHandNumber = (previous.matchHandNumber ?? previous.handNumber) + 1;
   hand.previousHandId = previous.id;
@@ -1508,6 +1515,9 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   const hand = dealHand(source.players.length);
   hand.partyId = source.partyId;
   hand.partyCode = source.partyCode;
+  hand.forkRootCode = source.forkRootCode;
+  hand.forkedFromHandId = source.forkedFromHandId;
+  hand.forkedFromPartyId = source.forkedFromPartyId;
   hand.handNumber = source.handNumber + 1;
   hand.matchHandNumber = (source.matchHandNumber ?? source.handNumber) + 1;
   hand.previousHandId = source.id;
@@ -1531,5 +1541,31 @@ export function replayHandLayout(source: DealtHand): DealtHand {
   // A replay is a new hand in the history, but it must reproduce the source
   // seating rather than rotate positions as an ordinary next hand would.
   applyBlinds(hand, source.blinds.smallBlindPlayerId);
+  return hand;
+}
+
+/** Independent, playable copy; never link it into the source history. */
+export function forkPartyFromHand(source: DealtHand, heroId: string): DealtHand {
+  const saved: DealtHand = normalizeHand(JSON.parse(JSON.stringify(source)));
+  if (saved.stage !== 'showdown') throw new Error('hand is still in progress');
+  const initialStacks = Object.fromEntries(saved.players.map(p => [p.id, p.stack + (saved.totalContributions[p.id] ?? 0)]));
+  if (!saved.players.some(p => p.id === heroId && initialStacks[p.id] > 0)) throw new Error('player did not participate');
+  const hand = dealHand(saved.players.length, saved.dealSeed);
+  hand.forkedFromHandId = saved.id;
+  hand.forkedFromPartyId = saved.partyId;
+  hand.forkRootCode = saved.forkRootCode ?? saved.partyCode ?? saved.partyId;
+  hand.initialStacks = initialStacks;
+  hand.handNumber = saved.handNumber;
+  hand.matchHandNumber = saved.matchHandNumber ?? saved.handNumber;
+  hand.replayCode = saved.replayCode;
+  hand.players = saved.players.map((p, index) => ({
+    id: p.id, name: p.id === heroId ? p.name : normalizedPlayerName(p.name, index, true),
+    token: uuidv4(), hole: [...p.hole], stack: initialStacks[p.id],
+    folded: initialStacks[p.id] <= 0, isBot: p.id !== heroId,
+    botStyle: p.id !== heroId ? p.botStyle ?? botStyleForSeed(saved.dealSeed, index) : undefined,
+  }));
+  hand.fullCommunity = [...saved.fullCommunity];
+  hand.enteredPlayerIds = hand.players.filter(p => p.isBot).map(p => p.id);
+  applyBlinds(hand, saved.blinds.smallBlindPlayerId);
   return hand;
 }

@@ -35,6 +35,25 @@ export function clockwiseOpponents<T extends Seat>(players: T[], heroId: string)
   return index < 0 ? players : [...players.slice(index + 1), ...players.slice(0, index)];
 }
 
+type ActionLike = Pick<TableState['actions'][number], 'playerId' | 'stage'>;
+
+/**
+ * At showdown the current stage no longer identifies the street of a fold.
+ * Keep the final action visible so a generated runout is not mistaken for
+ * information that was available when the player acted.
+ */
+export function latestActionForPlayer<T extends ActionLike>(
+  actions: T[], playerId: string, currentStage: string,
+): T | undefined {
+  return [...actions].reverse().find(action => (
+    action.playerId === playerId && (currentStage === 'showdown' || action.stage === currentStage)
+  ));
+}
+
+export function lastPlayedStage(actions: ActionLike[]) {
+  return actions[actions.length - 1]?.stage;
+}
+
 export function words(language: Language, en: string, ru: string) {
   return language === 'ru' ? ru : en;
 }
@@ -54,3 +73,6 @@ const moves: Record<string, string> = { check: 'Чек', call: 'Колл', bet: 
 export const rankLabel = (rank: string, language: Language) => language === 'ru' ? ranks[rank] ?? rank : rank;
 export const stageLabel = (stage: string, language: Language) => language === 'ru' ? stages[stage] ?? stage : stage;
 export const moveLabel = (move: string, language: Language) => language === 'ru' ? moves[move] ?? move : move;
+export const unplayedRunoutLabel = (stage: string, language: Language) => (
+  `${words(language, 'Unplayed runout', 'Несыгранный доезд')} · ${stageLabel(stage, language)}`
+);

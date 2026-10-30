@@ -25,6 +25,7 @@ export type Summary = {
   }>;
 };
 export type TableState = {
+  forkRootCode?: string;
   handId: string; handCode?: string; handNumber: number; partyCode?: string;
   isReplay?: boolean; replayOfHandId?: string; replayCode?: string;
   playerId: string; playerName?: string; stack: number; hole: string[]; folded: boolean; isBot?: boolean;
@@ -49,6 +50,7 @@ export type TableControls = {
   notice?: string | null; sessionWarning?: string;
 };
 export type MobileTableProps = {
+  shareAction?: ReactNode;
   language?: Language;
   layout?: 'mobile' | 'desktop';
   player: TableState; controls: TableControls; dealerId?: string; tableName?: string;

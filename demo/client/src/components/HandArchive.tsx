@@ -4,6 +4,8 @@ import { CombinationFrequency } from './CombinationFrequency';
 
 type ArchiveRow = {
   partyId: string;
+  partyCode?: string;
+  forkRootCode?: string;
   date: number;
   bots: number;
   humans: number;
@@ -166,7 +168,10 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               </tr> : null}
               {rows.map(row => (
                 <tr key={row.partyId}>
-                  <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}</td>
+                  <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}
+                    {row.partyCode ? <div>{row.partyCode}</div> : null}
+                    {row.forkRootCode ? <small>{ru ? 'Копия партии' : 'Copy of'} {row.forkRootCode}</small> : null}
+                  </td>
                   <td>{row.hands}</td>
                   <td>
                     <input

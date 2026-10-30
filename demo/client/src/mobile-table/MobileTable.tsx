@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Cards, CombinationHint } from './Cards';
-import { displayedStack, amount, clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, moveLabel, nameOf, OPPONENT_POSITIONS, rankLabel, stageLabel, words } from './presentation';
+import { displayedStack, amount, clockwiseOpponents, DESKTOP_OPPONENT_POSITIONS, lastPlayedStage, latestActionForPlayer, moveLabel, nameOf, OPPONENT_POSITIONS, rankLabel, stageLabel, unplayedRunoutLabel, words } from './presentation';
 import type { Language, MobileTableProps, Move, Seat, TableState } from './types';
 import './mobileTable.css';
 import './desktopTable.css';
@@ -21,7 +21,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds, c
   const eliminated = total !== undefined && total <= 0;
   const offline = !seat.isBot && (seat.disconnected || seat.connected === false);
   const waiting = player.waitingForPlayers.some(p => p.id === seat.id);
-  const lastAction = [...player.actions].reverse().find(a => a.playerId === seat.id && a.stage === player.stage);
+  const lastAction = latestActionForPlayer(player.actions, seat.id, player.stage);
   const blind = player.blinds?.smallBlindPlayerId === seat.id ? 'SB' : player.blinds?.bigBlindPlayerId === seat.id ? 'BB' : '';
   // Never infer other players' cards, even if a stale snapshot includes them before showdown.
   const cards = seat.folded && !showdown ? undefined : hero ? player.hole : showdown ? seat.hole : undefined;
@@ -44,7 +44,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds, c
         <Cards cards={cards} count={seat.cardCount || 4} language={language} />
         {compact ? <span className="mt-hand-positions">{positions}</span> : null}
       </div>
-      {seat.folded ? <span className="mt-fold-stamp" role="img" aria-label={t('Folded', 'Сбросил карты')}>FOLD</span> : null}
+      {seat.folded && !showdown ? <span className="mt-fold-stamp" role="img" aria-label={t('Folded', 'Сбросил карты')}>FOLD</span> : null}
     </div>
     <div className="mt-seat-result">
       {showdown ? <>
@@ -54,7 +54,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds, c
           {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Won', 'Выиграл')} {amount(payout?.uncontested)}</span> : null}
         </div>
         {!hero ? <div className="mt-ranks">
-          {seat.folded ? <span>{t('Folded', 'Сбросил карты')}</span> : null}
+          {seat.folded ? <span>{t('Folded', 'Сбросил карты')}{lastAction ? ` · ${stageLabel(lastAction.stage, language)}` : ''}</span> : null}
           {result?.highRank ? <span>{t('HIGH', 'СТАРШАЯ')} · {rankLabel(result.highRank, language)}</span> : null}
           {result?.lowRank ? <span>{t('LOW', 'МЛАДШАЯ')} · {rankLabel(result.lowRank, language)}</span> : null}
         </div> : null}
@@ -100,7 +100,7 @@ function PotSplit({ player: p, language, onOpen }: { player: TableState; languag
   </div>;
 }
 
-function ActionDock({ props, language }: { props: MobileTableProps; language: Language }) {
+function ActionDock({ props, language, finishedActions }: { props: MobileTableProps; language: Language; finishedActions?: React.ReactNode }) {
   const { player, controls: c } = props;
   const t = (en: string, ru: string) => words(language, en, ru);
   const press = useRef('');
@@ -110,17 +110,22 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
     const wager = move === 'bet' || move === 'raise';
     props.onMove(move, wager ? c.wagerTarget : undefined, wager ? c.betSize : undefined);
   };
-  if (player.stage === 'showdown') return props.onNext || props.onReplay ? <footer className="mt-dock mt-showdown-actions">
+  const showdown = player.stage === 'showdown';
+  const continuation = <div className="mt-showdown-actions">
     {props.onNext ? <button className="mt-next" disabled={!c.connected || c.creatingDeal} onClick={props.onNext}>
-      {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Next deal', 'Следующая раздача')}
+      {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Play on', 'Играть дальше')}
     </button> : null}
-    {props.onReplay ? <button className="mt-replay-deal" data-testid="replay-current-deal" aria-label={t('Replay this deal', 'Переиграть эту раздачу')} disabled={!c.connected || c.creatingDeal} onClick={props.onReplay}>
-      {c.creatingDeal ? t('Creating…', 'Создаём…') : props.layout === 'desktop' ? t('Replay this deal', 'Переиграть эту раздачу') : t('Replay', 'Повтор')}
-    </button> : null}
-  </footer> : null;
+  </div>;
   return <footer className="mt-dock" data-testid="mt-actions">
-    {props.coach}
-    <fieldset disabled={!c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
+    <div className="mt-coach-slot">{showdown ? <div className="mt-secondary-actions">
+      {props.shareAction}
+      {props.onReplay ? <button className="mt-replay-deal" data-testid="replay-current-deal" aria-label={t('Replay this deal', 'Переиграть эту раздачу')} disabled={!c.connected || c.creatingDeal} onClick={props.onReplay}>
+        {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Replay', 'Переиграть')}
+      </button> : null}
+    </div> : props.coach}</div>
+    <div className="mt-controls-slot">
+    {showdown ? finishedActions ?? continuation : null}
+    <fieldset style={showdown ? { visibility: 'hidden' } : undefined} aria-hidden={showdown || undefined} disabled={showdown || !c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
       <div className="mt-bet-sizes" role="group" aria-label={t('Bet size', 'Размер ставки')}>
         {(['blind', 'quarter', 'half', 'pot'] as const).map((size, i) => <button key={size} aria-pressed={c.betSize === size}
           disabled={player.currentBet > 0 && !c.canRaise} onClick={() => props.onBetSize(size)}>
@@ -137,6 +142,7 @@ function ActionDock({ props, language }: { props: MobileTableProps; language: La
       </div>
       {c.maxRaises !== undefined ? <small className="mt-cap">{t('Raises', 'Повышения')}: {c.raiseCount}/{c.maxRaises}</small> : null}
     </fieldset>
+    </div>
   </footer>;
 }
 
@@ -235,6 +241,9 @@ export default function MobileTable(props: MobileTableProps) {
   const positions = (desktop ? DESKTOP_OPPONENT_POSITIONS : OPPONENT_POSITIONS)[opponents.length];
   const showdown = p.stage === 'showdown';
   const result = showdown ? p.result ?? p.showdownSummary : undefined;
+  const runoutStage = showdown && result?.sidePots.some(pot => pot.uncontestedWinnerId)
+    ? lastPlayedStage(p.actions)
+    : undefined;
   const payout = result?.points.find(s => s.id === p.playerId);
   const contributed = p.totalContributions?.[p.playerId] ?? 0;
   const net = (payout?.total ?? 0) - contributed;
@@ -276,6 +285,7 @@ export default function MobileTable(props: MobileTableProps) {
       {!c.connected ? <p className="mt-alert" role="status">{t('Reconnecting…', 'Восстанавливаем соединение…')}</p> : null}
       <div className={`mt-scene${showdown ? ' mt-scene--showdown' : ''}`} data-testid="mt-scene">
         <div className="mt-rail" aria-hidden="true" />
+        {p.forkRootCode ? <span className="mt-replay" data-testid="fork-banner">{t('Shared game', 'Копия партии')} · {p.partyCode}</span> : null}
         {(p.isReplay || p.replayOfHandId) ? <span className="mt-replay">↻ {t('REPLAY', 'ПОВТОР')} · {p.replayCode}</span> : null}
         <div className="mt-opponents">
           {opponents.map((seat, i) => <div className="mt-seat-anchor" key={seat.id} style={{ left: `${positions[i][0]}%`, top: `${positions[i][1]}%` }}>
@@ -283,7 +293,14 @@ export default function MobileTable(props: MobileTableProps) {
           </div>)}
         </div>
         <section className="mt-board" aria-label={t('Community board', 'Общие карты')}>
-          <span className="mt-street">{stageLabel(p.stage, language)}</span>
+          <span className="mt-street" title={runoutStage ? t(
+            'The hand ended before these remaining board cards were dealt.',
+            'Раздача закончилась до выхода оставшихся карт борда.',
+          ) : undefined}>
+            {runoutStage
+              ? unplayedRunoutLabel(runoutStage, language)
+              : stageLabel(p.stage, language)}
+          </span>
           <div data-testid="mt-board-cards"><Cards cards={p.community} count={5} board language={language} /></div>
           <div className="mt-pot-summary">
             <button ref={potButton} className="mt-pot" type="button" onClick={() => setPotOpen(true)} aria-expanded={potOpen} aria-controls="mt-pot-details">
@@ -295,19 +312,19 @@ export default function MobileTable(props: MobileTableProps) {
         </section>
         <div className="mt-hero-anchor"><PlayerSeat compact={!desktop} hero seat={hero} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} /></div>
         {!desktop ? hints : null}
-        {payout ? <div className="mt-personal-result" data-testid="mt-personal-result">
+        <div className="mt-personal-result" data-testid="mt-personal-result" style={!payout ? { visibility: 'hidden' } : undefined} aria-hidden={!payout || undefined}>
           <strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong>
-          <span>{t('Contributed', 'Внесено')}: {amount(contributed)} · {t('Payout', 'Выплата')}: {amount(payout.total)}</span>
-        </div> : null}
+          <span>{t('Contributed', 'Внесено')}: {amount(contributed)} · {t('Payout', 'Выплата')}: {amount(payout?.total)}</span>
+        </div>
       </div>
       <div className={desktop ? 'dt-bottom-panel' : 'mt-bottom-panel'}>
         {desktop ? hints : null}
-        {finished ? <section className="mt-finished" role="status">
+        <ActionDock props={props} language={language} finishedActions={finished ? <section className="mt-finished" role="status">
           <strong>{props.winnerName ? `${t('Winner', 'Победитель')}: ${props.winnerName}` : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>
           {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to home', 'На главную')}</button></div>
             : <p>{t('Waiting for the host', 'Ждём решения ведущего')}</p>}
           <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>
-        </section> : <ActionDock props={props} language={language} />}
+        </section> : undefined} />
       </div>
       <p className="mt-notice" role="status" aria-live="polite" aria-atomic="true" style={{ visibility: c.notice ? 'visible' : 'hidden' }}>
         {c.notice ?? '\u00a0'}

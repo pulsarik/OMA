@@ -120,7 +120,7 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
   await expect(page.getByRole('dialog').locator('.mt-contribution')).toHaveCount(8);
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('desktop-table')).toHaveAttribute('lang', 'en');
-  await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play on' })).toBeVisible();
   await page.getByRole('button', { name: 'Rules', exact: true }).click();
   await expect(page.getByTestId('about-panel')).toBeVisible();
   await page.getByRole('tab', { name: 'TABLE', exact: true }).click();
@@ -131,7 +131,7 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
   await expect(page.getByTestId('mobile-table')).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByTestId('desktop-table')).toBeVisible();
-  await page.getByRole('button', { name: 'Next deal' }).click();
+  await page.getByRole('button', { name: 'Play on' }).click();
   expect(mock.messages.filter(m => m.action === 'new_deal')).toHaveLength(1);
 });
 
@@ -209,7 +209,7 @@ test('real desktop lobby exposes ten seats and plays through to the next hand', 
   await expect(page.getByTestId('desktop-table')).toBeVisible();
   await expect(page.locator('.mt-seat')).toHaveCount(8);
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible({ timeout: 25000 });
-  await page.getByRole('button', { name: 'Next deal' }).click();
+  await expect(page.getByRole('button', { name: 'Play on' })).toBeVisible({ timeout: 25000 });
+  await page.getByRole('button', { name: 'Play on' }).click();
   await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible();
 });

@@ -6,6 +6,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { WebSocket, WebSocketServer } from 'ws';
 import HandStore from './handStore';
+import { sharingRouter } from './sharing';
 import { visitCountry, visitSource } from './visitAttribution';
 import { botMove } from './bot';
 import { createTrainingAdvice } from './trainingAdvice';
@@ -204,6 +205,8 @@ function requireAdmin(req: express.Request, res: express.Response, next: express
   res.status(401).json({ error: 'Unauthorized' });
 }
 
+app.use('/api/shares', sharingRouter(store));
+
 function requireContinuationAccess(ws: WebSocket, hand: any, message: any) {
   const connection = playerConnections.get(ws);
   if (connection?.partyId === (hand.partyId ?? hand.id)) return;
@@ -228,7 +231,7 @@ if (staticDir) {
     }
     res.sendFile(path.join(staticDir, canonicalPath, 'index.html'));
   });
-  app.use(['/player', '/lobby', '/debug', '/admin.html'], (_req, res, next) => {
+  app.use(['/player', '/lobby', '/share', '/debug', '/admin.html'], (_req, res, next) => {
     res.setHeader('X-Robots-Tag', 'noindex, follow');
     res.setHeader('Referrer-Policy', 'no-referrer');
     next();
@@ -528,7 +531,9 @@ async function partyScore(hand: any) {
     const replaySource = partyHand.replayOfHandId
       ? hands.find((candidate: any) => candidate.id === partyHand.replayOfHandId)
       : undefined;
-    const startingStacks = partyHand.partyRestarted
+    const startingStacks = partyHand.initialStacks
+      ? new Map<string, number>(Object.entries(partyHand.initialStacks))
+      : partyHand.partyRestarted
       ? new Map<string, number>(partyHand.players.map((player: any) => [player.id, STARTING_STACK]))
       : replaySource
       ? new Map<string, number>(replaySource.players.map((player: any) => [player.id, player.stack]))
@@ -775,6 +780,7 @@ async function playerState(hand: any, player: any) {
   return {
     commentary: { enabled: commentator.enabled, voiceEnabled: commentator.voiceEnabled },
     handId: hand.id,
+    forkRootCode: hand.forkRootCode,
     partyId: hand.partyId,
     partyCode: hand.partyCode,
     replayCode: hand.replayCode,
@@ -1903,7 +1909,7 @@ if (staticDir) {
       return;
     }
 
-    if (/^\/(player|lobby|debug)\//.test(req.path)) {
+    if (/^\/(player|lobby|share|debug)\//.test(req.path)) {
       res.sendFile(path.join(staticDir, 'game.html'));
       return;
     }

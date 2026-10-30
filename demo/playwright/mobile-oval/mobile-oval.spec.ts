@@ -102,7 +102,7 @@ test('live cards stay hidden and duplicate commands are blocked until ack', asyn
   mock.ack(moves[0].commandId);
   mock.update(fixture());
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(28);
-  await page.getByRole('button', { name: 'Next deal' }).click();
+  await page.getByRole('button', { name: 'Play on' }).click();
   await expect(page.locator('.mt-next')).toBeDisabled();
   expect(mock.messages.filter(m => m.action === 'new_deal')).toHaveLength(1);
 });
@@ -227,7 +227,7 @@ test('finished party shows the winner without offering another hand', async ({ p
   state.stack = 7000;
   await mockTable(page, state);
   await expect(page.locator('.mt-finished')).toContainText('Winner');
-  await expect(page.getByRole('button', { name: 'Next deal' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Play on' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Final statistics' })).toBeVisible();
 });
 
@@ -241,8 +241,8 @@ test('real lobby starts an opt-in table, makes a move and deals the next hand', 
   await expect(page.getByTestId('mobile-table')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Next deal' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play on' })).toBeVisible();
   await expect(page.locator('.mt-hand .mt-card[data-card]')).toHaveCount(8);
-  await page.getByRole('button', { name: 'Next deal' }).click();
+  await page.getByRole('button', { name: 'Play on' }).click();
   await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible();
 });

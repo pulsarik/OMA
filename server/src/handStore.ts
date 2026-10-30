@@ -1,14 +1,16 @@
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import fs from 'fs/promises';
 import path from 'path';
 import { addArchiveRow, buildArchiveRows, createArchiveSummary, groupArchiveHands } from './archive';
+import { DealtHand, forkPartyFromHand } from './game';
 
 export default class HandStore {
   private db?: Database<sqlite3.Database, sqlite3.Statement>;
   private initializing?: Promise<void>;
   private saveQueue: Promise<void> = Promise.resolve();
+  private forkQueue: Promise<void> = Promise.resolve();
   constructor(public filename: string) {}
 
   async init() {
@@ -29,6 +31,10 @@ export default class HandStore {
     await fs.mkdir(path.dirname(this.filename), { recursive: true });
     this.db = await open({ filename: this.filename, driver: sqlite3.Database });
     await this.db.exec(`
+      CREATE TABLE IF NOT EXISTS shared_deals (
+        token TEXT PRIMARY KEY, expires INTEGER NOT NULL, hero_id TEXT NOT NULL, data TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS fork_counters (root TEXT PRIMARY KEY, value INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS commentary_events (
         id TEXT PRIMARY KEY, party_id TEXT NOT NULL, hand_number INTEGER NOT NULL, created INTEGER NOT NULL
       );
@@ -172,6 +178,12 @@ export default class HandStore {
   }
 
   private async assignPublicCodes(hand: any) {
+    if (!hand.partyCode && hand.forkRootCode) {
+      const db = await this.getDb();
+      const row = await db.get(`INSERT INTO fork_counters(root, value) VALUES(?, 1)
+        ON CONFLICT(root) DO UPDATE SET value = value + 1 RETURNING value`, hand.forkRootCode);
+      hand.partyCode = `${hand.forkRootCode}-${row.value}`;
+    }
     if (!hand.handCode) {
       const count = await this.countHands();
       hand.handCode = this.code('HA', count + 1);
@@ -234,6 +246,39 @@ export default class HandStore {
       JSON.stringify(hand),
       hand.id,
     );
+  }
+
+  async shareHand(hand: DealtHand, heroId: string) {
+    forkPartyFromHand(hand, heroId);
+    const db = await this.getDb();
+    const token = uuidv4();
+    const expires = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    await db.run('DELETE FROM shared_deals WHERE expires <= ?', Date.now());
+    await db.run('INSERT INTO shared_deals(token, expires, hero_id, data) VALUES(?, ?, ?, ?)',
+      token, expires, heroId, JSON.stringify(hand));
+    return { token, expires };
+  }
+
+  async claimSharedHand(token: string, claim: string) {
+    let release!: () => void;
+    const previous = this.forkQueue;
+    this.forkQueue = new Promise<void>(resolve => { release = resolve; });
+    await previous;
+    try {
+      const db = await this.getDb();
+      const share = await db.get('SELECT * FROM shared_deals WHERE token = ? AND expires > ?', token, Date.now());
+      if (!share) return null;
+      // Stable per-recipient ID also makes retries safe across server restarts.
+      const handId = uuidv5(claim, token);
+      const existing = await this.getHand(handId);
+      if (existing) {
+        return { hand: existing, heroId: share.hero_id };
+      }
+      const hand = forkPartyFromHand(JSON.parse(share.data), share.hero_id);
+      hand.id = handId;
+      await this.saveHand(hand);
+      return { hand, heroId: share.hero_id };
+    } finally { release(); }
   }
 
   async claimCommentary(event: { id: string; partyId: string; handId?: string; handNumber: number;
