@@ -44,7 +44,6 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
           badgesOnCardCorner, hintsInset,
         };
       });
-      console.log('mobile geometry', stage, geometry, await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight, innerWidth, innerHeight })));
       expect(geometry, stage).toEqual({ inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true, hintsInset: true });
       if (stage === 'preflop') {
         await expect(page.locator('.mt-preflop-hint')).toHaveCount(1);

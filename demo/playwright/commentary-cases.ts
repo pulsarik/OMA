@@ -295,11 +295,14 @@ export function commentaryDisabledCase() {
     });
 
     await page.goto('/player/mobile-fixture/P1/token');
+    const tableTab = page.getByRole('tab', { name: /TABLE|СТОЛ/ });
+    await expect(tableTab.or(page.getByTestId('mobile-table'))).toBeVisible();
     const settingsTab = page.getByRole('tab', { name: /SETTINGS|НАСТРОЙКИ/ });
-    if (await settingsTab.isVisible()) await settingsTab.click();
+    const settingsButton = page.getByRole('button', { name: /Settings|Настройки/, exact: true });
+    if (await tableTab.isVisible()) await settingsTab.click();
     else {
       await page.getByLabel(/Table menu|Меню стола/).first().click();
-      await page.getByRole('button', { name: /Settings|Настройки/, exact: true }).click();
+      await settingsButton.click();
     }
     await expect(page.getByTestId('commentator')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: /AI commentator|ИИ-комментатор/ })).toHaveCount(0);

@@ -52,6 +52,22 @@
 .mt-page--desktop .mt-combo .mt-card > span { font-size: 23px; }
 .mt-page--desktop .mt-combo-empty { min-height: 65px; }
 .mt-page--desktop .mt-dock { position: static; padding: 0; background: transparent; }
+.mt-page--desktop .mt-secondary-actions > .mt-limited-action,
+.mt-page--desktop .mt-secondary-actions > .deal-utility-action {
+  flex: 0 0 150px;
+  width: 150px;
+}
+.mt-page--desktop .mt-secondary-actions .deal-utility-action {
+  max-width: none;
+  min-height: 48px;
+  padding: 7px 16px;
+  border-color: #52665b;
+  border-radius: 10px;
+  background: #112c23;
+  color: #d3ddd4;
+  font-size: 13px;
+}
+.mt-page--desktop .mt-limited-action > .deal-utility-action { width: 100%; }
 .mt-page--desktop .mt-bet-sizes { gap: 8px; margin-bottom: 9px; }
 .mt-page--desktop .mt-bet-sizes button { min-height: 34px; background: #08271d; font-size: 12px; }
 .mt-page--desktop .mt-bet-sizes button[aria-pressed=true] { border-color: #e4c888; color: #e4c888; background: #273d29; }
