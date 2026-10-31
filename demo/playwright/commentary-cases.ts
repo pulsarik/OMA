@@ -278,3 +278,38 @@ export function commentaryCases() {
     expect(await page.evaluate(() => (window as any).commentaryAudio.plays)).toBe(1);
   });
 }
+
+export function commentaryDisabledCase() {
+  test('AI commentator stays disabled and is absent from settings', async ({ page }) => {
+    const state: any = { ...fixture(3, false), commentary: { enabled: true, voiceEnabled: true } };
+    let socket: WebSocketRoute | undefined;
+    const subscriptions: unknown[] = [];
+    await page.route('**/api/player/**', route => route.fulfill({ json: state }));
+    await page.routeWebSocket(/ws:\/\/localhost:(4000|4100)\//, ws => {
+      socket = ws;
+      ws.onMessage(raw => {
+        const message = JSON.parse(String(raw));
+        if (message.action === 'join_player') ws.send(JSON.stringify({ type: 'player_state', data: state }));
+        if (message.action === 'commentary_preferences') subscriptions.push(message.preference);
+      });
+    });
+
+    await page.goto('/player/mobile-fixture/P1/token');
+    const settingsTab = page.getByRole('tab', { name: /SETTINGS|НАСТРОЙКИ/ });
+    if (await settingsTab.isVisible()) await settingsTab.click();
+    else {
+      await page.getByLabel(/Table menu|Меню стола/).first().click();
+      await page.getByRole('button', { name: /Settings|Настройки/, exact: true }).click();
+    }
+    await expect(page.getByTestId('commentator')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: /AI commentator|ИИ-комментатор/ })).toHaveCount(0);
+    expect(subscriptions).toEqual([]);
+
+    const now = Date.now();
+    socket!.send(JSON.stringify({ type: 'commentary_ready', data: {
+      id: 'disabled-commentary', handId: state.handId, partyId: state.partyId, revision: state.revision,
+      locale: 'en', text: 'This must stay hidden.', serverNow: now, expiresAt: now + 12_000,
+    } }));
+    await expect(page.getByTestId('commentary-caption')).toHaveCount(0);
+  });
+}

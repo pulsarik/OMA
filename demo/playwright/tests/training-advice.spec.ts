@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('voice coach follows Russian commentary even with an English interface', async ({ page }) => {
+test('voice coach follows the interface language and ignores old commentator settings', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'voice', locale: 'ru', volume: 0.65 }));
     Object.defineProperty(window, 'speechSynthesis', {
@@ -19,8 +19,8 @@ test('voice coach follows Russian commentary even with an English interface', as
 
   const advice = page.getByTestId('training-advice');
   await expect(advice).toBeVisible({ timeout: 12_000 });
-  await expect(advice.locator('p')).toContainText(/[А-Яа-яЁё]/);
-  await expect(advice.locator('p')).not.toContainText(/[A-Za-z]/);
+  await expect(advice.locator('p')).toContainText(/[A-Za-z]/);
+  await expect(advice.locator('p')).not.toContainText(/[А-Яа-яЁё]/);
 
   await page.getByRole('tab', { name: 'SETTINGS' }).or(page.getByRole('button', { name: 'Settings', exact: true })).click();
   const setting = page.getByRole('checkbox', { name: 'Advice after 10 seconds' });

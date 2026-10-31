@@ -44,6 +44,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
           badgesOnCardCorner, hintsInset,
         };
       });
+      console.log('mobile geometry', stage, geometry, await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, scrollHeight: document.documentElement.scrollHeight, innerWidth, innerHeight })));
       expect(geometry, stage).toEqual({ inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true, hintsInset: true });
       if (stage === 'preflop') {
         await expect(page.locator('.mt-preflop-hint')).toHaveCount(1);
@@ -61,7 +62,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
     await expect(page.locator('.mt-seat--hero .mt-seat-result')).not.toContainText('Your turn');
     mock.update({ ...fixture(7), players: state.players });
     await expect(page.getByRole('button', { name: 'Play on', exact: true })).toBeInViewport();
-    await expect(page.locator('.mt-limited-action .mt-limit-pips--hearts > span')).toHaveCount(3);
+    await expect(page.getByTestId('replay-current-deal').locator('.mt-limit-pips--hearts > span')).toHaveCount(3);
     const replay = await page.getByTestId('replay-current-deal').filter({ visible: true }).boundingBox();
     const next = await page.locator('.mt-next').boundingBox();
     expect(replay!.x + replay!.width).toBeLessThan(next!.x);

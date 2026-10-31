@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { playSound, type GameSound } from '../audio/sounds';
 
 export type SharedComparison = {
   sourceName: string; sourceNet: number; yourNet: number;
@@ -17,9 +18,21 @@ export function SharedHandResult({ comparison, serverUrl, handId, playerId, toke
   useEffect(() => {
     const element = dialog.current;
     element?.showModal();
+    const soundKey = `omaha-shared-result-sound:${handId}`;
+    try {
+      if (sessionStorage.getItem(soundKey) !== comparison.outcome) {
+        sessionStorage.setItem(soundKey, comparison.outcome);
+        const sound: GameSound = comparison.outcome === 'you' ? 'challengeWin'
+          : comparison.outcome === 'source' ? 'challengeLoss' : 'challengeTie';
+        void playSound(sound, false, 0.3);
+      }
+    } catch { /* Private browsing may block storage; the result remains usable. */ }
     return () => { element?.close(); };
-  }, []);
+  }, [comparison.outcome, handId]);
   const chips = (value: number) => `${value > 0 ? '+' : ''}${value}`;
+  const outcomeIcon = comparison.outcome === 'you' ? '♛' : comparison.outcome === 'source' ? '↘' : '=';
+  const outcomeLabel = comparison.outcome === 'you' ? t('Victory', 'Победа')
+    : comparison.outcome === 'source' ? t('Defeat', 'Поражение') : t('Tie', 'Ничья');
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!name.trim() || busy) return;
@@ -38,6 +51,10 @@ export function SharedHandResult({ comparison, serverUrl, handId, playerId, toke
   return createPortal(<dialog ref={dialog} aria-labelledby="shared-result-title" onCancel={event => event.preventDefault()}
     style={{ boxSizing: 'border-box', width: 'min(440px, calc(100% - 32px))', maxHeight: 'calc(100dvh - 32px)', padding: 24, border: '1px solid #a4ad91', borderRadius: 16, background: '#0c2b20', color: '#f1eddc' }}>
     <form onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
+      <div data-testid="shared-result-icon" role="img" aria-label={outcomeLabel}
+        style={{ display: 'grid', placeItems: 'center', justifySelf: 'center', width: 72, height: 72, border: `2px solid ${comparison.outcome === 'you' ? '#dbc18b' : comparison.outcome === 'source' ? '#c88372' : '#a4ad91'}`, borderRadius: '50%', color: comparison.outcome === 'you' ? '#f2d68f' : comparison.outcome === 'source' ? '#e39a87' : '#d7ddd1', background: '#ffffff0a', fontSize: 38, lineHeight: 1 }}>
+        <span aria-hidden="true">{outcomeIcon}</span>
+      </div>
       <h2 id="shared-result-title" style={{ margin: 0, fontSize: 22 }}>{comparison.outcome === 'you'
         ? t('You got the better result!', 'Вы сыграли лучше!')
         : comparison.outcome === 'source' ? t('The sender got the better result', 'Отправитель сыграл лучше')

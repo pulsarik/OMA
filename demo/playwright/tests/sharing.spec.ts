@@ -51,6 +51,7 @@ test('share opens an independent playable table, survives reload and continues w
   await expect.poll(async () => (await (await request.get(apiUrl)).json()).stage).toBe('showdown');
   const resultDialog = friend.getByRole('dialog');
   await expect(resultDialog).toBeVisible();
+  await expect(resultDialog.getByTestId('shared-result-icon')).toHaveAttribute('aria-label', /^(Victory|Defeat|Tie)$/);
   const comparison = (await (await request.get(apiUrl)).json()).sharedComparison;
   expect(comparison.sourceName).toBe('Sharing player');
   expect(comparison.sourceNet).toBe(-source.totalContributions.P1);

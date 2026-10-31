@@ -1,4 +1,5 @@
-export type GameSound = 'click' | 'deal' | 'cards' | 'chips' | 'check' | 'fold' | 'turn' | 'win' | 'splitWin';
+export type GameSound = 'click' | 'deal' | 'cards' | 'chips' | 'check' | 'fold' | 'turn' | 'win' | 'splitWin'
+  | 'challengeWin' | 'challengeLoss' | 'challengeTie';
 export type SoundSettings = { enabled: boolean; volume: number };
 const STORAGE_KEY = 'omaha-game-sounds';
 const defaults: SoundSettings = { enabled: true, volume: 0.5 };
@@ -132,6 +133,15 @@ export async function playSound(sound: GameSound, gesture = false, delay = 0) {
         break;
       case 'splitWin':
         [523, 659].forEach((frequency, i) => tone(at + i * 0.08, frequency, frequency, 0.18, 0.03));
+        break;
+      case 'challengeWin':
+        [440, 554, 659].forEach((frequency, i) => tone(at + i * 0.075, frequency, frequency, 0.16, 0.032));
+        break;
+      case 'challengeLoss':
+        [392, 330].forEach((frequency, i) => tone(at + i * 0.1, frequency, frequency, 0.2, 0.028));
+        break;
+      case 'challengeTie':
+        [440, 440].forEach((frequency, i) => tone(at + i * 0.11, frequency, frequency, 0.13, 0.025));
         break;
     }
   } catch { /* Unsupported or interrupted audio must not affect the game. */ }

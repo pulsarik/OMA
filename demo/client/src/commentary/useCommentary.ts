@@ -10,7 +10,7 @@ function savedSettings(): { mode: CommentaryMode; locale: CommentaryLocale; volu
   } catch { return { mode: 'off', locale: 'en', volume: 0.65 }; }
 }
 
-export function useCommentary(handId: string, serverUrl: string) {
+export function useCommentary(handId: string, serverUrl: string, featureEnabled = true) {
   const [settings, setSettings] = useState(savedSettings);
   const [availability, setAvailability] = useState({ enabled: false, voiceEnabled: false });
   const [pending, setPending] = useState<(CommentaryMessage & { localExpiry: number }) | null>(null);
@@ -38,12 +38,14 @@ export function useCommentary(handId: string, serverUrl: string) {
   }, []);
 
   function subscribe(socket: WebSocket) {
+    if (!featureEnabled) return;
     if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({
       action: 'commentary_preferences', preference: { mode: settingsRef.current.mode, locale: settingsRef.current.locale },
     }));
   }
 
   function onMessage(message: any, socket: WebSocket) {
+    if (!featureEnabled) return;
     if (message.type === 'player_state' && message.data?.handId === handId) {
       socketRef.current = socket;
       setAvailability({ enabled: message.data.commentary?.enabled === true, voiceEnabled: message.data.commentary?.voiceEnabled === true });
@@ -64,8 +66,8 @@ export function useCommentary(handId: string, serverUrl: string) {
 
   useEffect(() => {
     try { localStorage.setItem('omaha-commentary', JSON.stringify(settings)); } catch { /* private browsing */ }
-    if (socketRef.current) subscribe(socketRef.current);
-  }, [settings]);
+    if (featureEnabled && socketRef.current) subscribe(socketRef.current);
+  }, [featureEnabled, settings]);
 
   useEffect(() => {
     setPending(null); setBlocked(false);
@@ -87,7 +89,7 @@ export function useCommentary(handId: string, serverUrl: string) {
     return () => window.clearTimeout(timer);
   }, [pending, speaking]);
 
-  const present = pending && pending.locale === settings.locale && pending.handId === handId
+  const present = featureEnabled && pending && pending.locale === settings.locale && pending.handId === handId
     && canPresentCommentary(pending, state) && availability.enabled && settings.mode !== 'off' ? pending : null;
 
   useEffect(() => {

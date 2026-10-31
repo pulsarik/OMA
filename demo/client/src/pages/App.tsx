@@ -6,8 +6,9 @@ import { callAction, isAllInWager } from '../callAction';
 import { findTournamentWinner } from '../tournamentStatus';
 import { HomeChoices } from '../components/HomeChoices';
 import { CompactGameNavigation } from '../components/CompactGameNavigation';
-import { Commentator, CommentatorCaption, CommentatorSettings } from '../components/Commentator';
 import { useCommentary } from '../commentary/useCommentary';
+import { AI_COMMENTATOR_ENABLED } from '../commentary/feature';
+import '../commentary/commentator.css';
 import { useGameSounds } from '../audio/useGameSounds';
 import { SoundSettings } from '../components/SoundSettings';
 import { TrainingAdviceSlot, TrainingAdviceSettings } from '../components/TrainingAdvice';
@@ -3089,12 +3090,12 @@ function PlayerPage({
   const joinedPlayerSocketRef = useRef<WebSocket | null>(null);
   const partyScoreRequestRef = useRef<string | null>(null);
   const { handId, playerId, token } = playerAccessFromUrl(playerUrl ?? window.location.pathname);
-  const commentary = useCommentary(handId, SERVER_URL);
   const [interfaceLanguage, setInterfaceLanguage] = useState(storedLanguage);
+  const commentary = useCommentary(handId, SERVER_URL, AI_COMMENTATOR_ENABLED);
   const trainingAdvice = useTrainingAdvice(
     handId,
     player,
-    commentary.locale,
+    interfaceLanguage,
     commentary.interrupt,
     commentary.setHumanSpeaking,
     SERVER_URL,
@@ -3688,15 +3689,15 @@ function PlayerPage({
     ? <ShareDealButton key={handId} serverUrl={SERVER_URL} handId={handId} playerId={playerId} token={token} t={ui} /> : undefined;
   const replayDealAction = canContinue ? (
     <span className="limited-action">
-      {replayLives}
       <button
-        className="action-button"
+        className="action-button deal-utility-action"
         data-testid="replay-current-deal"
         aria-label={`${ui('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${ui('replays remaining', 'повторов осталось')}`}
         disabled={isCreatingDeal || replayRemaining === 0}
         onClick={() => replayDeal()}
       >
         {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('Replay this deal', 'Переиграть эту раздачу')}
+        {replayLives}
       </button>
     </span>
   ) : undefined;
@@ -3728,8 +3729,6 @@ function PlayerPage({
         statsAvailable={showStatsTile}
         onAbout={() => setActiveView('about')}
         onSettings={() => setActiveView('settings')}
-        headerActions={<Commentator controller={commentary} />}
-        commentaryCaption={<CommentatorCaption controller={commentary} />}
         coach={<TrainingAdviceSlot controller={trainingAdvice} t={ui} compact={isMobileTable} />}
         onVoice={showVoiceChat ? () => setActiveView('voice') : undefined}
         onRestart={onRestartGame}
@@ -3748,10 +3747,9 @@ function PlayerPage({
       {/* Keep the voice room mounted when returning to either table layout. */}
       <div className={`poker-page${newDesignEnabled ? ' poker-page--new-design' : ''}`} style={showOvalTable ? { display: 'none' } : undefined}>
         {!showOvalTable ? <style>{PLAYER_PAGE_STYLES}</style> : null}
-      <div className="commentator-toolbar">
-        {player.forkRootCode ? <span data-testid="fork-banner">{ui('Shared game', 'Копия партии')} {player.partyCode} · {ui('from', 'из')} {player.forkRootCode}</span> : null}
-        {!showOvalTable ? <Commentator controller={commentary} /> : null}
-      </div>
+      {player.forkRootCode ? <div className="commentator-toolbar">
+        <span data-testid="fork-banner">{ui('Shared game', 'Копия партии')} {player.partyCode} · {ui('from', 'из')} {player.forkRootCode}</span>
+      </div> : null}
       <CompactGameNavigation label={ui('Menu', 'Меню')}>
       <nav className="view-tabs" role="tablist" aria-label={ui('Game views', 'Разделы игры')}>
         <button
@@ -3805,12 +3803,10 @@ function PlayerPage({
         </button>
       </nav>
       </CompactGameNavigation>
-      {!showOvalTable ? <CommentatorCaption controller={commentary} /> : null}
       {isSettingsView ? <section id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" className="commentator-settings-panel">
         <LanguageSettings language={interfaceLanguage} onChange={setInterfaceLanguage} />
         <SoundSettings t={ui} />
         <TrainingAdviceSettings controller={trainingAdvice} t={ui} />
-        <CommentatorSettings controller={commentary} />
       </section> : null}
 
       {isTableView && !showOvalTable ? <section
@@ -4012,8 +4008,10 @@ function PlayerPage({
                         ) : null}
                         {currentBet > 0 ? (
                           <button className="action-button limited-raise" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
-                            <span className="action-button-copy">{raiseLabel}</span>{' '}
-                            <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                            <span className="action-button-line">
+                              <span className="action-button-copy">{raiseLabel}</span>{' '}
+                              <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                            </span>
                             {raiseProgress}
                           </button>
                         ) : null}
@@ -4033,8 +4031,10 @@ function PlayerPage({
                         </button>
                         {currentBet > 0 ? (
                           <button className="action-button limited-raise" aria-label={raiseAriaLabel} disabled={!canRaise} onClick={() => submitWager('raise')}>
-                            <span className="action-button-copy">{raiseLabel}</span>{' '}
-                            <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                            <span className="action-button-line">
+                              <span className="action-button-copy">{raiseLabel}</span>{' '}
+                              <strong className="action-button-value">{formatPoints(wagerTarget)}</strong>
+                            </span>
                             {raiseProgress}
                           </button>
                         ) : null}

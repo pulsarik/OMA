@@ -1720,20 +1720,26 @@ export const PLAYER_PAGE_STYLES = `
   .action-button.primary { border-color: #047857; background: #087443; color: #fff; min-width: 120px; }
   .action-button.danger { border-color: #fecaca; background: #fff1f2; color: #9f1239; }
   .action-button:disabled, .bet-size-button:disabled { opacity: .42; }
-  .limited-action { position: relative; display: inline-flex; padding-top: 14px; }
+  .limited-action { display: inline-flex; }
   .limit-pips {
-    position: absolute;
-    top: -2px;
-    left: 50%;
     display: flex;
+    justify-content: center;
     gap: 3px;
-    transform: translateX(-50%);
+    width: 100%;
+    margin-top: 3px;
     font-size: 12px;
     line-height: 1;
     white-space: nowrap;
   }
-  .action-button > .limit-pips { top: -15px; }
-  .action-button.limited-raise { position: relative; margin-top: 14px; }
+  .action-button.limited-raise,
+  .action-button.deal-utility-action { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; }
+  .action-button-line { display: inline-flex; align-items: baseline; gap: 4px; }
+  .action-button.deal-utility-action {
+    border-color: #cbd5e1;
+    background: #f8faf9;
+    color: #475569;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+  }
   .limit-pips--hearts { color: #dc2626; }
   .limit-pips--diamonds { color: #b7791f; }
   .limit-pips .is-used { color: #cbd5e1; opacity: .55; }

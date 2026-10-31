@@ -1,2 +1,2 @@
-import { commentaryCases } from '../commentary-cases';
-commentaryCases();
+import { commentaryDisabledCase } from '../commentary-cases';
+commentaryDisabledCase();

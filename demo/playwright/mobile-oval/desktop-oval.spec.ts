@@ -3,6 +3,25 @@ import { fixture, mockTable } from './fixture';
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 
+test('desktop coach uses the full action panel width on a short viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 956, height: 467 });
+  const initial = fixture(6, false);
+  const state = { ...initial, players: initial.players.map((player, index) => ({ ...player, isBot: index > 0 })) };
+  const mock = await mockTable(page, state);
+  mock.advice('Call twenty. The pot odds support continuing with this hand.');
+
+  const advice = page.getByTestId('training-advice');
+  await expect(advice).toBeVisible();
+  const geometry = await advice.evaluate(element => {
+    const adviceBox = element.getBoundingClientRect();
+    const dockBox = element.closest('.mt-dock')!.getBoundingClientRect();
+    return { adviceWidth: adviceBox.width, dockWidth: dockBox.width, left: adviceBox.left, right: adviceBox.right };
+  });
+  expect(geometry.adviceWidth).toBeGreaterThan(geometry.dockWidth * 0.9);
+  expect(geometry.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.right).toBeLessThanOrEqual(956);
+});
+
 test('desktop table keeps its size across streets, showdown and the next deal', async ({ page }) => {
   const mock = await mockTable(page, fixture(4, false));
   for (const viewport of [

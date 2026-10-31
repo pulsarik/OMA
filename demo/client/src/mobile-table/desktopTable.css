@@ -52,7 +52,6 @@
 .mt-page--desktop .mt-combo .mt-card > span { font-size: 23px; }
 .mt-page--desktop .mt-combo-empty { min-height: 65px; }
 .mt-page--desktop .mt-dock { position: static; padding: 0; background: transparent; }
-.mt-page--desktop .mt-dock--showdown fieldset { display: none; }
 .mt-page--desktop .mt-bet-sizes { gap: 8px; margin-bottom: 9px; }
 .mt-page--desktop .mt-bet-sizes button { min-height: 34px; background: #08271d; font-size: 12px; }
 .mt-page--desktop .mt-bet-sizes button[aria-pressed=true] { border-color: #e4c888; color: #e4c888; background: #273d29; }

@@ -45,7 +45,7 @@ export function ShareDealButton({ serverUrl, handId, playerId, token, t }: {
     } finally { setBusy(false); }
   }
   return <>
-    <button type="button" className="action-button mt-replay-deal" data-testid="share-deal"
+    <button type="button" className="action-button mt-replay-deal deal-utility-action" data-testid="share-deal"
       disabled={busy || (!url && !failed)} onClick={share}
       title={t('Replay these cards and starting stacks in a separate game. Link valid for 30 days.', 'Сыграть с этими картами и исходными стеками в отдельной партии. Ссылка действует 30 дней.')}>
       {failed ? t('Retry sharing', 'Повторить создание ссылки') : !url ? t('Preparing link…', 'Готовим ссылку…')

@@ -124,9 +124,9 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
     <div className="mt-coach-slot">{showdown ? <div className="mt-secondary-actions">
       {props.shareAction}
       {props.onReplay ? <span className="mt-limited-action">
-        {pips('hearts', c.maxReplays, replayRemaining)}
-        <button className="mt-replay-deal" data-testid="replay-current-deal" aria-label={`${t('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${t('replays remaining', 'повторов осталось')}`} disabled={!c.connected || c.creatingDeal || replayRemaining === 0} onClick={props.onReplay}>
+        <button className="mt-replay-deal deal-utility-action" data-testid="replay-current-deal" aria-label={`${t('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${t('replays remaining', 'повторов осталось')}`} disabled={!c.connected || c.creatingDeal || replayRemaining === 0} onClick={props.onReplay}>
           {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Replay', 'Переиграть')}
+          {pips('hearts', c.maxReplays, replayRemaining)}
         </button>
       </span> : null}
     </div> : props.coach}</div>
@@ -144,8 +144,8 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
           {c.callAmount > 0 ? <>{c.callIsAllIn ? t('All-in', 'Олл-ин') : t('Call', 'Колл')} <b>{amount(c.callAmount)}</b></> : t('Check', 'Чек')}
         </button>
         <button className="mt-raise" disabled={player.currentBet > 0 && !c.canRaise} onClick={e => act(e, player.currentBet > 0 ? 'raise' : 'bet')}>
+          <span className="mt-action-copy">{c.wagerIsAllIn ? t('All-in', 'Олл-ин') : player.currentBet > 0 ? t('Raise to', 'Рейз до') : t('Bet', 'Ставка')} <b>{amount(c.wagerTarget)}</b></span>
           {player.currentBet > 0 && c.maxRaises !== undefined ? pips('diamonds', c.maxRaises, Math.max(0, c.maxRaises - c.raiseCount)) : null}
-          {c.wagerIsAllIn ? t('All-in', 'Олл-ин') : player.currentBet > 0 ? t('Raise to', 'Рейз до') : t('Bet', 'Ставка')} <b>{amount(c.wagerTarget)}</b>
         </button>
       </div>
     </fieldset>
