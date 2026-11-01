@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import { fixture, mockTable } from './fixture';
 
-for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }, { width: 412, height: 915 }, { width: 320, height: 667 }]) {
+for (const viewport of [
+  { width: 320, height: 667 }, { width: 360, height: 640 }, { width: 390, height: 844 },
+  { width: 393, height: 852 }, { width: 412, height: 915 },
+]) {
   test(`mobile cards, coach and actions fit ${viewport.width}x${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     const initial = fixture(7, false);
@@ -31,6 +34,10 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
           return badge.left < card.right && badge.right > card.right && badge.top < card.bottom && badge.bottom > card.bottom;
         });
         const rail = table.querySelector('.mt-rail')!.getBoundingClientRect();
+        const bounds = (selector: string) => {
+          const box = document.querySelector(selector)!.getBoundingClientRect();
+          return { top: box.top, bottom: box.bottom, height: box.height };
+        };
         const hintsInset = [...table.querySelectorAll('.mt-combo-title, .mt-preflop-hint')].every(el => {
           const hint = el.getBoundingClientRect();
           return hint.left >= rail.left + 12 && hint.right <= rail.right - 12 && hint.bottom <= rail.bottom - 10;
@@ -40,11 +47,19 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
           overlaps: areas.flatMap((a, i) => areas.slice(i + 1).filter(b => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
             && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1).map(b => [a.name, b.name])),
           overflow: document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight + 1,
+          scrollHeight: document.documentElement.scrollHeight,
+          bodyHeight: document.body.scrollHeight,
+          shell: bounds('.mt-shell'),
+          scene: bounds('.mt-scene'),
+          dock: bounds('.mt-dock'),
+          coach: bounds('.mt-coach-slot'),
           touchTargets: buttons.every(b => b.height >= 44 && b.width >= 44),
           badgesOnCardCorner, hintsInset,
         };
       });
-      expect(geometry, stage).toEqual({ inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true, hintsInset: true });
+      expect(geometry, `${stage}: ${JSON.stringify(geometry)}`).toMatchObject({
+        inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true, hintsInset: true,
+      });
       if (stage === 'preflop') {
         await expect(page.locator('.mt-preflop-hint')).toHaveCount(1);
         await expect(page.locator('.mt-combo')).toHaveCount(0);
@@ -64,7 +79,10 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 390, height: 844 }
     await expect(page.getByTestId('replay-current-deal').locator('.mt-limit-pips--hearts > span')).toHaveCount(3);
     const replay = await page.getByTestId('replay-current-deal').filter({ visible: true }).boundingBox();
     const next = await page.locator('.mt-next').boundingBox();
-    expect(replay!.x + replay!.width).toBeLessThan(next!.x);
+    expect(replay!.x).toBeGreaterThanOrEqual(0);
+    expect(replay!.x + replay!.width).toBeLessThanOrEqual(viewport.width);
+    expect(replay!.width).toBeGreaterThanOrEqual(76);
+    expect(replay!.height).toBeGreaterThanOrEqual(44);
     expect(next!.width).toBeGreaterThan(replay!.width * 2);
     await page.screenshot({ path: testInfo.outputPath('showdown.png'), fullPage: true });
     await page.getByTestId('replay-current-deal').filter({ visible: true }).click();

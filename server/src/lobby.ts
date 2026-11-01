@@ -142,12 +142,14 @@ export function lobbyName(value: unknown, fallback: string) {
 }
 
 export function nextLobbyBotName(lobby: Lobby) {
-  const usedNames = new Set(lobby.members.map(member => member.name.replace(/_bot$/i, '').toLowerCase()));
+  const usedNames = new Set(lobby.members.map(member => member.name.replace(/_Q?_bot$/i, '').toLowerCase()));
   return DEFAULT_BOT_NAMES.find(name => !usedNames.has(name.toLowerCase()))
     ?? `Guest ${lobby.members.length + 1}`;
 }
 
 export function lobbyBotName(lobby: Lobby, requestedName: unknown) {
   const name = lobbyName(requestedName, nextLobbyBotName(lobby));
-  return name.toLowerCase().endsWith('_bot') ? name : `${name}_bot`;
+  const botName = name.replace(/_bot$/i, '').replace(/_Q$/i, '');
+  const isEverySecondBot = lobby.members.filter(member => member.isBot).length % 2 === 1;
+  return `${botName}${isEverySecondBot ? '_Q' : ''}_bot`;
 }

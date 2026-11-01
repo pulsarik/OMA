@@ -69,6 +69,17 @@
 .mt-page:not(.mt-page--desktop) .mt-dock { position: sticky; bottom: 0; padding: 4px 8px max(4px, env(safe-area-inset-bottom)); border-top: 1px solid #c9b67b26; }
 .mt-page .mt-showdown-actions { grid-template-columns: minmax(0, 1fr); }
 .mt-page .mt-showdown-actions .mt-next { min-height: 52px; font-size: 16px; }
+.mt-page:not(.mt-page--desktop) .mt-secondary-actions > .mt-limited-action {
+  flex: 0 0 76px;
+  width: 76px;
+  max-width: none;
+}
+.mt-page:not(.mt-page--desktop) .mt-secondary-actions > .mt-limited-action > button {
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: none;
+  white-space: nowrap;
+}
 .mt-coach-slot { height: 82px; margin-bottom: 9px; display: flex; align-items: center; justify-content: center; }
 .mt-secondary-actions { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; }
 .mt-page .mt-secondary-actions button { flex: 0 1 auto; width: auto; max-width: 60%; min-height: 44px; padding: 6px 12px; border-color: transparent; border-radius: 6px; background: transparent; color: #becab9; font-size: 12px; font-weight: 400; box-shadow: none; }
@@ -88,7 +99,7 @@ body:has(.mt-page:not(.mt-page--desktop)) .report-problem-button { top: env(safe
 
 /* Short viewports keep the new insets without reducing touch targets. */
 @media (max-height: 700px) {
-  .mt-page:not(.mt-page--desktop) .mt-scene { gap: 2px; padding-top: 8px; padding-bottom: 4px; }
+  .mt-page:not(.mt-page--desktop) .mt-scene:not(.mt-scene--showdown) { flex-shrink: 1; min-height: 420px; gap: 2px; padding-top: 8px; padding-bottom: 4px; }
   .mt-page:not(.mt-page--desktop) .mt-seat-anchor .mt-seat-name { line-height: 14px; }
   .mt-page:not(.mt-page--desktop) .mt-seat-anchor .mt-seat-result { min-height: 12px; line-height: 12px; }
   .mt-page:not(.mt-page--desktop) .mt-hand { padding-bottom: 4px; }

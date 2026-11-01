@@ -39,6 +39,21 @@ export type BotDecision = {
 const SUITS = ['s', 'h', 'd', 'c'];
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
 const DECK = RANKS.flatMap(rank => SUITS.map(suit => `${rank}${suit}`));
+const STARTING_RANK_VALUE = new Map(RANKS.map((rank, index) => [rank, index + 2]));
+
+export function isQualifyingStartingHand(hole: string[]) {
+  const ranks = hole.map(card => STARTING_RANK_VALUE.get(card.slice(0, -1)) ?? 0);
+  const counts = new Map<number, number>();
+  ranks.forEach(rank => counts.set(rank, (counts.get(rank) ?? 0) + 1));
+  const distinctRanks = new Set(ranks);
+  const hasHighPairOnly = [...counts].filter(([rank, count]) => rank > 9 && count === 2).length === 1
+    && [...counts.values()].filter(count => count > 1).length === 1;
+  const fourDistinctAboveEight = ranks.length === 4 && distinctRanks.size === 4 && ranks.every(rank => rank > 8);
+  const fourDistinctBelowEight = ranks.length === 4 && distinctRanks.size === 4 && ranks.every(rank => rank < 8);
+  const twoDistinctBelowFive = new Set(ranks.filter(rank => rank < 5)).size >= 2;
+
+  return ranks.includes(14) || hasHighPairOnly || fourDistinctAboveEight || fourDistinctBelowEight || twoDistinctBelowFive;
+}
 
 export type BotEquity = {
   /** Expected share of the accessible pots after calling, including ties. */
@@ -383,6 +398,12 @@ export function botSituation(hand: DealtHand, player: PlayerHand) {
 
 export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
   normalizeHand(hand);
+  if (player.qualifyingEntryBot && hand.stage === 'preflop') {
+    if (!isQualifyingStartingHand(player.hole)) return { move: 'fold' };
+    const playerBet = hand.roundBets?.[player.id] ?? 0;
+    return { move: playerBet >= (hand.currentBet ?? 0) ? 'check' : 'call' };
+  }
+
   const profile = botProfile(player);
   const playerBet = hand.roundBets?.[player.id] ?? 0;
   const callAmount = Math.max((hand.currentBet ?? 0) - playerBet, 0);

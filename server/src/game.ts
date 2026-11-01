@@ -48,6 +48,7 @@ export type PlayerHand = {
   id: string;
   name?: string;
   isBot?: boolean;
+  qualifyingEntryBot?: boolean;
   botStyle?: BotStyle;
   token: string;
   hole: string[];
@@ -195,10 +196,12 @@ export type PlayerCombo = {
   lowRank?: string;
 };
 
-function normalizedPlayerName(name: string | undefined, index: number, isBot: boolean) {
+function normalizedPlayerName(name: string | undefined, index: number, isBot: boolean, qualifyingEntryBot = false) {
   const baseName = name?.trim() || (isBot ? DEFAULT_BOT_NAMES[index % DEFAULT_BOT_NAMES.length] : '');
   if (!baseName) return undefined;
-  return isBot && !baseName.toLowerCase().endsWith('_bot') ? `${baseName}_bot` : baseName;
+  if (!isBot) return baseName;
+  const botName = baseName.replace(/_bot$/i, '').replace(/_Q$/i, '');
+  return `${botName}${qualifyingEntryBot ? '_Q' : ''}_bot`;
 }
 
 export function blindLevelForHand(handNumber: number) {
@@ -1429,17 +1432,25 @@ export function dealHand(
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   const playersHands: PlayerHand[] = [];
+  const hasExplicitQualifyingBotMarker = playerNames.some((name, index) => (
+    Boolean(playerBots[index]) && /_Q_bot$/i.test(name ?? '')
+  ));
   let botIndex = 0;
   for (let p = 0; p < players; p++) {
     const isBot = Boolean(playerBots[p]);
+    const qualifyingEntryBot = isBot && (hasExplicitQualifyingBotMarker
+      ? /_Q_bot$/i.test(playerNames[p] ?? '')
+      : botIndex % 2 === 1);
+    if (isBot) botIndex++;
     playersHands.push({
       id: `P${p+1}`,
-      name: normalizedPlayerName(playerNames[p], p, isBot),
+      name: normalizedPlayerName(playerNames[p], p, isBot, qualifyingEntryBot),
       token: uuidv4(),
       hole: deck.splice(0, CARDS_PER_PLAYER),
       folded: false,
       isBot,
-      botStyle: isBot ? botStyleForSeed(dealSeed, botIndex++) : undefined,
+      qualifyingEntryBot,
+      botStyle: isBot ? botStyleForSeed(dealSeed, botIndex - 1) : undefined,
       stack: STARTING_STACK,
     });
   }

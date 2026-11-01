@@ -45,7 +45,7 @@ test('seven open hands, split winners and both combinations fit the phone', asyn
       return { overlaps, inside: cards.every(c => c.left >= s.left && c.right <= s.right && c.top >= s.top && c.bottom <= s.bottom), overflow: document.documentElement.scrollWidth > innerWidth };
     });
     await page.screenshot({ path: testInfo.outputPath(`showdown-${viewport.width}.png`), fullPage: true });
-    expect(metrics, JSON.stringify(viewport)).toEqual({ overlaps: [], inside: true, overflow: false });
+    expect(metrics, JSON.stringify({ viewport, metrics })).toEqual({ overlaps: [], inside: true, overflow: false });
   }
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: testInfo.outputPath('seven-player-showdown.png'), fullPage: true });

@@ -136,13 +136,13 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .mt-page--desktop .mt-shell { width: 100%; height: auto; min-height: calc(100dvh - max(8px, env(safe-area-inset-bottom))); }
   .mt-page--desktop .mt-scene {
     display: flex;
-    flex: 1 0 auto;
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: center;
     justify-content: space-evenly;
     gap: 6px;
     height: auto;
-    min-height: clamp(400px, calc(100dvh - 232px), 580px);
+    min-height: clamp(340px, calc(100dvh - 270px), 540px);
     max-height: none;
     margin: 0;
     padding: 8px;
@@ -208,7 +208,7 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .mt-page--desktop .mt-personal-result strong { font-size: 18px; }
   .mt-page--desktop .mt-personal-result > span { font-size: 10px; }
   .mt-page--desktop .dt-bottom-panel { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; }
-  .mt-page--desktop .mt-coach-slot { flex: 0 0 46px; height: 46px; min-height: 46px; margin: 0 0 6px; }
+  .mt-page--desktop .mt-coach-slot { flex: 0 0 46px; height: 46px; min-height: 46px; margin: 0 0 4px; }
   .mt-page--desktop .mt-coach-slot .training-advice-slot {
     flex: 1 1 auto;
     width: 100%;
@@ -217,7 +217,7 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
     margin: 0;
   }
   .mt-page--desktop .mt-coach-slot .training-advice { height: 100%; min-height: 0; }
-  .mt-page--desktop .mt-combo .mt-cards { width: 100%; max-width: 100%; margin: 0; }
+  .mt-page--desktop .mt-combo .mt-cards { align-items: center; width: 100%; max-width: 100%; margin: 0; }
   .mt-page--desktop .mt-combo .mt-card {
     flex: 0 0 auto;
     width: clamp(22px, 2.4vw, 30px);
@@ -231,6 +231,10 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .mt-page--desktop .mt-secondary-actions button.deal-utility-action { min-height: 44px; }
   .mt-page--desktop .mt-dock .mt-showdown-actions .mt-next { min-height: 44px; }
   .mt-page--desktop .mt-dock--showdown .mt-controls-slot > fieldset { display: none; }
+}
+@media (min-width: 761px) and (max-width: 1400px) and (max-height: 650px) {
+  .mt-page--desktop { padding-bottom: 0; }
+  .mt-page--desktop .mt-shell { height: 100dvh; }
 }
 @media (min-width: 761px) and (max-width: 1100px) {
   .mt-page--desktop .mt-seat-anchor { flex-basis: 22%; }

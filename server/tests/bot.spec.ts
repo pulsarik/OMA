@@ -1,4 +1,4 @@
-import { botMove, estimateShowdownEquity } from '../src/bot';
+import { botMove, estimateShowdownEquity, isQualifyingStartingHand } from '../src/bot';
 import { compareOmahaHands, dealHand, nextPartyHand, replayHandLayout } from '../src/game';
 
 test('Omaha hand comparison handles both halves of a split pot', () => {
@@ -126,4 +126,53 @@ test('bot styles are seeded independently and survive new hands and replays', ()
     undefined,
     'aggressive',
   ]);
+});
+
+test.each([
+  [['As', '7h', '4d', '2c'], true],
+  [['Ts', 'Th', '8d', '2c'], true],
+  [['9s', 'Th', 'Jd', 'Kc'], true],
+  [['2s', '3h', '6d', '7c'], true],
+  [['2s', '4h', '8d', 'Kc'], true],
+  [['Ts', 'Th', '8d', '8c'], false],
+  [['9s', '9h', 'Jd', 'Kc'], false],
+  [['2s', '2h', '6d', '7c'], false],
+  [['2s', '8h', '9d', 'Kc'], false],
+])('Q-bot starting-hand criteria: %j qualifies=%s', (hole, qualifies) => {
+  expect(isQualifyingStartingHand(hole as string[])).toBe(qualifies);
+});
+
+test('every second bot qualifies by its hand and ignores preflop bet size and player count', () => {
+  const hand = dealHand(5, 9876, [], [false, true, false, true, false]);
+  const bot = hand.players[3];
+  bot.hole = ['As', '2h', '3c', 'Kd'];
+  hand.currentPlayerId = bot.id;
+  hand.currentBet = 500;
+  hand.roundBets[bot.id] = 0;
+
+  expect(bot.qualifyingEntryBot).toBe(true);
+  expect(bot.name).toBe('Anna_Q_bot');
+  expect(botMove(hand, bot)).toEqual({ move: 'call' });
+});
+
+test('Q-bot folds non-qualifying preflop hands and uses the normal strategy after the flop', () => {
+  const hand = dealHand(3, 1357, [], [false, true, true]);
+  const bot = hand.players[2];
+  bot.hole = ['2s', '8h', '9d', 'Kc'];
+  hand.currentPlayerId = bot.id;
+  hand.currentBet = 0;
+  hand.roundBets[bot.id] = 0;
+
+  expect(bot.qualifyingEntryBot).toBe(true);
+  expect(botMove(hand, bot)).toEqual({ move: 'fold' });
+
+  hand.stage = 'flop';
+  bot.hole = ['As', 'Ks', 'Jc', '7h'];
+  hand.fullCommunity = ['3s', '4h', '6d', 'Qc', '9c'];
+  hand.community = hand.fullCommunity.slice(0, 3);
+  hand.currentBet = 0;
+  hand.roundBets[bot.id] = 0;
+  hand.potCoins = 80;
+  const regularBot = { ...bot, qualifyingEntryBot: false };
+  expect(botMove(hand, bot)).toEqual(botMove(hand, regularBot));
 });

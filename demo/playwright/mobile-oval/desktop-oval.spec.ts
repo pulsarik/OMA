@@ -189,6 +189,8 @@ test.describe('touch tablet', () => {
             boardHeroGap: hero.top - board.bottom,
             heroResultGap: result.top - hero.bottom,
             panelHeight: rect('.dt-bottom-panel').height,
+            replayWidth: rect('[data-testid=replay-current-deal]').width,
+            replayHeight: rect('[data-testid=replay-current-deal]').height,
             badgeCount: table.querySelectorAll('.mt-hand-positions .mt-position').length,
             badgesInHand: [...table.querySelectorAll('.mt-hand-positions .mt-position')].every(badge => {
               const badgeBox = badge.getBoundingClientRect();
@@ -207,6 +209,9 @@ test.describe('touch tablet', () => {
         expect(layout.badgesInHand, JSON.stringify({ count, viewport })).toBe(true);
         expect(layout.badgeCount, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(2);
         expect(layout.panelHeight, JSON.stringify({ count, viewport })).toBeLessThan(140);
+        expect(layout.replayWidth, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(76);
+        expect(layout.replayWidth, JSON.stringify({ count, viewport })).toBeLessThanOrEqual(180);
+        expect(layout.replayHeight, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(44);
         expect(layout.topSeatGap, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(4);
         expect(layout.boardHeroGap, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(4);
         expect(layout.heroResultGap, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(6);
@@ -221,9 +226,12 @@ test.describe('touch tablet', () => {
     const state = fixture(4, false);
     state.players[1].isBot = true;
     state.forkRootCode = 'PA0001';
-    await mockTable(page, state);
+    const mock = await mockTable(page, state);
 
-    for (const viewport of [{ width: 1280, height: 632 }, { width: 800, height: 1138 }]) {
+    for (const viewport of [
+      { width: 761, height: 800 }, { width: 800, height: 632 }, { width: 800, height: 1138 },
+      { width: 1024, height: 600 }, { width: 1024, height: 768 }, { width: 1280, height: 632 },
+    ]) {
       await page.setViewportSize(viewport);
       await expect(page.getByTestId('desktop-table')).toBeVisible();
       await expect(page.locator('.training-advice-slot')).toBeVisible();
@@ -234,13 +242,13 @@ test.describe('touch tablet', () => {
       const metrics = await page.getByTestId('desktop-table').evaluate(table => {
         const scene = table.querySelector('.mt-scene')!.getBoundingClientRect();
         const panel = table.querySelector('.dt-bottom-panel')!.getBoundingClientRect();
-        const coach = table.querySelector('.mt-coach-slot')!.getBoundingClientRect();
+        const coachSlot = table.querySelector('.mt-coach-slot')!.getBoundingClientRect();
         const fieldset = table.querySelector('.mt-dock fieldset')!.getBoundingClientRect();
         const opponents = [...table.querySelectorAll('.mt-seat:not(.mt-seat--hero)')].map(seat => seat.getBoundingClientRect());
         const board = table.querySelector('.mt-board')!.getBoundingClientRect();
         const hero = table.querySelector('.mt-seat--hero')!.getBoundingClientRect();
         const banner = table.querySelector('[data-testid=fork-banner]')?.getBoundingClientRect();
-        const coach = table.querySelector('.training-advice-slot')!.getBoundingClientRect();
+        const coachAdvice = table.querySelector('.training-advice')!.getBoundingClientRect();
         const buttons = [...table.querySelectorAll<HTMLButtonElement>('.mt-dock button')]
           .map(button => button.getBoundingClientRect());
         const cards = [...table.querySelectorAll('.mt-scene .mt-card')].map(card => card.getBoundingClientRect());
@@ -248,7 +256,7 @@ test.describe('touch tablet', () => {
         return {
           noScroll: document.documentElement.scrollHeight <= innerHeight,
           sceneVisible: scene.top >= 0 && scene.bottom <= innerHeight && scene.height >= 300,
-          coachVisible: coach.top >= 0 && coach.bottom <= innerHeight,
+          coachVisible: coachAdvice.top >= 0 && coachAdvice.bottom <= innerHeight,
           buttonsVisible: buttons.every(button => button.top >= 0 && button.bottom <= innerHeight),
           sceneBottomGap: panel.top - scene.bottom,
           sceneHeight: scene.height,
@@ -258,7 +266,8 @@ test.describe('touch tablet', () => {
           heroBottom: hero.bottom,
           pageHeight: document.documentElement.scrollHeight,
           viewportHeight: innerHeight,
-          coachBottom: coach.bottom,
+          coachBottom: coachSlot.bottom,
+          coachGap: fieldset.top - coachSlot.bottom,
           controlsTop: fieldset.top,
           comboCardCount: comboCards.length,
           comboCardRatios: comboCards.map(card => card.height / card.width),
@@ -279,6 +288,7 @@ test.describe('touch tablet', () => {
         expect(metrics.sceneBottomGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(0);
         expect(metrics.maxCardHeightRatio, JSON.stringify(viewport)).toBeLessThanOrEqual(1.45);
         expect(metrics.coachBottom, JSON.stringify(viewport)).toBeLessThanOrEqual(metrics.controlsTop);
+        expect(metrics.coachGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(4);
         expect(metrics.comboCardCount, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
         expect(metrics.comboCardRatios.every(ratio => Math.abs(ratio - 132 / 92) < 0.1), JSON.stringify(viewport)).toBe(true);
         expect(Math.max(...metrics.comboCardWidths) - Math.min(...metrics.comboCardWidths), JSON.stringify(viewport)).toBeLessThan(0.5);
@@ -306,10 +316,11 @@ test.describe('touch tablet', () => {
         overlaps: boxes.flatMap((a, i) => boxes.slice(i + 1).filter(b => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
           && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1).map(b => [a.name, b.name])),
         overflow: document.documentElement.scrollWidth > innerWidth,
+        boxes,
         };
       });
       await page.screenshot({ path: testInfo.outputPath(`tablet-ru-${viewport.width}x${viewport.height}.png`) });
-      expect(metrics, JSON.stringify(viewport)).toEqual({ inside: true, overlaps: [], overflow: false });
+      expect(metrics, JSON.stringify({ viewport, metrics })).toMatchObject({ inside: true, overlaps: [], overflow: false });
     }
     await page.locator('.mt-side-link').tap();
     await expect(page.getByRole('dialog')).toBeVisible();
