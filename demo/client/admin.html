@@ -68,17 +68,30 @@
       padding: 9px;
       text-align: left;
       vertical-align: top;
-      white-space: nowrap;
     }
     th { color: #4b5563; font-size: 12px; text-transform: uppercase; }
-    .user-agent {
-      min-width: 260px;
-      max-width: 480px;
-      white-space: normal;
+    #accesses table {
+      min-width: 980px;
+      table-layout: fixed;
+    }
+    #accesses th, #accesses td {
       overflow-wrap: anywhere;
+    }
+    #accesses th:nth-child(1) { width: 13%; }
+    #accesses th:nth-child(2) { width: 10%; }
+    #accesses th:nth-child(3) { width: 6%; }
+    #accesses th:nth-child(4) { width: 7%; }
+    #accesses th:nth-child(5) { width: 5%; }
+    #accesses th:nth-child(6) { width: 7%; }
+    #accesses th:nth-child(7) { width: 7%; }
+    #accesses th:nth-child(8) { width: 11%; }
+    #accesses th:nth-child(9) { width: 13%; }
+    #accesses th:nth-child(10) { width: 21%; }
+    .user-agent {
       color: #6b7280;
       font-size: 12px;
     }
+    .access-details > span { display: block; }
     .error {
       border-color: #fecaca;
       background: #fff1f2;
@@ -113,7 +126,7 @@
 
     <section class="panel">
       <h2>Адреса и параметры экранов</h2>
-      <p class="muted">Одинаковые подключения сгруппированы по адресу и устройству.</p>
+      <p class="muted">Данные сгруппированы по браузеру. Заход — отдельный календарный день с игровой активностью; реконнекты в тот же день не считаются.</p>
       <div id="accesses" class="table-scroll"></div>
     </section>
   </main>
@@ -204,7 +217,7 @@
         ['Сыграно партий', totals.parties || 0],
         ['Общее активное время', formatDuration(totals.activeMs)],
         ['Среднее время сессии', formatDuration(totals.averagePartyActiveMs)],
-        ['Подключений', totals.visits || 0],
+        ['Заходов по дням (игроко-дней)', totals.visitDays || 0],
         ['Уникальных IP', totals.uniqueIps || 0],
       ].map(([label, value]) => `
         <div class="card">
@@ -214,7 +227,7 @@
       `).join('');
 
       document.getElementById('devices').innerHTML = table(
-        ['Тип устройства', 'Платформа', 'Подключений'],
+        ['Тип устройства', 'Платформа', 'Событий подключения'],
         (stats.devices || []).map((device) => `
           <tr>
             <td>${escapeHtml(device.deviceType)}</td>
@@ -232,15 +245,10 @@
           'Партий сыграно / Parties played',
           'Побед / Wins',
           'Побед / Win rate',
+          'Заходов по дням',
           'Страна / Country',
           'Источник / Source',
-          'IP-адрес',
-          'Устройство',
-          'Платформа',
-          'Экран',
-          'Окно',
-          'Подключений',
-          'User-Agent',
+          'Устройство и экран',
         ],
         (stats.accesses || []).map((access) => `
           <tr>
@@ -250,15 +258,14 @@
             <td>${escapeHtml(access.partiesPlayed ?? access.gamesPlayed ?? 0)}</td>
             <td>${escapeHtml(access.partiesWon ?? 0)}</td>
             <td>${escapeHtml(`${access.winPercent ?? 0}%`)}</td>
+            <td>${escapeHtml(access.visitDays ?? 0)}</td>
             <td>${escapeHtml(countryName(access.country))}</td>
             <td>${escapeHtml(sourceName(access.source))}</td>
-            <td>${escapeHtml(access.ip)}</td>
-            <td>${escapeHtml(access.deviceType)}</td>
-            <td>${escapeHtml(access.platform)}</td>
-            <td>${escapeHtml(resolution(access.screenWidth, access.screenHeight))}</td>
-            <td>${escapeHtml(resolution(access.viewportWidth, access.viewportHeight))}</td>
-            <td>${escapeHtml(access.connections)}</td>
-            <td class="user-agent">${escapeHtml(access.userAgent)}</td>
+            <td class="access-details">
+              <span>${escapeHtml(access.ip)} · ${escapeHtml(access.deviceType)} · ${escapeHtml(access.platform)}</span>
+              <span>Экран: ${escapeHtml(resolution(access.screenWidth, access.screenHeight))} · окно: ${escapeHtml(resolution(access.viewportWidth, access.viewportHeight))}</span>
+              <span class="user-agent">${escapeHtml(access.userAgent)}</span>
+            </td>
           </tr>
         `),
       );

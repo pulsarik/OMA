@@ -101,7 +101,13 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .mt-page--desktop .mt-hero-anchor { top: 77%; width: min(22%, 34cqh); }
 }
 @media (max-height: 750px) and (min-width: 761px) {
-  .mt-page--desktop .mt-scene { min-height: 330px; }
+  .mt-page--desktop .mt-scene { min-height: 260px; margin-bottom: 24px; }
+  .mt-page--desktop .mt-card { aspect-ratio: .72; }
+  .mt-page--desktop .mt-board { width: min(33%, 50cqh); }
+  .mt-page--desktop .mt-board .mt-card b,
+  .mt-page--desktop .mt-seat--hero .mt-card b { font-size: 16px; }
+  .mt-page--desktop .mt-board .mt-card > span,
+  .mt-page--desktop .mt-seat--hero .mt-card > span { font-size: 18px; }
   .dt-bottom-panel { min-height: 112px; padding: 6px 12px; }
   .mt-page--desktop .mt-coach-slot { height: 56px; margin-bottom: 4px; }
   .mt-page--desktop .mt-combo .mt-card { max-height: 44px; }
@@ -123,4 +129,7 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .mt-page--desktop .mt-combo .mt-card b { font-size: 16px; }
   .mt-page--desktop .mt-combo .mt-card > span { font-size: 18px; }
   .mt-page--desktop .mt-action-buttons button { font-size: 14px; }
+}
+@media (min-width: 761px) and (max-width: 1400px) {
+  .mt-page--desktop .mt-replay { left: 3%; transform: none; }
 }

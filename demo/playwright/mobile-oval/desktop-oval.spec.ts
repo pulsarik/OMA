@@ -160,6 +160,7 @@ test.describe('touch tablet', () => {
   test('table, reserved coach space and action buttons fit without scrolling', async ({ page }) => {
     const state = fixture(4, false);
     state.players[1].isBot = true;
+    state.forkRootCode = 'PA0001';
     await mockTable(page, state);
 
     for (const viewport of [{ width: 1280, height: 632 }, { width: 800, height: 1138 }]) {
@@ -170,23 +171,35 @@ test.describe('touch tablet', () => {
 
       const metrics = await page.getByTestId('desktop-table').evaluate(table => {
         const scene = table.querySelector('.mt-scene')!.getBoundingClientRect();
+        const panel = table.querySelector('.dt-bottom-panel')!.getBoundingClientRect();
+        const banner = table.querySelector('[data-testid=fork-banner]')?.getBoundingClientRect();
         const coach = table.querySelector('.training-advice-slot')!.getBoundingClientRect();
         const buttons = [...table.querySelectorAll<HTMLButtonElement>('.mt-dock button')]
           .map(button => button.getBoundingClientRect());
+        const cards = [...table.querySelectorAll('.mt-scene .mt-card')].map(card => card.getBoundingClientRect());
         return {
           noScroll: document.documentElement.scrollHeight <= innerHeight,
           sceneVisible: scene.top >= 0 && scene.bottom <= innerHeight && scene.height >= 300,
           coachVisible: coach.top >= 0 && coach.bottom <= innerHeight,
           buttonsVisible: buttons.every(button => button.top >= 0 && button.bottom <= innerHeight),
+          sceneBottomGap: panel.top - scene.bottom,
+          maxCardHeightRatio: Math.max(...cards.map(card => card.height / card.width)),
+          bannerLeft: banner ? banner.left - scene.left : null,
+          sceneWidth: scene.width,
         };
       });
 
-      expect(metrics, JSON.stringify(viewport)).toEqual({
+      expect(metrics, JSON.stringify(viewport)).toMatchObject({
         noScroll: true,
         sceneVisible: true,
         coachVisible: true,
         buttonsVisible: true,
       });
+      if (viewport.height <= 700) {
+        expect(metrics.sceneBottomGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(20);
+        expect(metrics.maxCardHeightRatio, JSON.stringify(viewport)).toBeLessThanOrEqual(1.45);
+      }
+      expect(metrics.bannerLeft, JSON.stringify(viewport)).toBeLessThan(metrics.sceneWidth * 0.05);
     }
   });
 

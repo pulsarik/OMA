@@ -8,7 +8,7 @@ test('analytics keeps the latest known country and source for a browser, includi
   await store.recordAnalyticsVisit(visit, 3000);
   const stats = await store.getAnalyticsStats();
   expect(stats.accesses).toHaveLength(1);
-  expect(stats.accesses[0]).toMatchObject({ country: 'DE', source: 'campaign:newsletter', connections: 3 });
+  expect(stats.accesses[0]).toMatchObject({ country: 'DE', source: 'campaign:newsletter', visitDays: 1 });
 });
 
 test('concurrent first reads wait for the database schema to finish initializing', async () => {
@@ -70,7 +70,7 @@ test('analytics pauses after 30 seconds and resumes on later activity', async ()
     deals: 1,
     parties: 1,
     activeMs: 45_000,
-    visits: 1,
+    visitDays: 1,
     uniqueIps: 1,
   });
   expect(stats.totals.averagePartyActiveMs).toBe(45_000);
@@ -79,7 +79,6 @@ test('analytics pauses after 30 seconds and resumes on later activity', async ()
     deviceType: 'Mobile',
     screenWidth: 412,
     screenHeight: 915,
-    connections: 1,
   });
 });
 
@@ -151,7 +150,6 @@ test('analytics keeps one access row when screen parameters or player name chang
     playerName: 'Robert',
     screenWidth: 1536,
     screenHeight: 960,
-    connections: 2,
   });
 });
 
@@ -174,10 +172,27 @@ test('analytics keeps one access row when cookie metadata changes', async () => 
   expect(accesses).toHaveLength(1);
   expect(accesses[0]).toMatchObject({
     clientCookie: 'stable-player-id',
-    connections: 2,
     platform: 'Linux armv81',
     screenWidth: 1280,
   });
+});
+
+test('analytics counts one visit per active calendar day for a browser', async () => {
+  const store = new HandStore(':memory:');
+  const visit = {
+    partyId: 'party-1',
+    handId: 'hand-1',
+    playerId: 'player-1',
+    clientCookie: 'stable-player-id',
+  };
+  await store.recordAnalyticsVisit(visit, Date.parse('2026-10-30T10:00:00.000Z'));
+  await store.recordAnalyticsVisit(visit, Date.parse('2026-10-30T18:00:00.000Z'));
+  await store.recordAnalyticsVisit(visit, Date.parse('2026-10-31T00:05:00.000Z'));
+
+  const accesses = (await store.getAnalyticsStats()).accesses;
+  expect(accesses).toHaveLength(1);
+  expect(accesses[0]).toMatchObject({ visitDays: 2 });
+  expect((await store.getAnalyticsStats()).totals.visitDays).toBe(2);
 });
 
 test('expired parties and their started lobbies are forgotten while active parties remain', async () => {
@@ -238,7 +253,7 @@ test('session cleanup preserves historical analytics alongside active parties wi
     }, at);
   }
   const before = await store.getAnalyticsStats(150_000);
-  expect(before.totals).toMatchObject({ deals: 3, parties: 2, visits: 2, activeMs: 80_000 });
+  expect(before.totals).toMatchObject({ deals: 3, parties: 2, visitDays: 1, activeMs: 80_000 });
   expect(before.accesses[0]).toMatchObject({ dealsPlayed: 3, partiesPlayed: 1, partiesWon: 1 });
 
   await store.deleteExpiredParties(50_000);

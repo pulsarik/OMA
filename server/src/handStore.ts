@@ -654,7 +654,7 @@ export default class HandStore {
         ORDER BY visits DESC
       `),
       db.get(`
-        SELECT COUNT(*) AS visits, COUNT(DISTINCT ip) AS uniqueIps
+        SELECT COUNT(DISTINCT ip) AS uniqueIps
         FROM analytics_visits
       `),
     ]);
@@ -700,10 +700,10 @@ export default class HandStore {
         viewportWidth: visit.viewportWidth,
         viewportHeight: visit.viewportHeight,
         pixelRatio: visit.pixelRatio,
-        connections: 0,
+        visitDays: new Set<string>(),
         playersByParty: new Map<string, string>(),
       };
-      access.connections += 1;
+      access.visitDays.add(new Date(visit.created).toISOString().slice(0, 10));
       access.firstSeen = Math.min(access.firstSeen, visit.created);
       const isLatestVisit = visit.lastSeen >= access.lastSeen;
       if (isLatestVisit) {
@@ -757,9 +757,10 @@ export default class HandStore {
         const maxStack = Math.max(...finalHand.players.map((player: any) => Number(player.stack) || 0));
         if ((Number(finalHand.players.find((player: any) => player.id === playerId)?.stack) || 0) === maxStack) wins += 1;
       });
-      const { playersByParty, ...publicAccess } = access;
+      const { playersByParty, visitDays, ...publicAccess } = access;
       return {
         ...publicAccess,
+        visitDays: visitDays.size,
         gamesPlayed,
         partiesPlayed: gamesPlayed,
         partiesWon: wins,
@@ -805,7 +806,7 @@ export default class HandStore {
         parties: parties.size,
         activeMs: totalActiveMs,
         averagePartyActiveMs: parties.size ? Math.round(totalActiveMs / parties.size) : 0,
-        visits: totals.visits as number,
+        visitDays: accesses.reduce((sum: number, access: any) => sum + access.visitDays, 0),
         uniqueIps: totals.uniqueIps as number,
       },
       devices,
