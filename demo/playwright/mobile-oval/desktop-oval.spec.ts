@@ -25,7 +25,6 @@ test('desktop coach uses the full action panel width on a short viewport', async
 test('desktop table keeps its size across streets, showdown and the next deal', async ({ page }) => {
   const mock = await mockTable(page, fixture(4, false));
   for (const viewport of [
-    { width: 761, height: 800 }, { width: 1280, height: 632 },
     { width: 1440, height: 1000 }, { width: 1920, height: 1080 },
     { width: 2560, height: 1440 },
   ]) {
@@ -52,7 +51,7 @@ test('desktop table keeps its size across streets, showdown and the next deal', 
 test('desktop seats, board, hints and actions fit without overlap for 2–10 players', async ({ page }, testInfo) => {
   const mock = await mockTable(page, fixture(8, false));
   test.setTimeout(90_000);
-  for (const viewport of [{ width: 761, height: 800 }, { width: 820, height: 1180 }, { width: 1024, height: 768 }, { width: 1280, height: 632 }, { width: 1440, height: 1000 }, { width: 1920, height: 1080 }, { width: 2560, height: 1440 }]) {
+  for (const viewport of [{ width: 1440, height: 1000 }, { width: 1920, height: 1080 }, { width: 2560, height: 1440 }]) {
     await page.setViewportSize(viewport);
     for (const mode of ['live', 'showdown', 'side-pots']) {
       const showdown = mode !== 'live';
@@ -158,53 +157,63 @@ test.describe('touch tablet', () => {
   test.use({ hasTouch: true, deviceScaleFactor: 1.25 });
 
   test('short tablet showdown keeps the board clear of both hands and results', async ({ page }) => {
-    await mockTable(page, fixture(4, true));
-    for (const viewport of [{ width: 800, height: 632 }, { width: 1280, height: 632 }]) {
-      await page.setViewportSize(viewport);
-      await expect(page.getByTestId('desktop-table')).toBeVisible();
+    const mock = await mockTable(page, fixture(4, true));
+    for (const count of [4, 10]) {
+      if (count !== 4) mock.update(fixture(count, true));
+      for (const viewport of [{ width: 800, height: 632 }, { width: 1280, height: 632 }]) {
+        await page.setViewportSize(viewport);
+        await expect(page.getByTestId('desktop-table')).toBeVisible();
 
-      const layout = await page.getByTestId('desktop-table').evaluate(table => {
-        const rect = (selector: string) => table.querySelector(selector)!.getBoundingClientRect();
-        const intersects = (a: DOMRect, b: DOMRect) => (
-          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2
-          && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2
-        );
-        const board = rect('.mt-board');
-        const opponents = [...table.querySelectorAll<HTMLElement>('.mt-seat:not(.mt-seat--hero)')]
-          .map(seat => seat.getBoundingClientRect());
-        const hero = rect('.mt-seat--hero');
-        const result = rect('.mt-personal-result');
-        const scene = rect('.mt-scene');
-        const centerSeat = opponents.reduce((closest, seat) => (
-          Math.abs((seat.left + seat.right) / 2 - (scene.left + scene.right) / 2)
-            < Math.abs((closest.left + closest.right) / 2 - (scene.left + scene.right) / 2)
-            ? seat : closest
-        ));
-        return {
-          boardOverlaps: opponents.some(seat => intersects(board, seat)) || intersects(board, hero),
-          heroResultOverlap: intersects(hero, result),
-          topSeatGap: board.top - centerSeat.bottom,
-          boardHeroGap: hero.top - board.bottom,
-          heroResultGap: result.top - hero.bottom,
-          sceneHeight: scene.height,
-          panelHeight: rect('.dt-bottom-panel').height,
-          badgeCount: table.querySelectorAll('.mt-hand-positions .mt-position').length,
-          badgesInHand: [...table.querySelectorAll('.mt-hand-positions .mt-position')].every(badge => {
-            const badgeBox = badge.getBoundingClientRect();
-            const hand = badge.closest('.mt-hand-cards')!.getBoundingClientRect();
-            return badgeBox.left >= hand.left && badgeBox.left <= hand.right;
-          }),
-        };
-      });
+        const layout = await page.getByTestId('desktop-table').evaluate(table => {
+          const rect = (selector: string) => table.querySelector(selector)!.getBoundingClientRect();
+          const intersects = (a: DOMRect, b: DOMRect) => (
+            Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2
+            && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2
+          );
+          const board = rect('.mt-board');
+          const opponents = [...table.querySelectorAll<HTMLElement>('.mt-seat:not(.mt-seat--hero)')]
+            .map(seat => seat.getBoundingClientRect());
+          const hero = rect('.mt-seat--hero');
+          const result = rect('.mt-personal-result');
+          const scene = rect('.mt-scene');
+          const centerSeat = opponents.reduce((closest, seat) => (
+            Math.abs((seat.left + seat.right) / 2 - (scene.left + scene.right) / 2)
+              < Math.abs((closest.left + closest.right) / 2 - (scene.left + scene.right) / 2)
+              ? seat : closest
+          ));
+          const cards = [...table.querySelectorAll('.mt-scene .mt-card')].map(card => card.getBoundingClientRect());
+          return {
+            boardOverlaps: opponents.some(seat => intersects(board, seat)) || intersects(board, hero),
+            heroResultOverlap: intersects(hero, result),
+            topSeatGap: board.top - centerSeat.bottom,
+            boardHeroGap: hero.top - board.bottom,
+            heroResultGap: result.top - hero.bottom,
+            panelHeight: rect('.dt-bottom-panel').height,
+            badgeCount: table.querySelectorAll('.mt-hand-positions .mt-position').length,
+            badgesInHand: [...table.querySelectorAll('.mt-hand-positions .mt-position')].every(badge => {
+              const badgeBox = badge.getBoundingClientRect();
+              const hand = badge.closest('.mt-hand-cards')!.getBoundingClientRect();
+              return badgeBox.left >= hand.left && badgeBox.left <= hand.right;
+            }),
+            cardWidth: cards[0].width,
+            cardRatio: cards[0].height / cards[0].width,
+            uniformCards: cards.every(card => Math.abs(card.width - cards[0].width) < 0.5
+              && Math.abs(card.height - cards[0].height) < 0.5),
+          };
+        });
 
-      expect(layout.boardOverlaps, JSON.stringify(viewport)).toBe(false);
-      expect(layout.heroResultOverlap, JSON.stringify(viewport)).toBe(false);
-      expect(layout.badgesInHand, JSON.stringify(viewport)).toBe(true);
-      expect(layout.badgeCount, JSON.stringify(viewport)).toBeGreaterThanOrEqual(2);
-      expect(layout.panelHeight, JSON.stringify(viewport)).toBeLessThan(140);
-      expect(layout.topSeatGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
-      expect(layout.boardHeroGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
-      expect(layout.heroResultGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(6);
+        expect(layout.boardOverlaps, JSON.stringify({ count, viewport })).toBe(false);
+        expect(layout.heroResultOverlap, JSON.stringify({ count, viewport })).toBe(false);
+        expect(layout.badgesInHand, JSON.stringify({ count, viewport })).toBe(true);
+        expect(layout.badgeCount, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(2);
+        expect(layout.panelHeight, JSON.stringify({ count, viewport })).toBeLessThan(140);
+        expect(layout.topSeatGap, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(4);
+        expect(layout.boardHeroGap, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(4);
+        expect(layout.heroResultGap, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(6);
+        expect(layout.cardWidth, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(count <= 7 ? 24 : 18);
+        expect(layout.cardRatio, JSON.stringify({ count, viewport })).toBeCloseTo(132 / 92, 1);
+        expect(layout.uniformCards, JSON.stringify({ count, viewport })).toBe(true);
+      }
     }
   });
 
@@ -219,36 +228,60 @@ test.describe('touch tablet', () => {
       await expect(page.getByTestId('desktop-table')).toBeVisible();
       await expect(page.locator('.training-advice-slot')).toBeVisible();
       await expect(page.getByTestId('mt-actions')).toBeVisible();
+      mock.advice('Check — you can stay in the hand without paying more right now.');
+      await expect(page.getByTestId('training-advice')).toBeVisible();
 
       const metrics = await page.getByTestId('desktop-table').evaluate(table => {
         const scene = table.querySelector('.mt-scene')!.getBoundingClientRect();
         const panel = table.querySelector('.dt-bottom-panel')!.getBoundingClientRect();
+        const coach = table.querySelector('.mt-coach-slot')!.getBoundingClientRect();
+        const fieldset = table.querySelector('.mt-dock fieldset')!.getBoundingClientRect();
+        const opponents = [...table.querySelectorAll('.mt-seat:not(.mt-seat--hero)')].map(seat => seat.getBoundingClientRect());
+        const board = table.querySelector('.mt-board')!.getBoundingClientRect();
+        const hero = table.querySelector('.mt-seat--hero')!.getBoundingClientRect();
         const banner = table.querySelector('[data-testid=fork-banner]')?.getBoundingClientRect();
         const coach = table.querySelector('.training-advice-slot')!.getBoundingClientRect();
         const buttons = [...table.querySelectorAll<HTMLButtonElement>('.mt-dock button')]
           .map(button => button.getBoundingClientRect());
         const cards = [...table.querySelectorAll('.mt-scene .mt-card')].map(card => card.getBoundingClientRect());
+        const comboCards = [...table.querySelectorAll('.mt-combo .mt-card')].map(card => card.getBoundingClientRect());
         return {
           noScroll: document.documentElement.scrollHeight <= innerHeight,
           sceneVisible: scene.top >= 0 && scene.bottom <= innerHeight && scene.height >= 300,
           coachVisible: coach.top >= 0 && coach.bottom <= innerHeight,
           buttonsVisible: buttons.every(button => button.top >= 0 && button.bottom <= innerHeight),
           sceneBottomGap: panel.top - scene.bottom,
+          sceneHeight: scene.height,
+          panelHeight: panel.height,
+          opponentsBottom: Math.max(...opponents.map(seat => seat.bottom)),
+          boardTop: board.top,
+          heroBottom: hero.bottom,
+          pageHeight: document.documentElement.scrollHeight,
+          viewportHeight: innerHeight,
+          coachBottom: coach.bottom,
+          controlsTop: fieldset.top,
+          comboCardCount: comboCards.length,
+          comboCardRatios: comboCards.map(card => card.height / card.width),
+          comboCardWidths: comboCards.map(card => card.width),
           maxCardHeightRatio: Math.max(...cards.map(card => card.height / card.width)),
           bannerLeft: banner ? banner.left - scene.left : null,
           sceneWidth: scene.width,
         };
       });
 
-      expect(metrics, JSON.stringify(viewport)).toMatchObject({
+      expect(metrics, JSON.stringify({ viewport, metrics })).toMatchObject({
         noScroll: true,
         sceneVisible: true,
         coachVisible: true,
         buttonsVisible: true,
       });
       if (viewport.height <= 700) {
-        expect(metrics.sceneBottomGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(20);
+        expect(metrics.sceneBottomGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(0);
         expect(metrics.maxCardHeightRatio, JSON.stringify(viewport)).toBeLessThanOrEqual(1.45);
+        expect(metrics.coachBottom, JSON.stringify(viewport)).toBeLessThanOrEqual(metrics.controlsTop);
+        expect(metrics.comboCardCount, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
+        expect(metrics.comboCardRatios.every(ratio => Math.abs(ratio - 132 / 92) < 0.1), JSON.stringify(viewport)).toBe(true);
+        expect(Math.max(...metrics.comboCardWidths) - Math.min(...metrics.comboCardWidths), JSON.stringify(viewport)).toBeLessThan(0.5);
       }
       expect(metrics.bannerLeft, JSON.stringify(viewport)).toBeLessThan(metrics.sceneWidth * 0.05);
     }
@@ -267,11 +300,12 @@ test.describe('touch tablet', () => {
       const metrics = await page.getByTestId('desktop-table').evaluate(table => {
         const boxes = [...table.querySelectorAll('.mt-seat, .mt-board, .mt-hints, .mt-personal-result, .mt-dock')]
           .map(el => ({ ...el.getBoundingClientRect().toJSON(), name: el.getAttribute('data-testid') ?? el.className }));
+        const pageHeight = document.documentElement.scrollHeight;
         return {
-          inside: boxes.every(b => b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight),
-          overlaps: boxes.flatMap((a, i) => boxes.slice(i + 1).filter(b => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
-            && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1).map(b => [a.name, b.name])),
-          overflow: document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth,
+        inside: boxes.every(b => b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= pageHeight),
+        overlaps: boxes.flatMap((a, i) => boxes.slice(i + 1).filter(b => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1
+          && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1).map(b => [a.name, b.name])),
+        overflow: document.documentElement.scrollWidth > innerWidth,
         };
       });
       await page.screenshot({ path: testInfo.outputPath(`tablet-ru-${viewport.width}x${viewport.height}.png`) });

@@ -101,16 +101,6 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .mt-page--desktop .mt-hero-anchor { top: 77%; width: min(22%, 34cqh); }
 }
 @media (max-height: 750px) and (min-width: 761px) {
-  .mt-page--desktop .mt-scene { min-height: 260px; margin-bottom: 24px; }
-  .mt-page--desktop .mt-card { aspect-ratio: .78; }
-  .mt-page--desktop .mt-board { top: 49%; width: min(33%, 50cqh); }
-  .mt-page--desktop .mt-personal-result { bottom: 2%; }
-  .mt-page--desktop .mt-board .mt-card b,
-  .mt-page--desktop .mt-seat--hero .mt-card b { font-size: 16px; }
-  .mt-page--desktop .mt-board .mt-card > span,
-  .mt-page--desktop .mt-seat--hero .mt-card > span { font-size: 18px; }
-  .mt-page--desktop .mt-hero-anchor { width: min(20%, 32cqh); }
-  .mt-page--desktop .mt-seat--hero .mt-seat-result { min-height: 18px; height: 18px; padding-top: 2px; }
   .dt-bottom-panel { min-height: 92px; padding: 4px 8px; }
   .mt-page--desktop .mt-coach-slot { height: 44px; margin-bottom: 0; }
   .mt-page--desktop .mt-combo .mt-card { max-height: 36px; }
@@ -124,7 +114,7 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
 }
 @media (min-width: 761px) {
   .mt-page--desktop .mt-position-line:empty { display: none; }
-  .mt-page--desktop .mt-hand-cards { position: relative; display: inline-block; vertical-align: top; }
+  .mt-page--desktop .mt-hand-cards { position: relative; display: inline-block; width: 100%; vertical-align: top; }
   .mt-page--desktop .mt-hand-positions { position: absolute; z-index: 1; right: -8px; bottom: -5px; display: flex; gap: 2px; }
   .mt-page--desktop .mt-hand-positions .mt-position { box-shadow: 0 1px 3px #001b14aa; }
 }
@@ -143,5 +133,117 @@ body:has(.mt-page--desktop) .report-problem-button { top: 2px !important; right:
   .dt-bottom-panel { padding: 4px 8px; }
 }
 @media (min-width: 761px) and (max-width: 1400px) {
-  .mt-page--desktop .mt-replay { left: 3%; transform: none; }
+  .mt-page--desktop .mt-shell { width: 100%; height: auto; min-height: calc(100dvh - max(8px, env(safe-area-inset-bottom))); }
+  .mt-page--desktop .mt-scene {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: 6px;
+    height: auto;
+    min-height: clamp(400px, calc(100dvh - 232px), 580px);
+    max-height: none;
+    margin: 0;
+    padding: 8px;
+    container-type: inline-size;
+  }
+  .mt-page--desktop .mt-rail { inset: 0 4px; border-width: 8px; border-radius: 24px; }
+  .mt-page--desktop .mt-replay { position: static; align-self: flex-start; transform: none; font-size: 11px; }
+  .mt-page--desktop .mt-opponents {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 8px 12px;
+    width: 100%;
+  }
+  .mt-page--desktop .mt-seat-anchor {
+    position: static;
+    transform: none;
+    flex: 0 1 18%;
+    width: auto;
+    min-width: 120px;
+    max-width: 240px;
+  }
+  .mt-page--desktop .mt-seat { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 4px; }
+  .mt-page--desktop .mt-seat-name { grid-column: 1 / -1; min-width: 0; font-size: 13px; line-height: 18px; }
+  .mt-page--desktop .mt-seat-name strong { max-width: 75%; overflow: hidden; text-overflow: ellipsis; }
+  .mt-page--desktop .mt-position-line { grid-column: 2; grid-row: 2; min-width: 0; min-height: 18px; font-size: 10px; }
+  .mt-page--desktop .mt-hand { grid-column: 1; grid-row: 2; min-width: 0; padding: 1px 5px 5px; }
+  .mt-page--desktop .mt-hand-cards { display: inline-block; position: relative; width: max-content; max-width: 100%; vertical-align: top; }
+  .mt-page--desktop .mt-scene .mt-cards { align-items: center; width: max-content; max-width: 100%; margin-inline: auto; }
+  .mt-page--desktop .mt-scene .mt-card {
+    flex: 0 0 auto;
+    width: clamp(28px, 3vw, 40px);
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 92 / 132;
+  }
+  .mt-page--desktop .mt-scene .mt-card b { font-size: clamp(16px, 1.6vw, 22px); }
+  .mt-page--desktop .mt-scene .mt-card > span { font-size: clamp(18px, 1.8vw, 24px); }
+  .mt-page--desktop .mt-seat-result {
+    grid-column: 1 / -1;
+    min-height: 18px;
+    height: auto;
+    padding: 0;
+    font-size: 11px;
+    line-height: 1.15;
+    white-space: normal;
+  }
+  .mt-page--desktop .mt-seat-result:has(.mt-ranks) { min-height: 34px; }
+  .mt-page--desktop .mt-ranks { margin-top: 2px; font-size: 10px; }
+  .mt-page--desktop .mt-board { position: static; align-self: center; width: auto; max-width: 100%; transform: none; gap: 3px; }
+  .mt-page--desktop .mt-board .mt-cards { gap: 7px; }
+  .mt-page--desktop .mt-board .mt-card b { font-size: clamp(16px, 1.6vw, 22px); }
+  .mt-page--desktop .mt-board .mt-card > span { font-size: clamp(18px, 1.8vw, 24px); }
+  .mt-page--desktop .mt-street { font-size: 13px; line-height: 16px; }
+  .mt-page--desktop .mt-pot { min-width: 120px; min-height: 32px; font-size: 14px; }
+  .mt-page--desktop .mt-pot strong { font-size: 20px; }
+  .mt-page--desktop .mt-pot-caption { font-size: 11px; }
+  .mt-page--desktop .mt-hero-anchor { position: static; width: min(100%, 300px); max-width: none; transform: none; }
+  .mt-page--desktop .mt-seat--hero .mt-seat-name { font-size: 16px; }
+  .mt-page--desktop .mt-seat--hero .mt-seat-result { min-height: 16px; height: auto; padding: 0; }
+  .mt-page--desktop .mt-personal-result { position: static; width: 100%; gap: 2px; }
+  .mt-page--desktop .mt-personal-result strong { font-size: 18px; }
+  .mt-page--desktop .mt-personal-result > span { font-size: 10px; }
+  .mt-page--desktop .dt-bottom-panel { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; }
+  .mt-page--desktop .mt-coach-slot { flex: 0 0 46px; height: 46px; min-height: 46px; margin: 0 0 6px; }
+  .mt-page--desktop .mt-coach-slot .training-advice-slot {
+    flex: 1 1 auto;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+  }
+  .mt-page--desktop .mt-coach-slot .training-advice { height: 100%; min-height: 0; }
+  .mt-page--desktop .mt-combo .mt-cards { width: 100%; max-width: 100%; margin: 0; }
+  .mt-page--desktop .mt-combo .mt-card {
+    flex: 0 0 auto;
+    width: clamp(22px, 2.4vw, 30px);
+    height: auto;
+    max-height: none;
+    aspect-ratio: 92 / 132;
+  }
+  .mt-page--desktop .mt-combo .mt-card b { font-size: clamp(13px, 1.2vw, 16px); }
+  .mt-page--desktop .mt-combo .mt-card > span { font-size: clamp(15px, 1.4vw, 18px); }
+  .mt-page--desktop .mt-secondary-actions { gap: 8px; }
+  .mt-page--desktop .mt-secondary-actions button.deal-utility-action { min-height: 44px; }
+  .mt-page--desktop .mt-dock .mt-showdown-actions .mt-next { min-height: 44px; }
+  .mt-page--desktop .mt-dock--showdown .mt-controls-slot > fieldset { display: none; }
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  .mt-page--desktop .mt-seat-anchor { flex-basis: 22%; }
+  .mt-page--desktop .dt-bottom-panel { padding: 8px; }
+}
+@media (min-width: 761px) and (max-width: 1400px) {
+  .mt-page--desktop:is([data-players="8"], [data-players="9"], [data-players="10"]) .mt-scene .mt-card {
+    width: clamp(22px, 2.4vw, 30px);
+  }
+  .mt-page--desktop:is([data-players="8"], [data-players="9"], [data-players="10"]) .mt-scene .mt-card b {
+    font-size: clamp(11px, 1vw, 14px);
+  }
+  .mt-page--desktop:is([data-players="8"], [data-players="9"], [data-players="10"]) .mt-scene .mt-card > span {
+    font-size: clamp(12px, 1.15vw, 16px);
+  }
 }
