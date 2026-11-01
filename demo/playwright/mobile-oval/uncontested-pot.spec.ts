@@ -35,7 +35,7 @@ for (const width of [320, 390, 1280]) {
     });
     const mock = await mockTable(page, state);
     const caption = page.locator('.mt-pot-caption');
-    const expectedCaption = 'Won without showdown · Whole pot 160';
+    const expectedCaption = 'Won without showdown';
     await expect(caption).toHaveText(expectedCaption);
     await expect(caption).not.toHaveAttribute('title');
     await expect(page.getByTestId('mt-seat-P6').locator('.mt-return')).toHaveText('Won 160');

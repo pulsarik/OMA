@@ -54,7 +54,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds, c
           {(payout?.uncontested ?? 0) > 0 ? <span className="mt-return">{t('Won', 'Выиграл')} {amount(payout?.uncontested)}</span> : null}
         </div>
         {!hero ? <div className="mt-ranks">
-          {seat.folded ? <span>{t('Folded', 'Сбросил карты')}{lastAction ? ` · ${stageLabel(lastAction.stage, language)}` : ''}</span> : null}
+          {seat.folded ? <span>{t('Folded', 'Сбросил карты')}</span> : null}
           {result?.highRank ? <span>{t('HIGH', 'СТАРШАЯ')} · {rankLabel(result.highRank, language)}</span> : null}
           {result?.lowRank ? <span>{t('LOW', 'МЛАДШАЯ')} · {rankLabel(result.lowRank, language)}</span> : null}
         </div> : null}
@@ -79,7 +79,7 @@ function PotSplit({ player: p, language, onOpen }: { player: TableState; languag
   if (!result) return null;
   const pots = result.sidePots;
   if (pots.length === 1 && pots[0].uncontestedWinnerId) return <span className="mt-pot-caption mt-pot-caption--uncontested">
-    {t('Won without showdown', 'Победа без вскрытия')} · {t('Whole pot', 'Весь банк')} {amount(pots[0].amount)}
+    {t('Won without showdown', 'Победа без вскрытия')}
   </span>;
   const totalHigh = result.points.reduce((sum, score) => sum + score.high, 0);
   const totalLow = result.points.reduce((sum, score) => sum + score.low, 0);
@@ -296,7 +296,7 @@ export default function MobileTable(props: MobileTableProps) {
         {(p.isReplay || p.replayOfHandId) ? <span className="mt-replay">↻ {t('REPLAY', 'ПОВТОР')} · {p.replayCode}</span> : null}
         <div className="mt-opponents">
           {opponents.map((seat, i) => <div className="mt-seat-anchor" key={seat.id} style={{ left: `${positions[i][0]}%`, top: `${positions[i][1]}%` }}>
-            <PlayerSeat compact={!desktop} seat={seat} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} />
+            <PlayerSeat compact seat={seat} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} />
           </div>)}
         </div>
         <section className="mt-board" aria-label={t('Community board', 'Общие карты')}>
@@ -317,7 +317,7 @@ export default function MobileTable(props: MobileTableProps) {
               : <span className="mt-pot-caption">{t('Bet', 'Ставка')} {amount(p.currentBet)} · {t('Blinds', 'Блайнды')} {amount(p.blinds?.small)}/{amount(p.blinds?.big)}</span>}
           </div>
         </section>
-        <div className="mt-hero-anchor"><PlayerSeat compact={!desktop} hero seat={hero} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} /></div>
+        <div className="mt-hero-anchor"><PlayerSeat compact hero seat={hero} player={p} language={language} dealerId={props.dealerId} seconds={c.turnSeconds} /></div>
         {!desktop ? hints : null}
         <div className="mt-personal-result" data-testid="mt-personal-result" style={!payout ? { visibility: 'hidden' } : undefined} aria-hidden={!payout || undefined}>
           <strong className={net > 0 ? 'mt-net--plus' : net < 0 ? 'mt-net--minus' : undefined}>{t('NET', 'ИТОГ')}: {net > 0 ? '+' : ''}{amount(net)}</strong>

@@ -157,6 +157,57 @@ test('desktop actions, pot dialog, localization and resize preserve the hand', a
 test.describe('touch tablet', () => {
   test.use({ hasTouch: true, deviceScaleFactor: 1.25 });
 
+  test('short tablet showdown keeps the board clear of both hands and results', async ({ page }) => {
+    await mockTable(page, fixture(4, true));
+    for (const viewport of [{ width: 800, height: 632 }, { width: 1280, height: 632 }]) {
+      await page.setViewportSize(viewport);
+      await expect(page.getByTestId('desktop-table')).toBeVisible();
+
+      const layout = await page.getByTestId('desktop-table').evaluate(table => {
+        const rect = (selector: string) => table.querySelector(selector)!.getBoundingClientRect();
+        const intersects = (a: DOMRect, b: DOMRect) => (
+          Math.min(a.right, b.right) - Math.max(a.left, b.left) > 2
+          && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 2
+        );
+        const board = rect('.mt-board');
+        const opponents = [...table.querySelectorAll<HTMLElement>('.mt-seat:not(.mt-seat--hero)')]
+          .map(seat => seat.getBoundingClientRect());
+        const hero = rect('.mt-seat--hero');
+        const result = rect('.mt-personal-result');
+        const scene = rect('.mt-scene');
+        const centerSeat = opponents.reduce((closest, seat) => (
+          Math.abs((seat.left + seat.right) / 2 - (scene.left + scene.right) / 2)
+            < Math.abs((closest.left + closest.right) / 2 - (scene.left + scene.right) / 2)
+            ? seat : closest
+        ));
+        return {
+          boardOverlaps: opponents.some(seat => intersects(board, seat)) || intersects(board, hero),
+          heroResultOverlap: intersects(hero, result),
+          topSeatGap: board.top - centerSeat.bottom,
+          boardHeroGap: hero.top - board.bottom,
+          heroResultGap: result.top - hero.bottom,
+          sceneHeight: scene.height,
+          panelHeight: rect('.dt-bottom-panel').height,
+          badgeCount: table.querySelectorAll('.mt-hand-positions .mt-position').length,
+          badgesInHand: [...table.querySelectorAll('.mt-hand-positions .mt-position')].every(badge => {
+            const badgeBox = badge.getBoundingClientRect();
+            const hand = badge.closest('.mt-hand-cards')!.getBoundingClientRect();
+            return badgeBox.left >= hand.left && badgeBox.left <= hand.right;
+          }),
+        };
+      });
+
+      expect(layout.boardOverlaps, JSON.stringify(viewport)).toBe(false);
+      expect(layout.heroResultOverlap, JSON.stringify(viewport)).toBe(false);
+      expect(layout.badgesInHand, JSON.stringify(viewport)).toBe(true);
+      expect(layout.badgeCount, JSON.stringify(viewport)).toBeGreaterThanOrEqual(2);
+      expect(layout.panelHeight, JSON.stringify(viewport)).toBeLessThan(140);
+      expect(layout.topSeatGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
+      expect(layout.boardHeroGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
+      expect(layout.heroResultGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(6);
+    }
+  });
+
   test('table, reserved coach space and action buttons fit without scrolling', async ({ page }) => {
     const state = fixture(4, false);
     state.players[1].isBot = true;

@@ -42,10 +42,12 @@ for (const viewport of [{ width: 320, height: 667 }, { width: 390, height: 844 }
 
     const showdown = fixture();
     showdown.players[1].folded = true;
+    showdown.actions = [{ playerId: 'P2', move: 'fold', amount: 0, stage: 'preflop', at: 1 }];
     mock.update(showdown);
     await expect(opponent.locator('[data-card]')).toHaveCount(4);
     await expect(opponent.locator('.mt-fold-stamp')).toHaveCount(0);
     await expect(opponent.locator('.mt-ranks')).toContainText('Folded');
+    await expect(opponent.locator('.mt-ranks > span').first()).toHaveText('Folded');
 
     mock.update({ ...fixture(7, false), handId: 'next-fixture' });
     await expect(page.locator('.mt-fold-stamp')).toHaveCount(0);
