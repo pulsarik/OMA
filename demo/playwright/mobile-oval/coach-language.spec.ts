@@ -5,6 +5,7 @@ test('coach request, text and speech follow the interface when languages change'
   await page.addInitScript(() => {
     localStorage.setItem('omaha-language', 'ru');
     localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'off', locale: 'en' }));
+    localStorage.setItem('omaha-training-advice-sound', 'on');
     (window as any).__coachSpeech = [];
     Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
       speak: (utterance: any) => {

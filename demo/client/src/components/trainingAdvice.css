@@ -3,8 +3,16 @@
 .training-advice > div { min-width: 0; overflow-wrap: anywhere; }
 /* Reserve the coach area and scrolling behavior before advice arrives, so its
    appearance cannot move the betting controls. */
-#root .poker-page:has(.training-advice-slot) { height: auto; min-height: 100dvh; overflow: visible; }
-#root .action-dock:has(.training-advice-slot) { position: relative !important; bottom: auto; }
+@media (min-width: 761px) {
+  #root .poker-page:has(.training-advice-slot) { height: auto; min-height: 100dvh; overflow: visible; }
+  #root .action-dock:has(.training-advice-slot) { position: relative !important; bottom: auto; }
+}
+@media (max-width: 760px) {
+  /* The legacy phone table has no spare room for the empty reserved slot. Once
+     advice arrives, let the page grow so both the advice and controls can scroll. */
+  #root .poker-page .training-advice-slot:empty { display: none; }
+  #root .poker-page:has(.training-advice) { height: auto !important; min-height: 100dvh; overflow: visible !important; }
+}
 .training-advice-slot--compact { flex-basis: auto; min-height: 64px; height: auto; margin-bottom: 4px; }
 .training-advice-slot--compact .training-advice { height: auto; min-height: 64px; overflow: visible; padding: 4px 8px; gap: 6px; border-radius: 10px; font-size: 13px; }
 .training-advice-slot--compact .training-advice p { margin: 0; }

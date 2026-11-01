@@ -1,11 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-test('voice coach follows the interface language and ignores old commentator settings', async ({ page }) => {
+test('coach sound is off by default and independent from old commentator settings', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'voice', locale: 'ru', volume: 0.65 }));
+    (window as any).__coachSpeech = [];
     Object.defineProperty(window, 'speechSynthesis', {
       configurable: true,
-      value: { speak: (utterance: { onend?: () => void }) => queueMicrotask(() => utterance.onend?.()), cancel: () => undefined, speaking: false },
+      value: { speak: (utterance: { text: string; onend?: () => void }) => {
+        (window as any).__coachSpeech.push(utterance.text);
+        queueMicrotask(() => utterance.onend?.());
+      }, cancel: () => undefined, speaking: false },
     });
     Object.defineProperty(window, 'SpeechSynthesisUtterance', {
       configurable: true,
@@ -21,9 +25,15 @@ test('voice coach follows the interface language and ignores old commentator set
   await expect(advice).toBeVisible({ timeout: 12_000 });
   await expect(advice.locator('p')).toContainText(/[A-Za-z]/);
   await expect(advice.locator('p')).not.toContainText(/[А-Яа-яЁё]/);
+  const adviceText = await advice.locator('p').innerText();
+  expect(await page.evaluate(() => (window as any).__coachSpeech)).toEqual([]);
 
   await page.getByRole('tab', { name: 'SETTINGS' }).or(page.getByRole('button', { name: 'Settings', exact: true })).click();
   const setting = page.getByRole('checkbox', { name: 'Advice after 10 seconds' });
+  const sound = page.getByRole('checkbox', { name: 'Read advice aloud' });
+  await expect(sound).not.toBeChecked();
+  await sound.check();
+  await expect.poll(() => page.evaluate(() => (window as any).__coachSpeech)).toContain(adviceText);
   await expect(setting).toBeChecked();
   await setting.uncheck();
   await expect(advice).toHaveCount(0);
@@ -34,6 +44,7 @@ for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
     await page.addInitScript(() => {
       localStorage.setItem('omaha-commentary', JSON.stringify({ mode: 'voice', locale: 'ru', volume: 0.65 }));
+      localStorage.setItem('omaha-training-advice-sound', 'on');
       (window as any).__coachSpeech = [];
       Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: {
         speak: (utterance: any) => { (window as any).__coachSpeech.push(utterance.text); queueMicrotask(() => utterance.onend?.()); },

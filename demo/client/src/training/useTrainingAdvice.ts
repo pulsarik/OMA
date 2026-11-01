@@ -18,9 +18,15 @@ function savedEnabled() {
   catch { return true; }
 }
 
+function savedSoundEnabled() {
+  try { return localStorage.getItem('omaha-training-advice-sound') === 'on'; }
+  catch { return false; }
+}
+
 export function useTrainingAdvice(handId: string, player: TurnState | null, locale: 'en' | 'ru',
   onAdviceStart: () => void, onSpeakingChange: (speaking: boolean) => void, serverUrl = '') {
   const [enabled, setEnabledState] = useState(savedEnabled);
+  const [soundEnabled, setSoundEnabledState] = useState(savedSoundEnabled);
   const [advice, setAdvice] = useState<Advice | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const playerRef = useRef(player);
@@ -38,6 +44,11 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
     setEnabledState(next);
     try { localStorage.setItem('omaha-training-advice', next ? 'on' : 'off'); } catch { /* private browsing */ }
     if (!next) setAdvice(null);
+  };
+
+  const setSoundEnabled = (next: boolean) => {
+    setSoundEnabledState(next);
+    try { localStorage.setItem('omaha-training-advice-sound', next ? 'on' : 'off'); } catch { /* private browsing */ }
   };
 
   function onMessage(message: any, socket: WebSocket) {
@@ -68,7 +79,7 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
   }, [available, enabled, locale, player?.folded, player?.turnDeadline, player?.turnDurationMs, requestKey, turnKey]);
 
   useEffect(() => {
-    if (!enabled || !advice || advice.locale !== locale || document.hidden) return undefined;
+    if (!enabled || !soundEnabled || !advice || advice.locale !== locale || document.hidden) return undefined;
     if (advice.audioUrl) {
       const audio = new Audio(`${serverUrl.replace(/\/$/, '')}${advice.audioUrl}`);
       const finished = () => onSpeakingChange(false);
@@ -91,9 +102,9 @@ export function useTrainingAdvice(handId: string, player: TurnState | null, loca
       if (window.speechSynthesis.speaking) window.speechSynthesis.cancel();
       onSpeakingChange(false);
     };
-  }, [advice, enabled, locale, onSpeakingChange, serverUrl]);
+  }, [advice, enabled, locale, onSpeakingChange, serverUrl, soundEnabled]);
 
   useEffect(() => { setAdvice(null); }, [handId, turnKey]);
 
-  return { enabled, available, advice, setEnabled, onMessage };
+  return { enabled, soundEnabled, available, advice, setEnabled, setSoundEnabled, onMessage };
 }
