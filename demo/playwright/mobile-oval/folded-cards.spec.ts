@@ -15,8 +15,10 @@ for (const viewport of [{ width: 320, height: 667 }, { width: 390, height: 844 }
     state.players[0].folded = true;
     state.folded = true;
     state.currentPlayerId = 'P3';
+    state.actions = [{ playerId: 'P2', move: 'fold', amount: 0, stage: 'preflop', at: 1 }];
     mock.update(state);
     await expect(page.locator('.mt-fold-stamp')).toHaveCount(2);
+    await expect(page.getByTestId('mt-seat-P2').locator('.mt-seat-result')).toHaveText('Folded · PREFLOP');
     await page.screenshot({ path: testInfo.outputPath('folded-cards.png') });
 
     for (const hand of [opponent, hero]) {
@@ -46,8 +48,8 @@ for (const viewport of [{ width: 320, height: 667 }, { width: 390, height: 844 }
     mock.update(showdown);
     await expect(opponent.locator('[data-card]')).toHaveCount(4);
     await expect(opponent.locator('.mt-fold-stamp')).toHaveCount(0);
-    await expect(opponent.locator('.mt-ranks')).toContainText('Folded');
-    await expect(opponent.locator('.mt-ranks > span').first()).toHaveText('Folded');
+    await expect(page.getByTestId('mt-seat-P2').locator('.mt-ranks')).toContainText('Folded');
+    await expect(page.getByTestId('mt-seat-P2').locator('.mt-ranks > span').first()).toHaveText('Folded · PREFLOP');
 
     mock.update({ ...fixture(7, false), handId: 'next-fixture' });
     await expect(page.locator('.mt-fold-stamp')).toHaveCount(0);
@@ -55,3 +57,29 @@ for (const viewport of [{ width: 320, height: 667 }, { width: 390, height: 844 }
     await expect(opponent.locator('.mt-card--back').first()).toBeVisible();
   });
 }
+
+test('shows the hand code and the street where a player folded', async ({ page }) => {
+  const state = fixture(7, false);
+  state.players[1].folded = true;
+  state.actions = [{ playerId: 'P2', move: 'fold', amount: 0, stage: 'preflop', at: 1 }];
+  await mockTable(page, state);
+
+  await expect(page.getByTestId('mt-hand-label')).toHaveText('HA0024');
+  await expect(page.getByTestId('mt-seat-P2').locator('.mt-seat-result')).toHaveText('Folded · PREFLOP');
+});
+
+test('eliminated folded player shows OUT instead of FOLD', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const state = fixture(7, false);
+  state.players[1].folded = true;
+  state.players[1].stack = 0;
+  state.partyTotals.find(total => total.id === 'P2')!.total = 0;
+  state.actions = [{ playerId: 'P2', move: 'fold', amount: 0, stage: 'river', at: 1 }];
+  await mockTable(page, state);
+
+  const opponent = page.getByTestId('mt-seat-P2');
+  await expect(opponent.locator('.mt-fold-stamp')).toHaveText('OUT');
+  await expect(opponent.locator('.mt-fold-stamp')).toHaveAttribute('aria-label', 'OUT');
+  await expect(opponent.locator('.mt-seat-result')).toContainText('OUT');
+  await expect(opponent).not.toContainText('FOLD');
+});

@@ -12,7 +12,8 @@
    allow scrolling instead of clipping cards or shrinking the controls. */
 .mt-page--desktop .mt-scene { flex: 1 1 0; height: clamp(420px, 62dvh, 850px); min-height: 420px; max-height: 850px; margin: -16px 0 8px; container-type: size; }
 .mt-page--desktop .mt-rail { inset: 0; border-radius: 48% / 46%; border-width: 12px; }
-.mt-page--desktop .mt-seat-anchor { width: min(15%, 25cqh); max-width: 210px; }
+.mt-page--desktop .mt-scene { position: relative; }
+.mt-page--desktop .mt-seat-anchor { width: min(17%, 190px); max-width: 210px; }
 .mt-page--desktop .mt-seat-name { font-size: clamp(12px, 1.2cqw, 18px); gap: 6px; }
 .mt-page--desktop .mt-position-line { min-height: 20px; font-size: 11px; }
 .mt-page--desktop .mt-position { width: 18px; height: 18px; font-size: 9px; }
@@ -23,7 +24,7 @@
 .mt-page--desktop .mt-seat-result { display: flex; align-items: center; justify-content: center; font-size: 13px; min-height: 24px; height: 24px; padding-top: 5px; white-space: nowrap; }
 .mt-page--desktop .mt-award { font-size: 12px; }
 .mt-page--desktop .mt-ranks { font-size: 11px; }
-.mt-page--desktop .mt-board { width: min(33%, 50cqh); max-width: 460px; top: 46%; transform: translate(-50%, -50%); gap: 4px; grid-template-columns: minmax(0, 1fr); }
+.mt-page--desktop .mt-board { width: min(34%, 46cqh); max-width: 460px; top: 46%; transform: translate(-50%, -50%); gap: 4px; grid-template-columns: minmax(0, 1fr); }
 .mt-page--desktop .mt-board .mt-cards { gap: 8px; }
 .mt-page--desktop .mt-board .mt-card b { font-size: clamp(24px, 2.8cqw, 42px); }
 .mt-page--desktop .mt-board .mt-card > span { font-size: clamp(27px, 3.2cqw, 48px); }
@@ -31,7 +32,21 @@
 .mt-page--desktop .mt-pot { min-width: 160px; justify-content: center; min-height: 34px; font-size: 15px; }
 .mt-page--desktop .mt-pot strong { font-size: 23px; }
 .mt-page--desktop .mt-pot-caption { font-size: 12px; }
+.mt-page--desktop .mt-pot-summary { position: relative; display: block; }
+.mt-page--desktop .mt-pot-summary > .training-advice-slot {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 10px);
+  width: clamp(88px, 8cqw, 124px);
+  height: clamp(88px, 8cqw, 124px);
+  transform: translateY(-50%);
+}
+.mt-page--desktop .mt-pot-summary > .training-advice-slot .training-advice { aspect-ratio: 1; }
 .mt-page--desktop .mt-hero-anchor { top: 79%; width: min(22%, 38cqh); max-width: 300px; }
+@media (max-width: 980px) {
+  .mt-page--desktop .mt-hero-anchor { top: 82%; width: min(26%, 40cqh); }
+  .mt-page--desktop .mt-pot-summary > .training-advice-slot { width: 88px; height: 88px; }
+}
 .mt-page--desktop .mt-seat--hero .mt-seat-name { font-size: 19px; }
 .mt-page--desktop .mt-seat--hero .mt-card b { font-size: clamp(23px, 2.6cqw, 36px); }
 .mt-page--desktop .mt-seat--hero .mt-card > span { font-size: clamp(25px, 3cqw, 40px); }
@@ -42,6 +57,16 @@
 /* Reserve room for both betting controls (including the raise cap) and made
    hands so changing streets or showing Next deal cannot resize the scene. */
 .dt-bottom-panel { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 22px; min-height: 154px; padding: 14px 20px; border: 1px solid #b6bd9038; border-radius: 12px; background: linear-gradient(120deg, #0c2b20, #041b14); }
+@media (max-width: 980px) {
+  .mt-page--desktop .dt-bottom-panel {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .mt-page--desktop .mt-hints {
+    width: 100%;
+    margin-inline: auto;
+  }
+}
 .mt-page--desktop .mt-hints { position: static; width: auto; min-width: 0; gap: 14px; }
 .mt-page--desktop .mt-combo { padding-right: 0; }
 .mt-page--desktop .mt-combo + .mt-combo { padding-left: 14px; }

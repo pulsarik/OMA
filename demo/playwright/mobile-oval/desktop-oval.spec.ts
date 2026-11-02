@@ -3,23 +3,39 @@ import { fixture, mockTable } from './fixture';
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 
-test('desktop coach uses the full action panel width on a short viewport', async ({ page }) => {
-  await page.setViewportSize({ width: 956, height: 467 });
-  const initial = fixture(6, false);
+test('seven-player desktop coach floats on the table and dismisses on any click', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const initial = fixture(7, false);
   const state = { ...initial, players: initial.players.map((player, index) => ({ ...player, isBot: index > 0 })) };
   const mock = await mockTable(page, state);
-  mock.advice('Call twenty. The pot odds support continuing with this hand.');
+  mock.advice('Call 20 — the pot odds support continuing with this hand.');
 
   const advice = page.getByTestId('training-advice');
   await expect(advice).toBeVisible();
+  await expect(advice.locator('strong')).toHaveText('Call 20');
+  await expect(advice).not.toContainText('Coach');
   const geometry = await advice.evaluate(element => {
     const adviceBox = element.getBoundingClientRect();
-    const dockBox = element.closest('.mt-dock')!.getBoundingClientRect();
-    return { adviceWidth: adviceBox.width, dockWidth: dockBox.width, left: adviceBox.left, right: adviceBox.right };
+    const sceneBox = element.closest('.mt-scene')!.getBoundingClientRect();
+    const potBox = element.closest('.mt-pot-summary')!.querySelector('.mt-pot')!.getBoundingClientRect();
+    const buttons = [...document.querySelectorAll<HTMLButtonElement>('.mt-dock button')]
+      .map(button => button.getBoundingClientRect());
+    return {
+      insideScene: adviceBox.left >= sceneBox.left && adviceBox.right <= sceneBox.right
+        && adviceBox.top >= sceneBox.top && adviceBox.bottom <= sceneBox.bottom,
+      toRightOfPot: adviceBox.left >= potBox.right,
+      buttonsVisible: buttons.every(button => button.top >= 0 && button.bottom <= innerHeight),
+      noScroll: document.documentElement.scrollWidth <= innerWidth
+        && document.documentElement.scrollHeight <= innerHeight,
+    };
   });
-  expect(geometry.adviceWidth).toBeGreaterThan(geometry.dockWidth * 0.9);
-  expect(geometry.left).toBeGreaterThanOrEqual(0);
-  expect(geometry.right).toBeLessThanOrEqual(956);
+  expect(geometry).toEqual({ insideScene: true, toRightOfPot: true, buttonsVisible: true, noScroll: true });
+
+  await page.locator('.mt-street').click();
+  await expect(advice).toHaveCount(0);
+  await expect(page.getByTestId('mt-actions')).toBeVisible();
+  mock.advice('The next action depends on the new turn.');
+  await expect(page.getByTestId('training-advice')).toBeVisible();
 });
 
 test('desktop table keeps its size across streets, showdown and the next deal', async ({ page }) => {
@@ -222,7 +238,7 @@ test.describe('touch tablet', () => {
     }
   });
 
-  test('table, reserved coach space and action buttons fit without scrolling', async ({ page }) => {
+  test('table, floating coach and action buttons fit without scrolling', async ({ page }) => {
     const state = fixture(4, false);
     state.players[1].isBot = true;
     state.forkRootCode = 'PA0001';
@@ -234,7 +250,6 @@ test.describe('touch tablet', () => {
     ]) {
       await page.setViewportSize(viewport);
       await expect(page.getByTestId('desktop-table')).toBeVisible();
-      await expect(page.locator('.training-advice-slot')).toBeVisible();
       await expect(page.getByTestId('mt-actions')).toBeVisible();
       mock.advice('Check — you can stay in the hand without paying more right now.');
       await expect(page.getByTestId('training-advice')).toBeVisible();
@@ -242,13 +257,9 @@ test.describe('touch tablet', () => {
       const metrics = await page.getByTestId('desktop-table').evaluate(table => {
         const scene = table.querySelector('.mt-scene')!.getBoundingClientRect();
         const panel = table.querySelector('.dt-bottom-panel')!.getBoundingClientRect();
-        const coachSlot = table.querySelector('.mt-coach-slot')!.getBoundingClientRect();
-        const fieldset = table.querySelector('.mt-dock fieldset')!.getBoundingClientRect();
-        const opponents = [...table.querySelectorAll('.mt-seat:not(.mt-seat--hero)')].map(seat => seat.getBoundingClientRect());
-        const board = table.querySelector('.mt-board')!.getBoundingClientRect();
-        const hero = table.querySelector('.mt-seat--hero')!.getBoundingClientRect();
         const banner = table.querySelector('[data-testid=fork-banner]')?.getBoundingClientRect();
         const coachAdvice = table.querySelector('.training-advice')!.getBoundingClientRect();
+        const pot = table.querySelector('.mt-pot')!.getBoundingClientRect();
         const buttons = [...table.querySelectorAll<HTMLButtonElement>('.mt-dock button')]
           .map(button => button.getBoundingClientRect());
         const cards = [...table.querySelectorAll('.mt-scene .mt-card')].map(card => card.getBoundingClientRect());
@@ -257,18 +268,15 @@ test.describe('touch tablet', () => {
           noScroll: document.documentElement.scrollHeight <= innerHeight,
           sceneVisible: scene.top >= 0 && scene.bottom <= innerHeight && scene.height >= 300,
           coachVisible: coachAdvice.top >= 0 && coachAdvice.bottom <= innerHeight,
+          coachInScene: coachAdvice.left >= scene.left && coachAdvice.right <= scene.right
+            && coachAdvice.top >= scene.top && coachAdvice.bottom <= scene.bottom,
+          coachToRightOfPot: coachAdvice.left >= pot.right,
           buttonsVisible: buttons.every(button => button.top >= 0 && button.bottom <= innerHeight),
           sceneBottomGap: panel.top - scene.bottom,
           sceneHeight: scene.height,
           panelHeight: panel.height,
-          opponentsBottom: Math.max(...opponents.map(seat => seat.bottom)),
-          boardTop: board.top,
-          heroBottom: hero.bottom,
           pageHeight: document.documentElement.scrollHeight,
           viewportHeight: innerHeight,
-          coachBottom: coachSlot.bottom,
-          coachGap: fieldset.top - coachSlot.bottom,
-          controlsTop: fieldset.top,
           comboCardCount: comboCards.length,
           comboCardRatios: comboCards.map(card => card.height / card.width),
           comboCardWidths: comboCards.map(card => card.width),
@@ -282,13 +290,13 @@ test.describe('touch tablet', () => {
         noScroll: true,
         sceneVisible: true,
         coachVisible: true,
+        coachInScene: true,
+        coachToRightOfPot: true,
         buttonsVisible: true,
       });
       if (viewport.height <= 700) {
         expect(metrics.sceneBottomGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(0);
         expect(metrics.maxCardHeightRatio, JSON.stringify(viewport)).toBeLessThanOrEqual(1.45);
-        expect(metrics.coachBottom, JSON.stringify(viewport)).toBeLessThanOrEqual(metrics.controlsTop);
-        expect(metrics.coachGap, JSON.stringify(viewport)).toBeGreaterThanOrEqual(4);
         expect(metrics.comboCardCount, JSON.stringify(viewport)).toBeGreaterThanOrEqual(10);
         expect(metrics.comboCardRatios.every(ratio => Math.abs(ratio - 132 / 92) < 0.1), JSON.stringify(viewport)).toBe(true);
         expect(Math.max(...metrics.comboCardWidths) - Math.min(...metrics.comboCardWidths), JSON.stringify(viewport)).toBeLessThan(0.5);

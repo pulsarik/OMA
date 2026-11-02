@@ -1686,6 +1686,7 @@ export const PLAYER_PAGE_STYLES = `
   }
   .board-row { display: flex; gap: calc(8px * var(--table-scale, 1)); flex-wrap: wrap; justify-content: center; }
   .action-dock {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;

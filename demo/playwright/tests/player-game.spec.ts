@@ -73,7 +73,14 @@ test('new table shows OUT over the cards of an eliminated player', async ({ page
             if (total) {
               total.total = 0;
               const opponent = message.data?.players?.find((item: { id?: string }) => item.id === 'P2');
-              if (opponent) opponent.stack = 0;
+              if (opponent) {
+                opponent.stack = 0;
+                opponent.folded = true;
+              }
+              message.data.actions = [
+                ...(message.data.actions ?? []).filter((action: { playerId?: string }) => action.playerId !== 'P2'),
+                { playerId: 'P2', move: 'fold', stage: message.data.stage ?? 'preflop', at: Date.now() },
+              ];
               const patchedEvent = new MessageEvent('message', {
                 data: JSON.stringify(message),
                 origin: event.origin,
@@ -93,6 +100,8 @@ test('new table shows OUT over the cards of an eliminated player', async ({ page
 
   const badge = page.getByTestId('player-eliminated-P2');
   await expect(badge).toHaveText('OUT');
+  await expect(page.locator('[data-player-seat="P2"]')).toContainText('OUT');
+  await expect(page.locator('[data-player-seat="P2"]')).not.toContainText('FOLD');
   await expect(page.getByTestId('player-score-P2')).toHaveText('0');
   await expect(page.locator('.wireframe-street-badge')).toBeVisible();
   await expect(page.locator('.pot-summary')).toBeVisible();

@@ -18,9 +18,9 @@ for (const viewport of [
       state.players[2].stack = 0;
       mock.update(state);
       await expect(page.locator('.mt-street')).toHaveText(new RegExp(stage, 'i'));
-      mock.advice('Call twenty. The pot odds support continuing with this hand. Watch the next community card and reconsider if another player raises before your next turn.');
+      mock.advice('Call 20 — the pot odds support continuing with this hand. Watch the next community card and reconsider if another player raises before your next turn.');
       await expect(page.getByTestId('training-advice')).toBeVisible();
-      await expect(page.getByTestId('training-advice').locator('strong')).toHaveCount(0);
+      await expect(page.getByTestId('training-advice').locator('strong')).toHaveText('Call 20');
       await expect(page.getByRole('button', { name: 'Call 20', exact: true })).toBeEnabled();
       await expect(page.locator('.mt-raise .mt-limit-pips--diamonds > span')).toHaveCount(3);
       const geometry = await page.getByTestId('mobile-table').evaluate(table => {
@@ -34,6 +34,11 @@ for (const viewport of [
           return badge.left < card.right && badge.right > card.right && badge.top < card.bottom && badge.bottom > card.bottom;
         });
         const rail = table.querySelector('.mt-rail')!.getBoundingClientRect();
+        const advice = table.querySelector('[data-testid=training-advice]')!;
+        const coachSlot = advice.closest('.training-advice-slot')!;
+        const coach = coachSlot.getBoundingClientRect();
+        const potSummary = table.querySelector('.mt-pot-summary')!;
+        const pot = table.querySelector('.mt-pot')!.getBoundingClientRect();
         const bounds = (selector: string) => {
           const box = document.querySelector(selector)!.getBoundingClientRect();
           return { top: box.top, bottom: box.bottom, height: box.height };
@@ -52,13 +57,18 @@ for (const viewport of [
           shell: bounds('.mt-shell'),
           scene: bounds('.mt-scene'),
           dock: bounds('.mt-dock'),
-          coach: bounds('.mt-coach-slot'),
+          coach: { top: coach.top, bottom: coach.bottom, height: coach.height },
+          coachInPotSummary: potSummary.contains(coachSlot),
+          coachToRightOfPot: coach.left >= pot.right,
+          coachInsideRail: coach.left >= rail.left && coach.right <= rail.right
+            && coach.top >= rail.top && coach.bottom <= rail.bottom,
           touchTargets: buttons.every(b => b.height >= 44 && b.width >= 44),
           badgesOnCardCorner, hintsInset,
         };
       });
       expect(geometry, `${stage}: ${JSON.stringify(geometry)}`).toMatchObject({
-        inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true, hintsInset: true,
+        inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true,
+        hintsInset: true, coachToRightOfPot: true, coachInsideRail: true,
       });
       if (stage === 'preflop') {
         await expect(page.locator('.mt-preflop-hint')).toHaveCount(1);
@@ -89,6 +99,28 @@ for (const viewport of [
     expect(mock.messages.filter(m => m.action === 'replay_deal')).toHaveLength(1);
   });
 }
+
+test('mobile advice overlays the table without moving its content or controls', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const initial = fixture(4, false);
+  const state = {
+    ...initial,
+    players: initial.players.map((player, index) => ({ ...player, isBot: index > 0 })),
+  };
+  const mock = await mockTable(page, state);
+  await expect(page.getByTestId('mobile-table')).toBeVisible();
+
+  const measure = () => page.getByTestId('mobile-table').evaluate(table => (
+    ['.mt-scene', '.mt-board', '.mt-hero-anchor', '.mt-hints', '.mt-dock'].map(selector => {
+      const { x, y, width, height } = table.querySelector(selector)!.getBoundingClientRect();
+      return { x, y, width, height };
+    })
+  ));
+  const before = await measure();
+  mock.advice('Check — you can stay in the hand without paying more right now.');
+  await expect(page.getByTestId('training-advice')).toBeVisible();
+  expect(await measure()).toEqual(before);
+});
 
 test('interface language survives reload and Russian coach text fits the small screen', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 640 });

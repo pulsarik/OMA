@@ -5,6 +5,7 @@ import {
   displayedStack,
   lastPlayedStage,
   latestActionForPlayer,
+  rankLabel,
   unplayedRunoutLabel,
 } from '../client/src/mobile-table/presentation';
 
@@ -33,6 +34,12 @@ test('desktop tables have a distinct position for every opponent through ten sea
       ? [...players.slice(3), ...players.slice(0, 2)].map(p => p.id)
       : players.map(p => p.id));
   }
+});
+
+test('english rank labels read naturally instead of raw server strings', () => {
+  expect(rankLabel('two pair', 'en')).toBe('Two pair');
+  expect(rankLabel('high card', 'en')).toBe('High card');
+  expect(rankLabel('straight flush', 'ru')).toBe('Стрит-флеш');
 });
 
 test('problem 1007 keeps the street of a fold visible beside an unplayed runout', () => {

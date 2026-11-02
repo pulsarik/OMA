@@ -324,14 +324,14 @@ test('next party and replay hands preserve bot seats', () => {
 test('unnamed bots receive names with a bot suffix and every second bot has a Q marker', () => {
   const hand = dealHand(3, 12345, [], [true, true, true]);
 
-  expect(hand.players.map(player => player.name)).toEqual(['Alex_bot', 'Maria_Q_bot', 'Ivan_bot']);
+  expect(hand.players.map(player => player.name)).toEqual(['Alex_bot', 'Leo_Q_bot', 'Ivan_bot']);
   expect(hand.players.map(player => player.qualifyingEntryBot)).toEqual([false, true, false]);
 });
 
 test('Q-marked bot identity remains stable when lobby seat order changes', () => {
   const hand = dealHand(2, 12345, ['Maria_Q_bot', 'Alex_bot'], [true, true]);
 
-  expect(hand.players.map(player => player.name)).toEqual(['Maria_Q_bot', 'Alex_bot']);
+  expect(hand.players.map(player => player.name)).toEqual(['Leo_Q_bot', 'Alex_bot']);
   expect(hand.players.map(player => player.qualifyingEntryBot)).toEqual([true, false]);
 });
 

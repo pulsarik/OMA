@@ -63,14 +63,21 @@ export function amount(value: number | undefined) {
 export function nameOf(seat: { name?: string; id: string }) {
   return (seat.name || seat.id).replace(/_Q_bot$/i, '_').replace(/_bot$/i, '');
 }
-const ranks: Record<string, string> = {
+const russianRanks: Record<string, string> = {
   'straight flush': 'Стрит-флеш', 'four of a kind': 'Каре', 'full house': 'Фулл-хаус',
   flush: 'Флеш', straight: 'Стрит', 'three of a kind': 'Сет', 'two pair': 'Две пары',
   pair: 'Пара', 'high card': 'Старшая карта',
 };
+const englishRanks: Record<string, string> = {
+  'straight flush': 'Straight flush', 'four of a kind': 'Four of a kind', 'full house': 'Full house',
+  flush: 'Flush', straight: 'Straight', 'three of a kind': 'Three of a kind', 'two pair': 'Two pair',
+  pair: 'Pair', 'high card': 'High card',
+};
 const stages: Record<string, string> = { preflop: 'Префлоп', flop: 'Флоп', turn: 'Тёрн', river: 'Ривер', showdown: 'Вскрытие' };
 const moves: Record<string, string> = { check: 'Чек', call: 'Колл', bet: 'Ставка', raise: 'Рейз', fold: 'Фолд' };
-export const rankLabel = (rank: string, language: Language) => language === 'ru' ? ranks[rank] ?? rank : rank;
+export const rankLabel = (rank: string, language: Language) => language === 'ru'
+  ? russianRanks[rank] ?? rank
+  : englishRanks[rank] ?? rank;
 export const stageLabel = (stage: string, language: Language) => language === 'ru' ? stages[stage] ?? stage : stage;
 export const moveLabel = (move: string, language: Language) => language === 'ru' ? moves[move] ?? move : move;
 export const unplayedRunoutLabel = (stage: string, language: Language) => (

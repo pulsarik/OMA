@@ -373,17 +373,31 @@ function localizedMove(move: string) {
 }
 
 function localizedRank(rank: string | undefined) {
-  if (!rank || storedLanguage() !== 'ru') return rank;
+  if (!rank) return rank;
+  if (storedLanguage() === 'ru') {
+    const ranks: Record<string, string> = {
+      'straight flush': 'стрит-флеш',
+      'four of a kind': 'каре',
+      'full house': 'фулл-хаус',
+      flush: 'флеш',
+      straight: 'стрит',
+      'three of a kind': 'сет',
+      'two pair': 'две пары',
+      pair: 'пара',
+      'high card': 'старшая карта',
+    };
+    return ranks[rank] ?? rank;
+  }
   const ranks: Record<string, string> = {
-    'straight flush': 'стрит-флеш',
-    'four of a kind': 'каре',
-    'full house': 'фулл-хаус',
-    flush: 'флеш',
-    straight: 'стрит',
-    'three of a kind': 'сет',
-    'two pair': 'две пары',
-    pair: 'пара',
-    'high card': 'старшая карта',
+    'straight flush': 'Straight flush',
+    'four of a kind': 'Four of a kind',
+    'full house': 'Full house',
+    flush: 'Flush',
+    straight: 'Straight',
+    'three of a kind': 'Three of a kind',
+    'two pair': 'Two pair',
+    pair: 'Pair',
+    'high card': 'High card',
   };
   return ranks[rank] ?? rank;
 }
@@ -1558,7 +1572,9 @@ function WireframeHand({
   showdownNet?: number;
 }) {
   const actionLabel = lastAction
-    ? `${localizedMove(lastAction.move).toUpperCase()}${lastAction.amount ? ` ${formatPoints(lastAction.amount)}` : ''}`
+    ? eliminated && lastAction.move === 'fold'
+      ? 'OUT'
+      : `${localizedMove(lastAction.move).toUpperCase()}${lastAction.amount ? ` ${formatPoints(lastAction.amount)}` : ''}${lastAction.move === 'fold' ? ` · ${localizedStage(lastAction.stage).toUpperCase()}` : ''}`
     : undefined;
   const winnerBorder = isHighWinner && isLowWinner
     ? 'linear-gradient(90deg, #dc2626 0 50%, #2563eb 50%)'
@@ -1670,7 +1686,7 @@ function WireframeHand({
           data-testid={`player-eliminated-${id}`}
           title={ui('This player is out of chips', 'Игрок выбыл')}
         >
-          {ui('OUT', 'ВЫБЫЛ')}
+          {ui('OUT', 'OUT')}
         </span>
       ) : null}
       {!isYou && resultPlayer && (resultPlayer.highRank || resultPlayer.lowRank) ? (
@@ -1783,7 +1799,9 @@ function PlayerSeat({
     ? BET_SIZE_OPTIONS.find((option) => option.value === action.betSize)
     : undefined;
   const actionLabel = action
-    ? `${localizedMove(action.move).toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}${actionBetSize ? ` (${localizedBetSize(actionBetSize)})` : ''}`
+    ? eliminated && action.move === 'fold'
+      ? 'OUT'
+      : `${localizedMove(action.move).toUpperCase()}${action.amount ? ` ${formatPoints(action.amount)}` : ''}${actionBetSize ? ` (${localizedBetSize(actionBetSize)})` : ''}${action.move === 'fold' ? ` · ${localizedStage(action.stage).toUpperCase()}` : ''}`
     : undefined;
   const isYourTurn = isCurrentTurn && isYou && !isBot;
   const suppressUpperBettingAction = compact && !isYou && isBetting && Boolean(actionLabel);
@@ -1918,7 +1936,7 @@ function PlayerSeat({
             data-testid={`player-eliminated-${id}`}
             title={ui('This player is out of chips', 'У этого игрока закончились фишки')}
           >
-            {ui('OUT', 'ВЫБЫЛ')}
+            {ui('OUT', 'OUT')}
           </span>
         */}
         {!wireframeZone && bubbleLabel && (!isCurrentTurn || isWaitingForNextDeal) && !suppressUpperBettingAction && !(compact && !isYou && hasWinningHand) ? (
@@ -1979,7 +1997,7 @@ function PlayerSeat({
                 data-testid={`player-eliminated-${id}`}
                 title={ui('This player is out of chips', 'Игрок выбыл')}
               >
-                {ui('OUT', 'ВЫБЫЛ')}
+                {ui('OUT', 'OUT')}
               </span>
             ) : null}
             {compact && !isYou && (blindLabel || isDealer) ? (
@@ -3632,8 +3650,10 @@ function PlayerPage({
       isThinking={player.stage !== 'showdown' && player.currentPlayerId === seat.id}
       disconnected={seat.connected === false && !seat.isBot}
       isWaitingForNextDeal={player.waitingForPlayers.some(waiting => waiting.id === seat.id)}
-      lastAction={streetPause?.actions.find((action) => action.playerId === seat.id)
-        ?? latestActionForPlayer(player.actions, seat.id, player.stage)}
+      lastAction={seat.folded
+        ? [...player.actions].reverse().find((action) => action.playerId === seat.id && action.move === 'fold')
+        : streetPause?.actions.find((action) => action.playerId === seat.id)
+          ?? latestActionForPlayer(player.actions, seat.id, player.stage)}
       folded={seat.folded}
       eliminated={totalScore(player.partyTotals, seat.id) <= 0}
       isHighWinner={player.stage === 'showdown' && Boolean(player.result?.highWinners.includes(seat.id))}

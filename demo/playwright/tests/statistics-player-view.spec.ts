@@ -82,7 +82,6 @@ test('Q bots are marked with an underscore on the table and in both statistics v
 
   await expect(page.getByTestId('game-tile')).toBeVisible();
   await expect(page.getByTestId('player-name-P3')).toBeVisible();
-  console.log('Table names:', await page.locator('[data-testid^="player-name-"]').allTextContents());
   const qBotSeat = page.locator('[data-testid^="player-name-"]').filter({ hasText: /_$/ });
   await expect(qBotSeat).toHaveCount(1);
   const qBotId = (await qBotSeat.getAttribute('data-testid'))?.replace('player-name-', '');

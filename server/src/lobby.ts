@@ -1,4 +1,4 @@
-import { DEFAULT_BOT_NAMES } from './game';
+import { DEFAULT_BOT_NAMES, DEFAULT_QUALIFYING_BOT_NAMES } from './game';
 
 export type LobbyMember = {
   id: string;
@@ -141,15 +141,22 @@ export function lobbyName(value: unknown, fallback: string) {
   return name || fallback;
 }
 
-export function nextLobbyBotName(lobby: Lobby) {
-  const usedNames = new Set(lobby.members.map(member => member.name.replace(/_Q?_bot$/i, '').toLowerCase()));
-  return DEFAULT_BOT_NAMES.find(name => !usedNames.has(name.toLowerCase()))
-    ?? `Guest ${lobby.members.length + 1}`;
+export function nextLobbyBotName(lobby: Lobby, qualifyingEntryBot = false) {
+  const usedNames = new Set(lobby.members.map(member => member.name.replace(/(?:_Q)?_bot$/i, '').toLowerCase()));
+  const namePool = qualifyingEntryBot ? DEFAULT_QUALIFYING_BOT_NAMES : DEFAULT_BOT_NAMES;
+  const availableName = namePool.find(name => !usedNames.has(name.toLowerCase()));
+  if (availableName) return availableName;
+
+  let guestNumber = lobby.members.length + 1;
+  while (usedNames.has(`guest ${guestNumber}`.toLowerCase())) guestNumber++;
+  return `Guest ${guestNumber}`;
 }
 
 export function lobbyBotName(lobby: Lobby, requestedName: unknown) {
-  const name = lobbyName(requestedName, nextLobbyBotName(lobby));
-  const botName = name.replace(/_bot$/i, '').replace(/_Q$/i, '');
   const isEverySecondBot = lobby.members.filter(member => member.isBot).length % 2 === 1;
-  return `${botName}${isEverySecondBot ? '_Q' : ''}_bot`;
+  const fallbackName = nextLobbyBotName(lobby, isEverySecondBot);
+  const requested = typeof requestedName === 'string' ? requestedName.trim().replace(/(?:_Q)?_bot$/i, '') : '';
+  const usedNames = new Set(lobby.members.map(member => member.name.replace(/(?:_Q)?_bot$/i, '').toLowerCase()));
+  const name = requested && !usedNames.has(requested.toLowerCase()) ? requested : fallbackName;
+  return `${name}${isEverySecondBot ? '_Q' : ''}_bot`;
 }

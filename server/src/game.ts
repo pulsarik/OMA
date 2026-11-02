@@ -5,6 +5,7 @@ const RANKS = ['2','3','4','5','6','7','8','9','T','J','Q','K','A'];
 const CARDS_PER_PLAYER = 4;
 const COMMUNITY_CARDS = 5;
 export const DEFAULT_BOT_NAMES = ['Alex', 'Maria', 'Ivan', 'Anna', 'Dmitry', 'Elena', 'Pavel', 'Sofia', 'Nikolai', 'Olga'];
+export const DEFAULT_QUALIFYING_BOT_NAMES = ['Leo', 'Mila', 'Artem', 'Kate', 'Maxim', 'Lena', 'Oleg', 'Vera', 'Kirill', 'Nadia'];
 export const MAX_PLAYERS = 10;
 export const STARTING_STACK = 1000;
 export const BLIND_LEVEL_HANDS = 8;
@@ -196,12 +197,23 @@ export type PlayerCombo = {
   lowRank?: string;
 };
 
-function normalizedPlayerName(name: string | undefined, index: number, isBot: boolean, qualifyingEntryBot = false) {
-  const baseName = name?.trim() || (isBot ? DEFAULT_BOT_NAMES[index % DEFAULT_BOT_NAMES.length] : '');
+function normalizedPlayerName(
+  name: string | undefined,
+  index: number,
+  isBot: boolean,
+  qualifyingEntryBot = false,
+  qualifyingBotIndex = index,
+) {
+  const requestedName = name?.trim().replace(/(?:_Q)?_bot$/i, '');
+  const isDefaultBotName = DEFAULT_BOT_NAMES.some(defaultName => (
+    defaultName.toLowerCase() === requestedName?.toLowerCase()
+  ));
+  const baseName = qualifyingEntryBot && (!requestedName || isDefaultBotName)
+    ? DEFAULT_QUALIFYING_BOT_NAMES[qualifyingBotIndex % DEFAULT_QUALIFYING_BOT_NAMES.length]
+    : requestedName || (isBot ? DEFAULT_BOT_NAMES[index % DEFAULT_BOT_NAMES.length] : '');
   if (!baseName) return undefined;
   if (!isBot) return baseName;
-  const botName = baseName.replace(/_bot$/i, '').replace(/_Q$/i, '');
-  return `${botName}${qualifyingEntryBot ? '_Q' : ''}_bot`;
+  return `${baseName}${qualifyingEntryBot ? '_Q' : ''}_bot`;
 }
 
 export function blindLevelForHand(handNumber: number) {
@@ -247,10 +259,17 @@ export function normalizeHand(hand: DealtHand) {
   }
   hand.isReplay = Boolean(hand.isReplay);
   let botIndex = 0;
+  let qualifyingBotIndex = 0;
   hand.players.forEach((player, index) => {
     player.folded = Boolean(player.folded);
     player.isBot = Boolean(player.isBot);
-    player.name = normalizedPlayerName(player.name, index, player.isBot);
+    player.qualifyingEntryBot = player.isBot && (
+      Boolean(player.qualifyingEntryBot) || /_Q_bot$/i.test(player.name ?? '')
+    );
+    player.name = normalizedPlayerName(
+      player.name, index, player.isBot, player.qualifyingEntryBot, qualifyingBotIndex,
+    );
+    if (player.qualifyingEntryBot) qualifyingBotIndex++;
     if (player.isBot) {
       if (!['normal', 'aggressive', 'cautious'].includes(player.botStyle ?? '')) {
         player.botStyle = botStyleForSeed(hand.dealSeed, botIndex);
@@ -1436,15 +1455,20 @@ export function dealHand(
     Boolean(playerBots[index]) && /_Q_bot$/i.test(name ?? '')
   ));
   let botIndex = 0;
+  let qualifyingBotIndex = 0;
   for (let p = 0; p < players; p++) {
     const isBot = Boolean(playerBots[p]);
     const qualifyingEntryBot = isBot && (hasExplicitQualifyingBotMarker
       ? /_Q_bot$/i.test(playerNames[p] ?? '')
       : botIndex % 2 === 1);
+    const playerName = normalizedPlayerName(
+      playerNames[p], p, isBot, qualifyingEntryBot, qualifyingBotIndex,
+    );
+    if (qualifyingEntryBot) qualifyingBotIndex++;
     if (isBot) botIndex++;
     playersHands.push({
       id: `P${p+1}`,
-      name: normalizedPlayerName(playerNames[p], p, isBot, qualifyingEntryBot),
+      name: playerName,
       token: uuidv4(),
       hole: deck.splice(0, CARDS_PER_PLAYER),
       folded: false,

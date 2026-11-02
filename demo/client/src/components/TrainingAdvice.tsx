@@ -4,18 +4,32 @@ import './trainingAdvice.css';
 
 type Controller = ReturnType<typeof useTrainingAdvice>;
 
-export function TrainingAdvice({ controller, t, compact = false }: { controller: Controller; t: (en: string, ru: string) => string; compact?: boolean }) {
+export function TrainingAdvice({ controller, t }: { controller: Controller; t: (en: string, ru: string) => string }) {
   if (!controller.enabled || !controller.available || !controller.advice) return null;
-  return <aside className="training-advice" role="status" aria-label={t('Coach', 'Тренер')} data-testid="training-advice">
+  const separator = controller.advice.text.indexOf(' — ');
+  const action = separator >= 0 ? controller.advice.text.slice(0, separator) : '';
+  const explanation = separator >= 0 ? controller.advice.text.slice(separator + 3) : controller.advice.text;
+  return <aside className="training-advice" role="status" aria-label={t('Training advice', 'Игровая подсказка')} data-testid="training-advice">
     <span aria-hidden="true">♠</span>
-    <div>{!compact ? <strong>{t('Coach', 'Тренер')}</strong> : null}<p>{controller.advice.text}</p></div>
+    <div><p>{action ? <><strong>{action}</strong>{` — ${explanation}`}</> : explanation}</p></div>
   </aside>;
 }
 
 export function TrainingAdviceSlot({ controller, t, compact = false }: { controller: Controller; t: (en: string, ru: string) => string; compact?: boolean }) {
-  if (!controller.enabled || !controller.available) return null;
+  const [dismissedAdvice, setDismissedAdvice] = React.useState<Controller['advice']>(null);
+  const advice = controller.advice;
+  const dismissed = advice !== null && advice === dismissedAdvice;
+
+  React.useEffect(() => {
+    if (!advice || dismissed) return undefined;
+    const dismiss = () => setDismissedAdvice(advice);
+    document.addEventListener('click', dismiss, { once: true });
+    return () => document.removeEventListener('click', dismiss);
+  }, [advice, dismissed]);
+
+  if (!controller.enabled || !controller.available || !advice || dismissed) return null;
   return <div className={`training-advice-slot${compact ? ' training-advice-slot--compact' : ''}`}>
-    <TrainingAdvice controller={controller} t={t} compact={compact} />
+    <TrainingAdvice controller={controller} t={t} />
   </div>;
 }
 

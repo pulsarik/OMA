@@ -58,7 +58,6 @@ for (const width of [320, 390]) {
     await page.getByRole('button', { name: 'Play now' }).click();
     const fold = page.getByRole('button', { name: 'Fold', exact: true });
     await expect(fold).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('.training-advice-slot')).toBeVisible();
     const actionsBeforeAdvice = await page.locator('.mt-action-buttons button, .main-actions button').evaluateAll(buttons =>
       buttons.map(button => {
         const box = button.getBoundingClientRect();
@@ -94,9 +93,7 @@ for (const width of [320, 390]) {
     await checkGeometry();
     await expect(coach.locator('details')).toHaveCount(0);
     await page.screenshot({ path: test.info().outputPath(`coach-${width}.png`), fullPage: true });
-    await fold.scrollIntoViewIfNeeded();
-    await expect(fold).toBeInViewport();
-    await page.getByRole('button', { name: 'Fold', exact: true }).click();
+    await page.locator('body').click({ position: { x: 8, y: 8 } });
     await expect(coach).toHaveCount(0);
   });
 }

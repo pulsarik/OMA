@@ -151,7 +151,7 @@ test('every second bot qualifies by its hand and ignores preflop bet size and pl
   hand.roundBets[bot.id] = 0;
 
   expect(bot.qualifyingEntryBot).toBe(true);
-  expect(bot.name).toBe('Anna_Q_bot');
+  expect(bot.name).toBe('Leo_Q_bot');
   expect(botMove(hand, bot)).toEqual({ move: 'call' });
 });
 
