@@ -401,6 +401,28 @@ export const APP_SHELL_STYLES = `
     }
   }
 
+  @media (min-width: 561px) and (max-height: 760px) {
+    .welcome-shell:not(.welcome-shell--setup) {
+      min-height: 100dvh !important;
+      padding: 12px clamp(14px, 4vw, 38px) !important;
+    }
+    .welcome-main { gap: 10px !important; }
+    .welcome-intro-card { padding: 16px 24px !important; }
+    .welcome-intro-card h1 {
+      margin: 6px 0 !important;
+      font-size: 42px !important;
+      line-height: 1.05 !important;
+    }
+    .welcome-intro-card > p { font-size: 16px !important; line-height: 1.35 !important; }
+    .welcome-difference { margin-top: 8px !important; padding: 2px 0 2px 12px !important; font-size: 13px; }
+    .welcome-difference p { margin-top: 3px !important; line-height: 1.35 !important; }
+    .welcome-choice-grid { gap: 10px !important; }
+    .welcome-choice-card { min-height: 0 !important; padding: 12px !important; gap: 8px !important; }
+    .welcome-choice-card > span:first-child { width: 42px !important; height: 42px !important; font-size: 24px !important; }
+    .welcome-choice-card strong { font-size: 17px !important; }
+    .welcome-choice-card small { margin-top: 4px !important; font-size: 12px !important; line-height: 1.3 !important; }
+  }
+
   @media (max-width: 560px) {
     /* The home screen is a compact table rail on phones: identity + two
        primary actions fit in the first viewport, while the full rules remain

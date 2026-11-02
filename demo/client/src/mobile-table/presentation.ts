@@ -61,7 +61,7 @@ export function amount(value: number | undefined) {
   return value === undefined ? '—' : new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value);
 }
 export function nameOf(seat: { name?: string; id: string }) {
-  return (seat.name || seat.id).replace(/_bot$/i, '');
+  return (seat.name || seat.id).replace(/_Q_bot$/i, '_').replace(/_bot$/i, '');
 }
 const ranks: Record<string, string> = {
   'straight flush': 'Стрит-флеш', 'four of a kind': 'Каре', 'full house': 'Фулл-хаус',

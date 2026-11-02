@@ -67,6 +67,32 @@ test('player view uses classic values, selects players, and remembers the revers
   await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
 });
 
+test('Q bots are marked with an underscore on the table and in both statistics views', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play with friends' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByTestId('lobby-host-member')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await expect(page.getByTestId('lobby-host-member')).toHaveCount(3);
+  await expect(page.getByTestId('lobby-host-member').nth(2)).toContainText(/_BOT/);
+  await page.getByRole('button', { name: /Start game/ }).click();
+
+  console.log('Table names:', await page.locator('[data-testid^="player-name-"]').allTextContents());
+  const qBotSeat = page.locator('[data-testid^="player-name-"]').filter({ hasText: /_$/ });
+  await expect(qBotSeat).toHaveCount(1);
+  const qBotId = (await qBotSeat.getAttribute('data-testid'))?.replace('player-name-', '');
+  expect(qBotId).toBeTruthy();
+  await page.getByRole('button', { name: 'Fold', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled({ timeout: 20_000 });
+  await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await expect(page.getByTestId(`party-total-${qBotId}`)).toContainText('_');
+  await page.getByRole('button', { name: 'Player view', exact: true }).click();
+  await expect(page.getByTestId(`statistics-select-${qBotId}`).locator('.statistics-player-name')).toContainText('_');
+});
+
 test('player statistics fit desktop and mobile with every player and metric available', async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   await page.setViewportSize({ width: 1440, height: 1100 });

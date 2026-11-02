@@ -389,7 +389,7 @@ function localizedRank(rank: string | undefined) {
 }
 
 function tablePlayerName(name: string | undefined, id: string) {
-  return (name ?? id).replace(/_bot$/i, '');
+  return (name ?? id).replace(/_Q_bot$/i, '_').replace(/_bot$/i, '');
 }
 
 type ComboCard = {
