@@ -39,6 +39,7 @@ for (const viewport of [
         const coach = coachSlot.getBoundingClientRect();
         const potSummary = table.querySelector('.mt-pot-summary')!;
         const pot = table.querySelector('.mt-pot')!.getBoundingClientRect();
+        const potCaption = table.querySelector('.mt-pot-caption')!.getBoundingClientRect();
         const bounds = (selector: string) => {
           const box = document.querySelector(selector)!.getBoundingClientRect();
           return { top: box.top, bottom: box.bottom, height: box.height };
@@ -59,7 +60,9 @@ for (const viewport of [
           dock: bounds('.mt-dock'),
           coach: { top: coach.top, bottom: coach.bottom, height: coach.height },
           coachInPotSummary: potSummary.contains(coachSlot),
-          coachToRightOfPot: coach.left >= pot.right,
+          coachAbovePot: coach.bottom <= potSummary.getBoundingClientRect().top,
+          potCaptionSingleLine: potCaption.height <= 16,
+          potCaptionInline: Math.abs((potCaption.top + potCaption.bottom) / 2 - (pot.top + pot.bottom) / 2) <= 2,
           coachInsideRail: coach.left >= rail.left && coach.right <= rail.right
             && coach.top >= rail.top && coach.bottom <= rail.bottom,
           touchTargets: buttons.every(b => b.height >= 44 && b.width >= 44),
@@ -68,7 +71,7 @@ for (const viewport of [
       });
       expect(geometry, `${stage}: ${JSON.stringify(geometry)}`).toMatchObject({
         inside: true, overlaps: [], overflow: false, touchTargets: true, badgesOnCardCorner: true,
-        hintsInset: true, coachToRightOfPot: true, coachInsideRail: true,
+        hintsInset: true, coachAbovePot: true, potCaptionSingleLine: true, potCaptionInline: true, coachInsideRail: true,
       });
       if (stage === 'preflop') {
         await expect(page.locator('.mt-preflop-hint')).toHaveCount(1);
@@ -117,9 +120,25 @@ test('mobile advice overlays the table without moving its content or controls', 
     })
   ));
   const before = await measure();
+  const potGeometryBefore = await page.getByTestId('mobile-table').evaluate(table => {
+    const pot = table.querySelector('.mt-pot')!.getBoundingClientRect();
+    const caption = table.querySelector('.mt-pot-caption')!.getBoundingClientRect();
+    return {
+      pot: { x: pot.x, y: pot.y, width: pot.width, height: pot.height },
+      caption: { x: caption.x, y: caption.y, width: caption.width, height: caption.height },
+    };
+  });
+  expect(potGeometryBefore.caption.height).toBeLessThanOrEqual(16);
+  expect(Math.abs(
+    potGeometryBefore.caption.y + potGeometryBefore.caption.height / 2
+      - potGeometryBefore.pot.y - potGeometryBefore.pot.height / 2,
+  )).toBeLessThanOrEqual(2);
   mock.advice('Check — you can stay in the hand without paying more right now.');
   await expect(page.getByTestId('training-advice')).toBeVisible();
   expect(await measure()).toEqual(before);
+  await expect(page.getByTestId('training-advice')).toBeVisible();
+  await page.locator('.mt-street').click();
+  await expect(page.getByTestId('training-advice')).toHaveCount(0);
 });
 
 test('interface language survives reload and Russian coach text fits the small screen', async ({ page }) => {
