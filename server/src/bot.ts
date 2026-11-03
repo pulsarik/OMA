@@ -398,8 +398,9 @@ export function botSituation(hand: DealtHand, player: PlayerHand) {
 
 export function botMove(hand: DealtHand, player: PlayerHand): BotDecision {
   normalizeHand(hand);
-  if (player.qualifyingEntryBot && hand.stage === 'preflop') {
-    if (!isQualifyingStartingHand(player.hole)) return { move: 'fold' };
+  // Qualifying entry is an additional way to play preflop, not a mandatory fold filter.
+  // Hands that do not qualify still get evaluated by the regular bot strategy.
+  if (player.qualifyingEntryBot && hand.stage === 'preflop' && isQualifyingStartingHand(player.hole)) {
     const playerBet = hand.roundBets?.[player.id] ?? 0;
     return { move: playerBet >= (hand.currentBet ?? 0) ? 'check' : 'call' };
   }
