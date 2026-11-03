@@ -155,7 +155,7 @@ test('every second bot qualifies by its hand and ignores preflop bet size and pl
   expect(botMove(hand, bot)).toEqual({ move: 'call' });
 });
 
-test('Q-bot folds non-qualifying preflop hands and uses the normal strategy after the flop', () => {
+test('Q-bot falls back to the normal strategy for non-qualifying preflop hands and after the flop', () => {
   const hand = dealHand(3, 1357, [], [false, true, true]);
   const bot = hand.players[2];
   bot.hole = ['2s', '8h', '9d', 'Kc'];
@@ -164,7 +164,13 @@ test('Q-bot folds non-qualifying preflop hands and uses the normal strategy afte
   hand.roundBets[bot.id] = 0;
 
   expect(bot.qualifyingEntryBot).toBe(true);
-  expect(botMove(hand, bot)).toEqual({ move: 'fold' });
+  const regularBot = { ...bot, qualifyingEntryBot: false };
+  expect(botMove(hand, bot)).toEqual(botMove(hand, regularBot));
+  expect(botMove(hand, bot).move).toBe('check');
+
+  hand.currentBet = 80;
+  hand.roundBets[bot.id] = 0;
+  expect(botMove(hand, bot)).toEqual(botMove(hand, regularBot));
 
   hand.stage = 'flop';
   bot.hole = ['As', 'Ks', 'Jc', '7h'];
@@ -173,6 +179,5 @@ test('Q-bot folds non-qualifying preflop hands and uses the normal strategy afte
   hand.currentBet = 0;
   hand.roundBets[bot.id] = 0;
   hand.potCoins = 80;
-  const regularBot = { ...bot, qualifyingEntryBot: false };
   expect(botMove(hand, bot)).toEqual(botMove(hand, regularBot));
 });
