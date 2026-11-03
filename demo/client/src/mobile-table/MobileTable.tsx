@@ -267,8 +267,8 @@ export default function MobileTable(props: MobileTableProps) {
   const finished = Boolean(props.winnerName || p.partyFinishedEarly);
   const hints = <div className="mt-hints">
     {!desktop && p.community.length < 3 ? <p className="mt-preflop-hint">{t('HIGH / LOW · Available from the flop', 'Комбинации · Появятся на флопе')}</p> : <>
-      <CombinationHint compact={!desktop} combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
-      <CombinationHint compact={!desktop} combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
+      <CombinationHint compact={false} combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
+      <CombinationHint compact={false} combo={heroCombo} kind="low" language={language} hole={p.hole} board={p.community} />
     </>}
   </div>;
   return <main className={`mt-page${desktop ? ' mt-page--desktop' : ''}`} lang={language} data-testid={desktop ? 'desktop-table' : 'mobile-table'} data-players={p.players.length}>
