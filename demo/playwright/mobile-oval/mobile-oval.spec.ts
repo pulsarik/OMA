@@ -1,6 +1,38 @@
 import { expect, test } from '@playwright/test';
 import { fixture, mockTable } from './fixture';
 
+test('centers the active hand number and updates it for replays and shared games', async ({ page }) => {
+  const state = fixture(2, false);
+  const mock = await mockTable(page, state);
+  const handLabel = page.getByTestId('mt-hand-label');
+  const handNumber = page.getByTestId('mt-hand-number');
+  await expect(handLabel).toHaveText('HA0024');
+  await expect(handNumber).toHaveText('#24');
+  await expect(handNumber).toHaveAttribute('aria-label', 'Hand 24');
+
+  const centered = await handNumber.evaluate(label => {
+    const header = label.parentElement!.getBoundingClientRect();
+    const bounds = label.getBoundingClientRect();
+    return Math.abs((bounds.left + bounds.right) / 2 - (header.left + header.right) / 2);
+  });
+  expect(centered).toBeLessThanOrEqual(1);
+
+  Object.assign(state, { handNumber: 25, handCode: 'HA0025', isReplay: true, replayOfHandId: 'mobile-fixture', replayCode: 'ABC123' });
+  mock.update(state);
+  await expect(handLabel).toHaveText('HA0025');
+  await expect(handNumber).toHaveText('#25R');
+  await expect(handNumber).toHaveAttribute('aria-label', 'Hand 25, replay');
+
+  Object.assign(state, {
+    handNumber: 1, handCode: 'HA0001', isReplay: false, replayOfHandId: undefined, replayCode: undefined,
+    forkRootCode: 'HA0024', partyCode: 'PA0001-1',
+  });
+  mock.update(state);
+  await expect(handLabel).toHaveText('HA0001');
+  await expect(handNumber).toHaveText('#1');
+  await expect(page.getByTestId('mt-scene').getByTestId('fork-banner')).toContainText('PA0001-1');
+});
+
 test('short phone keeps the opponents and betting controls in the initial viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 667 });
   await mockTable(page, fixture(7, false));

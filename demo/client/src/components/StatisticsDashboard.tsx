@@ -79,6 +79,7 @@ export function StatisticsDashboard({
           <h2>{t('Party statistics', 'Статистика партии')}</h2>
           <div className="statistics-meta">
             <span data-testid="completed-hand-count">{completedHands} {t(completedHands === 1 ? 'hand' : 'hands', 'раздач')}</span>
+            <span data-testid="party-player-count">{metrics.length} {t(metrics.length === 1 ? 'player' : 'players', 'игроков')}</span>
             {replayCode ? <span data-testid="replay-code">
               {isReplay ? t('REPLAY', 'ПОВТОР') : t('Replay code', 'Код повтора')}: <code>{replayCode}</code>
             </span> : null}

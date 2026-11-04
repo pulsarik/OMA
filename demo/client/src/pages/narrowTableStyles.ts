@@ -109,5 +109,14 @@ export const NARROW_TABLE_STYLES = `
     #root .poker-page .mobile-result-dock { padding: 4px !important; }
     #root .poker-page .mobile-result-dock > .showdown-status--mobile-actions { padding: 4px !important; gap: 4px !important; }
     #root .poker-page .mobile-result-dock .showdown-status--mobile-actions > strong { font-size: 14px !important; }
+    #root .poker-page .mobile-result-dock .showdown-new-deal {
+      display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px !important;
+    }
+    #root .poker-page .mobile-result-dock .showdown-new-deal > * { min-width: 0; }
+    #root .poker-page .mobile-result-dock .showdown-new-deal .action-button {
+      min-height: 42px !important; padding: 2px !important; font-size: 10px !important;
+      line-height: 1.1 !important; white-space: normal !important; overflow-wrap: anywhere;
+    }
+    #root .poker-page .mobile-result-dock .showdown-new-deal .limited-action { display: block; }
   }
 `;

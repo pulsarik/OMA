@@ -1,4 +1,7 @@
 .training-advice-slot { position: absolute; z-index: 90; bottom: calc(100% + 8px); left: 50%; width: min(100%, 480px); height: auto; max-height: min(32dvh, 150px); min-width: 0; margin: 0; transform: translateX(-50%); pointer-events: none; }
+.training-advice-slot::before, .training-advice-slot::after { position: absolute; z-index: 1; width: 0; height: 0; border-style: solid; content: ''; pointer-events: none; }
+.training-advice-slot::before { bottom: -10px; left: 50%; transform: translateX(-50%); border-width: 10px 10px 0; border-color: #d4a72c transparent transparent; }
+.training-advice-slot::after { bottom: -8px; left: 50%; transform: translateX(-50%); border-width: 9px 9px 0; border-color: rgba(255, 250, 224, .97) transparent transparent; }
 .training-advice { display: flex; gap: 8px; align-items: flex-start; width: 100%; height: auto; max-height: inherit; overflow: auto; box-sizing: border-box; padding: 8px 10px; border: 1px solid #d4a72c; border-radius: 14px; background: rgba(255, 250, 224, .97); color: #34473e; font: 14px/1.35 system-ui, sans-serif; pointer-events: auto; }
 .training-advice > div { min-width: 0; overflow-wrap: anywhere; }
 .training-advice-slot--compact .training-advice { overflow: hidden; padding: 4px 8px; gap: 6px; border-radius: 10px; font-size: 13px; }

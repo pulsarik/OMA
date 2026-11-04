@@ -2632,40 +2632,45 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
 }) {
   const [expandedCombination, setExpandedCombination] = useState<string | null>(null);
   const [showRealizationHelp, setShowRealizationHelp] = useState(false);
-  if (!score) return null;
-  const completedHands = score.hands
-    .filter((hand) => hand.stage === 'showdown')
-    .sort((a, b) => b.handNumber - a.handNumber);
-  const chronologicalHands = [...completedHands].sort((a, b) => a.handNumber - b.handNumber);
-  const walletHistory = buildWalletHistory(players.map((player) => player.id), chronologicalHands);
-  const percentage = (count: number, hands: number) => (
-    hands ? `${Math.round((count / hands) * 100)}%` : '0%'
-  );
-  const metrics = players.map((player) => {
-    const hands = completedHands.filter((hand) => (
-      hand.players.some((seat) => seat.id === player.id && seat.participated)
-    ));
-    const netResults = hands.map((hand) => hand.net.find((result) => result.id === player.id)?.total ?? 0);
-    const folds = hands.filter((hand) => hand.players.find((seat) => seat.id === player.id)?.folded).length;
-    const wins = netResults.filter((net) => net > 0).length;
-    const losses = netResults.filter((net) => net < 0).length;
-    const net = netResults.reduce((total, result) => total + result, 0);
-    return {
-      ...player,
-      hands: hands.length,
-      aggressivePercent: `${aggressiveHandPercent(player.id, hands)}%`,
-      realizationPercent: `${advantageRealizationPercent(player.id, hands)}%`,
-      missedHigh: missedHighCount(player.id, hands),
-      foldPercent: percentage(folds, hands.length),
-      winPercent: percentage(wins, hands.length),
-      lossPercent: percentage(losses, hands.length),
-      maxWin: Math.max(0, ...netResults),
-      maxLoss: Math.min(0, ...netResults),
-      stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
-      combinations: countPlayerCombinations(player.id, hands),
-      botStyle: player.isBot ? player.botStyle : undefined,
-    };
-  });
+  const statistics = React.useMemo(() => {
+    if (!score) return null;
+    const completedHands = score.hands
+      .filter((hand) => hand.stage === 'showdown')
+      .sort((a, b) => b.handNumber - a.handNumber);
+    const chronologicalHands = [...completedHands].sort((a, b) => a.handNumber - b.handNumber);
+    const walletHistory = buildWalletHistory(players.map((player) => player.id), chronologicalHands);
+    const percentage = (count: number, hands: number) => (
+      hands ? `${Math.round((count / hands) * 100)}%` : '0%'
+    );
+    const metrics = players.map((player) => {
+      const hands = completedHands.filter((hand) => (
+        hand.players.some((seat) => seat.id === player.id && seat.participated)
+      ));
+      const netResults = hands.map((hand) => hand.net.find((result) => result.id === player.id)?.total ?? 0);
+      const folds = hands.filter((hand) => hand.players.find((seat) => seat.id === player.id)?.folded).length;
+      const wins = netResults.filter((net) => net > 0).length;
+      const losses = netResults.filter((net) => net < 0).length;
+      const net = netResults.reduce((total, result) => total + result, 0);
+      return {
+        ...player,
+        hands: hands.length,
+        aggressivePercent: `${aggressiveHandPercent(player.id, hands)}%`,
+        realizationPercent: `${advantageRealizationPercent(player.id, hands)}%`,
+        missedHigh: missedHighCount(player.id, hands),
+        foldPercent: percentage(folds, hands.length),
+        winPercent: percentage(wins, hands.length),
+        lossPercent: percentage(losses, hands.length),
+        maxWin: Math.max(0, ...netResults),
+        maxLoss: Math.min(0, ...netResults),
+        stack: score.totals.find((total) => total.id === player.id)?.total ?? 0,
+        combinations: countPlayerCombinations(player.id, hands),
+        botStyle: player.isBot ? player.botStyle : undefined,
+      };
+    });
+    return { completedHands, walletHistory, metrics };
+  }, [score, players]);
+  if (!statistics) return null;
+  const { completedHands, walletHistory, metrics } = statistics;
 
   return (
     <StatisticsPresentation

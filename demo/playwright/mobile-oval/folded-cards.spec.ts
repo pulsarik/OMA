@@ -65,6 +65,7 @@ test('shows the hand code and the street where a player folded', async ({ page }
   await mockTable(page, state);
 
   await expect(page.getByTestId('mt-hand-label')).toHaveText('HA0024');
+  await expect(page.getByTestId('mt-hand-number')).toHaveText('#24');
   await expect(page.getByTestId('mt-seat-P2').locator('.mt-seat-result')).toHaveText('Folded · PREFLOP');
 });
 

@@ -274,8 +274,18 @@ export default function MobileTable(props: MobileTableProps) {
   return <main className={`mt-page${desktop ? ' mt-page--desktop' : ''}`} lang={language} data-testid={desktop ? 'desktop-table' : 'mobile-table'} data-players={p.players.length}>
     <div className="mt-shell">
       <header className="mt-header">
-        <span className="mt-hand-code" data-testid="mt-hand-label" aria-label={t('Hand', 'Раздача')}>
+        <span className="mt-hand-code" data-testid="mt-hand-label" aria-label={t('Hand code', 'Код сдачи')}>
           {p.handCode ?? (p.handNumber ? `#${p.handNumber}` : p.handId.slice(0, 8))}
+        </span>
+        <span
+          className="mt-hand-number"
+          data-testid="mt-hand-number"
+          aria-label={t(
+            `Hand ${p.handNumber}${p.isReplay || p.replayOfHandId ? ', replay' : ''}`,
+            `Раздача ${p.handNumber}${p.isReplay || p.replayOfHandId ? ', повтор' : ''}`,
+          )}
+        >
+          #{p.handNumber}{p.isReplay || p.replayOfHandId ? 'R' : ''}
         </span>
         <span className={`mt-connection${c.connected ? '' : ' mt-connection--offline'}`} role="img" aria-label={t(c.connected ? 'Connected' : 'Disconnected', c.connected ? 'Подключено' : 'Нет связи')} />
         {desktop ? <nav className="dt-nav" aria-label={t('Game views', 'Разделы игры')}>
