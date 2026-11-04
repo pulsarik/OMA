@@ -52,7 +52,7 @@ function PlayerSeat({ seat, player, language, hero = false, dealerId, seconds, c
         <Cards cards={cards} count={seat.cardCount || 4} language={language} />
         {compact ? <span className="mt-hand-positions">{positions}</span> : null}
       </div>
-      {seat.folded && !showdown ? <span className="mt-fold-stamp" role="img" aria-label={foldedStatus}>{foldedStamp}</span> : null}
+      {seat.folded && !showdown ? <span className={`mt-fold-stamp${eliminated ? " mt-fold-stamp--out" : ""}`} role="img" aria-label={foldedStatus}>{foldedStamp}</span> : null}
     </div>
     <div className="mt-seat-result">
       {showdown ? <>
