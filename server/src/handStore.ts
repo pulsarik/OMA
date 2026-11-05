@@ -35,6 +35,9 @@ export default class HandStore {
         token TEXT PRIMARY KEY, expires INTEGER NOT NULL, hero_id TEXT NOT NULL, data TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS fork_counters (root TEXT PRIMARY KEY, value INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS archive_party_cache (
+        first_hand_id TEXT PRIMARY KEY, signature TEXT NOT NULL, rows_json TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS commentary_events (
         id TEXT PRIMARY KEY, party_id TEXT NOT NULL, hand_number INTEGER NOT NULL, created INTEGER NOT NULL
       );
@@ -206,6 +209,27 @@ export default class HandStore {
     }
   }
 
+  // Keep the common (non-forked) party aggregate warm as hands are saved.
+  // Legacy cross-party links are still reconciled by getArchivePage's signature check.
+  private async refreshPartyArchive(partyId: string) {
+    const db = await this.getDb();
+    const records = await db.all<{ id: string; data: string }[]>(
+      'SELECT id, data FROM hands WHERE party_id = ? ORDER BY created ASC, id ASC', partyId,
+    );
+    if (!records.length) return;
+    const hands = records.map(record => JSON.parse(record.data));
+    const partyRows = buildArchiveRows(hands);
+    if (partyRows.length !== 1) return;
+    const ordered = [...hands].sort((a, b) =>
+      (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created || a.id.localeCompare(b.id));
+    const firstHandId = ordered[0].id;
+    const signature = ordered.map(hand => hand.id).join('|');
+    await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
+      VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
+      signature = excluded.signature, rows_json = excluded.rows_json`,
+    firstHandId, signature, JSON.stringify(partyRows));
+  }
+
   async saveHand(hand: any) {
     let releaseSave!: () => void;
     const previousSave = this.saveQueue;
@@ -232,6 +256,7 @@ export default class HandStore {
         ON CONFLICT(party_id) DO UPDATE SET
           last_activity = MAX(last_activity, excluded.last_activity)
       `, hand.partyId ?? id, created, created);
+      if (hand.stage === 'showdown') await this.refreshPartyArchive(hand.partyId ?? id);
       return id;
     } finally {
       releaseSave();
@@ -246,6 +271,9 @@ export default class HandStore {
       JSON.stringify(hand),
       hand.id,
     );
+    // A saved hand may change without changing its id. Invalidate cached aggregates.
+    await db.run('DELETE FROM archive_party_cache');
+    if (hand.stage === 'showdown') await this.refreshPartyArchive(hand.partyId ?? hand.id);
   }
 
   async shareHand(hand: DealtHand, heroId: string) {
@@ -378,7 +406,22 @@ export default class HandStore {
     const pageStart = (currentPage - 1) * pageSize;
     const summary = createArchiveSummary();
     const rows = [];
+    // Load cached aggregates in one query instead of one query per party.
+    // The signature changes when a new hand is appended to a party.
+    const cachedRows = await db.all<{ first_hand_id: string; signature: string; rows_json: string }[]>(
+      'SELECT first_hand_id, signature, rows_json FROM archive_party_cache',
+    );
+    const cacheById = new Map(cachedRows.map(row => [row.first_hand_id, row]));
     for (const [index, party] of parties.entries()) {
+      const firstHandId = party[0].id;
+      const signature = party.map(hand => hand.id).join('|');
+      const cached = cacheById.get(firstHandId);
+      if (cached?.signature === signature) {
+        const partyRows = JSON.parse(cached.rows_json);
+        for (const row of partyRows) addArchiveRow(summary, row);
+        if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
+        continue;
+      }
       const hands = [];
       // Batches stay below SQLite's bound-parameter limit for long parties.
       for (let start = 0; start < party.length; start += 500) {
@@ -387,6 +430,10 @@ export default class HandStore {
         hands.push(...records.map(record => JSON.parse(record.data)));
       }
       const partyRows = buildArchiveRows(hands);
+      await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
+        VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
+        signature = excluded.signature, rows_json = excluded.rows_json`,
+      firstHandId, signature, JSON.stringify(partyRows));
       for (const row of partyRows) addArchiveRow(summary, row);
       if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
     }
