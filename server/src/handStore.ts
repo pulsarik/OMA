@@ -256,7 +256,7 @@ export default class HandStore {
         ON CONFLICT(party_id) DO UPDATE SET
           last_activity = MAX(last_activity, excluded.last_activity)
       `, hand.partyId ?? id, created, created);
-      await this.refreshPartyArchive(hand.partyId ?? id);
+      if (hand.stage === 'showdown') await this.refreshPartyArchive(hand.partyId ?? id);
       return id;
     } finally {
       releaseSave();
@@ -273,7 +273,7 @@ export default class HandStore {
     );
     // A saved hand may change without changing its id. Invalidate cached aggregates.
     await db.run('DELETE FROM archive_party_cache');
-    await this.refreshPartyArchive(hand.partyId ?? hand.id);
+    if (hand.stage === 'showdown') await this.refreshPartyArchive(hand.partyId ?? hand.id);
   }
 
   async shareHand(hand: DealtHand, heroId: string) {
