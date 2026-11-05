@@ -209,6 +209,27 @@ export default class HandStore {
     }
   }
 
+  // Keep the common (non-forked) party aggregate warm as hands are saved.
+  // Legacy cross-party links are still reconciled by getArchivePage's signature check.
+  private async refreshPartyArchive(partyId: string) {
+    const db = await this.getDb();
+    const records = await db.all<{ id: string; data: string }[]>(
+      'SELECT id, data FROM hands WHERE party_id = ? ORDER BY created ASC, id ASC', partyId,
+    );
+    if (!records.length) return;
+    const hands = records.map(record => JSON.parse(record.data));
+    const partyRows = buildArchiveRows(hands);
+    if (partyRows.length !== 1) return;
+    const ordered = [...hands].sort((a, b) =>
+      (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created || a.id.localeCompare(b.id));
+    const firstHandId = ordered[0].id;
+    const signature = ordered.map(hand => hand.id).join('|');
+    await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
+      VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
+      signature = excluded.signature, rows_json = excluded.rows_json`,
+    firstHandId, signature, JSON.stringify(partyRows));
+  }
+
   async saveHand(hand: any) {
     let releaseSave!: () => void;
     const previousSave = this.saveQueue;
@@ -235,6 +256,7 @@ export default class HandStore {
         ON CONFLICT(party_id) DO UPDATE SET
           last_activity = MAX(last_activity, excluded.last_activity)
       `, hand.partyId ?? id, created, created);
+      await this.refreshPartyArchive(hand.partyId ?? id);
       return id;
     } finally {
       releaseSave();
@@ -251,6 +273,7 @@ export default class HandStore {
     );
     // A saved hand may change without changing its id. Invalidate cached aggregates.
     await db.run('DELETE FROM archive_party_cache');
+    await this.refreshPartyArchive(hand.partyId ?? hand.id);
   }
 
   async shareHand(hand: DealtHand, heroId: string) {
