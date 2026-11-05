@@ -20,6 +20,7 @@ export type ArchiveRow = {
   lowPercent: number | null;
   lowWins: number;
   combinations: Record<ArchiveCombination, number>;
+  evaluatedPlayerHands: number;
   replayCode?: string;
 };
 
@@ -68,6 +69,7 @@ export function createArchiveSummary() {
     durationMinutes: 0,
     lowWins: 0,
     combinations: Object.fromEntries(COMBINATIONS.map(key => [key, 0])) as Record<ArchiveCombination, number>,
+    evaluatedPlayerHands: 0,
   };
 }
 
@@ -79,6 +81,7 @@ export function addArchiveRow(summary: ReturnType<typeof createArchiveSummary>, 
   summary.finishedGames += Number(row.finished);
   summary.durationMinutes += row.durationMinutes;
   summary.lowWins += row.lowWins;
+  summary.evaluatedPlayerHands += row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0);
   for (const key of COMBINATIONS) summary.combinations[key] += row.combinations[key];
 }
 
@@ -133,6 +136,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
     ) as Record<ArchiveCombination, number>;
     let handsWithLow = 0;
     let lowWins = 0;
+    let evaluatedPlayerHands = 0;
 
     for (const hand of completedHands) {
       const result = evaluateOmahaHiLo(hand);
@@ -142,6 +146,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       for (const player of result.players) {
         // Count dealt combinations regardless of folds or payouts.
         if (!player.highRank) continue;
+        evaluatedPlayerHands += 1;
         const combination = COMBINATION_BY_RANK[player.highRank];
         if (combination) combinations[combination] += 1;
       }
@@ -179,6 +184,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       lowPercent: completedHands.length ? (handsWithLow / completedHands.length) * 100 : null,
       lowWins,
       combinations,
+      evaluatedPlayerHands,
       replayCode,
     };
   }).sort((a, b) => b.date - a.date);
