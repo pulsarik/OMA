@@ -383,14 +383,16 @@ export default class HandStore {
     const pageStart = (currentPage - 1) * pageSize;
     const summary = createArchiveSummary();
     const rows = [];
-    // Cached per-party aggregates avoid replaying every showdown on every page view.
+    // Load cached aggregates in one query instead of one query per party.
     // The signature changes when a new hand is appended to a party.
+    const cachedRows = await db.all<{ first_hand_id: string; signature: string; rows_json: string }[]>(
+      'SELECT first_hand_id, signature, rows_json FROM archive_party_cache',
+    );
+    const cacheById = new Map(cachedRows.map(row => [row.first_hand_id, row]));
     for (const [index, party] of parties.entries()) {
       const firstHandId = party[0].id;
       const signature = party.map(hand => hand.id).join('|');
-      const cached = await db.get<{ signature: string; rows_json: string }>(
-        'SELECT signature, rows_json FROM archive_party_cache WHERE first_hand_id = ?', firstHandId,
-      );
+      const cached = cacheById.get(firstHandId);
       if (cached?.signature === signature) {
         const partyRows = JSON.parse(cached.rows_json);
         for (const row of partyRows) addArchiveRow(summary, row);
