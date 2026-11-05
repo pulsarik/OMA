@@ -17,6 +17,7 @@ type ArchiveRow = {
   durationMinutes: number;
   lowPercent: number | null;
   lowWins: number;
+  evaluatedPlayerHands: number;
   combinations: {
     straightFlush: number;
     fourOfAKind: number;
@@ -38,7 +39,7 @@ type Props = {
   onReplay: (code: string, players: number) => void;
 };
 
-type ArchiveSummary = Pick<ArchiveRow, 'hands' | 'completedHands' | 'handsWithLow' | 'durationMinutes' | 'lowWins' | 'combinations'> & {
+type ArchiveSummary = Pick<ArchiveRow, 'hands' | 'completedHands' | 'handsWithLow' | 'durationMinutes' | 'lowWins' | 'combinations' | 'evaluatedPlayerHands'> & {
   games: number;
   finishedGames: number;
 };
@@ -76,7 +77,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     code: ru ? 'Код сдачи' : 'Hand code',
     yes: ru ? 'Да' : 'Yes',
     no: ru ? 'Нет' : 'No',
-    average: ru ? 'Среднее по всем играм' : 'All games average',
+    average: ru ? 'Частота по всем игроко-раздачам' : 'Frequency per evaluated player-hand',
   };
 
   useEffect(() => {
@@ -114,11 +115,11 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     : null;
   const percent = (value: number | null) => value === null ? '—' : `${value.toFixed(1)}%`;
   const date = (value: number) => new Date(value).toLocaleString(ru ? 'ru-RU' : 'en-GB');
-  const averageCombination = (key: keyof ArchiveRow['combinations']) => (
-    average(summary?.combinations[key] ?? 0).toFixed(1)
+  const combinationFrequency = (count: number, denominator: number) => (
+    denominator > 0 ? `${(100 * count / denominator).toFixed(2)}%` : '—'
   );
   const combinationKeys = Object.keys(baseline.counts) as (keyof ArchiveRow['combinations'])[];
-  const totalCombinations = summary ? combinationKeys.reduce((sum, key) => sum + summary.combinations[key], 0) : 0;
+  const totalCombinations = summary ? (summary.evaluatedPlayerHands ?? combinationKeys.reduce((sum, key) => sum + summary.combinations[key], 0)) : 0;
 
   return (
     <section style={{ border: '1px solid #cbd5e1', borderRadius: 22, background: 'rgba(255,255,255,.96)', padding: 'clamp(16px, 3vw, 26px)', display: 'grid', gap: 16 }}>
@@ -155,7 +156,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                 <td>{percent(lowMean)}</td>
                 <td>{average(summary.lowWins).toFixed(1)}</td>
                 {combinationKeys.map(key => <td key={key}>
-                  <div>{averageCombination(key)}</div>
+                  <div>{combinationFrequency(summary.combinations[key], totalCombinations)}</div>
                   <CombinationFrequency
                     count={summary.combinations[key]}
                     total={totalCombinations}
@@ -184,15 +185,15 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                   <td>{row.durationMinutes.toFixed(1)}</td>
                   <td>{percent(row.lowPercent)}</td>
                   <td>{row.lowWins}</td>
-                  <td>{row.combinations.straightFlush}</td>
-                  <td>{row.combinations.fourOfAKind}</td>
-                  <td>{row.combinations.fullHouse}</td>
-                  <td>{row.combinations.flush}</td>
-                  <td>{row.combinations.straight}</td>
-                  <td>{row.combinations.threeOfAKind}</td>
-                  <td>{row.combinations.twoPair}</td>
-                  <td>{row.combinations.pair}</td>
-                  <td>{row.combinations.highCard}</td>
+                  <td>{combinationFrequency(row.combinations.straightFlush, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.fourOfAKind, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.fullHouse, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.flush, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.straight, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.threeOfAKind, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.twoPair, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.pair, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td>{combinationFrequency(row.combinations.highCard, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
                   <td>
                     {row.replayCode ? (
                       <button type="button" onClick={() => onReplay(row.replayCode!, row.players)} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900, textDecoration: 'underline', cursor: 'pointer' }}>
