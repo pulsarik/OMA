@@ -52,6 +52,7 @@ test('archive summary includes off-page results and reflects saved changes', asy
   expect(first.summary).toEqual({
     ...createArchiveSummary(), games: 21, hands: 21, completedHands: 1,
     handsWithLow: 1, finishedGames: 1, durationMinutes: 2, lowWins: 1,
+    evaluatedPlayerHands: 2,
     combinations: { ...createArchiveSummary().combinations, straight: 2 },
   });
   expect((await store.getArchivePage(2)).summary).toEqual(first.summary);
