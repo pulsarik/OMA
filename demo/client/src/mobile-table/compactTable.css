@@ -72,6 +72,7 @@
 .mt-page:not(.mt-page--desktop) .mt-award { font-size: 10px; padding: 1px 3px; }
 .mt-page:not(.mt-page--desktop) .mt-ranks { font-size: 10px; }
 .mt-page:not(.mt-page--desktop) .mt-dock { position: sticky; bottom: 0; padding: 4px 8px max(4px, env(safe-area-inset-bottom)); border-top: 1px solid #c9b67b26; }
+.mt-page:not(.mt-page--desktop) .mt-dock--finished { position: static; background: transparent; }
 .mt-page .mt-showdown-actions { grid-template-columns: minmax(0, 1fr); }
 .mt-page .mt-showdown-actions .mt-next { min-height: 52px; font-size: 16px; }
 .mt-page:not(.mt-page--desktop) .mt-secondary-actions > .mt-limited-action {

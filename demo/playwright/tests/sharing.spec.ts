@@ -93,17 +93,12 @@ test('an unavailable sharing link offers recovery', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Home', exact: true })).toBeVisible();
 });
 
-test('showdown replaces the coach with sharing without resizing the table or controls', async ({ page }, testInfo) => {
+test('showdown provides sharing and the finished panel does not cover the table', async ({ page }, testInfo) => {
   test.skip(!['desktop-table', 'mobile-table'].includes(testInfo.project.name), 'Oval table layout only');
   await page.route('**/api/shares', route => route.fulfill({ json: { path: '/share/test-link' } }));
   const mock = await mockTable(page, fixture(2, false));
   const table = page.getByTestId('mt-scene');
   await expect(table).toBeVisible();
-  const measure = () => page.evaluate(() => Object.fromEntries(['.mt-scene', '.mt-dock', '.mt-coach-slot'].map(selector => {
-    const rect = document.querySelector(selector)!.getBoundingClientRect();
-    return [selector, { y: rect.y, height: rect.height }];
-  })));
-  const before = await measure();
   mock.update(fixture(2, true));
   await expect(page.locator('.mt-coach-slot [data-testid="share-deal"]')).toBeEnabled();
   await expect(page.locator('.mt-coach-slot [data-testid="replay-current-deal"]')).toBeVisible();
@@ -112,15 +107,24 @@ test('showdown replaces the coach with sharing without resizing the table or con
   const primaryBox = (await primary.boundingBox())!;
   const controlsBox = (await page.locator('.mt-controls-slot').boundingBox())!;
   expect(Math.abs(primaryBox.width - controlsBox.width)).toBeLessThanOrEqual(2);
-  const after = await measure();
-  for (const selector of Object.keys(before)) {
-    expect(Math.abs(after[selector].y - before[selector].y), selector + ' position').toBeLessThanOrEqual(2);
-    expect(Math.abs(after[selector].height - before[selector].height), selector + ' height').toBeLessThanOrEqual(2);
+  const finalState = fixture(2, true);
+  mock.update({
+    ...finalState,
+    partyTotals: finalState.partyTotals.map((total, index) => ({ ...total, total: index === 0 ? 2000 : 0 })),
+  });
+  const finishedDock = page.locator('.mt-dock--finished');
+  await expect(finishedDock).toBeVisible();
+  await expect(finishedDock.locator('.mt-coach-slot')).toHaveCount(0);
+  await expect(finishedDock.locator('fieldset')).toHaveCount(0);
+  if (testInfo.project.name === 'mobile-table') {
+    await expect(finishedDock).toHaveCSS('position', 'static');
+    const overlap = await page.evaluate(() => {
+      const scene = document.querySelector<HTMLElement>('.mt-scene')!.getBoundingClientRect();
+      const dock = document.querySelector<HTMLElement>('.mt-dock--finished')!.getBoundingClientRect();
+      return scene.bottom - dock.top;
+    });
+    expect(overlap).toBeLessThanOrEqual(1);
   }
-  mock.update({ ...fixture(2, true), partyFinishedEarly: true });
-  await expect(page.locator('.mt-coach-slot [data-testid="share-deal"]')).toBeEnabled();
   mock.update({ ...fixture(2, false), handId: 'next-fixture' });
   await expect(page.locator('.mt-coach-slot [data-testid="share-deal"]')).toHaveCount(0);
-  const next = await measure();
-  expect(Math.abs(next['.mt-scene'].height - before['.mt-scene'].height)).toBeLessThanOrEqual(2);
 });

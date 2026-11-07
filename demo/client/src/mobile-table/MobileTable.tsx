@@ -119,6 +119,7 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
     props.onMove(move, wager ? c.wagerTarget : undefined, wager ? c.betSize : undefined);
   };
   const showdown = player.stage === 'showdown';
+  const finished = Boolean(finishedActions);
   const replayRemaining = Math.max(0, c.maxReplays - c.replayCount);
   const pips = (kind: 'hearts' | 'diamonds', total: number, remaining: number) => <span className={`mt-limit-pips mt-limit-pips--${kind}`} aria-hidden="true">
     {Array.from({ length: total }, (_, index) => <span key={index} className={index < remaining ? '' : 'is-used'}>{kind === 'hearts' ? '♥' : '◆'}</span>)}
@@ -128,8 +129,8 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
       {c.creatingDeal ? t('Creating…', 'Создаём…') : t('Play on', 'Играть дальше')}
     </button> : null}
   </div>;
-  return <footer className={`mt-dock${showdown ? ' mt-dock--showdown' : ''}`} data-testid="mt-actions">
-    {showdown ? <div className="mt-coach-slot"><div className="mt-secondary-actions">
+  return <footer className={`mt-dock${showdown ? ' mt-dock--showdown' : ''}${finished ? ' mt-dock--finished' : ''}`} data-testid="mt-actions">
+    {showdown && !finished ? <div className="mt-coach-slot"><div className="mt-secondary-actions">
       {props.shareAction}
       {props.onReplay ? <span className="mt-limited-action">
         <button className="mt-replay-deal deal-utility-action" data-testid="replay-current-deal" aria-label={`${t('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${t('replays remaining', 'повторов осталось')}`} disabled={!c.connected || c.creatingDeal || replayRemaining === 0} onClick={props.onReplay}>
@@ -140,7 +141,7 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
     </div></div> : null}
     <div className="mt-controls-slot">
     {showdown ? finishedActions ?? continuation : null}
-    <fieldset style={showdown ? { visibility: 'hidden' } : undefined} aria-hidden={showdown || undefined} disabled={showdown || !c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
+    {!finished ? <fieldset style={showdown ? { visibility: 'hidden' } : undefined} aria-hidden={showdown || undefined} disabled={showdown || !c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
       <div className="mt-bet-sizes" role="group" aria-label={t('Bet size', 'Размер ставки')}>
         {(['blind', 'quarter', 'half', 'pot'] as const).map((size, i) => <button key={size} aria-pressed={c.betSize === size}
           disabled={player.currentBet > 0 && !c.canRaise} onClick={() => props.onBetSize(size)}>
@@ -156,7 +157,7 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
           {player.currentBet > 0 && c.maxRaises !== undefined ? pips('diamonds', c.maxRaises, Math.max(0, c.maxRaises - c.raiseCount)) : null}
         </button>
       </div>
-    </fieldset>
+    </fieldset> : null}
     </div>
   </footer>;
 }
