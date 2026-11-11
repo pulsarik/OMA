@@ -2634,7 +2634,7 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
   const [expandedCombination, setExpandedCombination] = useState<string | null>(null);
   const [showRealizationHelp, setShowRealizationHelp] = useState(false);
   const [statisticsScope, setStatisticsScope] = useState<'current' | 'all'>('current');
-  React.useEffect(() => { setStatisticsScope('current'); }, [score?.partyId, score?.hands.filter(hand => hand.partyRestarted).at(-1)?.id]);
+  React.useEffect(() => { setStatisticsScope('current'); }, [score?.partyId, score?.hands.filter(hand => hand.partyRestarted).slice(-1)[0]?.id]);
   const statistics = React.useMemo(() => {
     if (!score) return null;
     const orderedHands = [...score.hands].sort((a, b) => a.handNumber - b.handNumber);
