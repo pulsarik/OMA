@@ -412,35 +412,66 @@ export default class HandStore {
       'SELECT first_hand_id, signature, rows_json FROM archive_party_cache',
     );
     const cacheById = new Map(cachedRows.map(row => [row.first_hand_id, row]));
+    const signatures = parties.map(party => `archive-v2:${party.map(hand => hand.id).join('|')}`);
+    const rowsByPartyIndex = new Map<number, ReturnType<typeof buildArchiveRows>>();
+    const uncachedParties = parties.flatMap((party, index) => {
+      const cached = cacheById.get(party[0].id);
+      if (cached?.signature === signatures[index]) {
+        rowsByPartyIndex.set(index, JSON.parse(cached.rows_json));
+        return [];
+      }
+      return [{ index, party }];
+    });
+
+    // Batch cold-cache reads instead of issuing one SQLite query per party,
+    // while keeping memory use bounded for archives with many parties.
+    for (let batchStart = 0; batchStart < uncachedParties.length;) {
+      let batchEnd = batchStart;
+      let batchHandCount = 0;
+      while (
+        batchEnd < uncachedParties.length
+        && (batchEnd === batchStart || batchHandCount + uncachedParties[batchEnd].party.length <= 500)
+      ) {
+        batchHandCount += uncachedParties[batchEnd].party.length;
+        batchEnd += 1;
+      }
+      const batch = uncachedParties.slice(batchStart, batchEnd);
+      const ids = batch.flatMap(({ party }) => party.map(hand => hand.id));
+      const handsById = new Map<string, DealtHand>();
+      for (let start = 0; start < ids.length; start += 500) {
+        const batchIds = ids.slice(start, start + 500);
+        const records = await db.all<{ id: string; data: string }[]>(
+          `SELECT id, data FROM hands WHERE id IN (${batchIds.map(() => '?').join(',')})`,
+          batchIds,
+        );
+        for (const record of records) handsById.set(record.id, JSON.parse(record.data));
+      }
+      for (const { index, party } of batch) {
+        const firstHandId = party[0].id;
+        const partyHands = party.map(metadata => {
+          const hand = handsById.get(metadata.id);
+          if (!hand) throw new Error(`Missing archived hand ${metadata.id}`);
+          return hand;
+        });
+        const partyRows = buildArchiveRows(partyHands);
+        await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
+          VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
+          signature = excluded.signature, rows_json = excluded.rows_json`,
+        firstHandId, signatures[index], JSON.stringify(partyRows));
+        rowsByPartyIndex.set(index, partyRows);
+      }
+      batchStart = batchEnd;
+    }
+
     for (const [index, party] of parties.entries()) {
-      const firstHandId = party[0].id;
-      const signature = `archive-v2:${party.map(hand => hand.id).join('|')}`;
-      const cached = cacheById.get(firstHandId);
-      if (cached?.signature === signature) {
-        const partyRows = JSON.parse(cached.rows_json);
-        for (const row of partyRows) addArchiveRow(summary, row);
-        if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
-        continue;
-      }
-      const hands = [];
-      // Batches stay below SQLite's bound-parameter limit for long parties.
-      for (let start = 0; start < party.length; start += 500) {
-        const ids = party.slice(start, start + 500).map(hand => hand.id);
-        const records = await db.all(`SELECT data FROM hands WHERE id IN (${ids.map(() => '?').join(',')})`, ids);
-        hands.push(...records.map(record => JSON.parse(record.data)));
-      }
-      const partyRows = buildArchiveRows(hands);
-      await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
-        VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
-        signature = excluded.signature, rows_json = excluded.rows_json`,
-      firstHandId, signature, JSON.stringify(partyRows));
+      const partyRows = rowsByPartyIndex.get(index);
+      if (!partyRows) throw new Error(`Missing archive summary for ${party[0].id}`);
       for (const row of partyRows) addArchiveRow(summary, row);
       if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
     }
     const playerIds = [...new Set(rows.flatMap(row => row.humanPlayers.map(player => player.playerId)))];
-    const partyIds = [...new Set(rows.map(row => row.partyId))];
     const visitsByPartyPlayer = new Map<string, { name?: string; country?: string }>();
-    if (partyIds.length && playerIds.length) {
+    if (rows.length && playerIds.length) {
       const visits = await db.all<{
         partyId: string;
         playerId: string;
@@ -449,10 +480,10 @@ export default class HandStore {
       }[]>(`SELECT party_id AS partyId, player_id AS playerId,
         player_name AS playerName, country
         FROM analytics_visits
-        WHERE party_id IN (${partyIds.map(() => '?').join(',')})
+        WHERE party_id IN (${rows.map(() => '?').join(',')})
           AND player_id IN (${playerIds.map(() => '?').join(',')})
         ORDER BY last_seen DESC`,
-      [...partyIds, ...playerIds]);
+      [...new Set(rows.map(row => row.partyId)), ...playerIds]);
       for (const visit of visits) {
         const key = `${visit.partyId}\u0000${visit.playerId}`;
         const player = visitsByPartyPlayer.get(key) ?? {};
