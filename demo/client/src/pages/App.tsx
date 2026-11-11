@@ -3246,8 +3246,14 @@ function PlayerPage({
     if (player?.partyFinishedEarly) setActiveView('stats');
   }, [player?.partyFinishedEarly]);
 
+  const shouldLoadPartyScore = Boolean(player && (
+    activeView === 'stats'
+    || player.stage === 'showdown'
+    || player.partyFinishedEarly
+  ));
+
   useEffect(() => {
-    if (activeView !== 'stats' || !player) return;
+    if (!shouldLoadPartyScore || !player) return;
     const requestKey = `${player.partyId}:${player.handId}:${player.completedHandCount}:${player.partyFinishedEarly ? 'final' : 'live'}`;
     if (partyScoreRequestRef.current === requestKey) return;
 
@@ -3273,7 +3279,7 @@ function PlayerPage({
         if (!controller.signal.aborted) setPartyScoreLoading(false);
       });
     return () => controller.abort();
-  }, [activeView, handId, partyScoreRetryVersion, player?.completedHandCount, player?.handId, player?.partyFinishedEarly, playerId, token]);
+  }, [handId, partyScoreRetryVersion, player?.completedHandCount, player?.handId, player?.partyFinishedEarly, playerId, shouldLoadPartyScore, token]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setSessionNow(Date.now()), 1_000);

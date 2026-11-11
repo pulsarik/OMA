@@ -128,6 +128,10 @@ const partyLiveSummaryCache = new Map<string, {
     completedHandCount: number;
   };
 }>();
+const partyScoreCache = new Map<string, {
+  revisionKey: string;
+  score: Promise<any>;
+}>();
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const HUMAN_TURN_MS = Math.max(1_000, Number(process.env.HUMAN_TURN_MS) || 45_000);
@@ -522,19 +526,20 @@ function showdownSummary(hand: any) {
   };
 }
 
-async function partyScore(hand: any) {
+async function computePartyScore(hand: any) {
   normalizeHand(hand);
   const partyHands = await store.listHandsByParty(hand.partyId);
   const hands = partyHands
     .map((partyHand: any) => normalizeHand(partyHand))
     .sort((a: any, b: any) => (a.handNumber ?? 1) - (b.handNumber ?? 1) || (a.created ?? 0) - (b.created ?? 0));
+  const handsById = new Map(hands.map((partyHand: any) => [partyHand.id, partyHand]));
 
   const latestHand = hands[hands.length - 1] ?? hand;
   const totals = stacksAfterPayout(latestHand);
 
   const handScores = hands.map((partyHand: any, index: number) => {
     const replaySource = partyHand.replayOfHandId
-      ? hands.find((candidate: any) => candidate.id === partyHand.replayOfHandId)
+      ? handsById.get(partyHand.replayOfHandId)
       : undefined;
     const startingStacks = partyHand.initialStacks
       ? new Map<string, number>(Object.entries(partyHand.initialStacks))
@@ -584,6 +589,21 @@ async function partyScore(hand: any) {
     hands: handScores,
     totals: [...totals.entries()].map(([id, total]) => ({ id, total })),
   };
+}
+
+async function partyScore(hand: any) {
+  normalizeHand(hand);
+  const partyId = hand.partyId ?? hand.id;
+  const revisionKey = `${hand.id}:${hand.revision ?? 0}`;
+  const cached = partyScoreCache.get(partyId);
+  if (cached?.revisionKey === revisionKey) return cached.score;
+
+  const score = computePartyScore(hand).catch((error) => {
+    if (partyScoreCache.get(partyId)?.score === score) partyScoreCache.delete(partyId);
+    throw error;
+  });
+  partyScoreCache.set(partyId, { revisionKey, score });
+  return score;
 }
 
 async function partyLiveSummary(hand: any) {

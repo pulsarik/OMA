@@ -758,6 +758,9 @@ test('flop card bottoms stay fixed through showdown at an eight-player table', a
     await page.waitForTimeout(150);
   }
   await expect(page.getByTestId('table-board').locator('[data-testid^="card-face-"]')).toHaveCount(3);
+  await expect.poll(() => page.getByTestId('table-board').locator('.deal-card').evaluateAll(cards => (
+    cards.every(card => card.getAnimations().every(animation => animation.playState === 'finished'))
+  ))).toBe(true);
 
   const readBoardBottoms = () => page.getByTestId('table-board').evaluate((board) => {
     const cards = Array.from(board.querySelectorAll<HTMLElement>('[data-testid^="card-face-"]'))
@@ -790,6 +793,7 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
     await expect(page.getByTestId('completed-hand-count'))
       .toHaveText(`${completedHands.length} ${completedHands.length === 1 ? 'hand' : 'hands'}`);
     for (const player of state.players) {
+      await page.getByTestId(`statistics-select-${player.id}`).click();
       const hands = completedHands.filter((hand: any) => (
         hand.players.some((seat: any) => seat.id === player.id && seat.participated)
       ));
@@ -810,8 +814,9 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
       await expect(page.getByTestId(`party-fold-${player.id}`)).toHaveText(percentage(folds, hands.length));
       await expect(page.getByTestId(`party-win-${player.id}`)).toHaveText(percentage(wins, hands.length));
       await expect(page.getByTestId(`party-loss-${player.id}`)).toHaveText(percentage(losses, hands.length));
+      const maxWin = Math.max(0, ...netResults);
       await expect(page.getByTestId(`party-max-win-${player.id}`))
-        .toHaveText(formatPoints(Math.max(0, ...netResults)));
+        .toHaveText(`${maxWin > 0 ? '+' : ''}${formatPoints(maxWin)}`);
       await expect(page.getByTestId(`party-max-loss-${player.id}`))
         .toHaveText(formatPoints(Math.min(0, ...netResults)));
       await expect(page.getByTestId(`party-stack-${player.id}`)).toHaveText(formatPoints(stack));
@@ -872,7 +877,6 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   await expect(page.getByTestId('wireframe-hand-P1').getByTestId('player-result-P1')).toHaveCount(0);
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await expect(page.getByTestId('stats-tile')).toBeVisible();
-  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
   await expect(page.getByTestId('party-stack-P1')).toHaveText(formatResultPoints(1000 + net));
   await expect(page.getByTestId('game-tile')).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toHaveAttribute('aria-selected', 'true');
@@ -880,8 +884,8 @@ test('folded hands show combinations and a new deal opens with rotated blinds', 
   const foldedResult = showdownState.result.players.find((result: any) => result.id === 'P1');
   expect(foldedResult.folded).toBe(true);
   expect(foldedResult.highRank).toBeTruthy();
-  await expect(page.getByTestId('party-total-P1')).toContainText('Dima');
-  await expect(page.getByTestId('party-total-P2')).toContainText('Alex');
+  await expect(page.getByTestId('statistics-select-P1')).toContainText('Dima');
+  await expect(page.getByTestId('statistics-select-P2')).toContainText('Alex');
   expect(showdownState.showdownSummary.points.find((score: any) => score.id === 'P2').total).toBeGreaterThan(0);
 
   await page.getByRole('tab', { name: 'TABLE' }).click();

@@ -15,11 +15,33 @@ async function openStatistics(page: Page, seats = 2) {
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
-  await page.getByRole('button', { name: 'Player view', exact: true }).click();
   await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
 }
 
-test('player view uses classic values, selects players, and remembers the reversible layout choice', async ({ page }) => {
+test('statistics start loading after showdown before the tab is opened', async ({ page }) => {
+  let scoreRequests = 0;
+  await page.route('**/api/player/*/*/*/score', async route => {
+    scoreRequests += 1;
+    await route.continue();
+  });
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play with friends' }).click();
+  await page.getByRole('button', { name: 'Create your own table' }).click();
+  await page.getByLabel('Your name').fill('Dima');
+  await page.getByRole('button', { name: 'Create table' }).click();
+  await page.getByRole('button', { name: 'Add bot' }).click();
+  await page.getByRole('button', { name: /Start game/ }).click();
+  await page.getByRole('button', { name: 'Fold', exact: true }).click();
+
+  await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled({ timeout: 20_000 });
+  await expect.poll(() => scoreRequests).toBe(1);
+  await page.getByRole('tab', { name: 'STATISTICS' }).click();
+  await expect(page.getByTestId('party-statistics')).toBeVisible();
+  expect(scoreRequests).toBe(1);
+});
+
+test('player statistics select players and remain the only presentation', async ({ page }) => {
   await openStatistics(page);
   await expect(page.getByTestId('statistics-player-detail')).toHaveAttribute('data-player-id', 'P1');
   await expect(page.getByTestId('statistics-select-P1')).toHaveAttribute('aria-pressed', 'true');
@@ -54,20 +76,14 @@ test('player view uses classic values, selects players, and remembers the revers
   await page.getByLabel('Realization', { exact: true }).click();
   await expect(page.getByText('Percentage of advantaged hands that produced a positive net result.', { exact: true })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
-  await expect(page.getByTestId('party-metrics-scroll')).toBeVisible();
-  expect(await readValues()).toEqual({ ...firstPlayer, ...secondPlayer });
-  await page.reload();
-  await page.getByRole('tab', { name: 'STATISTICS' }).click();
-  await expect(page.getByTestId('party-metrics-scroll')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Classic view', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: 'Player view', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Player view', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Classic view', exact: true })).toHaveCount(0);
   await page.reload();
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
   await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
 });
 
-test('Q bots are marked with an underscore on the table and in both statistics views', async ({ page }) => {
+test('Q bots are marked with an underscore on the table and in statistics', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Play with friends' }).click();
   await page.getByRole('button', { name: 'Create your own table' }).click();
@@ -89,8 +105,6 @@ test('Q bots are marked with an underscore on the table and in both statistics v
   await page.getByRole('button', { name: 'Fold', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'STATISTICS' })).toBeEnabled({ timeout: 20_000 });
   await page.getByRole('tab', { name: 'STATISTICS' }).click();
-  await expect(page.getByTestId(`party-total-${qBotId}`)).toContainText('_');
-  await page.getByRole('button', { name: 'Player view', exact: true }).click();
   await expect(page.getByTestId(`statistics-select-${qBotId}`).locator('.statistics-player-name')).toContainText('_');
 });
 
@@ -114,19 +128,7 @@ test('player statistics fit desktop and mobile with every player and metric avai
   }
 });
 
-test('empty history and unavailable storage still allow switching layouts', async ({ page }) => {
-  await page.addInitScript(() => {
-    const originalGet = Storage.prototype.getItem;
-    const originalSet = Storage.prototype.setItem;
-    Storage.prototype.getItem = function (key) {
-      if (key === 'omaha-statistics-layout') throw new Error('Storage blocked');
-      return originalGet.call(this, key);
-    };
-    Storage.prototype.setItem = function (key, value) {
-      if (key === 'omaha-statistics-layout') throw new Error('Storage blocked');
-      return originalSet.call(this, key, value);
-    };
-  });
+test('empty history still shows player statistics', async ({ page }) => {
   await page.route('**/api/player/*/*/*/score', async route => {
     const response = await route.fetch();
     const score = await response.json();
@@ -135,13 +137,10 @@ test('empty history and unavailable storage still allow switching layouts', asyn
   await openStatistics(page);
   await expect(page.getByText('Wallet history will appear after the first completed hand.', { exact: true })).toBeVisible();
   await expect(page.getByTestId('party-realization-P1')).toHaveText('0%');
-  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
-  await expect(page.getByTestId('party-metrics-scroll')).toBeVisible();
-  await page.getByRole('button', { name: 'Player view', exact: true }).click();
   await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
 });
 
-test('an uncontested winner has no missed high in either statistics view', async ({ page }) => {
+test('an uncontested winner has no missed high in player statistics', async ({ page }) => {
   await page.route('**/api/player/*/*/*/score', async route => {
     const response = await route.fetch();
     const score = await response.json();
@@ -161,7 +160,4 @@ test('an uncontested winner has no missed high in either statistics view', async
   await page.getByTestId('statistics-select-P2').click();
   await expect(page.getByTestId('party-missed-high-P2')).toHaveText('0');
   await expect(page.getByTestId('party-win-P2')).toHaveText('100%');
-  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
-  await expect(page.getByTestId('party-missed-high-P1')).toHaveText('1');
-  await expect(page.getByTestId('party-missed-high-P2')).toHaveText('0');
 });

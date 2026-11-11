@@ -18,15 +18,13 @@ async function openCompletedStatistics(page: Page) {
   } else {
     await page.getByRole('tab', { name: 'STATISTICS' }).click();
   }
-  await page.getByRole('button', { name: 'Classic view', exact: true }).click();
-  await expect(page.getByTestId('party-metrics-scroll')).toBeVisible();
+  await expect(page.getByTestId('statistics-player-detail')).toBeVisible();
   await expect(page.getByText('Hand complete', { exact: true })).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'Results', exact: true })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'New deal', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Replay', exact: true })).toHaveCount(0);
 }
 
-test('statistics table stays inside the viewport and scrolls its full width', async ({ page }) => {
+test('statistics dashboard stays inside the viewport', async ({ page }) => {
   for (const viewport of [
     { width: 360, height: 640 },
     { width: 390, height: 844 },
@@ -35,32 +33,21 @@ test('statistics table stays inside the viewport and scrolls its full width', as
     await page.setViewportSize(viewport);
     await openCompletedStatistics(page);
 
-    const metricsScroll = page.getByTestId('party-metrics-scroll');
-    const layout = await metricsScroll.evaluate((element) => {
+    const dashboard = page.getByTestId('party-statistics');
+    const layout = await dashboard.evaluate((element) => {
       const box = element.getBoundingClientRect();
       return {
+        boxLeft: box.left,
         boxRight: box.right,
-        clientWidth: element.clientWidth,
-        scrollWidth: element.scrollWidth,
         documentWidth: document.documentElement.scrollWidth,
         viewportWidth: window.innerWidth,
       };
     });
 
+    expect(layout.boxLeft, JSON.stringify(layout)).toBeGreaterThanOrEqual(0);
     expect(layout.boxRight, JSON.stringify(layout)).toBeLessThanOrEqual(viewport.width);
-    expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth);
     expect(layout.documentWidth, JSON.stringify(layout)).toBeLessThanOrEqual(layout.viewportWidth);
-
-    const firstPlayerCell = metricsScroll.locator('tbody tr:first-child td:first-child');
-    const scrollBox = await metricsScroll.boundingBox();
-    const beforeScroll = await firstPlayerCell.boundingBox();
-    expect(scrollBox).toBeTruthy();
-    expect(beforeScroll).toBeTruthy();
-    await metricsScroll.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
-    const afterScroll = await firstPlayerCell.boundingBox();
-    expect(afterScroll).toBeTruthy();
-    expect(afterScroll!.x).toBeGreaterThanOrEqual(scrollBox!.x - 1);
-    expect(afterScroll!.x + afterScroll!.width)
-      .toBeLessThanOrEqual(scrollBox!.x + Math.min(scrollBox!.width, beforeScroll!.width) + 1);
+    await expect(page.getByTestId('statistics-select-P2')).toBeVisible();
+    await expect(page.getByTestId('wallet-history-chart')).toBeVisible();
   }
 });
