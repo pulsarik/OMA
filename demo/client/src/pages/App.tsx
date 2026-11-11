@@ -276,6 +276,7 @@ type PartyScore = {
     handNumber: number;
     stage: string;
     replayOfHandId?: string;
+    partyRestarted?: boolean;
     players: Array<{
       id: string;
       folded: boolean;
@@ -2632,13 +2633,35 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
 }) {
   const [expandedCombination, setExpandedCombination] = useState<string | null>(null);
   const [showRealizationHelp, setShowRealizationHelp] = useState(false);
+  const [statisticsScope, setStatisticsScope] = useState<'current' | 'all'>('current');
+  React.useEffect(() => { setStatisticsScope('current'); }, [score?.partyId, score?.hands.filter(hand => hand.partyRestarted).at(-1)?.id]);
   const statistics = React.useMemo(() => {
     if (!score) return null;
-    const completedHands = score.hands
-      .filter((hand) => hand.stage === 'showdown')
+    const orderedHands = [...score.hands].sort((a, b) => a.handNumber - b.handNumber);
+    const latestRestart = [...orderedHands].reverse().find(hand => hand.partyRestarted);
+    const currentStart = latestRestart?.handNumber ?? orderedHands[0]?.handNumber ?? 1;
+    const selectedHands = statisticsScope === 'current'
+      ? orderedHands.filter(hand => hand.handNumber >= currentStart)
+      : orderedHands;
+    // Player IDs are regenerated on restart. Match the same seat across matches,
+    // then rewrite historical references to the current player's ID.
+    const normalizedHands = selectedHands.map(hand => {
+      if (statisticsScope === 'current') return hand;
+      const idMap = new Map(hand.players.map((seat, index) => [seat.id, players[index]?.id ?? seat.id]));
+      return {
+        ...hand,
+        players: hand.players.map(seat => ({ ...seat, id: idMap.get(seat.id) ?? seat.id })),
+        net: hand.net.map(item => ({ ...item, id: idMap.get(item.id) ?? item.id })),
+        points: hand.points.map(item => ({ ...item, id: idMap.get(item.id) ?? item.id })),
+        wallets: hand.wallets?.map(item => ({ ...item, id: idMap.get(item.id) ?? item.id })),
+        actions: hand.actions?.map(item => ({ ...item, playerId: idMap.get(item.playerId) ?? item.playerId })),
+      };
+    });
+    const completedHands = normalizedHands
+      .filter(hand => hand.stage === 'showdown')
       .sort((a, b) => b.handNumber - a.handNumber);
     const chronologicalHands = [...completedHands].sort((a, b) => a.handNumber - b.handNumber);
-    const walletHistory = buildWalletHistory(players.map((player) => player.id), chronologicalHands);
+    const walletHistory = buildWalletHistory(players.map(player => player.id), chronologicalHands);
     const percentage = (count: number, hands: number) => (
       hands ? `${Math.round((count / hands) * 100)}%` : '0%'
     );
@@ -2668,11 +2691,16 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
       };
     });
     return { completedHands, walletHistory, metrics };
-  }, [score, players]);
+  }, [score, players, statisticsScope]);
   if (!statistics) return null;
   const { completedHands, walletHistory, metrics } = statistics;
 
   return (
+    <>
+    <div className="statistics-layout-switch" role="group" aria-label={ui('Statistics period', 'Период статистики')}>
+      <button type="button" aria-pressed={statisticsScope === 'current'} onClick={() => setStatisticsScope('current')}>{ui('Current match', 'Текущая партия')}</button>
+      <button type="button" aria-pressed={statisticsScope === 'all'} onClick={() => setStatisticsScope('all')}>{ui('All matches', 'Все партии')}</button>
+    </div>
     <StatisticsPresentation
       metrics={metrics}
       walletHistory={walletHistory}
@@ -2845,6 +2873,7 @@ function PartyStatistics({ score, players, currentPlayerId, isFinal }: {
       </div>
     </section>
     </StatisticsPresentation>
+    </>
   );
 }
 
