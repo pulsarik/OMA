@@ -30,6 +30,34 @@ test('empty archive has one empty page', async () => {
   });
 });
 
+test('archive includes participant names and countries without exposing player IDs', async () => {
+  const store = new HandStore(':memory:');
+  const solo = { ...dealHand(2, 1, ['Solo', 'Bot'], [false, true], 'ABC123'), id: 'solo-hand', partyId: 'solo-party' };
+  const group = { ...dealHand(3, 2, ['Alice', 'Bob', 'Bot'], [false, false, true], 'XYZ789'), id: 'group-hand', partyId: 'group-party' };
+  await store.saveHand(solo);
+  await store.saveHand(group);
+  await store.recordAnalyticsVisit({
+    partyId: 'solo-party', handId: 'solo-hand', playerId: 'P1', playerName: 'Solo', country: 'RU',
+  });
+  await store.recordAnalyticsVisit({
+    partyId: 'group-party', handId: 'group-hand', playerId: 'P1', playerName: 'Alice', country: 'US',
+  });
+  await store.recordAnalyticsVisit({
+    partyId: 'group-party', handId: 'group-hand', playerId: 'P2', playerName: 'Bob', country: 'CA',
+  });
+
+  const { rows } = await store.getArchivePage();
+  expect(rows.find(row => row.partyId === 'solo-party')).toMatchObject({
+    playerInfo: [{ name: 'Solo', country: 'RU' }],
+  });
+  const groupRow = rows.find(row => row.partyId === 'group-party');
+  expect(groupRow).toMatchObject({
+    playerInfo: [{ country: 'US' }, { country: 'CA' }],
+  });
+  expect(groupRow).not.toHaveProperty('humanPlayers');
+  expect(JSON.stringify(rows)).not.toContain('"playerId"');
+});
+
 test('archive summary includes off-page results and reflects saved changes', async () => {
   const store = new HandStore(':memory:');
   for (let index = 0; index < 21; index++) {
@@ -51,7 +79,7 @@ test('archive summary includes off-page results and reflects saved changes', asy
   expect(first.rows.every(row => row.completedHands === 0)).toBe(true);
   expect(first.summary).toEqual({
     ...createArchiveSummary(), games: 21, hands: 21, completedHands: 1,
-    handsWithLow: 1, finishedGames: 1, durationMinutes: 2, lowWins: 1,
+    handsWithLow: 1, finishedGames: 1, durationMinutes: 1, lowWins: 1,
     evaluatedPlayerHands: 2,
     combinations: { ...createArchiveSummary().combinations, straight: 2 },
   });

@@ -80,9 +80,22 @@ test('archive keeps unfinished hands and marks the game as incomplete', () => {
     lowPercent: null,
     completedHands: 0,
     handsWithLow: 0,
-    durationMinutes: 1.5,
+    durationMinutes: 1,
     replayCode: 'ABC123',
   });
+});
+
+test('archive duration pauses after one minute without activity', () => {
+  const hand = dealHand(2, 1, ['Alice', 'Bot'], [false, true], 'ABC123') as DealtHand;
+  hand.stage = 'preflop';
+  hand.created = 1_000;
+  hand.actions = [
+    { playerId: hand.players[0].id, move: 'call', stage: 'preflop', at: 11_000 },
+    { playerId: hand.players[1].id, move: 'check', stage: 'preflop', at: 7_211_000 },
+    { playerId: hand.players[0].id, move: 'check', stage: 'preflop', at: 7_271_000 },
+  ];
+
+  expect(buildArchiveRows([hand])[0].durationMinutes).toBeCloseTo(130 / 60);
 });
 
 test('archive includes unfinished deals alongside completed ones in the same game', () => {

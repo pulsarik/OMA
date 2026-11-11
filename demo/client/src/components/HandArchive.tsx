@@ -4,8 +4,6 @@ import { CombinationFrequency } from './CombinationFrequency';
 
 type ArchiveRow = {
   partyId: string;
-  partyCode?: string;
-  forkRootCode?: string;
   date: number;
   bots: number;
   humans: number;
@@ -30,6 +28,7 @@ type ArchiveRow = {
     highCard: number;
   };
   replayCode?: string;
+  playerInfo?: { name?: string; country?: string }[];
 };
 
 type Props = {
@@ -75,9 +74,24 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     pair: ru ? 'Пара' : 'Pair',
     highCard: ru ? 'Хай' : 'High card',
     code: ru ? 'Код сдачи' : 'Hand code',
+    codeHelp: ru ? 'Нажмите, чтобы начать повтор этой игры с ботами.' : 'Click to replay this game with bots.',
+    player: ru ? 'Игрок' : 'Player',
+    playerHelp: ru
+      ? 'Если человек играл один — показаны его имя и флаг. Если людей несколько — показаны только флаги.'
+      : 'For a solo human player, this shows their name and flag. For multiple humans, only flags are shown.',
+    countryUnknown: ru ? 'Страна неизвестна' : 'Country unknown',
+    dateHelp: ru ? 'Дата и время начала партии.' : 'Date and time when the game started.',
+    handsHelp: ru ? 'Общее число сдач в партии.' : 'Total number of hands in the game.',
+    finishedHelp: ru ? 'Завершена ли партия.' : 'Whether the game was completed.',
+    durationHelp: ru ? 'Активное время в минутах: паузы между действиями учитываются максимум по одной минуте.' : 'Active minutes: gaps between actions count for up to one minute.',
+    lowHelp: ru ? 'Доля завершённых сдач, в которых была выигрышная комбинация лоу.' : 'Share of completed hands that had a qualifying low.',
+    lowWinsHelp: ru ? 'Количество завершённых сдач, в которых выиграли лоу.' : 'Number of completed hands with a low winner.',
+    combinationHelp: ru
+      ? 'Доля комбинаций этого типа среди всех оценённых рук игроков.'
+      : 'Share of this hand type among all evaluated player hands.',
     yes: ru ? 'Да' : 'Yes',
     no: ru ? 'Нет' : 'No',
-    average: ru ? 'Частота по всем игроко-раздачам' : 'Frequency per evaluated player-hand',
+    average: ru ? 'Среднее' : 'Average',
   };
 
   useEffect(() => {
@@ -114,12 +128,35 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     ? (summary.handsWithLow / summary.completedHands) * 100
     : null;
   const percent = (value: number | null) => value === null ? '—' : `${value.toFixed(1)}%`;
-  const date = (value: number) => new Date(value).toLocaleString(ru ? 'ru-RU' : 'en-GB');
+  const date = (value: number) => new Date(value).toLocaleString(ru ? 'ru-RU' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
   const combinationFrequency = (count: number, denominator: number) => (
     denominator > 0 ? `${(100 * count / denominator).toFixed(2)}%` : '—'
   );
+  const countryFlag = (country?: string) => {
+    const code = country?.trim().toUpperCase();
+    return code && /^[A-Z]{2}$/.test(code) && code !== 'XX'
+      ? String.fromCodePoint(...[...code].map(letter => 127397 + letter.charCodeAt(0)))
+      : undefined;
+  };
   const combinationKeys = Object.keys(baseline.counts) as (keyof ArchiveRow['combinations'])[];
   const totalCombinations = summary ? (summary.evaluatedPlayerHands ?? combinationKeys.reduce((sum, key) => sum + summary.combinations[key], 0)) : 0;
+  const columns = [
+    { key: 'code', label: text.code, help: text.codeHelp },
+    { key: 'player', label: text.player, help: text.playerHelp },
+    { key: 'date', label: text.date, help: text.dateHelp },
+    { key: 'hands', label: text.hands, help: text.handsHelp },
+    { key: 'finished', label: text.finished, help: text.finishedHelp },
+    { key: 'duration', label: text.duration, help: text.durationHelp },
+    { key: 'low', label: text.low, help: text.lowHelp },
+    { key: 'lowWins', label: text.lowWins, help: text.lowWinsHelp },
+    ...combinationKeys.map(key => ({ key, label: text[key], help: text.combinationHelp })),
+  ];
 
   return (
     <section style={{ border: '1px solid #cbd5e1', borderRadius: 22, background: 'rgba(255,255,255,.96)', padding: 'clamp(16px, 3vw, 26px)', display: 'grid', gap: 16 }}>
@@ -140,16 +177,14 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
           <table style={{ width: '100%', minWidth: 1450, borderCollapse: 'collapse', fontSize: 13, textAlign: 'center' }}>
             <thead style={{ background: '#f0fdf4' }}>
               <tr>
-                {[
-                  text.date, text.hands, text.finished, text.duration, text.low, text.lowWins,
-                  text.straightFlush, text.fourOfAKind, text.fullHouse, text.flush, text.straight, text.threeOfAKind,
-                  text.twoPair, text.pair, text.highCard, text.code,
-                ].map(label => <th key={label} scope="col" style={{ padding: 10, borderBottom: '1px solid #d8e2dc', whiteSpace: 'nowrap' }}>{label}</th>)}
+                {columns.map(column => <th key={column.key} scope="col" title={column.help} style={{ padding: 10, borderBottom: '1px solid #d8e2dc', whiteSpace: 'nowrap' }}>{column.label}</th>)}
               </tr>
             </thead>
             <tbody>
               {summary ? <tr style={{ background: '#f8fafc', fontWeight: 800 }}>
-                <th scope="row" style={{ padding: 9 }}>{text.average}</th>
+                <td>—</td>
+                <td>—</td>
+                <th scope="row" style={{ padding: 9 }} title={text.average}>{text.average}</th>
                 <td>{average(summary.hands).toFixed(1)}</td>
                 <td>{percent(average(summary.finishedGames) * 100)}</td>
                 <td>{average(summary.durationMinutes).toFixed(1)}</td>
@@ -169,10 +204,30 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
               </tr> : null}
               {rows.map(row => (
                 <tr key={row.partyId}>
-                  <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}
-                    {row.partyCode ? <div>{row.partyCode}</div> : null}
-                    {row.forkRootCode ? <small>{ru ? 'Копия партии' : 'Copy of'} {row.forkRootCode}</small> : null}
+                  <td>
+                    {row.replayCode ? (
+                      <button type="button" onClick={() => onReplay(row.replayCode!, row.players)} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900, textDecoration: 'underline', cursor: 'pointer' }}>
+                        {row.replayCode}
+                      </button>
+                    ) : '—'}
                   </td>
+                  <td>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                      {(row.playerInfo ?? []).map((player, index) => {
+                        const flag = countryFlag(player.country);
+                        const flagLabel = flag ? `Country: ${player.country}` : text.countryUnknown;
+                        return row.humans === 1 ? (
+                          <span key={index} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                            {player.name ? <span>{player.name}</span> : null}
+                            <span role="img" aria-label={flagLabel} title={flagLabel}>{flag ?? '?'}</span>
+                          </span>
+                        ) : (
+                          <span key={index} role="img" aria-label={flagLabel} title={flagLabel}>{flag ?? '?'}</span>
+                        );
+                      })}
+                    </div>
+                  </td>
+                  <td style={{ padding: 9, whiteSpace: 'nowrap' }}>{date(row.date)}</td>
                   <td>{row.hands}</td>
                   <td>
                     <input
@@ -194,13 +249,6 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                   <td>{combinationFrequency(row.combinations.twoPair, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
                   <td>{combinationFrequency(row.combinations.pair, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
                   <td>{combinationFrequency(row.combinations.highCard, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
-                  <td>
-                    {row.replayCode ? (
-                      <button type="button" onClick={() => onReplay(row.replayCode!, row.players)} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900, textDecoration: 'underline', cursor: 'pointer' }}>
-                        {row.replayCode}
-                      </button>
-                    ) : '—'}
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -219,9 +267,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
         </nav>
       ) : null}
       <small style={{ color: '#65736a' }}>
-        {ru
-          ? 'Нажмите на код, чтобы начать повтор этой игры с ботами.'
-          : 'Select a code to replay that game with bots.'}
+        {text.codeHelp}
       </small>
     </section>
   );

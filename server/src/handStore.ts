@@ -405,7 +405,7 @@ export default class HandStore {
     const currentPage = Math.min(Math.max(1, Number.isSafeInteger(page) ? page : 1), totalPages);
     const pageStart = (currentPage - 1) * pageSize;
     const summary = createArchiveSummary();
-    const rows = [];
+    const rows: ReturnType<typeof buildArchiveRows> = [];
     // Load cached aggregates in one query instead of one query per party.
     // The signature changes when a new hand is appended to a party.
     const cachedRows = await db.all<{ first_hand_id: string; signature: string; rows_json: string }[]>(
@@ -414,7 +414,7 @@ export default class HandStore {
     const cacheById = new Map(cachedRows.map(row => [row.first_hand_id, row]));
     for (const [index, party] of parties.entries()) {
       const firstHandId = party[0].id;
-      const signature = party.map(hand => hand.id).join('|');
+      const signature = `archive-v2:${party.map(hand => hand.id).join('|')}`;
       const cached = cacheById.get(firstHandId);
       if (cached?.signature === signature) {
         const partyRows = JSON.parse(cached.rows_json);
@@ -437,7 +437,42 @@ export default class HandStore {
       for (const row of partyRows) addArchiveRow(summary, row);
       if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
     }
-    return { rows, summary, total, page: currentPage, pageSize, totalPages };
+    const playerIds = [...new Set(rows.flatMap(row => row.humanPlayers.map(player => player.playerId)))];
+    const partyIds = [...new Set(rows.map(row => row.partyId))];
+    const visitsByPartyPlayer = new Map<string, { name?: string; country?: string }>();
+    if (partyIds.length && playerIds.length) {
+      const visits = await db.all<{
+        partyId: string;
+        playerId: string;
+        playerName?: string;
+        country?: string;
+      }[]>(`SELECT party_id AS partyId, player_id AS playerId,
+        player_name AS playerName, country
+        FROM analytics_visits
+        WHERE party_id IN (${partyIds.map(() => '?').join(',')})
+          AND player_id IN (${playerIds.map(() => '?').join(',')})
+        ORDER BY last_seen DESC`,
+      [...partyIds, ...playerIds]);
+      for (const visit of visits) {
+        const key = `${visit.partyId}\u0000${visit.playerId}`;
+        const player = visitsByPartyPlayer.get(key) ?? {};
+        player.name ??= visit.playerName || undefined;
+        player.country ??= visit.country || undefined;
+        visitsByPartyPlayer.set(key, player);
+      }
+    }
+
+    const publicRows = rows.map(({ humanPlayers, ...row }) => ({
+      ...row,
+      playerInfo: humanPlayers.map(player => {
+        const visit = visitsByPartyPlayer.get(`${row.partyId}\u0000${player.playerId}`);
+        return {
+          name: row.humans === 1 ? visit?.name ?? player.name : undefined,
+          country: visit?.country,
+        };
+      }),
+    }));
+    return { rows: publicRows, summary, total, page: currentPage, pageSize, totalPages };
   }
 
   async listHandsByParty(partyId: string) {

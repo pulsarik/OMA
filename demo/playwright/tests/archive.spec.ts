@@ -48,14 +48,14 @@ test('archive requests only the selected page and retries a failed page', async 
   await expect(navigation.getByRole('button', { name: 'Previous' })).toBeDisabled();
   const summary = page.locator('tbody tr').first();
   const assertSummary = async () => {
-    await expect(summary.getByRole('rowheader')).toHaveText('Frequency per evaluated player-hand');
-    await expect(summary.locator('td').nth(0)).toHaveText('1.3');
-    await expect(summary.locator('td').nth(1)).toHaveText('4.8%');
-    await expect(summary.locator('td').nth(2)).toHaveText('2.0');
-    await expect(summary.locator('td').nth(3)).toHaveText('28.6%');
-    await expect(summary.locator('td').nth(4)).toHaveText('0.1');
-    await expect(summary.locator('td').nth(12).locator('div')).toHaveText('28.57%');
-    await expect(summary.locator('td').nth(12).getByRole('button')).toContainText('28.571%');
+    await expect(summary.getByRole('rowheader')).toHaveText('Average');
+    await expect(summary.locator('td').nth(2)).toHaveText('1.3');
+    await expect(summary.locator('td').nth(3)).toHaveText('4.8%');
+    await expect(summary.locator('td').nth(4)).toHaveText('2.0');
+    await expect(summary.locator('td').nth(5)).toHaveText('28.6%');
+    await expect(summary.locator('td').nth(6)).toHaveText('0.1');
+    await expect(summary.locator('td').nth(14).locator('div')).toHaveText('28.57%');
+    await expect(summary.locator('td').nth(14).getByRole('button')).toContainText('28.571%');
   };
   await assertSummary();
   expect(requested).toEqual([1]);
@@ -83,6 +83,7 @@ test('statistics opens the archive and its hand code starts a bot replay', async
         straight: 0, threeOfAKind: 0, twoPair: 1, pair: 2, highCard: 0 },
     }, rows: [{
       partyId: 'archive-test-party',
+      partyCode: 'PA0193',
       date: Date.now(),
       bots: 1,
       humans: 1,
@@ -106,11 +107,12 @@ test('statistics opens the archive and its hand code starts a bot replay', async
         highCard: 0,
       },
       replayCode: 'ABC123',
+      playerInfo: [{ name: 'Alice', country: 'US' }],
     }, {
       partyId: 'archive-test-party-2',
       date: Date.now() - 60_000,
-      bots: 2,
-      humans: 1,
+      bots: 1,
+      humans: 2,
       players: 3,
       hands: 1,
       completedHands: 1,
@@ -131,6 +133,7 @@ test('statistics opens the archive and its hand code starts a bot replay', async
         highCard: 0,
       },
       replayCode: 'XYZ789',
+      playerInfo: [{ name: 'Bob', country: 'DE' }, { name: 'Charlie', country: 'CA' }],
     }] }),
   }));
 
@@ -144,29 +147,42 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('columnheader', { name: 'With low', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Low wins', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Pair', exact: true })).toBeVisible();
-  await expect(page.getByRole('columnheader')).toHaveCount(16);
+  await expect(page.getByRole('columnheader').first()).toHaveText('Hand code');
+  await expect(page.getByRole('columnheader', { name: 'Player', exact: true })).toHaveAttribute('title', 'For a solo human player, this shows their name and flag. For multiple humans, only flags are shown.');
+  await expect(page.getByRole('columnheader', { name: 'Date', exact: true })).toHaveAttribute('title', 'Date and time when the game started.');
+  await expect(page.getByRole('columnheader', { name: 'Hands', exact: true })).toHaveAttribute('title', 'Total number of hands in the game.');
+  await expect(page.getByRole('columnheader')).toHaveCount(17);
   const rows = page.locator('tbody tr');
-  await expect(rows.first().getByRole('rowheader')).toHaveText('Frequency per evaluated player-hand');
-  await expect(rows.nth(1).locator('td').nth(13)).toHaveText('66.67%');
-  await expect(rows.nth(2).locator('td').nth(13)).toHaveText('—');
-  await expect(rows.nth(0).locator('td').nth(2)).toHaveText('1.5');
-  await expect(rows.nth(1).locator('td').nth(5)).toHaveText('1');
-  await expect(rows.nth(2).locator('td').nth(5)).toHaveText('0');
-  await expect(rows.nth(0).locator('td').nth(4)).toHaveText('0.5');
-  await expect(rows.nth(0).locator('td').nth(3)).toHaveText('25.0%');
-  const pairFrequency = rows.nth(0).locator('td').nth(12).getByRole('button');
+  await expect(rows.first().getByRole('rowheader')).toHaveText('Average');
+  const dateCell = rows.nth(1).locator('td').nth(2);
+  await expect(dateCell).not.toContainText('PA0193');
+  await expect(dateCell).not.toHaveText(/\d{1,2}:\d{2}:\d{2}/);
+  await expect(rows.nth(1).locator('td').first()).toHaveText('ABC123');
+  await expect(rows.nth(1).locator('td').nth(1)).toContainText('Alice');
+  await expect(rows.nth(1).locator('td').nth(1).getByRole('img', { name: 'Country: US' })).toBeVisible();
+  await expect(rows.nth(2).locator('td').nth(1).getByRole('img')).toHaveCount(2);
+  await expect(rows.nth(2).locator('td').nth(1)).not.toContainText('Bob');
+  await expect(rows.nth(2).locator('td').nth(1)).not.toContainText('Charlie');
+  await expect(rows.nth(1).locator('td').nth(15)).toHaveText('66.67%');
+  await expect(rows.nth(2).locator('td').nth(15)).toHaveText('—');
+  await expect(rows.nth(0).locator('td').nth(4)).toHaveText('1.5');
+  await expect(rows.nth(1).locator('td').nth(7)).toHaveText('1');
+  await expect(rows.nth(2).locator('td').nth(7)).toHaveText('0');
+  await expect(rows.nth(0).locator('td').nth(6)).toHaveText('0.5');
+  await expect(rows.nth(0).locator('td').nth(5)).toHaveText('25.0%');
+  const pairFrequency = rows.nth(0).locator('td').nth(14).getByRole('button');
   await expect(pairFrequency).toHaveText('66.667% ↑');
   await pairFrequency.focus();
   await expect(page.getByRole('tooltip')).toContainText('Pair: 2 of 3 player combinations');
   await expect(page.getByRole('tooltip')).toContainText('1,000,000 random Omaha deals');
   await pairFrequency.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
-  const straightFlushFrequency = rows.nth(0).locator('td').nth(5).getByRole('button');
+  const straightFlushFrequency = rows.nth(0).locator('td').nth(7).getByRole('button');
   await expect(straightFlushFrequency).toHaveText('0.000% ↓');
   await straightFlushFrequency.click();
   await expect(page.getByRole('tooltip')).toContainText('royal flush is included in straight flush');
   await straightFlushFrequency.press('Escape');
-  await expect(rows.nth(0).locator('td').nth(3).getByRole('button')).toHaveCount(0);
+  await expect(rows.nth(0).locator('td').nth(5).getByRole('button')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'ABC123' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'XYZ789' })).toBeVisible();
   await expect(page.getByRole('checkbox', { name: 'Game finished: No' })).toBeVisible();

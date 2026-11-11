@@ -22,6 +22,7 @@ export type ArchiveRow = {
   combinations: Record<ArchiveCombination, number>;
   evaluatedPlayerHands: number;
   replayCode?: string;
+  humanPlayers: { playerId: string; name?: string }[];
 };
 
 export type ArchiveCombination =
@@ -58,6 +59,8 @@ const COMBINATIONS: ArchiveCombination[] = [
   'pair',
   'highCard',
 ];
+
+const MAX_ACTIVE_GAP_MS = 60_000;
 
 export function createArchiveSummary() {
   return {
@@ -154,13 +157,12 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
 
     const latestStacks = stacksAfterPayout(latestHand);
     const remainingPlayers = [...latestStacks.values()].filter(stack => stack > 0).length;
-    const lastActivity = orderedHands.reduce((latest, hand) => (
-      Math.max(
-        latest,
-        hand.created,
-        ...(hand.actions ?? []).map(action => action.at),
-      )
-    ), firstHand.created);
+    const activityTimes = orderedHands
+      .flatMap(hand => [hand.created, ...(hand.actions ?? []).map(action => action.at)])
+      .sort((a, b) => a - b);
+    const activeDurationMs = activityTimes.slice(1).reduce((total, time, index) => (
+      total + Math.min(Math.max(0, time - activityTimes[index]), MAX_ACTIVE_GAP_MS)
+    ), 0);
     const rawReplayCode = [...orderedHands].reverse().find(hand => hand.replayCode)?.replayCode;
     const normalizedReplayCode = rawReplayCode?.trim().toUpperCase();
     const replayCode = !firstHand.forkRootCode && normalizedReplayCode && /^[A-Z]{3}\d{3}$/.test(normalizedReplayCode)
@@ -180,12 +182,15 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       handsWithLow,
       finished: Boolean(latestHand.partyFinishedEarly)
         || (latestHand.stage === 'showdown' && remainingPlayers === 1),
-      durationMinutes: Math.max(0, (lastActivity - firstHand.created) / 60_000),
+      durationMinutes: activeDurationMs / 60_000,
       lowPercent: completedHands.length ? (handsWithLow / completedHands.length) * 100 : null,
       lowWins,
       combinations,
       evaluatedPlayerHands,
       replayCode,
+      humanPlayers: firstHand.players
+        .filter(player => !player.isBot)
+        .map(player => ({ playerId: player.id, name: player.name })),
     };
   }).sort((a, b) => b.date - a.date);
 }
