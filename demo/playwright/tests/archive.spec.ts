@@ -48,13 +48,13 @@ test('archive requests only the selected page and retries a failed page', async 
   await expect(navigation.getByRole('button', { name: 'Previous' })).toBeDisabled();
   const summary = page.locator('tbody tr').first();
   const assertSummary = async () => {
-    await expect(summary.getByRole('rowheader')).toHaveText('All games average');
+    await expect(summary.getByRole('rowheader')).toHaveText('Frequency per evaluated player-hand');
     await expect(summary.locator('td').nth(0)).toHaveText('1.3');
     await expect(summary.locator('td').nth(1)).toHaveText('4.8%');
     await expect(summary.locator('td').nth(2)).toHaveText('2.0');
     await expect(summary.locator('td').nth(3)).toHaveText('28.6%');
     await expect(summary.locator('td').nth(4)).toHaveText('0.1');
-    await expect(summary.locator('td').nth(12).locator('div')).toHaveText('0.2');
+    await expect(summary.locator('td').nth(12).locator('div')).toHaveText('28.57%');
     await expect(summary.locator('td').nth(12).getByRole('button')).toContainText('28.571%');
   };
   await assertSummary();
@@ -146,9 +146,9 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('columnheader', { name: 'Pair', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader')).toHaveCount(16);
   const rows = page.locator('tbody tr');
-  await expect(rows.first().getByRole('rowheader')).toHaveText('All games average');
-  await expect(rows.nth(1).locator('td').nth(13)).toHaveText('2');
-  await expect(rows.nth(2).locator('td').nth(13)).toHaveText('0');
+  await expect(rows.first().getByRole('rowheader')).toHaveText('Frequency per evaluated player-hand');
+  await expect(rows.nth(1).locator('td').nth(13)).toHaveText('66.67%');
+  await expect(rows.nth(2).locator('td').nth(13)).toHaveText('—');
   await expect(rows.nth(0).locator('td').nth(2)).toHaveText('1.5');
   await expect(rows.nth(1).locator('td').nth(5)).toHaveText('1');
   await expect(rows.nth(2).locator('td').nth(5)).toHaveText('0');

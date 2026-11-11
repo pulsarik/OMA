@@ -229,11 +229,11 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   await expect(guest.getByLabel('Language')).toHaveCount(0);
   await expect(page.getByTestId('opponents-grid').locator('[data-player-seat]')).toHaveCount(3);
   await expect(page.getByTestId('opponents-grid')).toContainText('Alex');
-  await expect(page.getByTestId('opponents-grid')).toContainText('Maria');
+  await expect(page.getByTestId('opponents-grid')).toContainText('Leo_');
   await expect(page.getByTestId('opponents-grid')).toContainText('Anna');
   await expect(guest.getByTestId('opponents-grid')).toContainText('Dima');
   await expect(guest.getByTestId('opponents-grid')).toContainText('Alex');
-  await expect(guest.getByTestId('opponents-grid')).toContainText('Maria');
+  await expect(guest.getByTestId('opponents-grid')).toContainText('Leo_');
   await expect(page.getByText('Alex', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('Anna', { exact: true }).first()).toBeVisible();
   await expect(guest.getByText('Dima', { exact: true }).first()).toBeVisible();
