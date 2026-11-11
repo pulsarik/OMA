@@ -1,6 +1,7 @@
 import HandStore from '../src/handStore';
 import { dealHand } from '../src/game';
 import { createArchiveSummary } from '../src/archive';
+import * as archive from '../src/archive';
 
 test('archive pages load 20 whole parties and preserve legacy links', async () => {
   const store = new HandStore(':memory:');
@@ -56,6 +57,74 @@ test('archive includes participant names and countries without exposing player I
   });
   expect(groupRow).not.toHaveProperty('humanPlayers');
   expect(JSON.stringify(rows)).not.toContain('"playerId"');
+});
+
+test('archive migrates legacy summaries without reevaluating hands', async () => {
+  const store = new HandStore(':memory:');
+  const hand = dealHand(2, 1, ['Solo', 'Bot'], [false, true], 'ABC123');
+  hand.id = 'legacy-cache-hand';
+  hand.partyId = 'legacy-cache-party';
+  hand.stage = 'showdown';
+  hand.community = [...hand.fullCommunity];
+  hand.created = 1_000;
+  hand.actions = [{ playerId: hand.players[0].id, move: 'check', stage: 'showdown', at: 91_000 }];
+  await store.saveHand(hand);
+
+  const db = (store as unknown as {
+    db: { run(sql: string, ...params: unknown[]): Promise<unknown> };
+  }).db;
+  await db.run(
+    'UPDATE archive_party_cache SET signature = ? WHERE first_hand_id = ?',
+    hand.id,
+    hand.id,
+  );
+  const rebuild = jest.spyOn(archive, 'buildArchiveRows');
+
+  const result = await store.getArchivePage();
+
+  expect(rebuild).not.toHaveBeenCalled();
+  expect(result.rows[0]).toMatchObject({
+    durationMinutes: 1,
+    playerInfo: [{ name: 'Solo' }],
+  });
+  expect((await store.getArchivePage()).rows[0]).toMatchObject({
+    durationMinutes: 1,
+    playerInfo: [{ name: 'Solo' }],
+  });
+  expect(rebuild).not.toHaveBeenCalled();
+  rebuild.mockRestore();
+});
+
+test('updating one party leaves other cached archive summaries warm', async () => {
+  const store = new HandStore(':memory:');
+  for (const [id, partyId] of [['one', 'party-one'], ['two', 'party-two']]) {
+    const hand = dealHand(2, 1, ['Solo', 'Bot'], [false, true], 'ABC123');
+    hand.id = `${id}-hand`;
+    hand.partyId = partyId;
+    hand.stage = 'showdown';
+    hand.community = [...hand.fullCommunity];
+    await store.saveHand(hand);
+  }
+
+  const updated = await store.getHand('one-hand');
+  updated.actions = [{ playerId: updated.players[0].id, move: 'check', stage: 'showdown', at: 90_000 }];
+  await store.updateHand(updated);
+  const rebuild = jest.spyOn(archive, 'buildArchiveRows');
+  const rebuildsBeforeRequest = rebuild.mock.calls.length;
+
+  const result = await store.getArchivePage();
+
+  expect(result.rows).toHaveLength(2);
+  expect(rebuild).toHaveBeenCalledTimes(rebuildsBeforeRequest);
+  rebuild.mockRestore();
+});
+
+test('archive cache can warm at startup while requests wait for it', async () => {
+  const store = new HandStore(':memory:');
+  const [warm, page] = await Promise.all([store.warmArchiveCache(), store.getArchivePage()]);
+
+  await warm;
+  expect(page).toMatchObject({ rows: [], total: 0, page: 1 });
 });
 
 test('archive summary includes off-page results and reflects saved changes', async () => {

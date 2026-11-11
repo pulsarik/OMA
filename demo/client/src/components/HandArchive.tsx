@@ -219,10 +219,10 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                         return row.humans === 1 ? (
                           <span key={index} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                             {player.name ? <span>{player.name}</span> : null}
-                            <span role="img" aria-label={flagLabel} title={flagLabel}>{flag ?? '?'}</span>
+                            <span role="img" aria-label={flagLabel} title={flagLabel} style={{ fontSize: 11, lineHeight: '11px' }}>{flag ?? '?'}</span>
                           </span>
                         ) : (
-                          <span key={index} role="img" aria-label={flagLabel} title={flagLabel}>{flag ?? '?'}</span>
+                          <span key={index} role="img" aria-label={flagLabel} title={flagLabel} style={{ fontSize: 11, lineHeight: '11px' }}>{flag ?? '?'}</span>
                         );
                       })}
                     </div>

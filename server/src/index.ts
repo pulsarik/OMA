@@ -2223,6 +2223,7 @@ wss.on('connection', (ws, req) => {
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 server.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
+  void store.warmArchiveCache().catch(error => console.error('archive cache warmup failed', error));
 });
 
 void recoverTurnTimers().catch(error => console.error('turn timer recovery failed', error));

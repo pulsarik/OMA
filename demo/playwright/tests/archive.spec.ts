@@ -159,7 +159,9 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(dateCell).not.toHaveText(/\d{1,2}:\d{2}:\d{2}/);
   await expect(rows.nth(1).locator('td').first()).toHaveText('ABC123');
   await expect(rows.nth(1).locator('td').nth(1)).toContainText('Alice');
-  await expect(rows.nth(1).locator('td').nth(1).getByRole('img', { name: 'Country: US' })).toBeVisible();
+  const soloFlag = rows.nth(1).locator('td').nth(1).getByRole('img', { name: 'Country: US' });
+  await expect(soloFlag).toBeVisible();
+  await expect(soloFlag).toHaveCSS('font-size', '11px');
   await expect(rows.nth(2).locator('td').nth(1).getByRole('img')).toHaveCount(2);
   await expect(rows.nth(2).locator('td').nth(1)).not.toContainText('Bob');
   await expect(rows.nth(2).locator('td').nth(1)).not.toContainText('Charlie');
@@ -171,14 +173,14 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(rows.nth(0).locator('td').nth(6)).toHaveText('0.5');
   await expect(rows.nth(0).locator('td').nth(5)).toHaveText('25.0%');
   const pairFrequency = rows.nth(0).locator('td').nth(14).getByRole('button');
-  await expect(pairFrequency).toHaveText('66.667% ↑');
+  await expect(pairFrequency).toHaveText('66.667%');
   await pairFrequency.focus();
   await expect(page.getByRole('tooltip')).toContainText('Pair: 2 of 3 player combinations');
   await expect(page.getByRole('tooltip')).toContainText('1,000,000 random Omaha deals');
   await pairFrequency.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
   const straightFlushFrequency = rows.nth(0).locator('td').nth(7).getByRole('button');
-  await expect(straightFlushFrequency).toHaveText('0.000% ↓');
+  await expect(straightFlushFrequency).toHaveText('0.000%');
   await straightFlushFrequency.click();
   await expect(page.getByRole('tooltip')).toContainText('royal flush is included in straight flush');
   await straightFlushFrequency.press('Escape');

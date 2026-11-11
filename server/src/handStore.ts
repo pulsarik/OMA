@@ -3,7 +3,7 @@ import { open, Database } from 'sqlite';
 import { v4 as uuidv4, v5 as uuidv5 } from 'uuid';
 import fs from 'fs/promises';
 import path from 'path';
-import { addArchiveRow, buildArchiveRows, createArchiveSummary, groupArchiveHands } from './archive';
+import { addArchiveRow, archiveCacheSignature, buildArchiveRows, createArchiveSummary, groupArchiveHands, refreshCachedArchiveRows } from './archive';
 import { DealtHand, forkPartyFromHand } from './game';
 
 export default class HandStore {
@@ -11,6 +11,7 @@ export default class HandStore {
   private initializing?: Promise<void>;
   private saveQueue: Promise<void> = Promise.resolve();
   private forkQueue: Promise<void> = Promise.resolve();
+  private archiveWarmup?: Promise<void>;
   constructor(public filename: string) {}
 
   async init() {
@@ -223,7 +224,7 @@ export default class HandStore {
     const ordered = [...hands].sort((a, b) =>
       (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created || a.id.localeCompare(b.id));
     const firstHandId = ordered[0].id;
-    const signature = ordered.map(hand => hand.id).join('|');
+    const signature = archiveCacheSignature(ordered);
     await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
       VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
       signature = excluded.signature, rows_json = excluded.rows_json`,
@@ -265,15 +266,42 @@ export default class HandStore {
 
   async updateHand(hand: any) {
     const db = await this.getDb();
+    const existing = await db.get<{ partyId: string; data: string }>(
+      'SELECT party_id AS partyId, data FROM hands WHERE id = ?',
+      hand.id,
+    );
+    const previousHand = existing ? JSON.parse(existing.data) : undefined;
     await db.run(
       'UPDATE hands SET party_id = ?, data = ? WHERE id = ?',
       hand.partyId ?? hand.id,
       JSON.stringify(hand),
       hand.id,
     );
-    // A saved hand may change without changing its id. Invalidate cached aggregates.
-    await db.run('DELETE FROM archive_party_cache');
+    const partyId = hand.partyId ?? hand.id;
+    if (!previousHand
+      || existing?.partyId !== partyId
+      || previousHand.previousHandId !== hand.previousHandId) {
+      await db.run('DELETE FROM archive_party_cache');
+    } else {
+      const firstHand = await db.get<{ id: string }>(
+        `SELECT id FROM hands WHERE party_id = ?
+          ORDER BY COALESCE(json_extract(data, '$.handNumber'), 1), created, id LIMIT 1`,
+        partyId,
+      );
+      if (firstHand) {
+        await db.run('DELETE FROM archive_party_cache WHERE first_hand_id = ?', firstHand.id);
+      }
+    }
     if (hand.stage === 'showdown') await this.refreshPartyArchive(hand.partyId ?? hand.id);
+  }
+
+  async warmArchiveCache() {
+    if (!this.archiveWarmup) {
+      this.archiveWarmup = this.loadArchivePage(1)
+        .then(() => undefined)
+        .finally(() => { this.archiveWarmup = undefined; });
+    }
+    return this.archiveWarmup;
   }
 
   async shareHand(hand: DealtHand, heroId: string) {
@@ -387,6 +415,11 @@ export default class HandStore {
   }
 
   async getArchivePage(page = 1) {
+    if (this.archiveWarmup) await this.archiveWarmup;
+    return this.loadArchivePage(page);
+  }
+
+  private async loadArchivePage(page: number) {
     const db = await this.getDb();
     const pageSize = 20;
     // Previous links preserve legacy party grouping. Aggregate one party at a
@@ -412,7 +445,7 @@ export default class HandStore {
       'SELECT first_hand_id, signature, rows_json FROM archive_party_cache',
     );
     const cacheById = new Map(cachedRows.map(row => [row.first_hand_id, row]));
-    const signatures = parties.map(party => `archive-v2:${party.map(hand => hand.id).join('|')}`);
+    const signatures = parties.map(archiveCacheSignature);
     const rowsByPartyIndex = new Map<number, ReturnType<typeof buildArchiveRows>>();
     const uncachedParties = parties.flatMap((party, index) => {
       const cached = cacheById.get(party[0].id);
@@ -420,7 +453,14 @@ export default class HandStore {
         rowsByPartyIndex.set(index, JSON.parse(cached.rows_json));
         return [];
       }
-      return [{ index, party }];
+      const legacySignature = party.map(hand => hand.id).join('|');
+      return [{
+        index,
+        party,
+        cachedRows: cached?.signature === legacySignature
+          ? JSON.parse(cached.rows_json) as ReturnType<typeof buildArchiveRows>
+          : undefined,
+      }];
     });
 
     // Batch cold-cache reads instead of issuing one SQLite query per party,
@@ -446,14 +486,16 @@ export default class HandStore {
         );
         for (const record of records) handsById.set(record.id, JSON.parse(record.data));
       }
-      for (const { index, party } of batch) {
+      for (const { index, party, cachedRows: legacyRows } of batch) {
         const firstHandId = party[0].id;
         const partyHands = party.map(metadata => {
           const hand = handsById.get(metadata.id);
           if (!hand) throw new Error(`Missing archived hand ${metadata.id}`);
           return hand;
         });
-        const partyRows = buildArchiveRows(partyHands);
+        const partyRows = legacyRows
+          ? refreshCachedArchiveRows(legacyRows, partyHands)
+          : buildArchiveRows(partyHands);
         await db.run(`INSERT INTO archive_party_cache(first_hand_id, signature, rows_json)
           VALUES(?, ?, ?) ON CONFLICT(first_hand_id) DO UPDATE SET
           signature = excluded.signature, rows_json = excluded.rows_json`,
@@ -470,8 +512,9 @@ export default class HandStore {
       if (index >= pageStart && index < pageStart + pageSize) rows.push(...partyRows);
     }
     const playerIds = [...new Set(rows.flatMap(row => row.humanPlayers.map(player => player.playerId)))];
+    const partyIds = [...new Set(rows.map(row => row.partyId))];
     const visitsByPartyPlayer = new Map<string, { name?: string; country?: string }>();
-    if (rows.length && playerIds.length) {
+    if (partyIds.length && playerIds.length) {
       const visits = await db.all<{
         partyId: string;
         playerId: string;
@@ -480,10 +523,10 @@ export default class HandStore {
       }[]>(`SELECT party_id AS partyId, player_id AS playerId,
         player_name AS playerName, country
         FROM analytics_visits
-        WHERE party_id IN (${rows.map(() => '?').join(',')})
+        WHERE party_id IN (${partyIds.map(() => '?').join(',')})
           AND player_id IN (${playerIds.map(() => '?').join(',')})
         ORDER BY last_seen DESC`,
-      [...new Set(rows.map(row => row.partyId)), ...playerIds]);
+      [...partyIds, ...playerIds]);
       for (const visit of visits) {
         const key = `${visit.partyId}\u0000${visit.playerId}`;
         const player = visitsByPartyPlayer.get(key) ?? {};

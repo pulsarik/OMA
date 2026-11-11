@@ -62,6 +62,41 @@ const COMBINATIONS: ArchiveCombination[] = [
 
 const MAX_ACTIVE_GAP_MS = 60_000;
 
+export function archiveCacheSignature(hands: { id: string }[]) {
+  return `archive-v2:${hands.map(hand => hand.id).join('|')}`;
+}
+
+function activeDurationMinutes(hands: DealtHand[]) {
+  const activityTimes = hands
+    .flatMap(hand => [hand.created, ...(hand.actions ?? []).map(action => action.at)])
+    .sort((a, b) => a - b);
+  const activeDurationMs = activityTimes.slice(1).reduce((total, time, index) => (
+    total + Math.min(Math.max(0, time - activityTimes[index]), MAX_ACTIVE_GAP_MS)
+  ), 0);
+  return activeDurationMs / 60_000;
+}
+
+export function refreshCachedArchiveRows(rows: ArchiveRow[], savedHands: DealtHand[]) {
+  const metadataByPartyId = new Map<string, { durationMinutes: number; humanPlayers: ArchiveRow['humanPlayers'] }>();
+  for (const hands of groupArchiveHands(savedHands)) {
+    const orderedHands = [...hands].sort((a, b) => (
+      (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created || a.id.localeCompare(b.id)
+    ));
+    const firstHand = orderedHands[0];
+    metadataByPartyId.set(firstHand.partyId || firstHand.id, {
+      durationMinutes: activeDurationMinutes(orderedHands),
+      humanPlayers: firstHand.players
+        .filter(player => !player.isBot)
+        .map(player => ({ playerId: player.id, name: player.name })),
+    });
+  }
+  return rows.map(row => {
+    const metadata = metadataByPartyId.get(row.partyId);
+    if (!metadata) throw new Error(`Missing cached archive metadata for party ${row.partyId}`);
+    return { ...row, ...metadata };
+  });
+}
+
 export function createArchiveSummary() {
   return {
     games: 0,
@@ -157,12 +192,6 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
 
     const latestStacks = stacksAfterPayout(latestHand);
     const remainingPlayers = [...latestStacks.values()].filter(stack => stack > 0).length;
-    const activityTimes = orderedHands
-      .flatMap(hand => [hand.created, ...(hand.actions ?? []).map(action => action.at)])
-      .sort((a, b) => a - b);
-    const activeDurationMs = activityTimes.slice(1).reduce((total, time, index) => (
-      total + Math.min(Math.max(0, time - activityTimes[index]), MAX_ACTIVE_GAP_MS)
-    ), 0);
     const rawReplayCode = [...orderedHands].reverse().find(hand => hand.replayCode)?.replayCode;
     const normalizedReplayCode = rawReplayCode?.trim().toUpperCase();
     const replayCode = !firstHand.forkRootCode && normalizedReplayCode && /^[A-Z]{3}\d{3}$/.test(normalizedReplayCode)
@@ -182,7 +211,7 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       handsWithLow,
       finished: Boolean(latestHand.partyFinishedEarly)
         || (latestHand.stage === 'showdown' && remainingPlayers === 1),
-      durationMinutes: activeDurationMs / 60_000,
+      durationMinutes: activeDurationMinutes(orderedHands),
       lowPercent: completedHands.length ? (handsWithLow / completedHands.length) * 100 : null,
       lowWins,
       combinations,

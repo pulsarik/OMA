@@ -14,7 +14,6 @@ export function CombinationFrequency({ count, total, expected, label, language }
   if (!total) return <span>—</span>;
   const actual = count / total * 100;
   const difference = actual - expected;
-  const arrow = Math.abs(difference) < 0.0005 ? '≈' : difference > 0 ? '↑' : '↓';
   const ru = language === 'ru';
   const formatted = (value: number) => value.toFixed(3);
   const description = ru
@@ -36,7 +35,7 @@ export function CombinationFrequency({ count, total, expected, label, language }
       onClick={event => show(event.currentTarget)}
       onKeyDown={event => { if (event.key === 'Escape') setPosition(null); }}
       style={{ border: 0, background: 'transparent', color: '#475569', cursor: 'help', font: 'inherit', fontSize: 11, whiteSpace: 'nowrap', padding: '4px 2px' }}
-    >{formatted(actual)}% {arrow}</button>
+    >{formatted(actual)}%</button>
     {position ? <span id={id} role="tooltip" style={{ position: 'fixed', ...position, width: 300, maxWidth: 'calc(100vw - 32px)', padding: 12, borderRadius: 8, background: '#172a23', color: '#fff', fontSize: 12, fontWeight: 400, textAlign: 'left', zIndex: 1000, boxShadow: '0 4px 18px #0003', pointerEvents: 'none' }}>{description}</span> : null}
   </>;
 }
