@@ -2,6 +2,35 @@ import { useEffect, useState } from 'react';
 import baseline from '../omahaHighBaseline.json';
 import { CombinationFrequency } from './CombinationFrequency';
 
+const countryFlagLoaders = import.meta.glob<string>('../../node_modules/flag-icons/flags/4x3/*.svg', {
+  import: 'default',
+  query: '?url&no-inline',
+});
+
+function CountryFlag({ country, label }: { country: string; label: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const loader = countryFlagLoaders[`../../node_modules/flag-icons/flags/4x3/${country.toLowerCase()}.svg`];
+  useEffect(() => {
+    let active = true;
+    setSrc(null);
+    if (loader) {
+      loader()
+        .then(url => { if (active) setSrc(url); })
+        .catch(error => {
+          console.error('Could not load country flag', error);
+          if (active) setSrc('');
+        });
+    } else {
+      setSrc('');
+    }
+    return () => { active = false; };
+  }, [country, loader]);
+
+  return src
+    ? <img src={src} role="img" aria-label={label} title={label} style={{ width: 13, height: 10, flex: '0 0 13px', objectFit: 'cover' }} />
+    : <span role="img" aria-label={label} title={label}>?</span>;
+}
+
 type ArchiveRow = {
   partyId: string;
   date: number;
@@ -138,10 +167,10 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
   const combinationFrequency = (count: number, denominator: number) => (
     denominator > 0 ? `${(100 * count / denominator).toFixed(2)}%` : '—'
   );
-  const countryFlag = (country?: string) => {
+  const countryCode = (country?: string) => {
     const code = country?.trim().toUpperCase();
     return code && /^[A-Z]{2}$/.test(code) && code !== 'XX'
-      ? String.fromCodePoint(...[...code].map(letter => 127397 + letter.charCodeAt(0)))
+      ? code
       : undefined;
   };
   const combinationKeys = Object.keys(baseline.counts) as (keyof ArchiveRow['combinations'])[];
@@ -214,15 +243,19 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                   <td>
                     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
                       {(row.playerInfo ?? []).map((player, index) => {
-                        const flag = countryFlag(player.country);
+                        const flag = countryCode(player.country);
                         const flagLabel = flag ? `Country: ${player.country}` : text.countryUnknown;
                         return row.humans === 1 ? (
                           <span key={index} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                             {player.name ? <span>{player.name}</span> : null}
-                            <span role="img" aria-label={flagLabel} title={flagLabel} style={{ fontSize: 11, lineHeight: '11px' }}>{flag ?? '?'}</span>
+                            {flag
+                              ? <CountryFlag country={flag} label={flagLabel} />
+                              : <span role="img" aria-label={flagLabel} title={flagLabel}>?</span>}
                           </span>
                         ) : (
-                          <span key={index} role="img" aria-label={flagLabel} title={flagLabel} style={{ fontSize: 11, lineHeight: '11px' }}>{flag ?? '?'}</span>
+                          flag
+                            ? <CountryFlag key={index} country={flag} label={flagLabel} />
+                            : <span key={index} role="img" aria-label={flagLabel} title={flagLabel}>?</span>
                         );
                       })}
                     </div>

@@ -161,10 +161,14 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(rows.nth(1).locator('td').nth(1)).toContainText('Alice');
   const soloFlag = rows.nth(1).locator('td').nth(1).getByRole('img', { name: 'Country: US' });
   await expect(soloFlag).toBeVisible();
-  await expect(soloFlag).toHaveCSS('font-size', '11px');
-  await expect(rows.nth(2).locator('td').nth(1).getByRole('img')).toHaveCount(2);
-  await expect(rows.nth(2).locator('td').nth(1)).not.toContainText('Bob');
-  await expect(rows.nth(2).locator('td').nth(1)).not.toContainText('Charlie');
+  await expect(soloFlag).toHaveAttribute('src', /\/flags\/4x3\/us\.svg/);
+  await expect(soloFlag).toHaveCSS('width', '13px');
+  await expect.poll(() => soloFlag.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
+  const groupPlayerCell = rows.nth(2).locator('td').nth(1);
+  await expect(groupPlayerCell.getByRole('img')).toHaveCount(2);
+  await expect(groupPlayerCell.getByRole('img', { name: 'Country: DE' })).toHaveAttribute('src', /\/flags\/4x3\/de\.svg/);
+  await expect(groupPlayerCell).not.toContainText('Bob');
+  await expect(groupPlayerCell).not.toContainText('Charlie');
   await expect(rows.nth(1).locator('td').nth(15)).toHaveText('66.67%');
   await expect(rows.nth(2).locator('td').nth(15)).toHaveText('—');
   await expect(rows.nth(0).locator('td').nth(4)).toHaveText('1.5');
