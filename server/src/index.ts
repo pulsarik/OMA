@@ -550,6 +550,7 @@ async function partyScore(hand: any) {
       id: partyHand.id,
       handCode: partyHand.handCode,
       handNumber: partyHand.handNumber,
+      partyRestarted: Boolean(partyHand.partyRestarted),
       stage: partyHand.stage,
       replayOfHandId: partyHand.replayOfHandId,
       players: partyHand.players.map((player: any) => {
