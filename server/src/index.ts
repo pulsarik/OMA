@@ -63,6 +63,7 @@ import { CommentaryService } from './commentary/service';
 import { commentaryLog } from './commentary/diagnostics';
 import { createCommentaryEvent } from './commentary/events';
 import { commentaryPreference, CommentaryPreference } from './commentary/types';
+import { buildArchiveStackHistory } from './archive';
 import {
   ConnectionContext,
   receivesHandUpdate,
@@ -1791,6 +1792,20 @@ app.get('/api/archive', async (req, res) => {
   } catch (error) {
     console.error('Could not load archive', error);
     res.status(500).json({ error: 'Could not load archive' });
+  }
+});
+app.get('/api/archive/:partyId/stacks', async (req, res) => {
+  const partyId = req.params.partyId.trim();
+  if (!partyId || partyId.length > 100) {
+    return res.status(400).json({ error: 'Invalid party ID' });
+  }
+  try {
+    const hands = await store.listArchiveHands(partyId);
+    if (!hands.length) return res.status(404).json({ error: 'Game not found' });
+    res.json(buildArchiveStackHistory(hands));
+  } catch (error) {
+    console.error('Could not load archive stack history', error);
+    res.status(500).json({ error: 'Could not load stack history' });
   }
 });
 app.post('/api/problems', async (req, res) => {

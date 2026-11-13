@@ -4,6 +4,15 @@ import {
   stacksAfterPayout,
 } from './game';
 
+export type ArchiveStackHistory = {
+  series: Array<{
+    id: string;
+    name?: string;
+    points: Array<{ handNumber: number; stack: number }>;
+  }>;
+  completedHands: number;
+};
+
 export type ArchiveRow = {
   partyId: string;
   partyCode?: string;
@@ -61,6 +70,42 @@ const COMBINATIONS: ArchiveCombination[] = [
 ];
 
 const MAX_ACTIVE_GAP_MS = 60_000;
+
+export function buildArchiveStackHistory(hands: DealtHand[]): ArchiveStackHistory {
+  const orderedHands = [...hands].sort((a, b) => (
+    (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created || a.id.localeCompare(b.id)
+  ));
+  const firstHand = orderedHands[0];
+  if (!firstHand) return { series: [], completedHands: 0 };
+
+  const humanSeats = firstHand.players
+    .map((player, seat) => ({ player, seat }))
+    .filter(({ player }) => !player.isBot);
+  const firstHandNumber = firstHand.handNumber ?? 1;
+  const completedHands = orderedHands.filter(hand => hand.stage === 'showdown');
+  const series = humanSeats.map(({ player: firstPlayer, seat }, seriesIndex) => {
+    const initialStack = firstHand.initialStacks?.[firstPlayer.id]
+      ?? firstPlayer.stack + (firstHand.totalContributions?.[firstPlayer.id] ?? 0);
+    const points = [{ handNumber: Math.max(0, firstHandNumber - 1), stack: initialStack }];
+
+    for (const hand of completedHands) {
+      const player = hand.players[seat];
+      if (!player || player.isBot) continue;
+      points.push({
+        handNumber: hand.handNumber ?? 1,
+        stack: stacksAfterPayout(hand).get(player.id) ?? player.stack,
+      });
+    }
+
+    return {
+      id: `human-${seriesIndex + 1}`,
+      name: humanSeats.length === 1 ? firstPlayer.name : undefined,
+      points,
+    };
+  });
+
+  return { series, completedHands: completedHands.length };
+}
 
 export function archiveCacheSignature(hands: { id: string }[]) {
   return `archive-v2:${hands.map(hand => hand.id).join('|')}`;

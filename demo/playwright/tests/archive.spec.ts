@@ -73,6 +73,22 @@ test('archive requests only the selected page and retries a failed page', async 
 });
 
 test('statistics opens the archive and its hand code starts a bot replay', async ({ page }) => {
+  const stackRequests: string[] = [];
+  await page.route('**/api/archive/*/stacks', route => {
+    stackRequests.push(route.request().url());
+    return route.fulfill({ json: {
+      completedHands: 3,
+      series: [{
+        id: 'human-1', name: 'Alice',
+        points: [
+          { handNumber: 0, stack: 1000 },
+          { handNumber: 1, stack: 760 },
+          { handNumber: 2, stack: 410 },
+          { handNumber: 3, stack: 120 },
+        ],
+      }],
+    } });
+  });
   await page.route('**/api/archive?*', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -151,7 +167,8 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('columnheader', { name: 'Player', exact: true })).toHaveAttribute('title', 'For a solo human player, this shows their name and flag. For multiple humans, only flags are shown.');
   await expect(page.getByRole('columnheader', { name: 'Date', exact: true })).toHaveAttribute('title', 'Date and time when the game started.');
   await expect(page.getByRole('columnheader', { name: 'Hands', exact: true })).toHaveAttribute('title', 'Total number of hands in the game.');
-  await expect(page.getByRole('columnheader')).toHaveCount(17);
+  await expect(page.getByRole('columnheader')).toHaveCount(18);
+  await expect(page.getByRole('columnheader', { name: 'Stack history' })).toHaveAttribute('title', 'Show human players’ stacks by hand.');
   const rows = page.locator('tbody tr');
   await expect(rows.first().getByRole('rowheader')).toHaveText('Average');
   const dateCell = rows.nth(1).locator('td').nth(2);
@@ -191,6 +208,16 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(rows.nth(0).locator('td').nth(5).getByRole('button')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'ABC123' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'XYZ789' })).toBeVisible();
+  expect(stackRequests).toEqual([]);
+  const firstGameRow = page.getByRole('row').filter({ has: page.getByRole('button', { name: 'ABC123' }) });
+  await firstGameRow.getByRole('button', { name: 'Stack', exact: true }).click();
+  await expect(page.getByTestId('wallet-history-chart')).toBeVisible();
+  await expect(page.getByTestId('wallet-series-human-1')).toBeVisible();
+  await expect(page.getByTestId('wallet-history-chart')).toContainText('Player stack history');
+  await expect(page.getByText('Stack after each completed hand (3).')).toBeVisible();
+  expect(stackRequests).toHaveLength(1);
+  await firstGameRow.getByRole('button', { name: 'Hide', exact: true }).click();
+  await expect(page.getByTestId('wallet-history-chart')).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: 'Game finished: No' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'STATISTICS', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('tab', { name: 'LOBBY', exact: true })).toHaveAttribute('aria-selected', 'false');

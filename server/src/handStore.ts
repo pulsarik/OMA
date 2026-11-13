@@ -558,6 +558,39 @@ export default class HandStore {
     return rows.map((row: any) => JSON.parse(row.data));
   }
 
+  async listArchiveHands(partyId: string) {
+    const db = await this.getDb();
+    const metadata = await db.all<{
+      id: string; partyId: string; previousHandId?: string; created: number; handNumber: number;
+    }[]>(`SELECT id, party_id AS partyId, created,
+      json_extract(data, '$.previousHandId') AS previousHandId,
+      COALESCE(json_extract(data, '$.handNumber'), 1) AS handNumber FROM hands`);
+    const party = groupArchiveHands(metadata).find(hands => {
+      const ordered = [...hands].sort((a, b) => (
+        a.handNumber - b.handNumber || a.created - b.created || a.id.localeCompare(b.id)
+      ));
+      return ordered[0]?.partyId === partyId;
+    });
+    if (!party) return [];
+
+    const ids = party.map(hand => hand.id);
+    const handsById = new Map<string, DealtHand>();
+    for (let start = 0; start < ids.length; start += 500) {
+      const batchIds = ids.slice(start, start + 500);
+      const records = await db.all<{ id: string; data: string }[]>(
+        `SELECT id, data FROM hands WHERE id IN (${batchIds.map(() => '?').join(',')})`,
+        batchIds,
+      );
+      for (const record of records) handsById.set(record.id, JSON.parse(record.data));
+    }
+    return party
+      .map(hand => handsById.get(hand.id))
+      .filter((hand): hand is DealtHand => Boolean(hand))
+      .sort((a, b) => (
+        (a.handNumber ?? 1) - (b.handNumber ?? 1) || a.created - b.created || a.id.localeCompare(b.id)
+      ));
+  }
+
   async saveLobby(lobby: any) {
     const db = await this.getDb();
     await db.run(

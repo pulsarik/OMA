@@ -1,4 +1,4 @@
-import { buildArchiveRows } from '../src/archive';
+import { buildArchiveRows, buildArchiveStackHistory } from '../src/archive';
 import { DealtHand, dealHand } from '../src/game';
 
 function showdown(id: string, partyId: string, handNumber: number, created: number, replayCode: string) {
@@ -114,6 +114,53 @@ test('archive includes unfinished deals alongside completed ones in the same gam
     lowPercent: expect.any(Number),
     replayCode: 'ABC123',
   });
+});
+
+test('archive stack history includes human starting and settled stacks only', () => {
+  const first = dealHand(2, 1, ['Alice', 'Bot'], [false, true], 'ABC123') as DealtHand;
+  first.id = 'stack-1';
+  first.partyId = 'stack-party';
+  first.stage = 'showdown';
+  first.players[0].stack = 950;
+  first.players[1].stack = 950;
+  first.players[1].folded = true;
+  first.totalContributions = { [first.players[0].id]: 50, [first.players[1].id]: 50 };
+  first.potCoins = 100;
+
+  const second = dealHand(2, 2, ['Alice', 'Bot'], [false, true], 'ABC123') as DealtHand;
+  second.id = 'stack-2';
+  second.partyId = first.partyId;
+  second.handNumber = 2;
+  second.stage = 'showdown';
+  second.players[0].stack = 950;
+  second.players[0].folded = true;
+  second.players[1].stack = 850;
+  second.totalContributions = { [second.players[0].id]: 100, [second.players[1].id]: 100 };
+  second.potCoins = 200;
+
+  const unfinished = dealHand(2, 3, ['Alice', 'Bot'], [false, true], 'ABC123') as DealtHand;
+  unfinished.id = 'stack-3';
+  unfinished.partyId = first.partyId;
+  unfinished.handNumber = 3;
+
+  expect(buildArchiveStackHistory([unfinished, second, first])).toEqual({
+    completedHands: 2,
+    series: [{
+      id: 'human-1',
+      name: 'Alice',
+      points: [
+        { handNumber: 0, stack: 1000 },
+        { handNumber: 1, stack: 1050 },
+        { handNumber: 2, stack: 950 },
+      ],
+    }],
+  });
+
+  const multiplayer = dealHand(3, 1, ['Alice', 'Bob', 'Bot'], [false, false, true], 'XYZ789') as DealtHand;
+  expect(buildArchiveStackHistory([multiplayer]).series.map(({ id, name }) => ({ id, name }))).toEqual([
+    { id: 'human-1', name: undefined },
+    { id: 'human-2', name: undefined },
+  ]);
 });
 
 test('archive keeps linked hands together when their party IDs differ', () => {

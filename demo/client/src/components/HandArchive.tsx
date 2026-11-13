@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import baseline from '../omahaHighBaseline.json';
+import { ArchiveStackHistory } from './ArchiveStackHistory';
 import { CombinationFrequency } from './CombinationFrequency';
 
 const countryFlagLoaders = import.meta.glob<string>('../../node_modules/flag-icons/flags/4x3/*.svg', {
@@ -80,6 +81,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
   const [reload, setReload] = useState(0);
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1 });
+  const [expandedPartyId, setExpandedPartyId] = useState<string | null>(null);
   const text = {
     title: ru ? 'Архив сдач' : 'Hand archive',
     back: ru ? 'Назад' : 'Back',
@@ -121,6 +123,10 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     yes: ru ? 'Да' : 'Yes',
     no: ru ? 'Нет' : 'No',
     average: ru ? 'Среднее' : 'Average',
+    stackHistory: ru ? 'История стека' : 'Stack history',
+    showStack: ru ? 'Стек' : 'Stack',
+    hideStack: ru ? 'Скрыть' : 'Hide',
+    stackHelp: ru ? 'Показать изменение стека игроков-людей по раздачам.' : 'Show human players’ stacks by hand.',
   };
 
   useEffect(() => {
@@ -128,6 +134,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     setRows(null);
     setSummary(null);
     setError(null);
+    setExpandedPartyId(null);
     fetch(`${apiUrl}/api/archive?page=${page}`, { signal: controller.signal })
       .then(async response => {
         if (!response.ok) {
@@ -185,6 +192,7 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     { key: 'low', label: text.low, help: text.lowHelp },
     { key: 'lowWins', label: text.lowWins, help: text.lowWinsHelp },
     ...combinationKeys.map(key => ({ key, label: text[key], help: text.combinationHelp })),
+    { key: 'stackHistory', label: text.stackHistory, help: text.stackHelp },
   ];
 
   return (
@@ -231,8 +239,10 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                 </td>)}
                 <td>—</td>
               </tr> : null}
-              {rows.map(row => (
-                <tr key={row.partyId}>
+              {rows.map(row => {
+                const expanded = expandedPartyId === row.partyId;
+                return <Fragment key={row.partyId}>
+                <tr>
                   <td>
                     {row.replayCode ? (
                       <button type="button" onClick={() => onReplay(row.replayCode!, row.players)} style={{ border: 0, background: 'transparent', color: '#08734d', fontWeight: 900, textDecoration: 'underline', cursor: 'pointer' }}>
@@ -282,8 +292,27 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
                   <td>{combinationFrequency(row.combinations.twoPair, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
                   <td>{combinationFrequency(row.combinations.pair, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
                   <td>{combinationFrequency(row.combinations.highCard, row.evaluatedPlayerHands ?? Object.values(row.combinations).reduce((a, b) => a + b, 0))}</td>
+                  <td style={{ padding: 8 }}>
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      aria-controls={`stack-history-${row.partyId}`}
+                      onClick={() => setExpandedPartyId(expanded ? null : row.partyId)}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      {expanded ? text.hideStack : text.showStack}
+                    </button>
+                  </td>
                 </tr>
-              ))}
+                {expanded ? (
+                  <tr id={`stack-history-${row.partyId}`}>
+                    <td colSpan={columns.length} style={{ padding: '4px 14px 16px', textAlign: 'left', background: '#f8fbf9' }}>
+                      <ArchiveStackHistory apiUrl={apiUrl} partyId={row.partyId} language={language} />
+                    </td>
+                  </tr>
+                ) : null}
+                </Fragment>;
+              })}
             </tbody>
           </table>
         </div>

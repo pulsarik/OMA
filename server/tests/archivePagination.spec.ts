@@ -24,6 +24,22 @@ test('archive pages load 20 whole parties and preserve legacy links', async () =
   expect(allHands).not.toHaveBeenCalled();
 });
 
+test('archive stack detail follows legacy links across party IDs', async () => {
+  const store = new HandStore(':memory:');
+  const first = { ...dealHand(2), id: 'linked-first', partyId: 'public-party', created: 1_000, handNumber: 1 };
+  const second = {
+    ...dealHand(2), id: 'linked-second', partyId: 'legacy-party', previousHandId: first.id,
+    created: 2_000, handNumber: 2,
+  };
+  await store.saveHand(first);
+  await store.saveHand(second);
+
+  expect((await store.listArchiveHands('public-party')).map(hand => hand.id)).toEqual([
+    'linked-first', 'linked-second',
+  ]);
+  expect(await store.listArchiveHands('legacy-party')).toEqual([]);
+});
+
 test('empty archive has one empty page', async () => {
   expect(await new HandStore(':memory:').getArchivePage()).toEqual({
     rows: [], total: 0, page: 1, pageSize: 20, totalPages: 1,
