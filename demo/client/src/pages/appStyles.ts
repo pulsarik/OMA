@@ -19,6 +19,10 @@ export const APP_SHELL_STYLES = `
   .welcome-choice-card:hover { transform: translateY(-2px); border-color: #08734d !important; box-shadow: 0 18px 42px rgba(1,35,25,.16) !important; }
   .welcome-choice-card:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
 
+  @media (min-width: 901px) {
+    .welcome-shell--archive > .welcome-main { width: 100% !important; }
+  }
+
   .lobby-tabs {
     display: flex;
     gap: 4px;

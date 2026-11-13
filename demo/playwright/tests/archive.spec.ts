@@ -156,6 +156,8 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await page.goto('/');
   await page.getByRole('button', { name: 'Statistics' }).click();
   await expect(page.getByRole('heading', { name: 'Hand archive' })).toBeVisible();
+  const archiveWidth = await page.locator('.welcome-main').evaluate(element => element.getBoundingClientRect().width);
+  expect(archiveWidth).toBeGreaterThan(1100);
   await expect(page.getByRole('navigation', { name: 'Archive pages' })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Bots / humans' })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: 'Game finished' })).toBeVisible();

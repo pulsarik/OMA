@@ -5883,7 +5883,7 @@ function WelcomePage() {
   };
 
   return (
-    <div className={`welcome-shell${view === 'create' && homeTab === 'lobby' ? ' welcome-shell--setup' : ''}`} style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #147a58, #064630 48%, #022c20)', color: '#17211b', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', padding: 'clamp(14px, 4vw, 38px)' }}>
+    <div className={`welcome-shell${view === 'create' && homeTab === 'lobby' ? ' welcome-shell--setup' : ''}${view === 'archive' && homeTab === 'lobby' ? ' welcome-shell--archive' : ''}`} style={{ minHeight: '100vh', background: 'radial-gradient(circle at 50% 0%, #147a58, #064630 48%, #022c20)', color: '#17211b', fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif', padding: 'clamp(14px, 4vw, 38px)' }}>
       <main className="welcome-main" style={{ width: 'min(100%, 880px)', margin: '0 auto', display: 'grid', gap: 18 }}>
         <header className="welcome-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, color: '#fff' }}>
           <strong style={{ letterSpacing: '.12em' }}>OMAHA HI-LO</strong>
