@@ -196,6 +196,39 @@ test('archive treats an approved early finish as a completed game', () => {
   });
 });
 
+test('archive treats a game as completed when every human has been eliminated', () => {
+  const elimination = showdown('hand-1', 'party-1', 1, 1_000, 'ABC123');
+  elimination.players[0].stack = 0;
+  elimination.players[0].folded = true;
+  elimination.players[1].stack = 600;
+  elimination.players[2].stack = 400;
+
+  const botsPlaying = dealHand(3, 2, ['Alice', 'Bot 1', 'Bot 2'], [false, true, true], 'ABC123') as DealtHand;
+  botsPlaying.id = 'hand-2';
+  botsPlaying.partyId = elimination.partyId;
+  botsPlaying.handNumber = 2;
+  botsPlaying.previousHandId = elimination.id;
+  botsPlaying.players[0].stack = 0;
+  botsPlaying.players[0].folded = true;
+
+  expect(buildArchiveRows([elimination, botsPlaying])[0]).toMatchObject({
+    hands: 2,
+    finished: true,
+  });
+
+  const restarted = dealHand(3, 3, ['Alice', 'Bot 1', 'Bot 2'], [false, true, true], 'ABC123') as DealtHand;
+  restarted.id = 'hand-3';
+  restarted.partyId = elimination.partyId;
+  restarted.handNumber = 3;
+  restarted.previousHandId = botsPlaying.id;
+  restarted.partyRestarted = true;
+
+  expect(buildArchiveRows([elimination, botsPlaying, restarted])[0]).toMatchObject({
+    hands: 3,
+    finished: false,
+  });
+});
+
 test('archive counts low-winning hands once even when multiple players tie', () => {
   const low = dealHand(2, 1) as DealtHand;
   low.id = 'low-hand';

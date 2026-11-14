@@ -1,4 +1,5 @@
 import {
+  areAllHumanPlayersEliminated,
   blindLevelForHand,
   currentPotBreakdown,
   dealCodeFor,
@@ -13,6 +14,7 @@ import {
   replayHandLayout,
   replayHandSeed,
   stacksAfterPayout,
+  shouldBotsContinueParty,
 } from '../src/game';
 import { aggressiveMoveForMatchedBet, botMove } from '../src/bot';
 
@@ -25,6 +27,24 @@ test('an aggressive bot raises instead of betting after everyone matched an open
   expect(aggressiveMoveForMatchedBet(4, 0)).toBe('raise');
   expect(aggressiveMoveForMatchedBet(4, 3)).toBe('check');
   expect(aggressiveMoveForMatchedBet(0, 0)).toBe('bet');
+});
+
+test('human elimination is settled at showdown while multiple bots may continue', () => {
+  const hand = dealHand(3, 12345, ['Alice', 'Bot 1', 'Bot 2'], [false, true, true]);
+  hand.players[0].stack = 0;
+  hand.players[1].stack = 1_200;
+  hand.players[2].stack = 800;
+
+  expect(areAllHumanPlayersEliminated(hand)).toBe(false);
+  hand.stage = 'showdown';
+  expect(areAllHumanPlayersEliminated(hand)).toBe(true);
+  expect(shouldBotsContinueParty(hand)).toBe(true);
+
+  const botOnlyContinuation = nextPartyHand(hand);
+  expect(botOnlyContinuation.humanPlayersEliminated).toBe(true);
+
+  hand.players[2].stack = 0;
+  expect(shouldBotsContinueParty(hand)).toBe(false);
 });
 
 test('a bot calls a made flush when a short all-in has not reopened betting', () => {

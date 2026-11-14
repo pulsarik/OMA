@@ -1,4 +1,5 @@
 import {
+  areAllHumanPlayersEliminated,
   DealtHand,
   evaluateOmahaHiLo,
   stacksAfterPayout,
@@ -214,6 +215,10 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
     const partyId = firstHand.partyId || firstHand.id;
     const latestHand = orderedHands[orderedHands.length - 1];
     const completedHands = orderedHands.filter(hand => hand.stage === 'showdown');
+    const latestRestartIndex = orderedHands.map(hand => Boolean(hand.partyRestarted)).lastIndexOf(true);
+    const currentMatchHands = latestRestartIndex >= 0
+      ? orderedHands.slice(latestRestartIndex)
+      : orderedHands;
     const combinations = Object.fromEntries(
       COMBINATIONS.map(combination => [combination, 0]),
     ) as Record<ArchiveCombination, number>;
@@ -255,7 +260,8 @@ export function buildArchiveRows(savedHands: DealtHand[]): ArchiveRow[] {
       completedHands: completedHands.length,
       handsWithLow,
       finished: Boolean(latestHand.partyFinishedEarly)
-        || (latestHand.stage === 'showdown' && remainingPlayers === 1),
+        || (latestHand.stage === 'showdown' && remainingPlayers === 1)
+        || currentMatchHands.some(areAllHumanPlayersEliminated),
       durationMinutes: activeDurationMinutes(orderedHands),
       lowPercent: completedHands.length ? (handsWithLow / completedHands.length) * 100 : null,
       lowWins,

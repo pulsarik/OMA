@@ -539,6 +539,7 @@ type PlayerView = {
   }>;
   earlyFinishRequest?: EarlyFinishRequest;
   partyFinishedEarly: boolean;
+  allHumansEliminated?: boolean;
   partyFinishedAt?: number;
   partyTotals: PartyTotal[];
   completedHandCount: number;
@@ -3607,10 +3608,12 @@ function PlayerPage({
     player.players,
     player.partyTotals,
   );
+  const allHumansEliminated = Boolean(player.allHumansEliminated);
+  const gameFinishedForPlayer = Boolean(tournamentWinner || allHumansEliminated);
   const canContinue = socketReady
     && player.stage === 'showdown'
     && !hasContinuation
-    && !tournamentWinner
+    && !gameFinishedForPlayer
     && !player.partyFinishedEarly;
   const replayCount = player.replayCount ?? 0;
   const maxReplays = player.maxReplays ?? 3;
@@ -3627,7 +3630,7 @@ function PlayerPage({
     && !player.folded
     && !streetPause;
   const showStatsTile = Boolean(
-    tournamentWinner || player.partyFinishedEarly || player.stage === 'showdown'
+    gameFinishedForPlayer || player.partyFinishedEarly || player.stage === 'showdown'
       || player.completedHandCount > 0 || newDealLinks.length
   );
   const showVoiceChat = player.players.some(seat => seat.id !== player.playerId && !seat.isBot);
@@ -3735,7 +3738,7 @@ function PlayerPage({
     <button className="action-button primary" disabled={isCreatingDeal} onClick={startNewDeal}>
       {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('New deal', 'Новая раздача')}
     </button>
-  ) : player.nextPlayerLink ? (
+  ) : !gameFinishedForPlayer && player.nextPlayerLink ? (
     <button
       className="action-button primary"
       onClick={() => {
@@ -3781,7 +3784,7 @@ function PlayerPage({
         }}
         onMove={sendMove}
         onBetSize={setBetSize}
-        onNext={canContinue ? startNewDeal : player.nextPlayerLink ? () => {
+        onNext={canContinue ? startNewDeal : !gameFinishedForPlayer && player.nextPlayerLink ? () => {
           setNextPlayerUrl(player.nextPlayerLink!.url);
         } : undefined}
         onReplay={canContinue ? () => replayDeal() : undefined}
@@ -3795,6 +3798,7 @@ function PlayerPage({
         onExit={onExitGame}
         isHost={isLobbyHost}
         winnerName={tournamentWinner ? tablePlayerName(tournamentWinner.name, tournamentWinner.id) : undefined}
+        allHumansEliminated={allHumansEliminated}
       />
     </React.Suspense> : null;
 
@@ -4115,13 +4119,14 @@ function PlayerPage({
           </div> : null}
         </section>
       </WireframeTable>
-      {tournamentWinner ? (
+      {gameFinishedForPlayer ? (
         <section
           data-testid="game-finished-prompt"
           style={{ display: 'grid', gap: 10, marginTop: 10, padding: 14, border: '1px solid #a7f3d0', borderRadius: 12, background: '#ecfdf5' }}
         >
-          <strong>
-            {ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
+          <strong>{tournamentWinner
+            ? <>{ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}</>
+            : ui('All human players are out. The bots will continue automatically.', 'Все игроки-люди выбыли. Боты продолжат игру автоматически.')}
           </strong>
           {isLobbyHost ? (
             <>
@@ -4210,10 +4215,12 @@ function PlayerPage({
           )}
         </section>
       ) : null}
-      {tournamentWinner ? (
+      {gameFinishedForPlayer ? (
         <>
           <p style={{ fontWeight: 800 }}>
-            {ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}
+            {tournamentWinner
+              ? <>{ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}</>
+              : ui('All human players are out. The bots will continue automatically.', 'Все игроки-люди выбыли. Боты продолжат игру автоматически.')}
           </p>
           {isLobbyHost ? (
             <section
@@ -4239,7 +4246,7 @@ function PlayerPage({
         score={partyScore ?? undefined}
         players={player.players}
         currentPlayerId={player.playerId}
-        isFinal={Boolean(tournamentWinner || player.partyFinishedEarly)}
+        isFinal={Boolean(gameFinishedForPlayer || player.partyFinishedEarly)}
       />
       {partyScoreLoading && !partyScore ? (
         <p role="status">{ui('Loading statistics…', 'Загружаем статистику…')}</p>

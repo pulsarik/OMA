@@ -140,7 +140,7 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
       </span> : null}
     </div></div> : null}
     <div className="mt-controls-slot">
-    {showdown ? finishedActions ?? continuation : null}
+    {finished ? finishedActions : showdown ? continuation : null}
     {!finished ? <fieldset style={showdown ? { visibility: 'hidden' } : undefined} aria-hidden={showdown || undefined} disabled={showdown || !c.canAct} aria-label={t('Actions', 'Действия')} onPointerDownCapture={() => { press.current = signature; }}>
       <div className="mt-bet-sizes" role="group" aria-label={t('Bet size', 'Размер ставки')}>
         {(['blind', 'quarter', 'half', 'pot'] as const).map((size, i) => <button key={size} aria-pressed={c.betSize === size}
@@ -265,7 +265,7 @@ export default function MobileTable(props: MobileTableProps) {
   const net = (payout?.total ?? 0) - contributed;
   const heroCombo = showdown ? p.result?.players.find(s => s.id === p.playerId) ?? p.currentCombo : p.currentCombo;
   const hero = { ...p.players.find(s => s.id === p.playerId), id: p.playerId, name: p.playerName, stack: p.stack, folded: p.folded, cardCount: p.hole.length || 4 };
-  const finished = Boolean(props.winnerName || p.partyFinishedEarly);
+  const finished = Boolean(props.winnerName || props.allHumansEliminated || p.partyFinishedEarly);
   const hints = <div className="mt-hints">
     {!desktop && p.community.length < 3 ? <p className="mt-preflop-hint">{t('HIGH / LOW · Available from the flop', 'Комбинации · Появятся на флопе')}</p> : <>
       <CombinationHint compact={false} combo={heroCombo} kind="high" language={language} hole={p.hole} board={p.community} />
@@ -352,7 +352,11 @@ export default function MobileTable(props: MobileTableProps) {
       <div className={desktop ? 'dt-bottom-panel' : 'mt-bottom-panel'}>
         {desktop ? hints : null}
         <ActionDock props={props} language={language} finishedActions={finished ? <section className="mt-finished" role="status">
-          <strong>{props.winnerName ? `${t('Winner', 'Победитель')}: ${props.winnerName}` : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>
+          <strong>{props.winnerName
+            ? `${t('Winner', 'Победитель')}: ${props.winnerName}`
+            : props.allHumansEliminated
+              ? t('All human players are out. Bots will continue automatically.', 'Все игроки-люди выбыли. Боты продолжат игру автоматически.')
+              : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>
           {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to home', 'На главную')}</button></div>
             : <p>{t('Waiting for the host', 'Ждём решения ведущего')}</p>}
           <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>

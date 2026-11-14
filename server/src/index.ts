@@ -33,6 +33,7 @@ import {
   publicTableStatus,
 } from './lobby';
 import {
+  areAllHumanPlayersEliminated,
   MAX_RAISES_PER_STREET,
   MAX_REPLAYS_PER_MATCH,
   PlayerMove,
@@ -55,6 +56,7 @@ import {
   sharedHandComparison,
   nameSharedPlayer,
   stacksAfterPayout,
+  shouldBotsContinueParty,
   visibleCommunity,
 } from './game';
 import { diagnosticPlayerSnapshot } from './problemSnapshot';
@@ -329,10 +331,12 @@ function scheduleBotTurns(handId: string) {
         const hand = await store.getHand(handId);
         if (!hand) return;
         normalizeHand(hand);
+        if (hand.botAutomationStopped) return;
         if (hand.stage === 'showdown') {
           prepareHumanTurnClock(hand);
           await store.updateHand(hand);
           broadcastHandUpdated(hand);
+          shouldScheduleNext = true;
           return;
         }
 
@@ -346,7 +350,7 @@ function scheduleBotTurns(handId: string) {
         await store.recordGameActivity(hand.partyId ?? hand.id);
         broadcastHandUpdated(hand);
         commentOnHandAction(hand);
-        shouldScheduleNext = hand.stage !== 'showdown';
+        shouldScheduleNext = true;
       });
     } catch (error) {
       console.error('bot turn failed', error);
@@ -414,6 +418,11 @@ async function scheduleTurnTimers(handId: string) {
     return;
   }
   normalizeHand(hand);
+  if (hand.botAutomationStopped) {
+    clearBotTurnTimer(handId);
+    clearHumanTurnTimer(handId);
+    return;
+  }
   const auditChanged = prepareDealAudit(hand);
   const clockChanged = prepareHumanTurnClock(hand);
   if (auditChanged || clockChanged) {
@@ -425,6 +434,7 @@ async function scheduleTurnTimers(handId: string) {
   if (hand.stage === 'showdown' || !current) {
     clearBotTurnTimer(handId);
     clearHumanTurnTimer(handId);
+    if (hand.stage === 'showdown') await continueBotOnlyParty(hand);
   } else if (current.isBot) {
     clearHumanTurnTimer(handId);
     scheduleBotTurns(handId);
@@ -872,6 +882,9 @@ async function playerState(hand: any, player: any) {
       : [],
     earlyFinishRequest: hand.earlyFinishRequest,
     partyFinishedEarly: Boolean(hand.partyFinishedEarly),
+    allHumansEliminated: Boolean(
+      hand.humanPlayersEliminated || areAllHumanPlayersEliminated(hand)
+    ),
     partyFinishedAt: hand.partyFinishedAt,
     showdownSummary: showdownSummary(hand),
     partyTotals: liveSummary.totals,
@@ -1542,12 +1555,34 @@ async function restartLobby(ws: WebSocket, message: any) {
     if (!latestHand) throw new Error('hand not found');
     normalizeHand(latestHand);
     const playersWithChips = latestHand.players.filter((player: any) => player.stack > 0);
+    const partyHands = (await store.listHandsByParty(latestHand.partyId))
+      .sort((a: any, b: any) => (a.handNumber ?? 1) - (b.handNumber ?? 1) || (a.created ?? 0) - (b.created ?? 0));
+    const latestRestartIndex = partyHands
+      .map((partyHand: any) => Boolean(partyHand.partyRestarted))
+      .lastIndexOf(true);
+    const currentMatchHands = latestRestartIndex >= 0
+      ? partyHands.slice(latestRestartIndex)
+      : partyHands;
+    const humansEliminated = currentMatchHands.some((partyHand: any) => (
+      areAllHumanPlayersEliminated(normalizeHand(partyHand))
+    ));
     if (
-      latestHand.stage !== 'showdown'
-      || (playersWithChips.length > 1 && !latestHand.partyFinishedEarly)
+      (!humansEliminated && latestHand.stage !== 'showdown')
+      || (playersWithChips.length > 1 && !latestHand.partyFinishedEarly && !humansEliminated)
     ) {
       throw new Error('game not finished');
     }
+
+    clearBotTurnTimer(latestHand.id);
+    clearHumanTurnTimer(latestHand.id);
+    await withHandTurnLock(latestHand.id, async () => {
+      const currentHand = await store.getHand(latestHand.id);
+      if (!currentHand) return;
+      currentHand.botAutomationStopped = true;
+      currentHand.revision = (currentHand.revision ?? 0) + 1;
+      await store.updateHand(currentHand);
+    });
+    clearBotTurnTimer(latestHand.id);
 
     const seatedMembers = seatedLobbyMembers(lobby);
     const replayCode = randomReplayCode();
@@ -1727,6 +1762,18 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
   } finally {
     continuationLocks.delete(hand.id);
   }
+}
+
+async function continueBotOnlyParty(hand: any) {
+  if (!shouldBotsContinueParty(hand)) return;
+  const lobby = await lobbyForCurrentHand(hand.id);
+  if (!lobby) return;
+
+  const nextHand = await getOrCreateContinuationDeal(hand, hand.players.length, 'new');
+  await moveLobbyToHand(hand.id, nextHand);
+  const updatedPreviousHand = await store.getHand(hand.id);
+  if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
+  void scheduleTurnTimers(nextHand.id);
 }
 
 async function findHandByQuery(query: string) {

@@ -125,6 +125,19 @@ test('showdown provides sharing and the finished panel does not cover the table'
     });
     expect(overlap).toBeLessThanOrEqual(1);
   }
+  mock.update({
+    ...fixture(3, true),
+    allHumansEliminated: true,
+  });
+  await expect(finishedDock).toContainText('All human players are out. Bots will continue automatically.');
+  await expect(page.getByRole('button', { name: 'Play on', exact: true })).toHaveCount(0);
+  await expect(finishedDock.getByRole('button', { name: 'Final statistics' })).toBeVisible();
+  mock.update({
+    ...fixture(3, false),
+    handId: 'bots-playing-fixture',
+    allHumansEliminated: true,
+  });
+  await expect(finishedDock).toContainText('All human players are out. Bots will continue automatically.');
   mock.update({ ...fixture(2, false), handId: 'next-fixture' });
   await expect(page.locator('.mt-coach-slot [data-testid="share-deal"]')).toHaveCount(0);
 });

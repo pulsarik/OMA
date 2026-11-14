@@ -60,5 +60,5 @@ export type MobileTableProps = {
   onNext?: () => void; onReplay?: () => void; onStats: () => void; statsAvailable: boolean;
   onAbout: () => void; onVoice?: () => void; onRestart?: () => void; onExit?: () => void;
   onSettings?: () => void; headerActions?: ReactNode; commentaryCaption?: ReactNode; coach?: ReactNode;
-  winnerName?: string; isHost: boolean;
+  winnerName?: string; allHumansEliminated?: boolean; isHost: boolean;
 };

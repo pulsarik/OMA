@@ -32,7 +32,7 @@ export function fixture(count = 7, showdown = true) {
     blinds: { small: 2, big: 4, smallBlindPlayerId: 'P2', bigBlindPlayerId: 'P3', dealerPlayerId: 'P1' },
     potBreakdown: [{ amount: 1200, eligiblePlayerIds: players.map(p => p.id) }],
     partyTotals: players.map(p => ({ id: p.id, total: 1000 })), waitingForPlayers: [], actions: [],
-    partyFinishedEarly: false, cardsRevealed: showdown, revealVotes: [], completedHandCount: showdown ? 1 : 0,
+    partyFinishedEarly: false, allHumansEliminated: false, cardsRevealed: showdown, revealVotes: [], completedHandCount: showdown ? 1 : 0,
     currentCombo: JSON.parse(JSON.stringify(combo)), result: showdown ? result : undefined, showdownSummary: showdown ? result : undefined,
     turnDeadline: Date.now() + 45000, turnDurationMs: 45000,
     session: { serverNow: Date.now(), lastActivity: Date.now(), warningAfterMs: 3600000, expiresAfterMs: 7200000 },

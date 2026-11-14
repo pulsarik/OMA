@@ -80,6 +80,10 @@ export type DealtHand = {
   /** Marks the first hand of a fresh 1000-chip match within the same party. */
   partyRestarted?: boolean;
   partyFinishedEarly?: boolean;
+  /** Persists after the settled hand so reconnecting spectators keep the final prompt while bots play on. */
+  humanPlayersEliminated?: boolean;
+  /** Stops an orphaned bot-only hand when the host restarts the match. */
+  botAutomationStopped?: boolean;
   /** Replays spent during the current 1000-chip match. */
   replayCount?: number;
   enteredPlayerIds?: string[];
@@ -1248,6 +1252,22 @@ export function isPartyFinished(hand: DealtHand) {
     && [...stacksAfterPayout(hand).values()].filter(stack => stack > 0).length <= 1));
 }
 
+export function areAllHumanPlayersEliminated(hand: DealtHand) {
+  if (hand.stage !== 'showdown') return false;
+  const humanPlayers = hand.players.filter(player => !player.isBot);
+  if (humanPlayers.length === 0) return false;
+  const settledStacks = stacksAfterPayout(hand);
+  return humanPlayers.every(player => (settledStacks.get(player.id) ?? 0) <= 0);
+}
+
+export function shouldBotsContinueParty(hand: DealtHand) {
+  if (hand.partyFinishedEarly || !areAllHumanPlayersEliminated(hand)) return false;
+  const settledStacks = stacksAfterPayout(hand);
+  return hand.players.filter(player => (
+    player.isBot && (settledStacks.get(player.id) ?? 0) > 0
+  )).length > 1;
+}
+
 export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<string, number>) {
   const settledStacks = stacksAfterPayout(hand);
   return hand.players.map((player) => ({
@@ -1536,6 +1556,9 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   hand.handNumber = nextHandNumber;
   hand.matchHandNumber = (previous.matchHandNumber ?? previous.handNumber) + 1;
   hand.previousHandId = previous.id;
+  hand.humanPlayersEliminated = Boolean(
+    previous.humanPlayersEliminated || areAllHumanPlayersEliminated(previous)
+  );
   hand.replayCount = previous.replayCount;
   hand.blinds = { ...blindLevelForHand(hand.matchHandNumber) };
   const stacks = stacksAfterPayout(previous);
