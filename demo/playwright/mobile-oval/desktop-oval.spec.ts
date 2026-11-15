@@ -174,7 +174,7 @@ test.describe('touch tablet', () => {
 
   test('short tablet showdown keeps the board clear of both hands and results', async ({ page }) => {
     const mock = await mockTable(page, fixture(4, true));
-    for (const count of [4, 10]) {
+    for (const count of [4, 7, 10]) {
       if (count !== 4) mock.update(fixture(count, true));
       for (const viewport of [{ width: 800, height: 632 }, { width: 1280, height: 632 }]) {
         await page.setViewportSize(viewport);
@@ -217,6 +217,9 @@ test.describe('touch tablet', () => {
             cardRatio: cards[0].height / cards[0].width,
             uniformCards: cards.every(card => Math.abs(card.width - cards[0].width) < 0.5
               && Math.abs(card.height - cards[0].height) < 0.5),
+            controlsVisible: [...table.querySelectorAll<HTMLElement>('.mt-dock button')]
+              .every(button => button.getBoundingClientRect().bottom <= innerHeight),
+            noVerticalScroll: document.documentElement.scrollHeight <= innerHeight + 1,
           };
         });
 
@@ -234,6 +237,10 @@ test.describe('touch tablet', () => {
         expect(layout.cardWidth, JSON.stringify({ count, viewport })).toBeGreaterThanOrEqual(count <= 7 ? 24 : 18);
         expect(layout.cardRatio, JSON.stringify({ count, viewport })).toBeCloseTo(132 / 92, 1);
         expect(layout.uniformCards, JSON.stringify({ count, viewport })).toBe(true);
+        if (count === 7) {
+          expect(layout.controlsVisible, JSON.stringify({ count, viewport, layout })).toBe(true);
+          expect(layout.noVerticalScroll, JSON.stringify({ count, viewport, layout })).toBe(true);
+        }
       }
     }
   });
