@@ -445,10 +445,8 @@ async function scheduleTurnTimers(handId: string) {
 }
 
 async function recoverTurnTimers() {
-  const hands = await store.listAllHands();
-  await Promise.all(hands
-    .filter((hand: any) => hand.stage !== 'showdown')
-    .map((hand: any) => scheduleTurnTimers(hand.id)));
+  const handIds = await store.listActiveHandIds();
+  for (const handId of handIds) await scheduleTurnTimers(handId);
 }
 
 function connectedPlayerIds(handId: string) {
@@ -2285,7 +2283,6 @@ wss.on('connection', (ws, req) => {
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
 server.listen(PORT, () => {
   console.log(`Server listening on ${PORT}`);
-  void store.warmArchiveCache().catch(error => console.error('archive cache warmup failed', error));
 });
 
 void recoverTurnTimers().catch(error => console.error('turn timer recovery failed', error));

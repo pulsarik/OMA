@@ -11,7 +11,6 @@ export default class HandStore {
   private initializing?: Promise<void>;
   private saveQueue: Promise<void> = Promise.resolve();
   private forkQueue: Promise<void> = Promise.resolve();
-  private archiveWarmup?: Promise<void>;
   constructor(public filename: string) {}
 
   async init() {
@@ -295,15 +294,6 @@ export default class HandStore {
     if (hand.stage === 'showdown') await this.refreshPartyArchive(hand.partyId ?? hand.id);
   }
 
-  async warmArchiveCache() {
-    if (!this.archiveWarmup) {
-      this.archiveWarmup = this.loadArchivePage(1)
-        .then(() => undefined)
-        .finally(() => { this.archiveWarmup = undefined; });
-    }
-    return this.archiveWarmup;
-  }
-
   async shareHand(hand: DealtHand, heroId: string) {
     forkPartyFromHand(hand, heroId);
     const db = await this.getDb();
@@ -414,8 +404,15 @@ export default class HandStore {
     return rows.map((row: any) => JSON.parse(row.data));
   }
 
+  async listActiveHandIds() {
+    const db = await this.getDb();
+    const rows = await db.all<{ id: string }[]>(`SELECT id FROM hands
+      WHERE COALESCE(json_extract(data, '$.stage'), '') <> 'showdown'
+      ORDER BY created ASC`);
+    return rows.map(row => row.id);
+  }
+
   async getArchivePage(page = 1) {
-    if (this.archiveWarmup) await this.archiveWarmup;
     return this.loadArchivePage(page);
   }
 

@@ -135,14 +135,6 @@ test('updating one party leaves other cached archive summaries warm', async () =
   rebuild.mockRestore();
 });
 
-test('archive cache can warm at startup while requests wait for it', async () => {
-  const store = new HandStore(':memory:');
-  const [warm, page] = await Promise.all([store.warmArchiveCache(), store.getArchivePage()]);
-
-  await warm;
-  expect(page).toMatchObject({ rows: [], total: 0, page: 1 });
-});
-
 test('archive summary includes off-page results and reflects saved changes', async () => {
   const store = new HandStore(':memory:');
   for (let index = 0; index < 21; index++) {

@@ -1,4 +1,5 @@
 import HandStore from '../src/handStore';
+import { dealHand } from '../src/game';
 
 test('analytics keeps the latest known country and source for a browser, including older clients', async () => {
   const store = new HandStore(':memory:');
@@ -19,6 +20,18 @@ test('concurrent first reads wait for the database schema to finish initializing
     store.deleteExpiredParties(0),
     store.getAnalyticsStats(),
   ])).resolves.toBeDefined();
+});
+
+test('active hand lookup returns only unfinished hand IDs without loading hand data', async () => {
+  const store = new HandStore(':memory:');
+  await store.saveHand({ ...dealHand(2), id: 'playing', created: 1 });
+  await store.saveHand({ ...dealHand(2), id: 'legacy-playing', created: 2, stage: undefined });
+  const finished = { ...dealHand(2), id: 'finished', created: 3 };
+  finished.stage = 'showdown';
+  finished.community = [...finished.fullCommunity];
+  await store.saveHand(finished);
+
+  await expect(store.listActiveHandIds()).resolves.toEqual(['playing', 'legacy-playing']);
 });
 
 test('problem IDs start at 1000 and saved reports can be read back', async () => {
