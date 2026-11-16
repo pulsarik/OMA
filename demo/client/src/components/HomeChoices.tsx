@@ -7,7 +7,7 @@ const choices = (language: Language) => [
   { target: 'bots', href: '/?start=bots', icon: '♠', title: 'Play with bots', hint: 'Explore the game with hand hints.' },
   { target: 'friends', href: '/?start=friends', icon: '♧', title: 'Play with friends', hint: 'Invite friends to a private table with a PIN.' },
   { target: 'guests', href: '/?start=guests', icon: '♣', title: 'Play with guests', hint: 'Join an open table. No PIN needed.' },
-  { target: 'rules', href: '/rules', icon: '?', title: language === 'ru' ? 'Правила' : 'Rules', hint: language === 'ru' ? 'PLO8 в картинках: карты, блайнды и размеры ставок.' : 'PLO8 in pictures: cards, blinds and bet sizes.' },
+  { target: 'rules', href: '/rules', icon: '?', title: language === 'ru' ? 'Правила' : 'Hand rankings & rules', hint: language === 'ru' ? 'PLO8 в картинках: карты, блайнды и размеры ставок.' : 'Omaha high and low rankings, cards, blinds and bet sizes.' },
   { target: 'practice', href: '/rules#practice-50', icon: '50', title: '50 practice situations', hint: 'Solve card puzzles and explore the explanations.' },
   { target: 'archive', href: '/statistics', icon: '▤', title: 'Statistics', hint: 'Browse the game archive.' },
 ] as const;

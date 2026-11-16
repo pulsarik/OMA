@@ -39,7 +39,7 @@ export const PUBLIC_STYLES = `
 export function LearnLinks({ language }: { language: Language }) {
   const labels = language === 'ru'
     ? ['Правила', 'Омаха и Холдем', 'Начало игры', 'Повтор раздач', 'Статистика', 'Подсказки']
-    : ['Rules', "Omaha vs Hold’em", 'Getting started', 'Hand replay', 'Statistics', 'Poker hints'];
+    : ['Omaha hand rankings & rules', "Omaha vs Hold’em", 'Getting started', 'Hand replay', 'Statistics', 'Poker hints'];
   return <section className="seo-card" aria-labelledby="learn-title">
     <h2 id="learn-title" style={{ marginTop: 0 }}>{language === 'ru' ? 'Правила и обучение' : 'Rules and learning'}</h2>
     <nav className="seo-links" aria-label={language === 'ru' ? 'Учебные страницы' : 'Omaha Hi-Lo guides'}>

@@ -26,7 +26,7 @@ for (const javaScriptEnabled of [false, true]) {
         name: expect.stringContaining('PLO8'), description: expect.stringContaining('Pot-Limit Omaha Hi-Lo 8-or-better'),
       });
       await expect(page.locator(`img[src="${previewPath}"]`)).toHaveCount(0);
-      const rulesCard = page.locator('.welcome-choice-card').filter({ has: page.getByText('Rules', { exact: true }) });
+      const rulesCard = page.locator('.welcome-choice-card').filter({ has: page.getByText('Hand rankings & rules', { exact: true }) });
       await expect(rulesCard).toBeVisible();
       await expect(rulesCard).toHaveAttribute('href', '/rules');
       await expect(page.locator('.welcome-choice-card')).toHaveCount(6);
@@ -77,7 +77,7 @@ for (const javaScriptEnabled of [false, true]) {
     page.on('pageerror', error => errors.push(error.message));
     for (const language of ['en', 'ru']) {
       await page.goto(`http://localhost:4000${language === 'ru' ? '/ru/rules' : '/rules'}`);
-      await expect(page).toHaveTitle(/PLO8 Rules/);
+      await expect(page).toHaveTitle(/Omaha Poker Hand Rankings.*PLO8/);
       await expect(page.locator('h1')).toContainText('PLO8');
       await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /PLO8.*Pot-Limit Omaha Hi-Lo 8-or-better/);
       await expect(page.locator('#rule-1')).toContainText('Pot-Limit Omaha Hi-Lo 8-or-better');
