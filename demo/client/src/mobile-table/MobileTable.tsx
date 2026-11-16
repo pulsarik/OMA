@@ -352,12 +352,10 @@ export default function MobileTable(props: MobileTableProps) {
       <div className={desktop ? 'dt-bottom-panel' : 'mt-bottom-panel'}>
         {desktop ? hints : null}
         <ActionDock props={props} language={language} finishedActions={finished ? <section className="mt-finished" role="status">
-          <strong>{props.winnerName
+          {props.allHumansEliminated ? null : <strong>{props.winnerName
             ? `${t('Winner', 'Победитель')}: ${props.winnerName}`
-            : props.allHumansEliminated
-              ? t('All human players are out. Bots will continue automatically.', 'Все игроки-люди выбыли. Боты продолжат игру автоматически.')
-              : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>
-          {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to home', 'На главную')}</button></div>
+            : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>}
+          {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to lobby', 'В лобби')}</button></div>
             : <p>{t('Waiting for the host', 'Ждём решения ведущего')}</p>}
           <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>
         </section> : undefined} />
