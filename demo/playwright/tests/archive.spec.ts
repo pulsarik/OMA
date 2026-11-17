@@ -72,7 +72,7 @@ test('archive requests only the selected page and retries a failed page', async 
   expect(requested).toEqual([1, 2, 2, 1]);
 });
 
-test('statistics opens the archive and its hand code starts a bot replay', async ({ page }) => {
+test('statistics opens the archive and its game replay code starts a bot replay', async ({ page }) => {
   const stackRequests: string[] = [];
   await page.route('**/api/archive/*/stacks', route => {
     stackRequests.push(route.request().url());
@@ -165,7 +165,11 @@ test('statistics opens the archive and its hand code starts a bot replay', async
   await expect(page.getByRole('columnheader', { name: 'With low', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Low wins', exact: true })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Pair', exact: true })).toBeVisible();
-  await expect(page.getByRole('columnheader').first()).toHaveText('Hand code');
+  await expect(page.getByRole('columnheader').first()).toHaveText('Game replay code');
+  await expect(page.getByRole('columnheader').first()).toHaveAttribute(
+    'title',
+    'This replays the whole game; it is not the current hand code shown at the table. Click to start the replay with bots.',
+  );
   await expect(page.getByRole('columnheader', { name: 'Player', exact: true })).toHaveAttribute('title', 'For a solo human player, this shows their name and flag. For multiple humans, only flags are shown.');
   await expect(page.getByRole('columnheader', { name: 'Date', exact: true })).toHaveAttribute('title', 'Date and time when the game started.');
   await expect(page.getByRole('columnheader', { name: 'Hands', exact: true })).toHaveAttribute('title', 'Total number of hands in the game.');

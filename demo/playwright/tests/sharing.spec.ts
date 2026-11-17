@@ -100,7 +100,11 @@ test('showdown provides sharing and the finished panel does not cover the table'
   const table = page.getByTestId('mt-scene');
   await expect(table).toBeVisible();
   mock.update(fixture(2, true));
-  await expect(page.locator('.mt-coach-slot [data-testid="share-deal"]')).toBeEnabled();
+  const shareButton = page.locator('.mt-coach-slot [data-testid="share-deal"]');
+  await expect(shareButton).toBeEnabled();
+  await expect(shareButton).toHaveAccessibleName(/^(Share deal|Copy link)$/);
+  await expect(shareButton).toHaveText('');
+  await expect(shareButton.locator('svg')).toHaveCount(1);
   await expect(page.locator('.mt-coach-slot [data-testid="replay-current-deal"]')).toBeVisible();
   const primary = page.getByRole('button', { name: 'Play on', exact: true });
   await expect(primary).toBeVisible();

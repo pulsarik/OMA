@@ -111,6 +111,39 @@ export default class HandStore {
       )
     `);
     await this.db.run(`
+      CREATE TABLE IF NOT EXISTS public_code_counters (
+        kind TEXT PRIMARY KEY,
+        value INTEGER NOT NULL
+      )
+    `);
+    await this.db.run(`
+      INSERT INTO public_code_counters(kind, value)
+      SELECT 'hand', MAX(numeric_code) FROM (
+        SELECT COALESCE(MAX(CASE
+          WHEN json_extract(data, '$.handCode') GLOB 'HA[0-9]*'
+          THEN CAST(substr(json_extract(data, '$.handCode'), 3) AS INTEGER)
+          ELSE 0 END), 0) AS numeric_code FROM hands
+        UNION ALL
+        SELECT COUNT(*) AS numeric_code FROM (
+          SELECT id FROM hands UNION ALL SELECT id FROM analytics_hands
+        )
+      )
+      WHERE 1
+      ON CONFLICT(kind) DO NOTHING
+    `);
+    await this.db.run(`
+      INSERT INTO public_code_counters(kind, value)
+      SELECT 'party', COALESCE(MAX(CASE
+        WHEN json_extract(data, '$.partyCode') GLOB 'PA[0-9]*'
+        THEN CAST(substr(json_extract(data, '$.partyCode'), 3) AS INTEGER)
+        ELSE 0 END), 0)
+      FROM (
+        SELECT data FROM hands UNION ALL SELECT data FROM analytics_hands
+      )
+      WHERE 1
+      ON CONFLICT(kind) DO NOTHING
+    `);
+    await this.db.run(`
       CREATE TABLE IF NOT EXISTS analytics_activity (
         party_id TEXT PRIMARY KEY,
         first_activity INTEGER NOT NULL,
@@ -180,33 +213,53 @@ export default class HandStore {
     return `${prefix}${String(value).padStart(4, '0')}`;
   }
 
+  private async observePublicCode(kind: 'hand' | 'party', code: unknown) {
+    const prefix = kind === 'hand' ? 'HA' : 'PA';
+    const match = typeof code === 'string' ? new RegExp(`^${prefix}(\\d+)$`).exec(code) : null;
+    if (!match) return;
+    const db = await this.getDb();
+    await db.run(`INSERT INTO public_code_counters(kind, value) VALUES(?, ?)
+      ON CONFLICT(kind) DO UPDATE SET value = MAX(value, excluded.value)`, kind, Number(match[1]));
+  }
+
+  private async nextPublicCode(kind: 'hand' | 'party') {
+    const db = await this.getDb();
+    const row = await db.get<{ value: number }>(`INSERT INTO public_code_counters(kind, value) VALUES(?, 1)
+      ON CONFLICT(kind) DO UPDATE SET value = value + 1 RETURNING value`, kind);
+    return this.code(kind === 'hand' ? 'HA' : 'PA', row!.value);
+  }
+
   private async assignPublicCodes(hand: any) {
+    const db = await this.getDb();
+    if (hand.handCode) await this.observePublicCode('hand', hand.handCode);
+    else hand.handCode = await this.nextPublicCode('hand');
+
+    if (hand.partyCode) {
+      await this.observePublicCode('party', hand.partyCode);
+      return;
+    }
+
     if (!hand.partyCode && hand.forkRootCode) {
-      const db = await this.getDb();
       const row = await db.get(`INSERT INTO fork_counters(root, value) VALUES(?, 1)
         ON CONFLICT(root) DO UPDATE SET value = value + 1 RETURNING value`, hand.forkRootCode);
       hand.partyCode = `${hand.forkRootCode}-${row.value}`;
-    }
-    if (!hand.handCode) {
-      const count = await this.countHands();
-      hand.handCode = this.code('HA', count + 1);
+      return;
     }
 
-    if (!hand.partyCode) {
-      const existingPartyHand = hand.partyId
-        ? (await this.listAllHands()).find((savedHand: any) => (
-          (savedHand.partyId ?? savedHand.id) === hand.partyId && savedHand.partyCode
-        ))
-        : undefined;
-
-      if (existingPartyHand?.partyCode) {
-        hand.partyCode = existingPartyHand.partyCode;
-      } else {
-        const hands = await this.listAllHands();
-        const partyCodes = new Set(hands.map((savedHand: any) => savedHand.partyCode).filter(Boolean));
-        hand.partyCode = this.code('PA', partyCodes.size + 1);
+    if (hand.partyId) {
+      const existing = await db.get<{ partyCode?: string }>(`
+        SELECT json_extract(data, '$.partyCode') AS partyCode FROM hands
+        WHERE party_id = ? AND json_extract(data, '$.partyCode') IS NOT NULL
+        LIMIT 1
+      `, hand.partyId);
+      if (existing?.partyCode) {
+        hand.partyCode = existing.partyCode;
+        await this.observePublicCode('party', hand.partyCode);
+        return;
       }
     }
+
+    hand.partyCode = await this.nextPublicCode('party');
   }
 
   // Keep the common (non-forked) party aggregate warm as hands are saved.
@@ -396,6 +449,23 @@ export default class HandStore {
     const row = await db.get('SELECT data FROM hands WHERE id = ?', id);
     if (!row) return null;
     return JSON.parse(row.data);
+  }
+
+  async findHandByPublicQuery(query: string) {
+    const db = await this.getDb();
+    const text = query.trim().toUpperCase();
+    if (!text) return null;
+    const handNumber = /^\d+$/.test(text) ? Number(text) : null;
+    const row = await db.get<{ data: string }>(`
+      SELECT data FROM hands
+      WHERE upper(id) = ?
+        OR upper(json_extract(data, '$.handCode')) = ?
+        OR upper(json_extract(data, '$.dealCode')) = ?
+        OR (? IS NOT NULL AND json_extract(data, '$.handNumber') = ?)
+      ORDER BY created DESC
+      LIMIT 1
+    `, text, text, text, handNumber, handNumber);
+    return row ? JSON.parse(row.data) : null;
   }
 
   async listAllHands() {

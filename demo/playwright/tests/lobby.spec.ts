@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createdLobbyCard } from './lobby-test-helpers';
 
 test('remembers the host name in the next create-table form', async ({ page }) => {
   await page.goto('/');
@@ -179,7 +180,7 @@ test('host creates a city table and a friend joins it by PIN', async ({ page, br
   await expect(guest.getByRole('button', { name: 'RU', exact: true })).toHaveCount(0);
   await guest.getByRole('button', { name: "Play with friends" }).click();
   await expect(guest.getByRole('heading', { name: "Friends' tables - PIN required" })).toBeVisible();
-  const targetTable = guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' });
+  const targetTable = createdLobbyCard(guest, page);
   await expect(targetTable).toBeVisible();
   await expect(guest.getByLabel("Table PIN")).toHaveCount(0);
   await targetTable.click();

@@ -5,6 +5,16 @@ type Translate = (en: string, ru: string) => string;
 
 const pendingLinks = new Map<string, Promise<string>>();
 
+function ShareIcon() {
+  return <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <path d="m8.6 10.5 6.8-4M8.6 13.5l6.8 4" />
+  </svg>;
+}
+
 export function ShareDealButton({ serverUrl, handId, playerId, token, t }: {
   serverUrl: string; handId: string; playerId: string; token: string; t: Translate;
 }) {
@@ -15,6 +25,10 @@ export function ShareDealButton({ serverUrl, handId, playerId, token, t }: {
   const [busy, setBusy] = useState(false);
   const [retry, setRetry] = useState(0);
   const nativeShare = typeof navigator.share === 'function' && window.matchMedia('(pointer: coarse)').matches;
+  const buttonLabel = failed ? t('Retry sharing', 'Повторить создание ссылки')
+    : !url ? t('Preparing link…', 'Готовим ссылку…')
+    : copied ? t('Link copied', 'Ссылка скопирована')
+    : nativeShare ? t('Share deal', 'Поделиться раздачей') : t('Copy link', 'Скопировать ссылку');
   useEffect(() => {
     let active = true;
     const key = [serverUrl, handId, playerId, token].join(':');
@@ -46,11 +60,9 @@ export function ShareDealButton({ serverUrl, handId, playerId, token, t }: {
   }
   return <>
     <button type="button" className="action-button mt-replay-deal deal-utility-action" data-testid="share-deal"
-      disabled={busy || (!url && !failed)} onClick={share}
+      disabled={busy || (!url && !failed)} onClick={share} aria-label={buttonLabel}
       title={t('Replay these cards and starting stacks in a separate game. Link valid for 30 days.', 'Сыграть с этими картами и исходными стеками в отдельной партии. Ссылка действует 30 дней.')}>
-      {failed ? t('Retry sharing', 'Повторить создание ссылки') : !url ? t('Preparing link…', 'Готовим ссылку…')
-        : copied ? t('Link copied', 'Ссылка скопирована')
-        : nativeShare ? t('Share deal', 'Поделиться раздачей') : t('Copy link', 'Скопировать ссылку')}
+      <ShareIcon />
     </button>
     {fallback ? createPortal(<div style={{ position: 'fixed', inset: 0, zIndex: 1200, background: '#0009', display: 'grid', placeItems: 'center', padding: 16 }}>
       <section role="dialog" aria-modal="true" aria-label={t('Share link', 'Ссылка на раздачу')}

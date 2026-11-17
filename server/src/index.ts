@@ -135,6 +135,16 @@ const partyScoreCache = new Map<string, {
   revisionKey: string;
   score: Promise<any>;
 }>();
+const MAX_PARTY_CACHE_ENTRIES = 100;
+function setBoundedPartyCache<T>(cache: Map<string, T>, partyId: string, value: T) {
+  cache.delete(partyId);
+  cache.set(partyId, value);
+  while (cache.size > MAX_PARTY_CACHE_ENTRIES) {
+    const oldestPartyId = cache.keys().next().value as string | undefined;
+    if (!oldestPartyId) break;
+    cache.delete(oldestPartyId);
+  }
+}
 const lobbyLocks = new Map<string, Promise<any>>();
 const BOT_THINK_MS = Math.max(0, Number(process.env.BOT_THINK_MS) || 1000);
 const HUMAN_TURN_MS = Math.max(1_000, Number(process.env.HUMAN_TURN_MS) || 45_000);
@@ -611,7 +621,7 @@ async function partyScore(hand: any) {
     if (partyScoreCache.get(partyId)?.score === score) partyScoreCache.delete(partyId);
     throw error;
   });
-  partyScoreCache.set(partyId, { revisionKey, score });
+  setBoundedPartyCache(partyScoreCache, partyId, { revisionKey, score });
   return score;
 }
 
@@ -631,7 +641,7 @@ async function partyLiveSummary(hand: any) {
     totals: [...stacksAfterPayout(latestHand).entries()].map(([id, total]) => ({ id, total })),
     completedHandCount: hands.filter((partyHand: any) => partyHand.stage === 'showdown').length,
   };
-  partyLiveSummaryCache.set(partyId, { revisionKey, summary });
+  setBoundedPartyCache(partyLiveSummaryCache, partyId, { revisionKey, summary });
   return summary;
 }
 
@@ -1778,18 +1788,9 @@ async function findHandByQuery(query: string) {
   const text = query.trim().toUpperCase();
   if (!text) return null;
 
-  const hands = await store.listAllHands();
-  const savedHand = hands
-    .map((hand: any) => normalizeHand(hand))
-    .sort((a: any, b: any) => (b.created ?? 0) - (a.created ?? 0))
-    .find((hand: any) => (
-      hand.id.toUpperCase() === text
-      || hand.handCode?.toUpperCase() === text
-      || hand.dealCode?.toUpperCase() === text
-      || hand.handNumber === Number(text)
-    ));
+  const savedHand = await store.findHandByPublicQuery(text);
 
-  if (savedHand) return savedHand;
+  if (savedHand) return normalizeHand(savedHand);
 
   try {
     const restoredHand = dealHandFromCode(text);

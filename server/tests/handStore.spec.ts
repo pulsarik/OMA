@@ -34,6 +34,47 @@ test('active hand lookup returns only unfinished hand IDs without loading hand d
   await expect(store.listActiveHandIds()).resolves.toEqual(['playing', 'legacy-playing']);
 });
 
+test('public codes are allocated without loading the full hand archive', async () => {
+  const store = new HandStore(':memory:');
+  const listAllHands = jest.spyOn(store, 'listAllHands').mockRejectedValue(
+    new Error('Public code allocation must not load the full archive'),
+  );
+
+  const first = { ...dealHand(2), id: 'first', partyId: 'party-1', created: 1_000 };
+  await store.saveHand(first);
+  const continuation = { ...dealHand(2), id: 'second', partyId: 'party-1', created: 2_000 };
+  await store.saveHand(continuation);
+  await store.deleteExpiredParties(3_000);
+  const nextParty = { ...dealHand(2), id: 'third', partyId: 'party-2', created: 4_000 };
+  await store.saveHand(nextParty);
+
+  expect(listAllHands).not.toHaveBeenCalled();
+  expect(first).toMatchObject({ handCode: 'HA0001', partyCode: 'PA0001' });
+  expect(continuation).toMatchObject({ handCode: 'HA0002', partyCode: 'PA0001' });
+  expect(nextParty).toMatchObject({ handCode: 'HA0003', partyCode: 'PA0002' });
+});
+
+test('public hand lookup parses only the matching hand', async () => {
+  const store = new HandStore(':memory:');
+  await store.saveHand({
+    ...dealHand(2), id: 'older-id', handCode: 'HA0042', dealCode: 'OLD-CODE',
+    handNumber: 7, created: 1_000,
+  });
+  await store.saveHand({
+    ...dealHand(2), id: 'newer-id', handCode: 'HA0043', dealCode: 'NEW-CODE',
+    handNumber: 7, created: 2_000,
+  });
+  const listAllHands = jest.spyOn(store, 'listAllHands').mockRejectedValue(
+    new Error('Public hand lookup must not load the full archive'),
+  );
+
+  await expect(store.findHandByPublicQuery('ha0042')).resolves.toMatchObject({ id: 'older-id' });
+  await expect(store.findHandByPublicQuery('new-code')).resolves.toMatchObject({ id: 'newer-id' });
+  await expect(store.findHandByPublicQuery('7')).resolves.toMatchObject({ id: 'newer-id' });
+  await expect(store.findHandByPublicQuery('missing')).resolves.toBeNull();
+  expect(listAllHands).not.toHaveBeenCalled();
+});
+
 test('problem IDs start at 1000 and saved reports can be read back', async () => {
   const store = new HandStore(':memory:');
 

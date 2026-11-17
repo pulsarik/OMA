@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { createdLobbyCard } from './lobby-test-helpers';
 
 async function currentPlayerUrl(page: Page) {
   return page.evaluate(() => (
@@ -21,10 +22,9 @@ async function createTwoHumanTable(host: Page, guest: Page) {
   await host.getByRole('button', { name: 'Create table' }).click();
 
   const pin = (await host.getByLabel('Table PIN').textContent())?.trim() ?? '';
-  const tableName = (await host.getByLabel('Table name').textContent())?.trim() ?? '';
   await guest.goto('/');
   await guest.getByRole('button', { name: 'Play with friends' }).click();
-  await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
+  await createdLobbyCard(guest, host).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();
   await guest.getByLabel('Your name').fill('Anna');

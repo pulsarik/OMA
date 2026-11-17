@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { createdLobbyCard } from './lobby-test-helpers';
 
 test('players enter a new deal independently', async ({ page, browser }) => {
   await page.goto('/');
@@ -9,13 +10,11 @@ test('players enter a new deal independently', async ({ page, browser }) => {
   await page.getByRole('button', { name: 'Create table' }).click();
 
   const pin = (await page.getByLabel('Table PIN').textContent())?.trim() ?? '';
-  const tableName = (await page.getByLabel('Table name').textContent())?.trim() ?? '';
-
   const guestContext = await browser.newContext();
   const guest = await guestContext.newPage();
   await guest.goto('/');
   await guest.getByRole('button', { name: 'Play with friends' }).click();
-  await guest.getByRole('button').filter({ hasText: tableName }).filter({ hasText: 'Dima' }).click();
+  await createdLobbyCard(guest, page).click();
   await guest.getByRole('textbox', { name: 'Table PIN' }).fill(pin);
   await guest.getByRole('button', { name: 'Enter table' }).click();
   await guest.getByLabel('Your name').fill('Anna');

@@ -3103,6 +3103,61 @@ function ResultView({ result, players, contributions = {}, currentPlayerId }: {
   );
 }
 
+function ReplayConfirmationDialog({ t, onConfirm, onCancel }: {
+  t: (en: string, ru: string) => string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const dialog = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => {
+      if (element?.open) element.close();
+    };
+  }, []);
+
+  return (
+    <dialog
+      ref={dialog}
+      aria-labelledby="replay-confirm-title"
+      aria-describedby="replay-confirm-description"
+      onCancel={event => {
+        event.preventDefault();
+        onCancel();
+      }}
+      style={{
+        boxSizing: 'border-box',
+        width: 'min(440px, calc(100% - 32px))',
+        padding: 24,
+        border: '1px solid #a4ad91',
+        borderRadius: 16,
+        background: '#0c2b20',
+        color: '#f1eddc',
+      }}
+    >
+      <h2 id="replay-confirm-title" style={{ margin: '0 0 12px' }}>
+        {t('Replay this deal?', 'Переиграть эту раздачу?')}
+      </h2>
+      <p id="replay-confirm-description" style={{ margin: '0 0 20px' }}>
+        {t(
+          'This will spend one replay life. Do you want to continue?',
+          'Это потратит одну жизнь на повтор. Продолжить?',
+        )}
+      </p>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <button type="button" autoFocus onClick={onCancel}>
+          {t('Cancel', 'Отмена')}
+        </button>
+        <button type="button" onClick={onConfirm}>
+          {t('OK', 'OK')}
+        </button>
+      </div>
+    </dialog>
+  );
+}
+
 function PlayerPage({
   playerUrl,
   tableName,
@@ -3118,6 +3173,7 @@ function PlayerPage({
   const [partyScoreRetryVersion, setPartyScoreRetryVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [isReplayConfirmationOpen, setIsReplayConfirmationOpen] = useState(false);
   const [newDealLinks, setNewDealLinks] = useState<Array<{ id: string; url: string }>>([]);
   const [isCreatingDeal, setIsCreatingDeal] = useState(false);
   const [nextPlayerUrl, setNextPlayerUrl] = useState<string | null>(null);
@@ -3246,6 +3302,15 @@ function PlayerPage({
   useEffect(() => {
     if (player?.partyFinishedEarly) setActiveView('stats');
   }, [player?.partyFinishedEarly]);
+
+  useEffect(() => {
+    if (
+      activeView !== 'table'
+      || !player?.allHumansEliminated
+      || !player.nextPlayerLink
+    ) return;
+    setNextPlayerUrl(player.nextPlayerLink.url);
+  }, [activeView, player?.allHumansEliminated, player?.nextPlayerLink?.url]);
 
   const shouldLoadPartyScore = Boolean(player && (
     activeView === 'stats'
@@ -3610,11 +3675,11 @@ function PlayerPage({
   );
   const allHumansEliminated = Boolean(player.allHumansEliminated);
   const gameFinishedForPlayer = Boolean(tournamentWinner || allHumansEliminated);
-  const canContinue = socketReady
+  const canReplayCurrentDeal = socketReady
     && player.stage === 'showdown'
     && !hasContinuation
-    && !gameFinishedForPlayer
     && !player.partyFinishedEarly;
+  const canContinue = canReplayCurrentDeal && !gameFinishedForPlayer;
   const replayCount = player.replayCount ?? 0;
   const maxReplays = player.maxReplays ?? 3;
   const replayRemaining = Math.max(0, maxReplays - replayCount);
@@ -3625,6 +3690,14 @@ function PlayerPage({
       ))}
     </span>
   );
+  const requestReplayDeal = () => {
+    if (isCreatingDeal || replayRemaining === 0) return;
+    setIsReplayConfirmationOpen(true);
+  };
+  const confirmReplayDeal = () => {
+    setIsReplayConfirmationOpen(false);
+    replayDeal();
+  };
   const showActionDock = socketReady
     && player.stage !== 'showdown'
     && !player.folded
@@ -3750,14 +3823,14 @@ function PlayerPage({
   ) : undefined;
   const shareAction = player.stage === 'showdown' && !player.sharedComparison?.needsName && player.stack + (player.totalContributions?.[player.playerId] ?? 0) > 0
     ? <ShareDealButton key={handId} serverUrl={SERVER_URL} handId={handId} playerId={playerId} token={token} t={ui} /> : undefined;
-  const replayDealAction = canContinue ? (
+  const replayDealAction = canReplayCurrentDeal ? (
     <span className="limited-action">
       <button
         className="action-button deal-utility-action"
         data-testid="replay-current-deal"
         aria-label={`${ui('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${ui('replays remaining', 'повторов осталось')}`}
         disabled={isCreatingDeal || replayRemaining === 0}
-        onClick={() => replayDeal()}
+        onClick={requestReplayDeal}
       >
         {isCreatingDeal ? ui('Creating…', 'Создаём…') : ui('Replay this deal', 'Переиграть эту раздачу')}
         {replayLives}
@@ -3787,7 +3860,7 @@ function PlayerPage({
         onNext={canContinue ? startNewDeal : !gameFinishedForPlayer && player.nextPlayerLink ? () => {
           setNextPlayerUrl(player.nextPlayerLink!.url);
         } : undefined}
-        onReplay={canContinue ? () => replayDeal() : undefined}
+        onReplay={canReplayCurrentDeal ? requestReplayDeal : undefined}
         onStats={() => setActiveView('stats')}
         statsAvailable={showStatsTile}
         onAbout={() => setActiveView('about')}
@@ -3805,6 +3878,11 @@ function PlayerPage({
   return (
     <>
       {ovalTable}
+      {isReplayConfirmationOpen ? <ReplayConfirmationDialog
+        t={ui}
+        onConfirm={confirmReplayDeal}
+        onCancel={() => setIsReplayConfirmationOpen(false)}
+      /> : null}
       {player.sharedComparison?.needsName ? <SharedHandResult key={handId}
         comparison={player.sharedComparison} serverUrl={SERVER_URL} handId={handId} playerId={playerId} token={token} t={ui}
         canContinue={canContinue} onSaved={state => { applyPlayerState(state); if (canContinue) startNewDeal(); }} /> : null}
@@ -4270,7 +4348,7 @@ function PlayerPage({
 
       {false ? <ReplayControls
         score={partyScore ?? undefined}
-        canReplay={canContinue}
+        canReplay={canReplayCurrentDeal}
         onReplayHand={replayDeal}
       /> : null}
       </section> : null}
@@ -5998,6 +6076,7 @@ function WelcomePage() {
               {visibleLobbies.length ? visibleLobbies.map(lobby => (
                 <button
                   key={lobby.id}
+                  data-testid={`open-lobby-${lobby.id}`}
                   aria-pressed={selectedLobbyId === lobby.id}
                   onClick={() => {
                     if (lobby.mode === 'guests') { window.location.href = `/lobby/${lobby.id}`; return; }

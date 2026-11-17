@@ -104,8 +104,10 @@ export function HandArchive({ language, apiUrl, onBack, onReplay }: Props) {
     twoPair: ru ? '2 пары' : 'Two pair',
     pair: ru ? 'Пара' : 'Pair',
     highCard: ru ? 'Хай' : 'High card',
-    code: ru ? 'Код сдачи' : 'Hand code',
-    codeHelp: ru ? 'Нажмите, чтобы начать повтор этой игры с ботами.' : 'Click to replay this game with bots.',
+    code: ru ? 'Код повтора партии' : 'Game replay code',
+    codeHelp: ru
+      ? 'Это код повтора всей партии, а не код текущей сдачи, показанный на столе. Нажмите, чтобы начать повтор с ботами.'
+      : 'This replays the whole game; it is not the current hand code shown at the table. Click to start the replay with bots.',
     player: ru ? 'Игрок' : 'Player',
     playerHelp: ru
       ? 'Если человек играл один — показаны его имя и флаг. Если людей несколько — показаны только флаги.'

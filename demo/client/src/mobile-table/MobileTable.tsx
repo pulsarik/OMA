@@ -130,7 +130,7 @@ function ActionDock({ props, language, finishedActions }: { props: MobileTablePr
     </button> : null}
   </div>;
   return <footer className={`mt-dock${showdown ? ' mt-dock--showdown' : ''}${finished ? ' mt-dock--finished' : ''}`} data-testid="mt-actions">
-    {showdown && !finished ? <div className="mt-coach-slot"><div className="mt-secondary-actions">
+    {showdown && (!finished || props.onReplay) ? <div className="mt-coach-slot"><div className="mt-secondary-actions">
       {props.shareAction}
       {props.onReplay ? <span className="mt-limited-action">
         <button className="mt-replay-deal deal-utility-action" data-testid="replay-current-deal" aria-label={`${t('Replay this deal', 'Переиграть эту раздачу')}, ${replayRemaining} ${t('replays remaining', 'повторов осталось')}`} disabled={!c.connected || c.creatingDeal || replayRemaining === 0} onClick={props.onReplay}>

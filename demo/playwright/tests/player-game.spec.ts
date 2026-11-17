@@ -26,6 +26,67 @@ async function currentPlayerUrl(page: Page) {
   ));
 }
 
+for (const viewport of [
+  { name: 'mobile', width: 360, height: 740 },
+  { name: 'desktop', width: 1558, height: 1037 },
+]) {
+  test(`an eliminated player can spend a replay life on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.addInitScript(() => {
+      const descriptor = Object.getOwnPropertyDescriptor(WebSocket.prototype, 'onmessage');
+      if (!descriptor?.set) return;
+      const nativeSetter = descriptor.set;
+      Object.defineProperty(WebSocket.prototype, 'onmessage', {
+        ...descriptor,
+        set(handler) {
+          nativeSetter.call(this, typeof handler === 'function' ? function (event) {
+            if (typeof event.data !== 'string') {
+              handler.call(this, event);
+              return;
+            }
+            try {
+              const message = JSON.parse(event.data);
+              if (message.type === 'player_state' && message.data?.stage === 'showdown') {
+                message.data.allHumansEliminated = true;
+                message.data.stack = 0;
+                const hero = message.data.players?.find((player: { id?: string }) => player.id === message.data.playerId);
+                if (hero) hero.stack = 0;
+                const heroTotal = message.data.partyTotals?.find((total: { id?: string }) => total.id === message.data.playerId);
+                if (heroTotal) heroTotal.total = 0;
+                const patchedEvent = new MessageEvent('message', {
+                  data: JSON.stringify(message),
+                  origin: event.origin,
+                });
+                handler.call(this, patchedEvent);
+                return;
+              }
+            } catch {
+              // Pass through non-JSON and unrelated socket messages unchanged.
+            }
+            handler.call(this, event);
+          } : handler);
+        },
+      });
+    });
+    await createDefaultHumanVsBotDeal(page);
+
+    await page.getByRole('button', { name: 'Fold', exact: true }).click();
+    const replay = page.locator('[data-testid="replay-current-deal"]:visible');
+    await expect(replay).toBeVisible({ timeout: 30_000 });
+    await expect(replay).toHaveAccessibleName(/3 replays remaining/);
+
+    await replay.click();
+    const confirmation = page.getByRole('dialog', { name: 'Replay this deal?' });
+    await expect(confirmation).toBeVisible();
+    await confirmation.getByRole('button', { name: 'Cancel' }).click();
+    await expect(confirmation).toBeHidden();
+
+    await replay.click();
+    await confirmation.getByRole('button', { name: 'OK' }).click();
+    await expect(page.getByRole('button', { name: 'Fold', exact: true })).toBeVisible({ timeout: 30_000 });
+  });
+}
+
 test('table ABOUT explains LOW and can return to the table', async ({ page }) => {
   await createDefaultHumanVsBotDeal(page);
 
