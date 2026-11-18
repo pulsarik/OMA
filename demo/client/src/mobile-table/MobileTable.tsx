@@ -355,7 +355,7 @@ export default function MobileTable(props: MobileTableProps) {
           {props.allHumansEliminated ? null : <strong>{props.winnerName
             ? `${t('Winner', 'Победитель')}: ${props.winnerName}`
             : t('Table ended by agreement', 'Стол завершён по соглашению')}</strong>}
-          {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Deal 1000 again', 'Снова раздать по 1000')}</button><button onClick={props.onExit}>{t('Exit to lobby', 'В лобби')}</button></div>
+          {props.isHost ? <div><button disabled={!c.connected} onClick={props.onRestart}>{t('Start a new game', 'Начать новую игру')}</button><button onClick={props.onExit}>{t('Exit to lobby', 'В лобби')}</button></div>
             : <p>{t('Waiting for the host', 'Ждём решения ведущего')}</p>}
           <button onClick={props.onStats}>{t('Final statistics', 'Итоговая статистика')}</button>
         </section> : undefined} />

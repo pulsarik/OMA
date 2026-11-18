@@ -56,7 +56,6 @@ import {
   sharedHandComparison,
   nameSharedPlayer,
   stacksAfterPayout,
-  shouldBotsContinueParty,
   visibleCommunity,
 } from './game';
 import { diagnosticPlayerSnapshot } from './problemSnapshot';
@@ -444,7 +443,6 @@ async function scheduleTurnTimers(handId: string) {
   if (hand.stage === 'showdown' || !current) {
     clearBotTurnTimer(handId);
     clearHumanTurnTimer(handId);
-    if (hand.stage === 'showdown') await continueBotOnlyParty(hand);
   } else if (current.isBot) {
     clearHumanTurnTimer(handId);
     scheduleBotTurns(handId);
@@ -1770,18 +1768,6 @@ async function getOrCreateContinuationDeal(hand: any, fallbackPlayers: number, m
   } finally {
     continuationLocks.delete(hand.id);
   }
-}
-
-async function continueBotOnlyParty(hand: any) {
-  if (!shouldBotsContinueParty(hand)) return;
-  const lobby = await lobbyForCurrentHand(hand.id);
-  if (!lobby) return;
-
-  const nextHand = await getOrCreateContinuationDeal(hand, hand.players.length, 'new');
-  await moveLobbyToHand(hand.id, nextHand);
-  const updatedPreviousHand = await store.getHand(hand.id);
-  if (updatedPreviousHand) broadcastHandUpdated(updatedPreviousHand);
-  void scheduleTurnTimers(nextHand.id);
 }
 
 async function findHandByQuery(query: string) {

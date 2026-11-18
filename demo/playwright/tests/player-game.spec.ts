@@ -74,6 +74,8 @@ for (const viewport of [
     const replay = page.locator('[data-testid="replay-current-deal"]:visible');
     await expect(replay).toBeVisible({ timeout: 30_000 });
     await expect(replay).toHaveAccessibleName(/3 replays remaining/);
+    await expect(page.getByRole('button', { name: 'Start a new game' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Exit to lobby' })).toBeVisible();
 
     await replay.click();
     const confirmation = page.getByRole('dialog', { name: 'Replay this deal?' });

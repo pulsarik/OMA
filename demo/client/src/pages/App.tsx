@@ -4204,17 +4204,17 @@ function PlayerPage({
         >
           <strong>{tournamentWinner
             ? <>{ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}</>
-            : ui('All human players are out. The bots will continue automatically.', 'Все игроки-люди выбыли. Боты продолжат игру автоматически.')}
+            : ui('All human players are out.', 'Все игроки-люди выбыли.')}
           </strong>
           {isLobbyHost ? (
             <>
               <span>{ui('The game is over. What next?', 'Игра окончена. Что дальше?')}</span>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="action-button primary" onClick={onRestartGame}>
-                  {ui('Deal 1000 to everyone again', 'Снова раздать всем по 1000')}
+                  {ui('Start a new game', 'Начать новую игру')}
                 </button>
                 <button className="action-button" onClick={onExitGame}>
-                  {ui('Exit to home page', 'Выйти на начальную страницу')}
+                  {ui('Exit to lobby', 'Выйти в лобби')}
                 </button>
               </div>
             </>
@@ -4282,10 +4282,10 @@ function PlayerPage({
           {isLobbyHost ? (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button className="action-button primary" onClick={onRestartGame}>
-                {ui('Deal 1000 to everyone again', 'Снова раздать всем по 1000')}
+                {ui('Start a new game', 'Начать новую игру')}
               </button>
               <button className="action-button" onClick={onExitGame}>
-                {ui('Exit to home page', 'Выйти на начальную страницу')}
+                {ui('Exit to lobby', 'Выйти в лобби')}
               </button>
             </div>
           ) : (
@@ -4298,7 +4298,7 @@ function PlayerPage({
           <p style={{ fontWeight: 800 }}>
             {tournamentWinner
               ? <>{ui('Tournament winner', 'Победитель турнира')}: {tablePlayerName(tournamentWinner.name, tournamentWinner.id)}</>
-              : ui('All human players are out. The bots will continue automatically.', 'Все игроки-люди выбыли. Боты продолжат игру автоматически.')}
+              : ui('All human players are out.', 'Все игроки-люди выбыли.')}
           </p>
           {isLobbyHost ? (
             <section
@@ -4308,10 +4308,10 @@ function PlayerPage({
               <strong>{ui('The game is over. What next?', 'Игра окончена. Что дальше?')}</strong>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button className="action-button primary" onClick={onRestartGame}>
-                  {ui('Deal 1000 to everyone again', 'Снова раздать всем по 1000')}
+                  {ui('Start a new game', 'Начать новую игру')}
                 </button>
                 <button className="action-button" onClick={onExitGame}>
-                  {ui('Exit to home page', 'Выйти на начальную страницу')}
+                  {ui('Exit to lobby', 'Выйти в лобби')}
                 </button>
               </div>
             </section>
@@ -4904,7 +4904,11 @@ function LobbyPage() {
         isLobbyHost={isHost}
         onPlayerUrl={applyPlayerUrl}
         onRestartGame={() => send('lobby_restart')}
-        onExitGame={() => { window.location.href = '/'; }}
+        onExitGame={() => {
+          window.sessionStorage.removeItem(playerStorageKey);
+          setPlayerUrl(null);
+          setNotice(null);
+        }}
       />
     );
   }

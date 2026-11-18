@@ -80,7 +80,7 @@ export type DealtHand = {
   /** Marks the first hand of a fresh 1000-chip match within the same party. */
   partyRestarted?: boolean;
   partyFinishedEarly?: boolean;
-  /** Persists after the settled hand so reconnecting spectators keep the final prompt while bots play on. */
+  /** Persists after the settled hand so reconnecting players keep the final prompt. */
   humanPlayersEliminated?: boolean;
   /** Stops an orphaned bot-only hand when the host restarts the match. */
   botAutomationStopped?: boolean;
@@ -1258,14 +1258,6 @@ export function areAllHumanPlayersEliminated(hand: DealtHand) {
   if (humanPlayers.length === 0) return false;
   const settledStacks = stacksAfterPayout(hand);
   return humanPlayers.every(player => (settledStacks.get(player.id) ?? 0) <= 0);
-}
-
-export function shouldBotsContinueParty(hand: DealtHand) {
-  if (hand.partyFinishedEarly || !areAllHumanPlayersEliminated(hand)) return false;
-  const settledStacks = stacksAfterPayout(hand);
-  return hand.players.filter(player => (
-    player.isBot && (settledStacks.get(player.id) ?? 0) > 0
-  )).length > 1;
 }
 
 export function netResultsAfterPayout(hand: DealtHand, startingStacks: Map<string, number>) {
