@@ -233,6 +233,17 @@ function requireContinuationAccess(ws: WebSocket, hand: any, message: any) {
   throw new Error('unauthorized continuation');
 }
 
+function requireNewDealAccess(ws: WebSocket, hand: any, message: any) {
+  requireContinuationAccess(ws, hand, message);
+  const connection = playerConnections.get(ws);
+  if (
+    connection
+    && !isPlayerStillInParty({ stack: stacksAfterPayout(hand).get(connection.playerId) ?? 0 })
+  ) {
+    throw new Error('player is eliminated');
+  }
+}
+
 app.get(/^\/ru\/(rules|omaha-vs-holdem|how-to-play|hand-replay|statistics|poker-hints)(?:\/index\.html)?\/?$/, (req, res) => {
   res.redirect(302, req.url.replace('/ru/', '/'));
 });
@@ -281,7 +292,13 @@ function prepareHumanTurnClock(hand: any, reset = false) {
   const hasBot = hand.players.some((player: any) => player.isBot);
 
   const current = hand.players.find((player: any) => player.id === hand.currentPlayerId);
-  if (hasBot || hand.stage === 'showdown' || !current || current.isBot) {
+  const waitingForEntry = Boolean(
+    hand.previousHandId
+    && current
+    && !current.isBot
+    && !(hand.enteredPlayerIds ?? []).includes(current.id)
+  );
+  if (hasBot || hand.stage === 'showdown' || !current || current.isBot || waitingForEntry) {
     delete hand.turnDeadline;
     delete hand.turnDeadlinePlayerId;
     delete hand.turnDurationMs;
@@ -2071,7 +2088,7 @@ wss.on('connection', (ws, req) => {
       } else if (msg.action === 'new_deal') {
         const hand = msg.handId ? await getActiveHand(msg.handId) : null;
         if (hand) {
-          requireContinuationAccess(ws, hand, msg);
+          requireNewDealAccess(ws, hand, msg);
           if (playerConnections.has(ws)) await recordBoundPlayerActivity(ws);
           const nextHand = await getOrCreateContinuationDeal(hand, msg.players || 2, 'new');
           const requestingPlayer = playerConnections.get(ws);

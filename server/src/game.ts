@@ -1532,11 +1532,14 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   normalizeHand(previous);
   const nextHandNumber = previous.handNumber + 1;
   const nextReplayCode = previous.replayCode;
+  const stacks = stacksAfterPayout(previous);
+  const continuingPlayers = previous.players.filter(player => (stacks.get(player.id) ?? 0) > 0);
+  if (!continuingPlayers.length) throw new Error('tournament is complete');
   const hand = dealHand(
-    previous.players.length,
-    nextReplayCode ? replayHandSeed(nextReplayCode, nextHandNumber, previous.players.length) : undefined,
-    previous.players.map(player => player.name ?? ''),
-    previous.players.map(player => Boolean(player.isBot)),
+    continuingPlayers.length,
+    nextReplayCode ? replayHandSeed(nextReplayCode, nextHandNumber, continuingPlayers.length) : undefined,
+    continuingPlayers.map(player => player.name ?? ''),
+    continuingPlayers.map(player => Boolean(player.isBot)),
     nextReplayCode,
     Boolean(previous.isReplay),
   );
@@ -1553,15 +1556,32 @@ export function nextPartyHand(previous: DealtHand): DealtHand {
   );
   hand.replayCount = previous.replayCount;
   hand.blinds = { ...blindLevelForHand(hand.matchHandNumber) };
-  const stacks = stacksAfterPayout(previous);
-  hand.players = hand.players.map((player, index) => ({
-    ...player,
-    id: previous.players[index]?.id ?? player.id,
-    isBot: Boolean(previous.players[index]?.isBot),
-    botStyle: previous.players[index]?.botStyle ?? player.botStyle,
-    stack: stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK,
-    folded: (stacks.get(previous.players[index]?.id ?? player.id) ?? STARTING_STACK) <= 0,
-  }));
+  const dealtPlayers = new Map(
+    continuingPlayers.map((player, index) => [player.id, hand.players[index]]),
+  );
+  hand.players = previous.players.map(previousPlayer => {
+    const stack = stacks.get(previousPlayer.id) ?? 0;
+    const dealtPlayer = dealtPlayers.get(previousPlayer.id);
+    if (!dealtPlayer) {
+      return {
+        ...previousPlayer,
+        token: uuidv4(),
+        hole: [],
+        folded: true,
+        stack,
+      };
+    }
+    return {
+      ...dealtPlayer,
+      id: previousPlayer.id,
+      name: previousPlayer.name,
+      isBot: Boolean(previousPlayer.isBot),
+      qualifyingEntryBot: previousPlayer.qualifyingEntryBot,
+      botStyle: previousPlayer.botStyle ?? dealtPlayer.botStyle,
+      stack,
+      folded: false,
+    };
+  });
   hand.enteredPlayerIds = hand.players.filter(player => player.isBot).map(player => player.id);
   applyBlinds(hand);
   return hand;

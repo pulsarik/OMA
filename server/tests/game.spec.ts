@@ -1269,6 +1269,27 @@ test('carries side-pot payouts into the next hand without losing chips', () => {
   expect(next.players.reduce((sum, player) => sum + player.stack, next.potCoins)).toBe(3000);
 });
 
+test('eliminated players are not dealt cards in the next hand', () => {
+  const hand = dealHand(3, 12345);
+  hand.stage = 'showdown';
+  hand.players[0].stack = 0;
+  hand.players[1].stack = 1_000;
+  hand.players[2].stack = 1_000;
+  hand.potCoins = 0;
+  hand.totalContributions = {};
+
+  const next = nextPartyHand(hand);
+  const eliminated = next.players.find(player => player.id === 'P1')!;
+  const activePlayers = next.players.filter(player => player.stack > 0);
+  const dealtCards = [...activePlayers.flatMap(player => player.hole), ...next.fullCommunity];
+
+  expect(eliminated.hole).toEqual([]);
+  expect(eliminated.folded).toBe(true);
+  expect(dealtCards).toHaveLength(13);
+  expect(new Set(dealtCards).size).toBe(dealtCards.length);
+  expect(next.dealCode).toBe(dealCodeFor(2, next.dealSeed));
+});
+
 test('a player with no chips does not continue in the party', () => {
   expect(isPlayerStillInParty({ stack: 1 })).toBe(true);
   expect(isPlayerStillInParty({ stack: 0 })).toBe(false);

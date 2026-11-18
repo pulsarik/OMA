@@ -188,6 +188,7 @@ function localizedServerMessage(message: string) {
     'finish vote in progress': 'Сначала завершите голосование об окончании стола.',
     'no finish vote in progress': 'Голосование об окончании стола уже завершено.',
     'table is no longer on this deal': 'Стол уже перешёл к другой раздаче.',
+    'player is eliminated': 'Выбывший игрок не может начать новую раздачу.',
     'not your turn': 'Сейчас ход другого игрока.',
     'call or fold required': 'Нужно сделать колл или сбросить карты.',
     'nothing to call': 'Уравнивать нечего.',
@@ -3679,7 +3680,9 @@ function PlayerPage({
     && player.stage === 'showdown'
     && !hasContinuation
     && !player.partyFinishedEarly;
-  const canContinue = canReplayCurrentDeal && !gameFinishedForPlayer;
+  const canContinue = canReplayCurrentDeal
+    && !gameFinishedForPlayer
+    && totalScore(player.partyTotals, player.playerId) > 0;
   const replayCount = player.replayCount ?? 0;
   const maxReplays = player.maxReplays ?? 3;
   const replayRemaining = Math.max(0, maxReplays - replayCount);
